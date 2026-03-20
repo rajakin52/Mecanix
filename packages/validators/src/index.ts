@@ -5,3 +5,4 @@ export * from './pagination';
 export * from './tax-id';
 export * from './job';
 export * from './time';
+export * from './inventory';

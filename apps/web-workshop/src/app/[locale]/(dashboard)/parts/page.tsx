@@ -1,0 +1,266 @@
+'use client';
+
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
+
+const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
+
+export default function PartsPage() {
+  const t = useTranslations('parts');
+  const tc = useTranslations('common');
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+
+  const { data, isLoading } = useParts(page, search, category || undefined);
+  const { data: lowStockData } = useLowStock();
+  const createMutation = useCreatePart();
+
+  const [form, setForm] = useState({
+    part_number: '',
+    description: '',
+    category: 'Other',
+    stock_on_hand: 0,
+    reorder_point: 5,
+    cost_price: 0,
+    sell_price: 0,
+    location: '',
+  });
+
+  const handleCreate = async () => {
+    await createMutation.mutateAsync({
+      ...form,
+      stock_on_hand: Number(form.stock_on_hand),
+      reorder_point: Number(form.reorder_point),
+      cost_price: Number(form.cost_price),
+      sell_price: Number(form.sell_price),
+    });
+    setShowModal(false);
+    setForm({ part_number: '', description: '', category: 'Other', stock_on_hand: 0, reorder_point: 5, cost_price: 0, sell_price: 0, location: '' });
+  };
+
+  const lowStockCount = lowStockData?.count ?? 0;
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
+          {lowStockCount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+              {lowStockCount} {t('lowStock')}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+        >
+          {t('newPart')}
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          placeholder={t('searchPlaceholder')}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
+        <select
+          value={category}
+          onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        >
+          <option value="">{t('allCategories')}</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <p className="text-gray-500">{tc('loading')}</p>
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('partNumber')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('description')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('stock')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('costPrice')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('sellPrice')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('category')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {data?.data && data.data.length > 0 ? (
+                  data.data.map((part) => (
+                    <tr key={part.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{part.description}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                            part.stock_on_hand <= part.reorder_point
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                        >
+                          {part.stock_on_hand}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{part.cost_price.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{part.sell_price.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{part.category}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                      {t('noParts')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {data?.meta && data.meta.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+              >
+                {tc('previous')}
+              </button>
+              <span className="text-sm text-gray-600">
+                {page} / {data.meta.totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= data.meta.totalPages}
+                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+              >
+                {tc('next')}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* New Part Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{t('newPart')}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('partNumber')}</label>
+                  <input
+                    value={form.part_number}
+                    onChange={(e) => setForm({ ...form, part_number: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('category')}</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('description')}</label>
+                <input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('stock')}</label>
+                  <input
+                    type="number"
+                    value={form.stock_on_hand}
+                    onChange={(e) => setForm({ ...form, stock_on_hand: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('reorderPoint')}</label>
+                  <input
+                    type="number"
+                    value={form.reorder_point}
+                    onChange={(e) => setForm({ ...form, reorder_point: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('costPrice')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.cost_price}
+                    onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('sellPrice')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.sell_price}
+                    onChange={(e) => setForm({ ...form, sell_price: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('location')}</label>
+                <input
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  placeholder={t('locationPlaceholder')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowModal(false)} className="rounded-md border px-4 py-2 text-sm">
+                  {tc('cancel')}
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={createMutation.isPending}
+                  className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {createMutation.isPending ? tc('loading') : tc('save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

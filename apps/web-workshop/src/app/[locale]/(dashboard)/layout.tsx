@@ -27,6 +27,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/timesheets', label: t('timesheets') },
     { href: '/customers', label: t('customers') },
     { href: '/vehicles', label: t('vehicles') },
+    { href: '/parts', label: t('parts') },
+    { href: '/vendors', label: t('vendors') },
+    { href: '/purchase-orders', label: t('purchaseOrders') },
+    { href: '/bills', label: t('bills') },
+    { href: '/expenses', label: t('expenses') },
     { href: '/settings', label: t('settings') },
   ];
 

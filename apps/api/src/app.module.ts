@@ -9,6 +9,9 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { TechniciansModule } from './modules/technicians/technicians.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { TimeModule } from './modules/time/time.module';
+import { PartsModule } from './modules/parts/parts.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -23,6 +26,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     TechniciansModule,
     JobsModule,
     TimeModule,
+    PartsModule,
+    PurchasesModule,
+    ExpensesModule,
   ],
   providers: [
     {
