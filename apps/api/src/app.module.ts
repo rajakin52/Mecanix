@@ -12,6 +12,7 @@ import { TimeModule } from './modules/time/time.module';
 import { PartsModule } from './modules/parts/parts.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { InvoicesModule } from './modules/invoices/invoices.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -29,6 +30,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     PartsModule,
     PurchasesModule,
     ExpensesModule,
+    InvoicesModule,
   ],
   providers: [
     {

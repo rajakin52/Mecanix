@@ -6,3 +6,4 @@ export * from './tax-id';
 export * from './job';
 export * from './time';
 export * from './inventory';
+export * from './invoice';

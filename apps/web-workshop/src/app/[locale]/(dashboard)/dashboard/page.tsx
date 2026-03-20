@@ -1,17 +1,25 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
+import { useFinancialSummary } from '@/hooks/use-invoices';
 import { Link } from '@/i18n/navigation';
 
 export default function DashboardPage() {
   const t = useTranslations('common');
   const tc = useTranslations('customers');
   const tv = useTranslations('vehicles');
+  const ti = useTranslations('invoices');
+  const locale = useLocale();
 
   const { data: customersData, isLoading: loadingCustomers } = useCustomers(1, '');
   const { data: vehiclesData, isLoading: loadingVehicles } = useVehicles(1, '');
+  const { data: summaryData } = useFinancialSummary();
+
+  const summary = summaryData as Record<string, number> | undefined;
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat(locale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
   const customerCount = customersData?.meta?.total ?? 0;
   const vehicleCount = vehiclesData?.meta?.total ?? 0;
@@ -44,6 +52,30 @@ export default function DashboardPage() {
           <p className="mt-2 text-3xl font-bold text-gray-400">0</p>
           <p className="mt-1 text-xs text-gray-400">Coming soon</p>
         </div>
+      </div>
+
+      {/* Financial Summary Cards */}
+      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <Link href="/invoices" className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+          <p className="text-sm font-medium text-gray-500">{ti('totalReceivables')}</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">
+            {summary ? formatCurrency(summary.total_receivables ?? 0) : '...'}
+          </p>
+        </Link>
+
+        <Link href="/invoices" className={`rounded-lg border bg-white p-6 shadow-sm transition-shadow hover:shadow-md ${summary && (summary.overdue_amount ?? 0) > 0 ? 'border-red-200' : 'border-gray-200'}`}>
+          <p className="text-sm font-medium text-gray-500">{ti('overdueAmount')}</p>
+          <p className={`mt-2 text-2xl font-bold ${summary && (summary.overdue_amount ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+            {summary ? formatCurrency(summary.overdue_amount ?? 0) : '...'}
+          </p>
+        </Link>
+
+        <Link href="/invoices" className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+          <p className="text-sm font-medium text-gray-500">{ti('revenueThisMonth')}</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900">
+            {summary ? formatCurrency(summary.revenue_this_month ?? 0) : '...'}
+          </p>
+        </Link>
       </div>
 
       {/* Recent Activity */}
