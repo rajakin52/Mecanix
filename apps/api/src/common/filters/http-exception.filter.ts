@@ -17,6 +17,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let code = 'INTERNAL_ERROR';
     let message = 'An unexpected error occurred';
 
+    if (!(exception instanceof HttpException)) {
+      console.error('Unhandled exception:', exception);
+    }
+
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const response = exception.getResponse();

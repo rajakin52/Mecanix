@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MECANIX Insurance Portal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1F4E79;
+      --secondary: #2E75B6;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #1E293B;
+      --muted: #94A3B8;
+      --accent: #F0F4F9;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ─── Navigation ─── */
+    .portal-nav {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .nav-logo {
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--primary);
+      padding: 16px 0;
+      margin-right: 24px;
+      white-space: nowrap;
+    }
+
+    .nav-logo .subtitle {
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 24px;
+    }
+
+    .nav-tab {
+      padding: 16px 4px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 400;
+      transition: all 0.2s;
+    }
+
+    .nav-tab.active {
+      border-bottom-color: var(--primary);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .nav-user {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--secondary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav-user span {
+      font-size: 13px;
+    }
+
+    /* ─── Main Content ─── */
+    .portal-content {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    /* ─── Common ─── */
+    h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--secondary);
+      color: white;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.labour {
+      background: var(--secondary);
+    }
+
+    .badge.parts {
+      background: var(--warning);
+    }
+
+    .badge.danger {
+      background: var(--danger);
+    }
+
+    .badge.success {
+      background: var(--success);
+    }
+
+    .badge.warning {
+      background: var(--warning);
+    }
+
+    .badge.high-value {
+      background: var(--danger);
+    }
+
+    .badge.sla {
+      background: var(--warning);
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-ghost {
+      background: white;
+      color: var(--primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: white;
+    }
+
+    input[type="text"],
+    textarea {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--secondary);
+      box-shadow: 0 0 0 3px rgba(46, 117, 182, 0.1);
+    }
+
+    textarea {
+      resize: none;
+      width: 100%;
+    }
+
+    /* ─── Claims Queue Screen ─── */
+    .claims-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .claims-header-left h2 {
+      margin-bottom: 4px;
+    }
+
+    .claims-search {
+      display: flex;
+      gap: 8px;
+    }
+
+    .claims-search input {
+      width: 250px;
+    }
+
+    .status-filters {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-pill.active {
+      border: none;
+      color: white;
+      background: var(--secondary);
+    }
+
+    .claims-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .claim-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .claim-card.high-value {
+      border-left: 4px solid var(--danger);
+    }
+
+    .claim-card.sla-warning {
+      border-left: 4px solid var(--warning);
+    }
+
+    .claim-card-left {
+      flex: 2;
+    }
+
+    .claim-ref {
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .claim-vehicle {
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .claim-workshop {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .claim-card-right {
+      text-align: right;
+      flex: 1;
+    }
+
+    .claim-amount {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .claim-days {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .claim-days.urgent {
+      color: var(--danger);
+    }
+
+    .claim-actions {
+      margin-left: 16px;
+      display: flex;
+      gap: 6px;
+    }
+
+    /* ─── Estimate Review Screen ─── */
+    .estimate-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .estimate-header-left h2 {
+      margin-bottom: 4px;
+    }
+
+    .estimate-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .estimate-layout {
+      display: grid;
+      grid-template-columns: 2.5fr 1fr;
+      gap: 20px;
+    }
+
+    .estimate-table {
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead tr {
+      background: var(--accent);
+    }
+
+    th {
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr.flagged {
+      background: #FEF2F2;
+    }
+
+    td {
+      padding: 10px 8px;
+    }
+
+    .line-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .action-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .action-btn.approve {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .action-btn.edit {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .action-btn.reject {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .action-btn:hover {
+      background: #f5f5f5;
+    }
+
+    .diff-positive {
+      color: var(--warning);
+      font-weight: 600;
+    }
+
+    .diff-negative {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .comments-section {
+      margin-top: 12px;
+    }
+
+    .comments-section textarea {
+      height: 60px;
+      margin-bottom: 8px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .summary-card {
+      background: var(--accent);
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .summary-item span:last-child {
+      font-weight: 600;
+    }
+
+    .summary-divider {
+      border-top: 2px solid var(--primary);
+      padding-top: 8px;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .summary-note {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .photos-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .photo-placeholder {
+      height: 60px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .policy-detail {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .policy-label {
+      color: var(--muted);
+    }
+
+    /* ─── Repair Monitoring Screen ─── */
+    .repair-header {
+      margin-bottom: 20px;
+    }
+
+    .repair-card {
+      margin-bottom: 12px;
+    }
+
+    .repair-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .repair-ref {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .repair-workshop {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+
+    .repair-day {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .repair-vehicle {
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.2s;
+    }
+
+    .progress-fill.low {
+      background: var(--secondary);
+    }
+
+    .progress-fill.high {
+      background: var(--success);
+    }
+
+    .progress-text {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .repair-milestone {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .milestone-text {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ─── Analytics Screen ─── */
+    .analytics-title {
+      margin: 0 0 20px;
+      font-size: 22px;
+    }
+
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card h4 {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .workshop-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .workshop-info {
+      flex: 1;
+    }
+
+    .workshop-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .workshop-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .workshop-score {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fraud-row {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .fraud-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .fraud-claim {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .fraud-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1200px) {
+      .estimate-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .claims-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .claims-search {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .claims-search input {
+        width: 100%;
+      }
+
+      .claim-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .claim-card-right {
+        text-align: left;
+      }
+
+      .claim-actions {
+        margin-left: 0;
+      }
+
+      .estimate-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .estimate-actions {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .estimate-actions button {
+        width: 100%;
+      }
+
+      .stat-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-tabs {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .nav-tab {
+        border-bottom: none;
+        border-left: 2px solid transparent;
+        padding-left: 12px;
+      }
+
+      .nav-tab.active {
+        border-left-color: var(--primary);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="portal-nav">
+    <div class="nav-logo">
+      MECANIX <span class="subtitle">Insurance Portal</span>
+    </div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" onclick="switchScreen(event, 'claims')">Claims Queue</div>
+      <div class="nav-tab" onclick="switchScreen(event, 'review')">Estimate Review</div>
+      <div class="nav-tab" onclick="switchScreen(event, 'monitoring')">Repair Monitoring</div>
+      <div class="nav-tab" onclick="switchScreen(event, 'analytics')">Analytics</div>
+    </div>
+    <div class="nav-user">
+      <div class="user-avatar">EN</div>
+      <span>ENSA Insurance</span>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="portal-content">
+    <!-- Claims Queue Screen -->
+    <div id="claims-screen" class="screen active">
+      <div class="claims-header">
+        <div class="claims-header-left">
+          <h2>Claims Queue</h2>
+          <p class="subtitle">4 claims awaiting review</p>
+        </div>
+        <div class="claims-search">
+          <input type="text" placeholder="Search claims..." />
+          <button class="btn-ghost">Filter</button>
+        </div>
+      </div>
+
+      <div class="status-filters">
+        <button class="filter-pill active">New (4)</button>
+        <button class="filter-pill">In Review (3)</button>
+        <button class="filter-pill">Approved (12)</button>
+        <button class="filter-pill">Rejected (2)</button>
+        <button class="filter-pill">In Repair (5)</button>
+        <button class="filter-pill">Completed (28)</button>
+      </div>
+
+      <div class="claims-list">
+        <div class="card claim-card">
+          <div class="claim-card-left">
+            <div class="claim-ref">
+              <span>CLM-2026-0041</span>
+            </div>
+            <div class="claim-vehicle">CD-56-78 • Nissan NP300</div>
+            <div class="claim-workshop">AutoPro Workshop • Maria Santos</div>
+          </div>
+          <div class="claim-card-right">
+            <div class="claim-amount">$685.14</div>
+            <div class="claim-days">2 days ago</div>
+          </div>
+          <div class="claim-actions">
+            <button class="btn-primary" style="font-size: 12px;">Review</button>
+            <button class="btn-ghost" style="font-size: 12px;">Photos</button>
+          </div>
+        </div>
+
+        <div class="card claim-card high-value">
+          <div class="claim-card-left">
+            <div class="claim-ref">
+              <span>CLM-2026-0042</span>
+              <span class="badge high-value">High Value</span>
+            </div>
+            <div class="claim-vehicle">ST-11-22 • BMW X3</div>
+            <div class="claim-workshop">MecAngola Talatona • Total Energies AO</div>
+          </div>
+          <div class="claim-card-right">
+            <div class="claim-amount">$4,200.00</div>
+            <div class="claim-days">1 days ago</div>
+          </div>
+          <div class="claim-actions">
+            <button class="btn-primary" style="font-size: 12px;">Review</button>
+            <button class="btn-ghost" style="font-size: 12px;">Photos</button>
+          </div>
+        </div>
+
+        <div class="card claim-card sla-warning">
+          <div class="claim-card-left">
+            <div class="claim-ref">
+              <span>CLM-2026-0043</span>
+              <span class="badge sla">SLA Warning</span>
+            </div>
+            <div class="claim-vehicle">UV-33-44 • Toyota Land Cruiser</div>
+            <div class="claim-workshop">AutoPro Workshop • Sonangol Fleet</div>
+          </div>
+          <div class="claim-card-right">
+            <div class="claim-amount">$2,890.00</div>
+            <div class="claim-days urgent">3 days ago</div>
+          </div>
+          <div class="claim-actions">
+            <button class="btn-primary" style="font-size: 12px;">Review</button>
+            <button class="btn-ghost" style="font-size: 12px;">Photos</button>
+          </div>
+        </div>
+
+        <div class="card claim-card">
+          <div class="claim-card-left">
+            <div class="claim-ref">
+              <span>CLM-2026-0044</span>
+            </div>
+            <div class="claim-vehicle">WX-55-66 • Hyundai Tucson</div>
+            <div class="claim-workshop">QuickFix Luanda • Ana Ferreira</div>
+          </div>
+          <div class="claim-card-right">
+            <div class="claim-amount">$920.00</div>
+            <div class="claim-days">Today</div>
+          </div>
+          <div class="claim-actions">
+            <button class="btn-primary" style="font-size: 12px;">Review</button>
+            <button class="btn-ghost" style="font-size: 12px;">Photos</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estimate Review Screen -->
+    <div id="review-screen" class="screen">
+      <div class="estimate-header">
+        <div class="estimate-header-left">
+          <h2>Estimate Review — CLM-2026-0041</h2>
+          <p class="subtitle">AutoPro Workshop • CD-56-78 • Nissan NP300 • Maria Santos</p>
+        </div>
+        <div class="estimate-actions">
+          <button class="btn-danger">Reject All</button>
+          <button class="btn-success">Approve All</button>
+        </div>
+      </div>
+
+      <div class="estimate-layout">
+        <div>
+          <div class="card estimate-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Qty</th>
+                  <th>Workshop Rate</th>
+                  <th>Our Rate</th>
+                  <th>Diff</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="badge labour">Labour</span></td>
+                  <td>Engine diagnostics</td>
+                  <td>2.0h</td>
+                  <td style="font-weight: 600;">$45/h</td>
+                  <td>$40/h</td>
+                  <td><span class="diff-positive">+12%</span></td>
+                  <td></td>
+                  <td>
+                    <div class="line-actions">
+                      <button class="action-btn approve">✓</button>
+                      <button class="action-btn edit">✎</button>
+                      <button class="action-btn reject">✕</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge labour">Labour</span></td>
+                  <td>Transmission repair</td>
+                  <td>6.0h</td>
+                  <td style="font-weight: 600;">$45/h</td>
+                  <td>$42/h</td>
+                  <td><span class="diff-positive">+7%</span></td>
+                  <td></td>
+                  <td>
+                    <div class="line-actions">
+                      <button class="action-btn approve">✓</button>
+                      <button class="action-btn edit">✎</button>
+                      <button class="action-btn reject">✕</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="badge parts">Parts</span></td>
+                  <td>Transmission fluid (5L)</td>
+                  <td>2</td>
+                  <td style="font-weight: 600;">$35.00</td>
+                  <td>$33.00</td>
+                  <td><span class="diff-positive">+6%</span></td>
+                  <td></td>
+                  <td>
+                    <div class="line-actions">
+                      <button class="action-btn approve">✓</button>
+                      <button class="action-btn edit">✎</button>
+                      <button class="action-btn reject">✕</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="flagged">
+                  <td><span class="badge parts">Parts</span></td>
+                  <td>Gasket set</td>
+                  <td>1</td>
+                  <td style="font-weight: 600;">$120.00</td>
+                  <td>$95.00</td>
+                  <td><span class="diff-negative">+26%</span></td>
+                  <td><span class="badge danger">Above Rate</span></td>
+                  <td>
+                    <div class="line-actions">
+                      <button class="action-btn approve">✓</button>
+                      <button class="action-btn edit">✎</button>
+                      <button class="action-btn reject">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card comments-section">
+            <h4>Assessor Comments</h4>
+            <textarea placeholder="Add comment for workshop..."></textarea>
+            <button class="btn-primary" style="font-size: 12px;">Send Comment</button>
+          </div>
+        </div>
+
+        <div class="sidebar">
+          <div class="card summary-card">
+            <h4 style="color: var(--primary);">Approval Summary</h4>
+            <div class="summary-item">
+              <span>Workshop total</span>
+              <span>$685.14</span>
+            </div>
+            <div class="summary-item">
+              <span>Our rate total</span>
+              <span>$621.00</span>
+            </div>
+            <div class="summary-item" style="color: var(--danger);">
+              <span>Difference</span>
+              <span>+$64.14 (10.3%)</span>
+            </div>
+            <div class="summary-divider">
+              <span>Approved</span>
+              <span>$0.00</span>
+            </div>
+            <p class="summary-note">Review each line to build the approved total</p>
+          </div>
+
+          <div class="card">
+            <h4>Damage Photos (6)</h4>
+            <div class="photos-grid">
+              <div class="photo-placeholder">Front</div>
+              <div class="photo-placeholder">Rear</div>
+              <div class="photo-placeholder">Left</div>
+              <div class="photo-placeholder">Right</div>
+              <div class="photo-placeholder">Close-up 1</div>
+              <div class="photo-placeholder">Close-up 2</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h4>Policy Details</h4>
+            <div class="policy-detail">
+              <span class="policy-label">Policy #:</span> AO-INS-2024-5567
+            </div>
+            <div class="policy-detail">
+              <span class="policy-label">Insured:</span> Maria Santos
+            </div>
+            <div class="policy-detail">
+              <span class="policy-label">Excess:</span> $150.00
+            </div>
+            <div class="policy-detail">
+              <span class="policy-label">Coverage:</span> Comprehensive
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Repair Monitoring Screen -->
+    <div id="monitoring-screen" class="screen">
+      <div class="repair-header">
+        <h2>Repair Monitoring</h2>
+        <p class="subtitle">5 active repairs in progress</p>
+      </div>
+
+      <div class="card repair-card">
+        <div class="repair-top">
+          <div>
+            <span class="repair-ref">CLM-2026-0035</span>
+            <span class="repair-workshop">AutoPro Workshop</span>
+          </div>
+          <span class="repair-day">Day 5</span>
+        </div>
+        <div class="repair-vehicle">AB-12-34 • Toyota Hilux</div>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill high" style="width: 75%;"></div>
+          </div>
+          <span class="progress-text">75%</span>
+        </div>
+        <div class="repair-milestone">
+          <span class="milestone-text">Latest: Pre-paint photos uploaded</span>
+          <button class="btn-ghost" style="padding: 4px 10px; font-size: 11px;">View Photos</button>
+        </div>
+      </div>
+
+      <div class="card repair-card">
+        <div class="repair-top">
+          <div>
+            <span class="repair-ref">CLM-2026-0038</span>
+            <span class="repair-workshop">MecAngola</span>
+          </div>
+          <span class="repair-day">Day 3</span>
+        </div>
+        <div class="repair-vehicle">FG-88-99 • Mercedes C200</div>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill low" style="width: 40%;"></div>
+          </div>
+          <span class="progress-text">40%</span>
+        </div>
+        <div class="repair-milestone">
+          <span class="milestone-text">Latest: Disassembly complete</span>
+          <button class="btn-ghost" style="padding: 4px 10px; font-size: 11px;">View Photos</button>
+        </div>
+      </div>
+
+      <div class="card repair-card">
+        <div class="repair-top">
+          <div>
+            <span class="repair-ref">CLM-2026-0039</span>
+            <span class="repair-workshop">QuickFix</span>
+          </div>
+          <span class="repair-day">Day 2</span>
+        </div>
+        <div class="repair-vehicle">HI-22-33 • Kia Sportage</div>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill low" style="width: 15%;"></div>
+          </div>
+          <span class="progress-text">15%</span>
+        </div>
+        <div class="repair-milestone">
+          <span class="milestone-text">Latest: Parts ordered</span>
+          <button class="btn-ghost" style="padding: 4px 10px; font-size: 11px;">View Photos</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Screen -->
+    <div id="analytics-screen" class="screen">
+      <h2 class="analytics-title">Claims Analytics</h2>
+
+      <div class="stat-cards">
+        <div class="card">
+          <h4>Avg. Approval Time</h4>
+          <div class="stat-value" style="color: var(--success);">38h</div>
+          <div class="stat-sub">Target: 48h</div>
+        </div>
+        <div class="card">
+          <h4>Approval Rate</h4>
+          <div class="stat-value" style="color: var(--secondary);">87%</div>
+          <div class="stat-sub">This month</div>
+        </div>
+        <div class="card">
+          <h4>Avg. Claim Value</h4>
+          <div class="stat-value" style="color: var(--primary);">$1,240</div>
+          <div class="stat-sub">Up 8% from last month</div>
+        </div>
+        <div class="card">
+          <h4>Active Claims</h4>
+          <div class="stat-value" style="color: var(--warning);">9</div>
+          <div class="stat-sub">4 new, 5 in repair</div>
+        </div>
+      </div>
+
+      <div class="analytics-grid">
+        <div class="card">
+          <h4>Top Workshops (by claim volume)</h4>
+          <div class="workshop-row">
+            <div class="workshop-info">
+              <div class="workshop-name">1. AutoPro Workshop</div>
+              <div class="workshop-meta">12 claims • Avg: $980</div>
+            </div>
+            <div class="workshop-score">
+              <span class="badge success">4.2/5</span>
+            </div>
+          </div>
+          <div class="workshop-row">
+            <div class="workshop-info">
+              <div class="workshop-name">2. MecAngola Talatona</div>
+              <div class="workshop-meta">8 claims • Avg: $1,450</div>
+            </div>
+            <div class="workshop-score">
+              <span class="badge warning">3.8/5</span>
+            </div>
+          </div>
+          <div class="workshop-row">
+            <div class="workshop-info">
+              <div class="workshop-name">3. QuickFix Luanda</div>
+              <div class="workshop-meta">5 claims • Avg: $720</div>
+            </div>
+            <div class="workshop-score">
+              <span class="badge success">4.5/5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>Fraud Indicators</h4>
+          <div class="fraud-row">
+            <div class="fraud-header">
+              <span>Gasket set 26% above rate card</span>
+              <span class="badge warning">Medium</span>
+            </div>
+            <div class="fraud-claim">CLM-2026-0041</div>
+          </div>
+          <div class="fraud-row">
+            <div class="fraud-header">
+              <span>Duplicate vehicle in last 60 days</span>
+              <span class="badge" style="background: var(--muted);">Low</span>
+            </div>
+            <div class="fraud-claim">CLM-2026-0039</div>
+          </div>
+          <div class="fraud-note">No high-severity flags this month</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchScreen(event, screenName) {
+      // Prevent default link behavior
+      event.preventDefault();
+
+      // Hide all screens
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+      });
+
+      // Show selected screen
+      const screenMap = {
+        'claims': 'claims-screen',
+        'review': 'review-screen',
+        'monitoring': 'monitoring-screen',
+        'analytics': 'analytics-screen'
+      };
+      document.getElementById(screenMap[screenName]).classList.add('active');
+
+      // Update nav tabs
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

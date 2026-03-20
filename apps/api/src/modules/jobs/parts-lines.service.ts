@@ -1,0 +1,125 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { SupabaseService } from '../supabase/supabase.service';
+import { JobsService } from './jobs.service';
+import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
+
+@Injectable()
+export class PartsLinesService {
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly jobsService: JobsService,
+  ) {}
+
+  async list(tenantId: string, jobCardId: string) {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .select('*')
+      .eq('job_card_id', jobCardId)
+      .eq('tenant_id', tenantId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  async create(
+    tenantId: string,
+    jobCardId: string,
+    userId: string,
+    input: CreatePartsLineInput,
+  ) {
+    const markupPct = input.markupPct ?? 0;
+    const sellPrice = Math.round(input.unitCost * (1 + markupPct / 100) * 100) / 100;
+    const subtotal = Math.round(input.quantity * sellPrice * 100) / 100;
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .insert({
+        tenant_id: tenantId,
+        job_card_id: jobCardId,
+        part_name: input.partName,
+        part_number: input.partNumber || null,
+        quantity: input.quantity,
+        unit_cost: input.unitCost,
+        markup_pct: markupPct,
+        sell_price: sellPrice,
+        subtotal,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await this.jobsService.recalculateTotals(tenantId, jobCardId);
+
+    return data;
+  }
+
+  async update(
+    tenantId: string,
+    id: string,
+    userId: string,
+    input: UpdatePartsLineInput,
+  ) {
+    const { data: existing, error: fetchError } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (fetchError || !existing) {
+      throw new NotFoundException('Parts line not found');
+    }
+
+    const unitCost = input.unitCost ?? existing.unit_cost;
+    const markupPct = input.markupPct ?? existing.markup_pct;
+    const quantity = input.quantity ?? existing.quantity;
+    const sellPrice = Math.round(unitCost * (1 + markupPct / 100) * 100) / 100;
+    const subtotal = Math.round(quantity * sellPrice * 100) / 100;
+
+    const updateData: Record<string, unknown> = {
+      sell_price: sellPrice,
+      subtotal,
+    };
+
+    if (input.partName !== undefined) updateData['part_name'] = input.partName;
+    if (input.partNumber !== undefined) updateData['part_number'] = input.partNumber || null;
+    if (input.quantity !== undefined) updateData['quantity'] = input.quantity;
+    if (input.unitCost !== undefined) updateData['unit_cost'] = input.unitCost;
+    if (input.markupPct !== undefined) updateData['markup_pct'] = input.markupPct;
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .update(updateData)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await this.jobsService.recalculateTotals(tenantId, existing.job_card_id);
+
+    return data;
+  }
+
+  async delete(tenantId: string, id: string, jobCardId: string) {
+    const { error } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
+
+    if (error) throw error;
+
+    await this.jobsService.recalculateTotals(tenantId, jobCardId);
+
+    return { deleted: true };
+  }
+}

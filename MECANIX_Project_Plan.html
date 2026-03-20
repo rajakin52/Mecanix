@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MECANIX — Project Plan & Technology Recommendation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 20mm 18mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1C1C1E;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Cover Page */
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 90vh;
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover-logo {
+    font-size: 56pt;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: #0087FF;
+    margin-bottom: 8px;
+  }
+  .cover-tagline {
+    font-size: 14pt;
+    font-weight: 500;
+    color: #636366;
+    margin-bottom: 60px;
+  }
+  .cover-title {
+    font-size: 22pt;
+    font-weight: 700;
+    color: #1C1C1E;
+    margin-bottom: 8px;
+  }
+  .cover-subtitle {
+    font-size: 13pt;
+    color: #636366;
+    margin-bottom: 60px;
+  }
+  .cover-meta {
+    font-size: 10pt;
+    color: #8E8E93;
+    line-height: 2;
+  }
+  .cover-meta strong { color: #636366; }
+
+  /* Content */
+  .content {
+    max-width: 100%;
+    padding: 0 10px;
+  }
+
+  h1 {
+    font-size: 20pt;
+    font-weight: 900;
+    color: #0087FF;
+    margin: 40px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 3px solid #0087FF;
+    letter-spacing: -0.02em;
+    page-break-after: avoid;
+  }
+  h1:first-of-type { margin-top: 0; }
+
+  h2 {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #1C1C1E;
+    margin: 28px 0 10px 0;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #363638;
+    margin: 20px 0 8px 0;
+    page-break-after: avoid;
+  }
+
+  p {
+    margin: 0 0 10px 0;
+    color: #363638;
+  }
+
+  strong { color: #1C1C1E; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px 0;
+    font-size: 10pt;
+    page-break-inside: auto;
+  }
+  thead { background: #001D3D; }
+  thead th {
+    color: #fff;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 9.5pt;
+    letter-spacing: 0.03em;
+  }
+  tbody tr { border-bottom: 1px solid #E5E5EA; }
+  tbody tr:nth-child(even) { background: #F8F9FA; }
+  tbody td {
+    padding: 8px 12px;
+    vertical-align: top;
+  }
+  tbody td:first-child { font-weight: 500; }
+
+  /* Highlight box */
+  .highlight {
+    background: linear-gradient(135deg, #E6F3FF 0%, #CCE7FF 100%);
+    border-left: 4px solid #0087FF;
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .highlight p { color: #00376D; margin: 0; }
+  .highlight strong { color: #001D3D; }
+
+  .warning {
+    background: linear-gradient(135deg, #FFF8E6 0%, #FFEFCC 100%);
+    border-left: 4px solid #FFB300;
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .warning p { color: #6D4C00; margin: 0; }
+
+  /* Lists */
+  ul, ol {
+    margin: 8px 0 16px 24px;
+    color: #363638;
+  }
+  li { margin-bottom: 4px; }
+  li strong { color: #1C1C1E; }
+
+  /* Section divider */
+  .divider {
+    border: none;
+    border-top: 2px solid #E5E5EA;
+    margin: 32px 0;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-keep { background: #E6FFE6; color: #006600; }
+  .badge-build { background: #E6F3FF; color: #0052A3; }
+  .badge-buy { background: #F3E6FF; color: #6600A3; }
+  .badge-hybrid { background: #FFF0E6; color: #A35200; }
+
+  /* Cost box */
+  .cost-box {
+    background: #0A0A0C;
+    color: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .cost-box h3 { color: #00D4FF; margin-top: 0; }
+  .cost-box table thead { background: #363638; }
+  .cost-box table tbody tr { border-bottom: 1px solid #48484A; }
+  .cost-box table tbody tr:nth-child(even) { background: #1C1C1E; }
+  .cost-box table tbody td { color: #E5E5EA; }
+  .cost-box .total-row td {
+    font-weight: 700;
+    color: #00D4FF;
+    font-size: 11pt;
+    border-top: 2px solid #00D4FF;
+  }
+
+  /* Sprint timeline */
+  .sprint-card {
+    border: 1px solid #E5E5EA;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  .sprint-card h3 {
+    margin: 0 0 6px 0;
+    color: #0087FF;
+  }
+  .sprint-card .sprint-weeks {
+    font-size: 9pt;
+    color: #8E8E93;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .sprint-card p { margin: 0; font-size: 10pt; }
+
+  /* Architecture diagram */
+  .arch-diagram {
+    background: #F8F9FA;
+    border: 1px solid #E5E5EA;
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: 9pt;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #E5E5EA;
+    font-size: 8.5pt;
+    color: #AEAEB2;
+    text-align: center;
+  }
+
+  /* Print overrides */
+  @media print {
+    body { font-size: 10pt; }
+    .cover { min-height: 100vh; }
+    h1 { margin-top: 30px; }
+    .no-break { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="cover">
+  <div class="cover-logo">MECANIX</div>
+  <div class="cover-tagline">Workshop Management Platform for Lusophone Markets</div>
+  <div class="cover-title">Project Plan & Technology Recommendation</div>
+  <div class="cover-subtitle">Architecture decisions, technology stack, integrations, and sprint plan</div>
+  <div class="cover-meta">
+    <strong>Version:</strong> 1.0<br>
+    <strong>Date:</strong> March 2026<br>
+    <strong>Prepared for:</strong> Raja Kurban<br>
+    <strong>Classification:</strong> Confidential — Internal Use Only
+  </div>
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="content">
+
+<h1>Table of Contents</h1>
+<ol>
+  <li><strong>Product Overview</strong></li>
+  <li><strong>Architecture Overview</strong></li>
+  <li><strong>Final Technology Stack</strong></li>
+  <li><strong>Build vs Buy Decisions</strong></li>
+  <li><strong>Key Integrations</strong></li>
+  <li><strong>Tenant Management & Billing</strong></li>
+  <li><strong>Key Architectural Decisions</strong></li>
+  <li><strong>Project Structure</strong></li>
+  <li><strong>Sprint Plan (20 Weeks)</strong></li>
+  <li><strong>Monthly Cost at Launch</strong></li>
+  <li><strong>Risk Flags & Recommendations</strong></li>
+  <li><strong>Phase 2 & 3 Roadmap</strong></li>
+</ol>
+
+<hr class="divider">
+
+<!-- ==================== 1. PRODUCT OVERVIEW ==================== -->
+<h1>1. Product Overview</h1>
+
+<p>MECANIX is a <strong>cloud-based, offline-first workshop management SaaS</strong> for independent automotive workshops in Lusophone markets — <strong>Angola</strong>, <strong>Mozambique</strong>, and <strong>Brazil</strong>.</p>
+
+<p>The platform unifies vehicle intake, job card management, parts inventory, technician time tracking, invoicing, customer communication, and insurance claim workflows into a single affordable system accessible from any device.</p>
+
+<div class="highlight">
+  <p><strong>Strategic Vision:</strong> MECANIX will be the first serious SaaS-native workshop management platform purpose-built for Lusophone Africa and Brazil — combining offline-first architecture, WhatsApp-native communication, a dedicated customer mobile app, and a full insurance assessor portal.</p>
+</div>
+
+<h2>Four Applications, One Backend</h2>
+<table>
+  <thead>
+    <tr><th>App</th><th>Type</th><th>Users</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Workshop App</td><td>Web + Mobile</td><td>Owners, managers, receptionists, parts managers</td><td>Core platform: job cards, invoicing, inventory, dashboard</td></tr>
+    <tr><td>Technician App</td><td>Mobile</td><td>Mechanics</td><td>One-tap timers, clock in/out, job notes/photos, productivity</td></tr>
+    <tr><td>Customer App</td><td>Mobile</td><td>Vehicle owners</td><td>Live job tracking, quote approval, payments, service history</td></tr>
+    <tr><td>Insurance Portal</td><td>Web</td><td>Assessors, admins</td><td>Claims workflow, estimate review, fraud detection, payments</td></tr>
+  </tbody>
+</table>
+
+<h2>Target Markets</h2>
+<table>
+  <thead>
+    <tr><th>Market</th><th>Currency</th><th>Tax</th><th>Phase</th><th>Key Requirements</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Angola</td><td>AOA / USD</td><td>IVA 14%</td><td>Phase 1 (Launch)</td><td>Offline-first critical, dual currency, Multicaixa Express</td></tr>
+    <tr><td>Mozambique</td><td>MZN</td><td>IVA 17%</td><td>Phase 2</td><td>M-Pesa integration required</td></tr>
+    <tr><td>Brazil</td><td>BRL</td><td>ISS+ICMS</td><td>Phase 3</td><td>NF-e/SEFAZ mandatory, LGPD compliance, PIX</td></tr>
+  </tbody>
+</table>
+
+<h2>Pricing Model</h2>
+<table>
+  <thead>
+    <tr><th>Tier</th><th>Target</th><th>Angola/MZ Price</th><th>Brazil Price</th><th>Key Limits</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Starter</td><td>1 location, up to 3 users</td><td>$49/month</td><td>R$199/month</td><td>500 job cards/month</td></tr>
+    <tr><td>Professional</td><td>1 location, unlimited users</td><td>$99/month</td><td>R$399/month</td><td>Unlimited + reporting</td></tr>
+    <tr><td>Multi-Site</td><td>Chains, 2-10 locations</td><td>$249/month</td><td>R$999/month</td><td>Multi-location dashboard</td></tr>
+    <tr><td>White-Label</td><td>Dealer groups</td><td>Custom</td><td>Custom</td><td>Full branding + API access</td></tr>
+    <tr><td>Insurance</td><td>Insurance companies</td><td>$199/month</td><td>R$799/month</td><td>Assessor portal + analytics</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ==================== 2. ARCHITECTURE ==================== -->
+<h1>2. Architecture Overview</h1>
+
+<div class="arch-diagram">
++-----------------------------------------------------------------------+
+|                          MECANIX Platform                              |
++------------------+--------------+---------------+---------------------+
+|  Workshop App    | Technician   | Customer App  | Insurance Portal    |
+|  (Next.js +      | App          | (Expo /       | (Next.js)           |
+|   Expo)          | (Expo)       |  React Native)|                     |
++------------------+--------------+---------------+---------------------+
+|               API Layer — NestJS on Fastify (TypeScript)              |
++-----------------------------------------------------------------------+
+|  Supabase: PostgreSQL (RLS) + Auth + Storage + Realtime               |
+|  PowerSync: Offline Sync (WAL -> client SQLite)                       |
++-----------------------------------------------------------------------+
+|  Hosting: Vercel (web) + Railway (API) + Supabase (managed DB)        |
++-----------------------------------------------------------------------+
+|  Integrations: WhatsApp Business API | FCM | M-Pesa | Multicaixa     |
++-----------------------------------------------------------------------+
+</div>
+
+<h2>Data Flow</h2>
+<ol>
+  <li><strong>Auth:</strong> User logs in &rarr; Supabase Auth issues JWT with <code>tenant_id</code> claim</li>
+  <li><strong>Data access:</strong> JWT drives PostgreSQL RLS &rarr; every query auto-scoped to tenant</li>
+  <li><strong>Offline:</strong> PowerSync reads PostgreSQL WAL &rarr; syncs to client SQLite &rarr; app reads/writes locally</li>
+  <li><strong>Realtime:</strong> Database changes stream via Supabase Realtime WebSockets to dashboards and mobile apps</li>
+  <li><strong>Storage:</strong> Photos/PDFs stored in Supabase Storage (S3-compatible), secured by same JWT</li>
+</ol>
+
+<hr class="divider">
+
+<!-- ==================== 3. TECHNOLOGY STACK ==================== -->
+<h1>3. Final Technology Stack</h1>
+
+<table>
+  <thead>
+    <tr><th>Layer</th><th>Technology</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Monorepo</td><td>pnpm workspaces + Turborepo</td><td>Fast builds, shared code across 6 apps</td></tr>
+    <tr><td>Mobile (3 apps)</td><td>React Native + Expo</td><td>Cross-platform, TypeScript shared with backend, largest hiring pool</td></tr>
+    <tr><td>Web (2 apps)</td><td>Next.js 15 (App Router)</td><td>SSR for slow 3G connections in AO/MZ, React Server Components</td></tr>
+    <tr><td>API</td><td>NestJS on Fastify</td><td>Modules, guards, DI — structured multi-tenant SaaS with 12+ modules</td></tr>
+    <tr><td>Database</td><td>Supabase (PostgreSQL + RLS)</td><td>DB + auth + storage + realtime in one. RLS = bulletproof tenant isolation</td></tr>
+    <tr><td>Auth</td><td>Supabase Auth (GoTrue)</td><td>Native RLS integration, phone OTP, MFA. JWT drives all data isolation</td></tr>
+    <tr><td>Offline sync</td><td>PowerSync</td><td>Official Supabase partner, WAL-based sync, production-proven</td></tr>
+    <tr><td>File storage</td><td>Supabase Storage</td><td>S3-compatible, image transforms, secured by same JWT</td></tr>
+    <tr><td>Realtime</td><td>Supabase Realtime</td><td>WebSocket streaming of DB changes, powers live dashboards</td></tr>
+    <tr><td>State management</td><td>TanStack Query + Zustand</td><td>Server state caching + client state. Same pattern across web and mobile</td></tr>
+    <tr><td>Forms & validation</td><td>React Hook Form + Zod</td><td>Zod schemas shared between frontend and NestJS backend</td></tr>
+    <tr><td>i18n (mobile)</td><td>i18next + expo-localization</td><td>Shared translation files, works with Expo</td></tr>
+    <tr><td>i18n (web)</td><td>next-intl</td><td>Better App Router support than next-i18next</td></tr>
+    <tr><td>PDF generation</td><td>@react-pdf/renderer</td><td>React-based templating for invoices with workshop branding</td></tr>
+    <tr><td>Push notifications</td><td>Firebase Cloud Messaging</td><td>Free, unified iOS + Android</td></tr>
+    <tr><td>WhatsApp</td><td>Meta Cloud API (or 360dialog)</td><td>Official API, webhook-based delivery</td></tr>
+    <tr><td>Hosting (web)</td><td>Vercel</td><td>Zero-config Next.js deploy, edge network</td></tr>
+    <tr><td>Hosting (API)</td><td>Railway</td><td>Simple GitHub deploy, auto-scaling</td></tr>
+    <tr><td>CI/CD</td><td>GitHub Actions</td><td>Lint, type-check, test on every PR</td></tr>
+    <tr><td>Monitoring</td><td>Sentry + Supabase Dashboard</td><td>Error tracking + DB monitoring</td></tr>
+    <tr><td>Testing</td><td>Vitest + Playwright + Maestro</td><td>Vitest (unit), Playwright (web E2E), Maestro (mobile E2E)</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ==================== 4. BUILD VS BUY ==================== -->
+<h1>4. Build vs Buy Decisions</h1>
+
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Decision</th><th>Details</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Auth & user management</td><td><span class="badge badge-buy">Supabase Auth</span></td><td>Included in Supabase. Handles JWT, OTP, MFA, RLS integration.</td></tr>
+    <tr><td>Tenant isolation</td><td><span class="badge badge-build">Build</span></td><td>RLS policies + tenants table. Core to product.</td></tr>
+    <tr><td>Plan limits & enforcement</td><td><span class="badge badge-build">Build</span></td><td>NestJS guard checks plan limits before creating resources.</td></tr>
+    <tr><td>Subscription invoicing</td><td><span class="badge badge-build">Build</span></td><td>Reuse existing PDF invoice engine for subscription bills.</td></tr>
+    <tr><td>Payment collection (AO/MZ)</td><td><span class="badge badge-hybrid">Semi-manual</span></td><td>Generate invoice &rarr; WhatsApp &rarr; bank transfer &rarr; admin confirms.</td></tr>
+    <tr><td>Payment collection (Brazil)</td><td><span class="badge badge-buy">Stripe Billing</span></td><td>Full automation with recurring charges. Phase 3.</td></tr>
+    <tr><td>Offline sync</td><td><span class="badge badge-buy">PowerSync</span></td><td>WAL-based sync, official Supabase partner.</td></tr>
+    <tr><td>File storage</td><td><span class="badge badge-buy">Supabase Storage</span></td><td>Included. S3-compatible.</td></tr>
+    <tr><td>Realtime updates</td><td><span class="badge badge-buy">Supabase Realtime</span></td><td>Included. WebSocket streaming.</td></tr>
+    <tr><td>WhatsApp messaging</td><td><span class="badge badge-buy">Meta Cloud API</span></td><td>Official API + template management.</td></tr>
+    <tr><td>PDF invoices</td><td><span class="badge badge-build">Build</span></td><td>@react-pdf/renderer with workshop branding.</td></tr>
+    <tr><td>SMS fallback</td><td><span class="badge badge-buy">Africa's Talking</span></td><td>Better AO/MZ coverage than Twilio.</td></tr>
+  </tbody>
+</table>
+
+<h2>Why Not Clerk?</h2>
+<p>Clerk is excellent for auth + org management, but for MECANIX it creates more problems than it solves:</p>
+<ul>
+  <li><strong>Breaks the RLS chain:</strong> Supabase Auth JWT drives RLS, PowerSync, Realtime, and Storage. Clerk would require a bridge between two auth systems.</li>
+  <li><strong>Double cost:</strong> You'd pay for Clerk while Supabase Auth is already included.</li>
+  <li><strong>Extra latency:</strong> Every authenticated request would pass through an additional layer.</li>
+  <li><strong>The work Clerk saves is minimal:</strong> Building login screens + invite flow + role management on Supabase Auth takes ~10 hours.</li>
+</ul>
+
+<h2>Why Not Prisma?</h2>
+<p>Prisma <strong>bypasses RLS</strong> — it connects directly to PostgreSQL, not through the Supabase client. This defeats the entire multi-tenancy security model. Instead, use the <strong>Supabase JS client</strong> in NestJS, which respects RLS because it uses the user's JWT. For complex queries, use <strong>Kysely</strong> (type-safe SQL query builder).</p>
+
+<hr class="divider">
+
+<!-- ==================== 5. KEY INTEGRATIONS ==================== -->
+<h1>5. Key Integrations</h1>
+
+<table>
+  <thead>
+    <tr><th>Integration</th><th>Service</th><th>When</th><th>Cost</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>WhatsApp Business API</td><td>Meta Cloud API or 360dialog (BSP)</td><td>Sprint 7</td><td>Free (Meta) or ~$5/mo (360dialog) + per-conversation</td></tr>
+    <tr><td>Push notifications</td><td>Firebase Cloud Messaging</td><td>Sprint 7</td><td>Free</td></tr>
+    <tr><td>SMS fallback</td><td>Africa's Talking</td><td>Sprint 7</td><td>~$0.05/SMS</td></tr>
+    <tr><td>M-Pesa (Mozambique)</td><td>Vodacom M-Pesa API</td><td>Phase 2</td><td>Revenue share</td></tr>
+    <tr><td>Multicaixa Express (Angola)</td><td>EMIS API</td><td>Phase 2</td><td>Revenue share</td></tr>
+    <tr><td>PIX (Brazil)</td><td>Mercado Pago or Asaas</td><td>Phase 3</td><td>~1% per transaction</td></tr>
+    <tr><td>Error monitoring</td><td>Sentry</td><td>Sprint 0</td><td>Free tier</td></tr>
+    <tr><td>Analytics</td><td>PostHog</td><td>Sprint 1</td><td>Free tier (self-hostable)</td></tr>
+    <tr><td>Stripe Billing (Brazil)</td><td>Stripe</td><td>Phase 3</td><td>2.9% + $0.30 per transaction</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ==================== 6. TENANT & BILLING ==================== -->
+<h1>6. Tenant Management & Billing</h1>
+
+<h2>Tenant Management</h2>
+<p>Handled natively by the architecture — <strong>no external service needed</strong>:</p>
+<ul>
+  <li>Supabase Auth creates users and issues JWTs with <code>tenant_id</code> claims</li>
+  <li>A <code>tenants</code> table stores workshop profile, plan, settings, and limits</li>
+  <li>PostgreSQL RLS policies filter all queries by <code>tenant_id</code> automatically</li>
+  <li>Tenant onboarding: sign up &rarr; create tenant record &rarr; RLS applies &rarr; workshop operational</li>
+</ul>
+
+<h2>Subscription Billing — Hybrid Approach</h2>
+<p>No single billing provider covers all 3 markets. The approach is <strong>build the plan engine, outsource payment collection where possible</strong>.</p>
+
+<h3>Custom BillingModule (NestJS)</h3>
+<p>A lightweight module that handles:</p>
+<ul>
+  <li><strong>Plan logic:</strong> 5 tiers with clear limits (max job cards, max users, features)</li>
+  <li><strong>Trial management:</strong> 14-day free trial &rarr; prompt to subscribe</li>
+  <li><strong>Subscription invoicing:</strong> Monthly invoice PDF generation (reuses existing engine)</li>
+  <li><strong>Limit enforcement:</strong> NestJS guard checks plan limits before creating resources</li>
+  <li><strong>Grace period:</strong> 7 days past due &rarr; suspend &rarr; 30 days &rarr; archive</li>
+  <li><strong>WhatsApp reminders:</strong> Automated payment reminders at 7, 3, and 1 day before due</li>
+</ul>
+
+<h3>Payment Collection by Market</h3>
+<table>
+  <thead>
+    <tr><th>Market</th><th>Method</th><th>Automation Level</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Angola</td><td>Bank transfer + Multicaixa Express</td><td>Semi-manual: invoice &rarr; customer pays &rarr; admin confirms</td></tr>
+    <tr><td>Mozambique</td><td>M-Pesa + bank transfer</td><td>Semi-manual with M-Pesa API confirmation</td></tr>
+    <tr><td>Brazil (Phase 3)</td><td>Stripe Billing (card + PIX)</td><td>Fully automated: recurring charges, dunning, portal</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<!-- ==================== 7. KEY DECISIONS ==================== -->
+<h1>7. Key Architectural Decisions</h1>
+
+<div class="highlight">
+  <p><strong>1. Supabase is the backbone</strong> — not just a database. Auth, storage, realtime, and RLS all flow from a single JWT. Do not break this chain with external auth (Clerk) or external ORM (Prisma).</p>
+</div>
+
+<div class="highlight">
+  <p><strong>2. No Prisma</strong> — use the Supabase JS client, which respects RLS. Prisma bypasses RLS and defeats the entire security model. For complex queries, use Kysely or raw SQL via Supabase's <code>rpc()</code> function.</p>
+</div>
+
+<div class="highlight">
+  <p><strong>3. No Clerk</strong> — paying for two auth systems while maintaining a bridge adds cost and complexity. Supabase Auth does everything needed and integrates natively with RLS, PowerSync, Realtime, and Storage.</p>
+</div>
+
+<div class="highlight">
+  <p><strong>4. Billing is hybrid</strong> — build a simple plan/limits engine. Angola and Mozambique run on bank transfers and manual confirmation. Automate with Stripe only when entering Brazil.</p>
+</div>
+
+<div class="warning">
+  <p><strong>5. Offline-first is non-negotiable</strong> — PowerSync from day 1. Every mobile feature must work without internet. This is a market requirement in Angola and Mozambique.</p>
+</div>
+
+<div class="warning">
+  <p><strong>6. Money as integers</strong> — all amounts stored in cents/centavos. No floating point. No exceptions. Retrofitting this is extremely painful.</p>
+</div>
+
+<div class="highlight">
+  <p><strong>7. i18n from day 1</strong> — no hardcoded strings, ever. pt-PT, pt-BR, en. All formatting (dates, numbers, currency) locale-aware via the Intl API.</p>
+</div>
+
+<hr class="divider">
+
+<!-- ==================== 8. PROJECT STRUCTURE ==================== -->
+<h1>8. Project Structure</h1>
+
+<div class="arch-diagram">mecanix/
+├── package.json                   # pnpm workspace root
+├── pnpm-workspace.yaml
+├── turbo.json                     # Turborepo config
+├── .github/workflows/             # CI/CD (lint, test, deploy)
+│
+├── packages/
+│   ├── shared/                    # Shared types, Zod schemas, constants
+│   ├── supabase/                  # Migrations, seed data, RLS policies
+│   └── ui/                        # Shared UI components (Tamagui)
+│
+├── apps/
+│   ├── api/                       # NestJS backend (12+ modules)
+│   ├── web-admin/                 # Next.js workshop dashboard
+│   ├── web-insurance/             # Next.js insurance portal
+│   ├── mobile-workshop/           # Expo app (workshop staff)
+│   ├── mobile-technician/         # Expo app (mechanics)
+│   └── mobile-customer/           # Expo app (vehicle owners)
+│
+├── tooling/
+│   ├── eslint/                    # Shared ESLint config
+│   ├── tsconfig/                  # Shared TS configs
+│   └── prettier/                  # Shared Prettier config
+│
+└── docs/
+    └── specs/                     # Specification documents</div>
+
+<hr class="divider">
+
+<!-- ==================== 9. SPRINT PLAN ==================== -->
+<h1>9. Sprint Plan — 20 Weeks</h1>
+
+<p><strong>Team:</strong> 1-2 developers + Claude Code as force multiplier<br>
+<strong>Sprint length:</strong> 2 weeks<br>
+<strong>Total sprints:</strong> 10 (Sprint 0-9)</p>
+
+<div class="sprint-card">
+  <h3>Sprint 0 — Stack Ramp-Up</h3>
+  <div class="sprint-weeks">Weeks 1-2 &nbsp;|&nbsp; ~30 hours</div>
+  <p>Supabase quickstart, NestJS scaffold, Expo app, PowerSync offline test, Next.js setup, deploy everything (Railway + Vercel), GitHub Actions CI, i18n setup. <strong>Output:</strong> Throwaway proof-of-stack where all pieces connect.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 1 — Foundation & Tenant System</h3>
+  <div class="sprint-weeks">Weeks 3-4 &nbsp;|&nbsp; ~44 hours</div>
+  <p>Production monorepo, database schema (tenants, users, customers, vehicles) with RLS, TenantGuard, auth flow, tenant onboarding, login/register screens (mobile + web), PowerSync production sync rules, i18n configuration, deploy pipeline.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 2 — Customer & Vehicle Management</h3>
+  <div class="sprint-weeks">Weeks 5-6 &nbsp;|&nbsp; ~44 hours</div>
+  <p>Full CRUD for customers and vehicles, search (name/phone/plate/VIN), vehicle service history, photo uploads, customer list/detail pages (web), mobile customer search + vehicle registration with camera, offline create/sync verification.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 3 — Job Card System (Core Product)</h3>
+  <div class="sprint-weeks">Weeks 7-8 &nbsp;|&nbsp; ~61 hours (heaviest sprint)</div>
+  <p>Job card CRUD with auto-numbering, 9-status workflow engine with validation, labour lines, parts lines, job card settings (insurance toggle, digital auth, parts issuing mode, taxable toggle), technician profiles, job card list/detail pages (web + mobile), offline job cards.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 4 — Technician Time Logging</h3>
+  <div class="sprint-weeks">Weeks 9-10 &nbsp;|&nbsp; ~47 hours</div>
+  <p>Dedicated technician Expo app: one-tap start/stop timers, clock in/out, job interaction (notes, photos, flags), productivity dashboard, live floor view (manager web), daily timesheet report, offline time tracking, UX review for gloved hands.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 5 — Parts, Inventory & Suppliers</h3>
+  <div class="sprint-weeks">Weeks 11-12 &nbsp;|&nbsp; ~52 hours</div>
+  <p>Parts catalogue, stock management with low-stock alerts, parts issuing workflow (auto vs manual), service groups, inventory adjustments, vendor management, purchase orders, bills, vendor credits, expense tracking with receipt uploads.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 6 — Invoicing & Payments</h3>
+  <div class="sprint-weeks">Weeks 13-14 &nbsp;|&nbsp; ~50 hours</div>
+  <p>Auto-generate invoices from job cards, configurable tax engine (IVA 14%/17%), PDF generation with branding, payment recording (cash/transfer/card/M-Pesa/PIX), partial payments, split billing (customer + insurer), credit notes, financial dashboard widgets, accounts receivable aging.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 7 — WhatsApp + Customer App</h3>
+  <div class="sprint-weeks">Weeks 15-16 &nbsp;|&nbsp; ~47 hours</div>
+  <p>WhatsApp Business API integration, message templates for all triggers, notification on status changes, SMS fallback, Customer App: phone OTP onboarding, my vehicles, live job tracking with push notifications, digital quote approval, invoice view, service history, Firebase Cloud Messaging setup.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 8 — Insurance Module</h3>
+  <div class="sprint-weeks">Weeks 17-18 &nbsp;|&nbsp; ~54 hours</div>
+  <p>Insurance claim 7-stage workflow, structured estimate submission, assessor web portal (claims queue, line-by-line estimate review, rate card comparison), mandatory GPS-tagged damage photos, InsuranceGuard (cross-tenant claim access), fraud detection (duplicate claims, anomaly flagging), repair monitoring, workshop-side insurance job card enhancements.</p>
+</div>
+
+<div class="sprint-card">
+  <h3>Sprint 9 — Dashboard, Reports & Beta Launch</h3>
+  <div class="sprint-weeks">Weeks 19-20 &nbsp;|&nbsp; ~62 hours</div>
+  <p>Owner dashboard (Kanban jobs, revenue, receivables/payables, income vs expense), 11 report endpoints with PDF export, service reminder engine, workshop settings (bays, tax, branding), offline sync hardening, performance testing (50 concurrent users), i18n review, bug bash, beta onboarding (3-5 workshops), Sentry monitoring, quick-start documentation.</p>
+</div>
+
+<hr class="divider">
+
+<!-- ==================== 10. COST ==================== -->
+<h1>10. Monthly Cost at Launch</h1>
+
+<div class="cost-box">
+  <h3>Infrastructure — MVP Scale</h3>
+  <table>
+    <thead>
+      <tr><th>Service</th><th>Plan</th><th>Monthly Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Supabase</td><td>Pro</td><td>$25</td></tr>
+      <tr><td>PowerSync</td><td>Free / Pro</td><td>$0 - $49</td></tr>
+      <tr><td>Railway (API)</td><td>Usage-based</td><td>$20 - $50</td></tr>
+      <tr><td>Vercel</td><td>Pro</td><td>$20</td></tr>
+      <tr><td>Sentry</td><td>Free tier</td><td>$0</td></tr>
+      <tr><td>PostHog</td><td>Free tier</td><td>$0</td></tr>
+      <tr class="total-row"><td><strong>Total</strong></td><td></td><td><strong>$65 - $145/mo</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p><strong>Comparison:</strong> The same stack on AWS (ECS + RDS + S3 + custom auth + custom sync server) would cost ~$350/month and require 6-8 additional weeks of DevOps setup.</p>
+
+<hr class="divider">
+
+<!-- ==================== 11. RISKS ==================== -->
+<h1>11. Risk Flags & Recommendations</h1>
+
+<table>
+  <thead>
+    <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>PowerSync is the biggest technical risk</strong></td>
+      <td>High</td>
+      <td>Invest Sprint 0 in a proof-of-concept. Test offline read/write/sync cycle before writing production code.</td>
+    </tr>
+    <tr>
+      <td><strong>WhatsApp Business API approval takes 2-4 weeks</strong></td>
+      <td>Medium</td>
+      <td>Apply for Meta Business account immediately, even before coding starts. Use 360dialog BSP if direct access is slow.</td>
+    </tr>
+    <tr>
+      <td><strong>Workshop adoption resistance</strong></td>
+      <td>High</td>
+      <td>Simple onboarding (&lt;30 min), free setup for first 20 customers, champion program.</td>
+    </tr>
+    <tr>
+      <td><strong>Connectivity causing data loss (AO/MZ)</strong></td>
+      <td>High</td>
+      <td>Offline-first architecture with PowerSync. Conflict resolution: server-authoritative for status, merge for time entries, append-only for photos.</td>
+    </tr>
+    <tr>
+      <td><strong>Sprint 3 (Job Cards) may overrun</strong></td>
+      <td>Medium</td>
+      <td>This is the heaviest sprint (~61h). Allow 1-2 days spillover into Sprint 4. Job card system must be solid before building on top.</td>
+    </tr>
+    <tr>
+      <td><strong>No billing provider covers Angola/Mozambique</strong></td>
+      <td>Medium</td>
+      <td>Hybrid approach: semi-manual billing (invoice + bank transfer + admin confirmation) for AO/MZ, Stripe for Brazil.</td>
+    </tr>
+    <tr>
+      <td><strong>Insurance company reluctance to adopt</strong></td>
+      <td>High</td>
+      <td>Start with 1-2 insurer partnerships. Prove ROI with pilot data. Offer free onboarding.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warning">
+  <p><strong>Scope deferral priority</strong> — if any sprint runs over, defer these first (without impacting sellability): vendor credits, service groups, fraud detection, customer app payments, expense tracking. <strong>Never defer:</strong> job card lifecycle, offline sync, WhatsApp notifications, invoice generation, basic insurance workflow.</p>
+</div>
+
+<hr class="divider">
+
+<!-- ==================== 12. ROADMAP ==================== -->
+<h1>12. Phase 2 & 3 Roadmap</h1>
+
+<h2>Phase 2 — Months 5-12</h2>
+<table>
+  <thead>
+    <tr><th>Area</th><th>Features</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Inventory</td><td>TecDoc parts catalogue integration, tyre management module</td></tr>
+    <tr><td>Payments</td><td>M-Pesa integration (Mozambique), Multicaixa Express (Angola)</td></tr>
+    <tr><td>Finance</td><td>Accounting software integration (Zoho Books, Cegid Primavera)</td></tr>
+    <tr><td>Scheduling</td><td>Advanced bay management, online appointment booking, shop calendars</td></tr>
+    <tr><td>Operations</td><td>Multi-location support, geofence-based technician clock-in</td></tr>
+    <tr><td>Customer</td><td>Workshop ratings, service reminders, promotional campaigns, CRM module</td></tr>
+    <tr><td>Insurance</td><td>Advanced analytics, bulk payments, API for insurer CMS</td></tr>
+    <tr><td>Platform</td><td>SWOOP fleet integration, expanded reporting</td></tr>
+  </tbody>
+</table>
+
+<h2>Phase 3 — Months 13-24</h2>
+<table>
+  <thead>
+    <tr><th>Area</th><th>Features</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Brazil entry</td><td>NF-e/SEFAZ fiscal integration, pt-BR localisation, Susep-compliant insurance</td></tr>
+    <tr><td>Financial maturity</td><td>Full accounting (journals, chart of accounts), payroll, membership/loyalty programs</td></tr>
+    <tr><td>Billing automation</td><td>Stripe Billing for Brazilian market (recurring charges, PIX, dunning)</td></tr>
+    <tr><td>Platform growth</td><td>White-label packaging, reseller portal, enterprise API access</td></tr>
+    <tr><td>AI features</td><td>Service interval prediction, estimate anomaly detection, repair time estimation</td></tr>
+    <tr><td>Scale</td><td>Evaluate migration to self-managed infrastructure if cost-beneficial</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<div class="footer">
+  MECANIX Project Plan v1.0 &nbsp;|&nbsp; March 2026 &nbsp;|&nbsp; Confidential<br>
+  Prepared with assistance from Claude Code (Anthropic)
+</div>
+
+</div>
+</body>
+</html>

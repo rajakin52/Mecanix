@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MECANIX Customer App</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F1F5F9;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px 16px;
+    }
+
+    /* Color Palette */
+    :root {
+      --primary: #1F4E79;
+      --secondary: #2E75B6;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #1E293B;
+      --muted: #94A3B8;
+      --accent: #EFF6FF;
+    }
+
+    /* Mobile Phone Frame */
+    .phone-frame {
+      width: 375px;
+      min-height: 700px;
+      background: var(--bg);
+      border-radius: 24px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+
+    .phone-header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      padding: 16px 20px;
+      color: #fff;
+    }
+
+    .phone-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .phone-header p {
+      font-size: 12px;
+      opacity: 0.7;
+      margin: 0;
+    }
+
+    .phone-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: var(--bg);
+    }
+
+    .phone-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .phone-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .phone-content::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    /* Bottom Tabs */
+    .phone-tabs {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      cursor: pointer;
+      border: none;
+      background: #fff;
+      font-family: inherit;
+      transition: color 0.2s;
+      color: var(--muted);
+    }
+
+    .tab-button.active {
+      color: var(--primary);
+      border-top: 3px solid var(--primary);
+    }
+
+    .tab-icon {
+      font-size: 18px;
+      display: block;
+    }
+
+    .tab-label {
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    /* Hidden Screens */
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    /* My Vehicles Screen */
+    .vehicle-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .vehicle-info {
+      flex: 1;
+    }
+
+    .vehicle-plate {
+      font-weight: 700;
+      font-size: 18px;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 4px;
+    }
+
+    .vehicle-model {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .vehicle-km {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .vehicle-emoji {
+      font-size: 40px;
+      margin-left: 12px;
+    }
+
+    .active-repair-notice {
+      margin-top: 12px;
+      padding: 10px;
+      background: #FEF3C7;
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .active-repair-notice strong {
+      font-weight: 600;
+    }
+
+    .vehicle-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .vehicle-actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .vehicle-actions button.primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+    }
+
+    .vehicle-actions button:hover {
+      background: var(--bg);
+    }
+
+    .upcoming-service {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+
+    .upcoming-service-title {
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .upcoming-service-title strong {
+      font-weight: 700;
+    }
+
+    .upcoming-service-text {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Live Tracking Screen */
+    .info-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .info-row-value {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .info-row-meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .info-row-detail {
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .info-row-location {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .info-row-timestamp {
+      font-size: 12px;
+      color: var(--secondary);
+      margin-top: 4px;
+    }
+
+    /* Progress Stepper */
+    .progress-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 0;
+    }
+
+    .step-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .step-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .step-dot.done {
+      background: var(--success);
+    }
+
+    .step-dot.active {
+      background: var(--warning);
+    }
+
+    .step-dot.pending {
+      background: var(--border);
+    }
+
+    .step-line {
+      width: 2px;
+      height: 24px;
+      margin-top: 4px;
+    }
+
+    .step-line.done {
+      background: var(--success);
+    }
+
+    .step-line.pending {
+      background: var(--border);
+    }
+
+    .step-content {
+      padding-bottom: 12px;
+      flex: 1;
+    }
+
+    .step-label {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text);
+    }
+
+    .step-label.active {
+      font-weight: 700;
+      color: var(--warning);
+    }
+
+    .step-label.done {
+      color: var(--text);
+    }
+
+    .step-label.pending {
+      color: var(--muted);
+    }
+
+    .step-sublabel {
+      font-size: 12px;
+      color: var(--warning);
+      margin-top: 2px;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      flex: 2;
+    }
+
+    .btn-danger {
+      background: #fff;
+      color: var(--danger);
+      border: 2px solid var(--danger);
+      flex: 1;
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+
+    .btn-outline:hover {
+      background: var(--bg);
+    }
+
+    /* Photo Updates */
+    .photo-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-top: 8px;
+      padding-bottom: 4px;
+    }
+
+    .photo-item {
+      min-width: 100px;
+      height: 80px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: flex-end;
+      padding: 6px;
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .photo-row::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .photo-row::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    /* Quote Approval Screen */
+    .quote-section {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      margin-top: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .quote-section:first-of-type {
+      margin-top: 0;
+    }
+
+    .quote-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .quote-item-desc {
+      flex: 1;
+    }
+
+    .quote-item-title {
+      color: var(--text);
+    }
+
+    .quote-item-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .quote-item-total {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .quote-summary {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--accent);
+      border-radius: 10px;
+    }
+
+    .quote-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .quote-total {
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+      font-weight: 700;
+      border-top: 2px solid var(--primary);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+
+    .quote-insurance {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .textarea {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      margin-bottom: 12px;
+      resize: none;
+      height: 60px;
+      font-family: inherit;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* Service History Screen */
+    .vehicle-chips {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .vehicle-chip {
+      min-width: 140px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 700;
+      font-family: 'Courier New', monospace;
+    }
+
+    .vehicle-chip.active {
+      background: var(--primary);
+      color: #fff;
+      border: 1px solid var(--primary);
+    }
+
+    .vehicle-chip-model {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 4px;
+      font-weight: normal;
+      font-family: inherit;
+    }
+
+    .vehicle-chips::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .vehicle-chips::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .history-item {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .history-work {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .history-cost {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .history-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .history-status {
+      font-size: 11px;
+      margin-top: 4px;
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    .history-status.completed {
+      background: #DCFCE7;
+      color: var(--success);
+    }
+
+    .history-status.in-progress {
+      background: #FEF3C7;
+      color: var(--warning);
+    }
+
+    /* Sign Up Screen */
+    .signup-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 40px;
+    }
+
+    .signup-emoji {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .signup-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0 0 8px;
+    }
+
+    .signup-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .form-group {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .phone-input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .country-select {
+      padding: 12px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      width: 80px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .phone-number-input {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    .signup-note {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+
+    /* Section Titles */
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .section-title-spacing {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone-frame">
+    <!-- Header -->
+    <div class="phone-header">
+      <h1 id="headerTitle">My Vehicles</h1>
+      <p>MECANIX Customer</p>
+    </div>
+
+    <!-- Content Container -->
+    <div class="phone-content">
+      <!-- My Vehicles Screen -->
+      <div id="screen-vehicles" class="screen active">
+        <div id="vehiclesContent"></div>
+      </div>
+
+      <!-- Live Tracking Screen -->
+      <div id="screen-tracking" class="screen">
+        <div id="trackingContent"></div>
+      </div>
+
+      <!-- Quote Approval Screen -->
+      <div id="screen-quote" class="screen">
+        <div id="quoteContent"></div>
+      </div>
+
+      <!-- Service History Screen -->
+      <div id="screen-history" class="screen">
+        <div id="historyContent"></div>
+      </div>
+
+      <!-- Sign Up Screen -->
+      <div id="screen-signup" class="screen">
+        <div id="signupContent"></div>
+      </div>
+    </div>
+
+    <!-- Bottom Tabs -->
+    <div class="phone-tabs">
+      <button class="tab-button active" data-tab="vehicles" onclick="switchTab('vehicles')">
+        <span class="tab-icon">🚗</span>
+        <span class="tab-label">Vehicles</span>
+      </button>
+      <button class="tab-button" data-tab="tracking" onclick="switchTab('tracking')">
+        <span class="tab-icon">📍</span>
+        <span class="tab-label">Track</span>
+      </button>
+      <button class="tab-button" data-tab="quote" onclick="switchTab('quote')">
+        <span class="tab-icon">✅</span>
+        <span class="tab-label">Approve</span>
+      </button>
+      <button class="tab-button" data-tab="history" onclick="switchTab('history')">
+        <span class="tab-icon">📋</span>
+        <span class="tab-label">History</span>
+      </button>
+      <button class="tab-button" data-tab="signup" onclick="switchTab('signup')">
+        <span class="tab-icon">👤</span>
+        <span class="tab-label">Sign Up</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Data
+    const vehicles = [
+      { plate: "CD-56-78", car: "Nissan NP300 2.5 TDi", year: 2019, km: "112,000 km", activeJob: true },
+      { plate: "QR-34-56", car: "Honda Jazz 1.3", year: 2022, km: "34,200 km", activeJob: false }
+    ];
+
+    const trackingSteps = [
+      { label: "Received", done: true, active: false },
+      { label: "Diagnosing", done: true, active: false },
+      { label: "Awaiting Approval", done: false, active: true },
+      { label: "In Progress", done: false, active: false },
+      { label: "Ready", done: false, active: false }
+    ];
+
+    const labourItems = [
+      { desc: "Engine diagnostics", hrs: "2.0h", rate: "$45/h", total: "$90.00" },
+      { desc: "Transmission repair", hrs: "6.0h", rate: "$45/h", total: "$270.00" }
+    ];
+
+    const partsItems = [
+      { desc: "Transmission fluid (5L)", qty: "x2", total: "$91.00" },
+      { desc: "Gasket set", qty: "x1", total: "$150.00" }
+    ];
+
+    const serviceHistory = [
+      { date: "10 Mar 2026", shop: "AutoPro Workshop", work: "Transmission repair", cost: "$685.14", status: "In Progress" },
+      { date: "15 Jan 2026", shop: "AutoPro Workshop", work: "Full service (60,000km)", cost: "$320.00", status: "Completed" },
+      { date: "28 Sep 2025", shop: "MecAngola", work: "Brake pads + discs", cost: "$450.00", status: "Completed" },
+      { date: "12 Jun 2025", shop: "AutoPro Workshop", work: "AC recharge + filter", cost: "$180.00", status: "Completed" }
+    ];
+
+    const countryCodes = ["+244", "+258", "+55"];
+
+    // Render Functions
+    function renderMyVehicles() {
+      let html = '';
+      vehicles.forEach(v => {
+        html += `
+          <div class="vehicle-card">
+            <div class="vehicle-info">
+              <div class="vehicle-plate">${v.plate}</div>
+              <div class="vehicle-model">${v.car} • ${v.year}</div>
+              <div class="vehicle-km">${v.km}</div>
+              ${v.activeJob ? `
+                <div class="active-repair-notice">
+                  <strong>Active repair:</strong> Transmission repair at AutoPro Workshop
+                </div>
+              ` : ''}
+              <div class="vehicle-actions">
+                <button onclick="alert('History for ${v.plate}')">History</button>
+                ${v.activeJob ? '<button class="primary" onclick="switchTab(\'tracking\')">Track Repair</button>' : ''}
+              </div>
+            </div>
+            <div class="vehicle-emoji">🚗</div>
+          </div>
+        `;
+      });
+
+      html += `
+        <div class="section-title section-title-spacing">Upcoming Service</div>
+        <div class="upcoming-service">
+          <div class="upcoming-service-title">CD-56-78 • <strong>Oil change due</strong></div>
+          <div class="upcoming-service-text">Next at 115,000 km (approx. April 2026)</div>
+        </div>
+      `;
+
+      document.getElementById('vehiclesContent').innerHTML = html;
+    }
+
+    function renderTracking() {
+      let stepsHtml = '';
+      trackingSteps.forEach((step, idx) => {
+        const isLast = idx === trackingSteps.length - 1;
+        const dotClass = step.done ? 'done' : step.active ? 'active' : 'pending';
+        const lineClass = step.done ? 'done' : 'pending';
+        const labelClass = step.done ? 'done' : step.active ? 'active' : 'pending';
+
+        stepsHtml += `
+          <div class="step">
+            <div class="step-indicator">
+              <div class="step-dot ${dotClass}">${step.done ? '✓' : ''}</div>
+              ${!isLast ? `<div class="step-line ${lineClass}"></div>` : ''}
+            </div>
+            <div class="step-content">
+              <div class="step-label ${labelClass}">${step.label}</div>
+              ${step.active ? '<div class="step-sublabel">Waiting for your approval</div>' : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      let photosHtml = '';
+      ['Front damage', 'Under hood', 'Transmission'].forEach(photo => {
+        photosHtml += `<div class="photo-item">${photo}</div>`;
+      });
+
+      const html = `
+        <div class="info-card">
+          <div class="info-row">
+            <span class="info-row-value">CD-56-78</span>
+            <span class="info-row-meta">JC-002</span>
+          </div>
+          <div class="info-row-detail">Nissan NP300 • Transmission repair</div>
+          <div class="info-row-location">AutoPro Workshop, Luanda</div>
+          <div class="info-row-timestamp">Est. completion: 14 March 2026</div>
+        </div>
+
+        <div class="info-card">
+          <div class="progress-title">Repair Progress</div>
+          ${stepsHtml}
+        </div>
+
+        <button class="btn btn-warning" onclick="switchTab('quote')">View & Approve Quote</button>
+
+        <div class="section-title section-title-spacing">Photo Updates</div>
+        <div class="photo-row">
+          ${photosHtml}
+        </div>
+      `;
+
+      document.getElementById('trackingContent').innerHTML = html;
+    }
+
+    function renderQuote() {
+      let labourHtml = '';
+      labourItems.forEach(item => {
+        labourHtml += `
+          <div class="quote-item">
+            <div class="quote-item-desc">
+              <div class="quote-item-title">${item.desc}</div>
+              <div class="quote-item-meta">${item.hrs} @ ${item.rate}</div>
+            </div>
+            <span class="quote-item-total">${item.total}</span>
+          </div>
+        `;
+      });
+
+      let partsHtml = '';
+      partsItems.forEach(item => {
+        partsHtml += `
+          <div class="quote-item">
+            <div class="quote-item-desc">
+              <div class="quote-item-title">${item.desc}</div>
+              <div class="quote-item-meta">${item.qty}</div>
+            </div>
+            <span class="quote-item-total">${item.total}</span>
+          </div>
+        `;
+      });
+
+      const html = `
+        <div class="info-card">
+          <div style="font-size: 16px; font-weight: 700; margin-bottom: 12px;">Quote for JC-002</div>
+
+          <div class="quote-section">Labour</div>
+          ${labourHtml}
+
+          <div class="quote-section">Parts</div>
+          ${partsHtml}
+
+          <div class="quote-summary">
+            <div class="quote-line">
+              <span>Subtotal</span>
+              <span>$601.00</span>
+            </div>
+            <div class="quote-line">
+              <span>IVA (14%)</span>
+              <span>$84.14</span>
+            </div>
+            <div class="quote-total">
+              <span>Total</span>
+              <span>$685.14</span>
+            </div>
+            <div class="quote-insurance">Insurance covers: $535.14 • Your excess: $150.00</div>
+          </div>
+        </div>
+
+        <textarea class="textarea" placeholder="Add a comment (optional)..."></textarea>
+
+        <div class="button-group">
+          <button class="btn btn-danger" onclick="alert('Quote rejected')">Reject</button>
+          <button class="btn btn-success" onclick="alert('Quote approved!')">Approve Quote</button>
+        </div>
+      `;
+
+      document.getElementById('quoteContent').innerHTML = html;
+    }
+
+    function renderHistory() {
+      let vehicleChipsHtml = '';
+      vehicles.forEach((v, idx) => {
+        vehicleChipsHtml += `
+          <div class="vehicle-chip ${idx === 0 ? 'active' : ''}" onclick="selectVehicleChip(this)">
+            ${v.plate}
+            <div class="vehicle-chip-model">${v.car}</div>
+          </div>
+        `;
+      });
+
+      let historyHtml = '';
+      serviceHistory.forEach(item => {
+        historyHtml += `
+          <div class="history-item">
+            <div class="history-header">
+              <span class="history-work">${item.work}</span>
+              <span class="history-cost">${item.cost}</span>
+            </div>
+            <div class="history-meta">${item.shop} • ${item.date}</div>
+            <div class="history-status ${item.status === 'Completed' ? 'completed' : 'in-progress'}">
+              ${item.status}
+            </div>
+          </div>
+        `;
+      });
+
+      const html = `
+        <div class="section-title">My Vehicles</div>
+        <div class="vehicle-chips">
+          ${vehicleChipsHtml}
+        </div>
+
+        <div class="section-title">Service History</div>
+        ${historyHtml}
+
+        <button class="btn btn-outline" onclick="alert('Downloading PDF...')">Download Service Record (PDF)</button>
+      `;
+
+      document.getElementById('historyContent').innerHTML = html;
+    }
+
+    function renderSignUp() {
+      let countryOptions = '';
+      countryCodes.forEach(code => {
+        countryOptions += `<option>${code}</option>`;
+      });
+
+      const html = `
+        <div class="signup-container">
+          <div class="signup-emoji">🚗</div>
+          <h2 class="signup-title">Welcome to MECANIX</h2>
+          <p class="signup-subtitle">Track your vehicle repairs in real time, approve quotes, and pay from your phone.</p>
+
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <div class="phone-input-group">
+              <select class="country-select">
+                ${countryOptions}
+              </select>
+              <input type="text" class="phone-number-input" placeholder="923 456 789">
+            </div>
+          </div>
+
+          <button class="btn btn-primary" onclick="alert('OTP sent!')">Send OTP Code</button>
+          <p class="signup-note">We'll send a one-time code via SMS to verify your number. No passwords needed.</p>
+        </div>
+      `;
+
+      document.getElementById('signupContent').innerHTML = html;
+    }
+
+    // Screen Management
+    function switchTab(tabId) {
+      // Hide all screens
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+      // Show selected screen
+      document.getElementById('screen-' + tabId).classList.add('active');
+
+      // Update tab buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+      // Update header title
+      const titles = {
+        vehicles: 'My Vehicles',
+        tracking: 'Live Tracking',
+        quote: 'Approve Quote',
+        history: 'Service History',
+        signup: 'Welcome'
+      };
+      document.getElementById('headerTitle').textContent = titles[tabId];
+
+      // Render content
+      switch(tabId) {
+        case 'vehicles':
+          renderMyVehicles();
+          break;
+        case 'tracking':
+          renderTracking();
+          break;
+        case 'quote':
+          renderQuote();
+          break;
+        case 'history':
+          renderHistory();
+          break;
+        case 'signup':
+          renderSignUp();
+          break;
+      }
+    }
+
+    function selectVehicleChip(element) {
+      document.querySelectorAll('.vehicle-chip').forEach(chip => {
+        chip.classList.remove('active');
+      });
+      element.classList.add('active');
+    }
+
+    // Initial render
+    renderMyVehicles();
+  </script>
+</body>
+</html>

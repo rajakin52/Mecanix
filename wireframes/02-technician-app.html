@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MECANIX Technician App</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1F4E79;
+      --secondary: #2E75B6;
+      --success: #22C55E;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #1E293B;
+      --muted: #94A3B8;
+      --light-bg: #F1F5F9;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--light-bg);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px 16px;
+      min-height: 100vh;
+    }
+
+    .mobile-frame {
+      width: 375px;
+      min-height: 700px;
+      background: var(--bg);
+      border-radius: 24px;
+      border: 2px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .header {
+      background: var(--primary);
+      padding: 16px 20px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .bottom-tabs {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      cursor: pointer;
+      color: var(--muted);
+      border-top: 2px solid transparent;
+      transition: all 0.3s ease;
+      background: #fff;
+      border: none;
+      font-family: inherit;
+    }
+
+    .tab-button.active {
+      color: var(--primary);
+      border-top-color: var(--primary);
+    }
+
+    .tab-icon {
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+
+    .tab-label {
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    /* Home Screen Styles */
+    .timer-banner {
+      background: var(--success);
+      border-radius: 16px;
+      padding: 16px;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+
+    .timer-label {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-bottom: 4px;
+    }
+
+    .timer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .timer-info-left div:first-child {
+      font-weight: 700;
+      font-size: 16px;
+      margin-bottom: 2px;
+    }
+
+    .timer-info-left div:last-child {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .timer-display {
+      font-size: 28px;
+      font-weight: 800;
+      font-family: monospace;
+    }
+
+    .timer-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .timer-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      background: transparent;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .timer-btn.stop {
+      border: none;
+      background: #fff;
+      color: var(--danger);
+    }
+
+    .timer-btn:active {
+      opacity: 0.8;
+    }
+
+    .screen-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .job-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
+    }
+
+    .job-card.high-priority {
+      border-left-color: var(--danger);
+    }
+
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .job-plate {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .badge {
+      background: var(--danger);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.active {
+      background: var(--success);
+    }
+
+    .badge.muted {
+      background: var(--muted);
+    }
+
+    .job-car {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .job-task {
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .job-time {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .job-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .btn:active {
+      opacity: 0.8;
+    }
+
+    /* Timer Log Screen Styles */
+    .total-hours-section {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .total-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .total-hours {
+      font-size: 36px;
+      font-weight: 800;
+      font-family: monospace;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .utilisation {
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .log-entry {
+      background: #fff;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log-entry-left div:first-child {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .log-entry-left div:last-child {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .log-entry-right {
+      text-align: right;
+    }
+
+    .log-duration {
+      font-weight: 700;
+      font-family: monospace;
+      margin-bottom: 4px;
+    }
+
+    /* Productivity Screen Styles */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .stat-value.primary {
+      color: var(--primary);
+    }
+
+    .stat-value.success {
+      color: var(--success);
+    }
+
+    .stat-value.secondary {
+      color: var(--secondary);
+    }
+
+    .stat-value.warning {
+      color: var(--warning);
+    }
+
+    .chart-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      height: 100px;
+      gap: 6px;
+    }
+
+    .bar-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .bar {
+      width: 100%;
+      background: var(--secondary);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .bar.current {
+      background: var(--primary);
+    }
+
+    .bar-label {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Job Detail Screen Styles */
+    .vehicle-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .vehicle-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .vehicle-plate {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .vehicle-name {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .vehicle-customer {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .problem-section {
+      margin-top: 12px;
+      padding: 12px;
+      background: #F0F4F8;
+      border-radius: 8px;
+    }
+
+    .problem-label {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .problem-text {
+      font-size: 13px;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .action-btn {
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-height: 48px;
+    }
+
+    .action-icon {
+      font-size: 20px;
+    }
+
+    .action-btn:active {
+      background: var(--bg);
+    }
+
+    .btn-complete {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: var(--success);
+      color: #fff;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      min-height: 50px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-complete:active {
+      opacity: 0.9;
+    }
+
+    /* Scrollbar Styling */
+    .content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .content::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .content::-webkit-scrollbar-thumb:hover {
+      background: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="mobile-frame">
+    <div class="header">
+      <div class="header-title" id="headerTitle">My Jobs</div>
+      <div class="header-subtitle">MECANIX Technician</div>
+    </div>
+
+    <div class="content">
+      <!-- Home Screen -->
+      <div class="screen active" id="screen-home">
+        <div class="timer-banner">
+          <div class="timer-label">ACTIVE TIMER</div>
+          <div class="timer-content">
+            <div class="timer-info-left">
+              <div>AB-12-34 • Toyota Hilux</div>
+              <div>Full service • JC-001</div>
+            </div>
+            <div class="timer-display" id="timerDisplay">02:34:12</div>
+          </div>
+          <div class="timer-buttons">
+            <button class="timer-btn">Pause</button>
+            <button class="timer-btn stop">Stop</button>
+          </div>
+        </div>
+
+        <div class="screen-title">Today's Jobs (3)</div>
+
+        <div class="job-card high-priority">
+          <div class="job-header">
+            <span class="job-plate">CD-56-78</span>
+            <span class="badge">High</span>
+          </div>
+          <div class="job-car">Nissan NP300</div>
+          <div class="job-task">Transmission repair</div>
+          <div class="job-time">Est. 6h</div>
+          <div class="job-buttons">
+            <button class="btn btn-primary">Start Work</button>
+            <button class="btn btn-secondary">Details</button>
+          </div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-header">
+            <span class="job-plate">EF-90-12</span>
+          </div>
+          <div class="job-car">Honda Civic</div>
+          <div class="job-task">Diagnostics</div>
+          <div class="job-time">Est. 1h</div>
+          <div class="job-buttons">
+            <button class="btn btn-primary">Start Work</button>
+            <button class="btn btn-secondary">Details</button>
+          </div>
+        </div>
+
+        <div class="job-card">
+          <div class="job-header">
+            <span class="job-plate">MN-45-67</span>
+          </div>
+          <div class="job-car">Ford Ranger</div>
+          <div class="job-task">AC recharge</div>
+          <div class="job-time">Est. 2h</div>
+          <div class="job-buttons">
+            <button class="btn btn-primary">Start Work</button>
+            <button class="btn btn-secondary">Details</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timer Log Screen -->
+      <div class="screen" id="screen-timer">
+        <div class="total-hours-section">
+          <div class="total-label">Today's Total</div>
+          <div class="total-hours">05:47:30</div>
+          <div class="utilisation">Utilisation: 82%</div>
+        </div>
+
+        <div class="screen-title">Time Log</div>
+
+        <div class="log-entry">
+          <div class="log-entry-left">
+            <div>JC-001 • AB-12-34</div>
+            <div>Full service</div>
+          </div>
+          <div class="log-entry-right">
+            <div class="log-duration">2h 34m</div>
+            <span class="badge active">Active</span>
+          </div>
+        </div>
+
+        <div class="log-entry">
+          <div class="log-entry-left">
+            <div>JC-005 • IJ-78-90</div>
+            <div>Brake pads</div>
+          </div>
+          <div class="log-entry-right">
+            <div class="log-duration">1h 45m</div>
+            <span class="badge muted">Done</span>
+          </div>
+        </div>
+
+        <div class="log-entry">
+          <div class="log-entry-left">
+            <div>JC-007 • OP-12-34</div>
+            <div>Oil change</div>
+          </div>
+          <div class="log-entry-right">
+            <div class="log-duration">1h 28m</div>
+            <span class="badge muted">Done</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Productivity Screen -->
+      <div class="screen" id="screen-productivity">
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Hours Today</div>
+            <div class="stat-value primary">5h 47m</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Jobs Today</div>
+            <div class="stat-value success">3</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">This Week</div>
+            <div class="stat-value secondary">28h 15m</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Utilisation</div>
+            <div class="stat-value warning">82%</div>
+          </div>
+        </div>
+
+        <div class="screen-title">Weekly Hours (Last 8 Weeks)</div>
+
+        <div class="chart-container">
+          <div class="bar-chart">
+            <div class="bar-item">
+              <div class="bar" style="height: 80px;"></div>
+              <div class="bar-label">W1</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 70px;"></div>
+              <div class="bar-label">W2</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 87.5px;"></div>
+              <div class="bar-label">W3</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 75px;"></div>
+              <div class="bar-label">W4</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 95px;"></div>
+              <div class="bar-label">W5</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 82.5px;"></div>
+              <div class="bar-label">W6</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar" style="height: 90px;"></div>
+              <div class="bar-label">W7</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar current" style="height: 70px;"></div>
+              <div class="bar-label">W8</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Job Detail Screen -->
+      <div class="screen" id="screen-detail">
+        <div class="vehicle-card">
+          <div class="vehicle-header">
+            <span class="vehicle-plate">CD-56-78</span>
+            <span class="badge" style="background: #8B5CF6;">Awaiting Approval</span>
+          </div>
+          <div class="vehicle-name">Nissan NP300 2.5 TDi • 2019</div>
+          <div class="vehicle-customer">Customer: Maria Santos</div>
+          <div class="problem-section">
+            <div class="problem-label">Reported Problem</div>
+            <div class="problem-text">Transmission slipping between 3rd and 4th gear. Noise when accelerating.</div>
+          </div>
+        </div>
+
+        <div class="screen-title">Quick Actions</div>
+
+        <div class="quick-actions">
+          <button class="action-btn">
+            <span class="action-icon">📝</span>
+            <span>Add Note</span>
+          </button>
+          <button class="action-btn">
+            <span class="action-icon">📷</span>
+            <span>Take Photo</span>
+          </button>
+          <button class="action-btn">
+            <span class="action-icon">🔧</span>
+            <span>Parts Needed</span>
+          </button>
+          <button class="action-btn">
+            <span class="action-icon">🚫</span>
+            <span>Blocked</span>
+          </button>
+        </div>
+
+        <button class="btn-complete">Mark Complete</button>
+      </div>
+    </div>
+
+    <div class="bottom-tabs">
+      <button class="tab-button active" data-tab="home">
+        <div class="tab-icon">🏠</div>
+        <div class="tab-label">My Jobs</div>
+      </button>
+      <button class="tab-button" data-tab="timer">
+        <div class="tab-icon">⏱️</div>
+        <div class="tab-label">Timer Log</div>
+      </button>
+      <button class="tab-button" data-tab="productivity">
+        <div class="tab-icon">📊</div>
+        <div class="tab-label">Stats</div>
+      </button>
+      <button class="tab-button" data-tab="detail">
+        <div class="tab-icon">📋</div>
+        <div class="tab-label">Job Detail</div>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const screens = document.querySelectorAll('.screen');
+    const headerTitle = document.getElementById('headerTitle');
+
+    const screenTitles = {
+      home: 'My Jobs',
+      timer: 'Timer Log',
+      productivity: 'My Stats',
+      detail: 'Job Detail'
+    };
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabName = button.dataset.tab;
+
+        // Update active button
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        // Update active screen
+        screens.forEach(screen => screen.classList.remove('active'));
+        document.getElementById(`screen-${tabName}`).classList.add('active');
+
+        // Update header title
+        headerTitle.textContent = screenTitles[tabName];
+      });
+    });
+
+    // Simple timer animation (increments every second)
+    let seconds = 154; // 02:34:12 in seconds = 2*3600 + 34*60 + 12
+
+    function formatTime(totalSeconds) {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    const timerDisplay = document.getElementById('timerDisplay');
+    timerDisplay.textContent = formatTime(seconds);
+
+    // Increment timer every second
+    setInterval(() => {
+      seconds++;
+      timerDisplay.textContent = formatTime(seconds);
+    }, 1000);
+  </script>
+</body>
+</html>

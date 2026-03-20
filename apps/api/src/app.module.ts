@@ -6,6 +6,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { TechniciansModule } from './modules/technicians/technicians.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -17,6 +19,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     TenantsModule,
     CustomersModule,
     VehiclesModule,
+    TechniciansModule,
+    JobsModule,
   ],
   providers: [
     {
