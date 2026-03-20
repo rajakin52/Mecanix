@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter, Link } from '@/i18n/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const t = useTranslations('common');
   const [mounted, setMounted] = useState(false);

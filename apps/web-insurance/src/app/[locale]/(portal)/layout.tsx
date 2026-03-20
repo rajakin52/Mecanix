@@ -1,6 +1,4 @@
-import type { ReactNode } from 'react';
-
-export default function PortalLayout({ children }: { children: ReactNode }) {
+export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 border-r border-gray-200 bg-white p-4">
