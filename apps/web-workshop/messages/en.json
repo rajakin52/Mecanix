@@ -42,7 +42,9 @@
     "email": "Email",
     "address": "Address",
     "notes": "Notes",
-    "jobs": "Job Cards"
+    "jobs": "Job Cards",
+    "floor": "Live Floor",
+    "timesheets": "Timesheets"
   },
   "jobs": {
     "title": "Job Cards",
@@ -102,6 +104,32 @@
     "updated": "Customer updated successfully",
     "deleted": "Customer deleted successfully",
     "linkedVehicles": "Linked vehicles"
+  },
+  "time": {
+    "floorTitle": "Live Floor View",
+    "timesheetsTitle": "Timesheets",
+    "working": "Working",
+    "paused": "Paused",
+    "idle": "Idle",
+    "notClockedIn": "Not clocked in",
+    "clockedIn": "Clocked in",
+    "clockedOut": "Clocked out",
+    "clockIn": "Clock in",
+    "clockOut": "Clock out",
+    "startTimer": "Start timer",
+    "pauseTimer": "Pause",
+    "resumeTimer": "Resume",
+    "stopTimer": "Stop",
+    "hoursLogged": "Hours logged",
+    "currentJob": "Current job",
+    "elapsed": "Elapsed",
+    "technician": "Technician",
+    "date": "Date",
+    "started": "Started",
+    "ended": "Ended",
+    "duration": "Duration",
+    "totalHours": "Total hours",
+    "noEntries": "No time entries"
   },
   "vehicles": {
     "title": "Vehicles",

@@ -42,7 +42,9 @@
     "email": "Email",
     "address": "Morada",
     "notes": "Notas",
-    "jobs": "Fichas"
+    "jobs": "Fichas",
+    "floor": "Vista da Oficina",
+    "timesheets": "Folhas de Horas"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -102,6 +104,32 @@
     "updated": "Cliente atualizado com sucesso",
     "deleted": "Cliente eliminado com sucesso",
     "linkedVehicles": "Veículos associados"
+  },
+  "time": {
+    "floorTitle": "Vista da Oficina em Tempo Real",
+    "timesheetsTitle": "Folhas de Horas",
+    "working": "A trabalhar",
+    "paused": "Em pausa",
+    "idle": "Inativo",
+    "notClockedIn": "Sem registo de entrada",
+    "clockedIn": "Entrada registada",
+    "clockedOut": "Saída registada",
+    "clockIn": "Registar entrada",
+    "clockOut": "Registar saída",
+    "startTimer": "Iniciar temporizador",
+    "pauseTimer": "Pausar",
+    "resumeTimer": "Retomar",
+    "stopTimer": "Parar",
+    "hoursLogged": "Horas registadas",
+    "currentJob": "Trabalho atual",
+    "elapsed": "Decorrido",
+    "technician": "Técnico",
+    "date": "Data",
+    "started": "Início",
+    "ended": "Fim",
+    "duration": "Duração",
+    "totalHours": "Total de horas",
+    "noEntries": "Sem registos de tempo"
   },
   "vehicles": {
     "title": "Veículos",

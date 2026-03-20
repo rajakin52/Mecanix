@@ -42,7 +42,9 @@
     "email": "Email",
     "address": "Endereço",
     "notes": "Observações",
-    "jobs": "Fichas"
+    "jobs": "Fichas",
+    "floor": "Piso da Oficina",
+    "timesheets": "Folhas de Ponto"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -102,6 +104,32 @@
     "updated": "Cliente atualizado com sucesso",
     "deleted": "Cliente excluído com sucesso",
     "linkedVehicles": "Veículos vinculados"
+  },
+  "time": {
+    "floorTitle": "Piso da Oficina em Tempo Real",
+    "timesheetsTitle": "Folhas de Ponto",
+    "working": "Trabalhando",
+    "paused": "Pausado",
+    "idle": "Ocioso",
+    "notClockedIn": "Sem registro de entrada",
+    "clockedIn": "Entrada registrada",
+    "clockedOut": "Saída registrada",
+    "clockIn": "Registrar entrada",
+    "clockOut": "Registrar saída",
+    "startTimer": "Iniciar cronômetro",
+    "pauseTimer": "Pausar",
+    "resumeTimer": "Retomar",
+    "stopTimer": "Parar",
+    "hoursLogged": "Horas registradas",
+    "currentJob": "Trabalho atual",
+    "elapsed": "Decorrido",
+    "technician": "Técnico",
+    "date": "Data",
+    "started": "Início",
+    "ended": "Fim",
+    "duration": "Duração",
+    "totalHours": "Total de horas",
+    "noEntries": "Sem registros de tempo"
   },
   "vehicles": {
     "title": "Veículos",
