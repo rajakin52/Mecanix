@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createCustomerSchema } from '@mecanix/validators';
 import type { CreateCustomerInput } from '@mecanix/validators';
+import { Link } from '@/i18n/navigation';
 
 export default function CustomersPage() {
   const t = useTranslations('customers');
@@ -69,7 +70,11 @@ export default function CustomersPage() {
                 {data?.data && data.data.length > 0 ? (
                   data.data.map((customer: Record<string, unknown>) => (
                     <tr key={customer.id as string} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{customer.full_name as string}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
+                        <Link href={`/customers/${customer.id as string}`}>
+                          {customer.full_name as string}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{customer.phone as string}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{(customer.email as string) ?? '-'}</td>
                       <td className="px-4 py-3 text-sm">

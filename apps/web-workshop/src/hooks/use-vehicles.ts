@@ -42,6 +42,17 @@ export function useUpdateVehicle() {
   return useMutation({
     mutationFn: ({ id, ...data }: UpdateVehicleDto & { id: string }) =>
       api.patch<Vehicle>(`/vehicles/${id}`, data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicle', variables.id] });
+    },
+  });
+}
+
+export function useDeleteVehicle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/vehicles/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
   });
 }

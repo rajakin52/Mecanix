@@ -1,8 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { supabase } from '../../src/lib/supabase';
+import * as SecureStore from 'expo-secure-store';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -11,10 +13,39 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) return;
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (!error) router.replace('/(tabs)');
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert(
+          t('common.error'),
+          data?.error?.message ?? t('auth.loginFailed'),
+        );
+        return;
+      }
+
+      const { access_token, refresh_token } = data.data ?? data;
+
+      await SecureStore.setItemAsync('auth_token', access_token);
+      if (refresh_token) {
+        await SecureStore.setItemAsync('refresh_token', refresh_token);
+      }
+
+      router.replace('/(tabs)');
+    } catch (err) {
+      Alert.alert(t('common.error'), t('auth.loginFailed'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,6 +54,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder={t('auth.email')}
+        placeholderTextColor="#8E8E93"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -31,6 +63,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder={t('auth.password')}
+        placeholderTextColor="#8E8E93"
         value={password}
         onChangeText={setPassword}
         secureTextEntry

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthService } from './auth.service';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 
 const mockSupabaseService = {
   getClient: vi.fn(),
   getAuthClient: vi.fn(),
+  createAnonClient: vi.fn(),
 };
 
 describe('AuthService', () => {
@@ -17,7 +18,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should throw UnauthorizedException on invalid credentials', async () => {
-      mockSupabaseService.getClient.mockReturnValue({
+      mockSupabaseService.createAnonClient.mockReturnValue({
         auth: {
           signInWithPassword: vi.fn().mockResolvedValue({
             data: null,
@@ -39,13 +40,16 @@ describe('AuthService', () => {
         expires_at: 9999999999,
       };
 
-      mockSupabaseService.getClient.mockReturnValue({
+      mockSupabaseService.createAnonClient.mockReturnValue({
         auth: {
           signInWithPassword: vi.fn().mockResolvedValue({
             data: { user: mockUser, session: mockSession },
             error: null,
           }),
         },
+      });
+
+      mockSupabaseService.getClient.mockReturnValue({
         from: vi.fn().mockImplementation((table: string) => {
           if (table === 'users') {
             return {
@@ -92,7 +96,7 @@ describe('AuthService', () => {
 
   describe('refreshToken', () => {
     it('should throw UnauthorizedException on invalid refresh token', async () => {
-      mockSupabaseService.getClient.mockReturnValue({
+      mockSupabaseService.createAnonClient.mockReturnValue({
         auth: {
           refreshSession: vi.fn().mockResolvedValue({
             data: { session: null },

@@ -41,7 +41,10 @@ export function useUpdateCustomer() {
   return useMutation({
     mutationFn: ({ id, ...data }: UpdateCustomerDto & { id: string }) =>
       api.patch<Customer>(`/customers/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer', variables.id] });
+    },
   });
 }
 

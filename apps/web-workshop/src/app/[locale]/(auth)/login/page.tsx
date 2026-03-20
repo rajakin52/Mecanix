@@ -7,6 +7,7 @@ import { loginSchema } from '@mecanix/validators';
 import type { LoginInput } from '@mecanix/validators';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
+import { api } from '@/lib/api';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
@@ -22,21 +23,14 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        setError(json.error?.message ?? t('loginFailed'));
-        return;
-      }
-      localStorage.setItem('access_token', json.data.session.accessToken);
-      localStorage.setItem('refresh_token', json.data.session.refreshToken);
+      const result = await api.post<{
+        session: { accessToken: string; refreshToken: string };
+      }>('/auth/login', data);
+      localStorage.setItem('access_token', result.session.accessToken);
+      localStorage.setItem('refresh_token', result.session.refreshToken);
       router.push('/dashboard');
-    } catch {
-      setError(t('loginFailed'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('loginFailed'));
     } finally {
       setLoading(false);
     }

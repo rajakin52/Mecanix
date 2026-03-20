@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
+import { Link } from '@/i18n/navigation';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -69,7 +70,11 @@ export default function VehiclesPage() {
                 {data?.data && data.data.length > 0 ? (
                   data.data.map((vehicle: Record<string, unknown>) => (
                     <tr key={vehicle.id as string} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">{vehicle.plate as string}</td>
+                      <td className="px-4 py-3 text-sm font-mono font-medium">
+                        <Link href={`/vehicles/${vehicle.id as string}`} className="text-primary-600 hover:text-primary-700 hover:underline">
+                          {vehicle.plate as string}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{vehicle.make as string}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{vehicle.model as string}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{(vehicle.year as number) ?? '-'}</td>

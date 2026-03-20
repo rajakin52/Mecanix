@@ -7,6 +7,7 @@ import { signUpSchema } from '@mecanix/validators';
 import type { SignUpInput } from '@mecanix/validators';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
+import { api } from '@/lib/api';
 
 export default function SignupPage() {
   const t = useTranslations('auth');
@@ -22,21 +23,14 @@ export default function SignupPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/v1/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        setError(json.error?.message ?? t('signupFailed'));
-        return;
-      }
-      localStorage.setItem('access_token', json.data.session.accessToken);
-      localStorage.setItem('refresh_token', json.data.session.refreshToken);
+      const result = await api.post<{
+        session: { accessToken: string; refreshToken: string };
+      }>('/auth/signup', data);
+      localStorage.setItem('access_token', result.session.accessToken);
+      localStorage.setItem('refresh_token', result.session.refreshToken);
       router.push('/dashboard');
-    } catch {
-      setError(t('signupFailed'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('signupFailed'));
     } finally {
       setLoading(false);
     }
