@@ -50,7 +50,8 @@
     "purchaseOrders": "Encomendas",
     "bills": "Faturas Fornecedor",
     "expenses": "Despesas",
-    "invoices": "Faturas"
+    "invoices": "Faturas",
+    "insurance": "Seguros"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -260,6 +261,37 @@
     "payments": "Pagamentos",
     "creditNotes": "Notas de Crédito",
     "generated": "Fatura gerada"
+  },
+  "insurance": {
+    "title": "Sinistros",
+    "newClaim": "Novo Sinistro",
+    "claimNumber": "Sinistro #",
+    "insurer": "Seguradora",
+    "policyNumber": "Apólice #",
+    "excessAmount": "Franquia",
+    "workshopEstimate": "Orçamento da Oficina",
+    "approvedAmount": "Valor Aprovado",
+    "status": "Estado",
+    "selectInsurer": "Selecionar seguradora",
+    "selectJob": "Selecionar ficha de trabalho",
+    "estimate": "Orçamento",
+    "createEstimate": "Criar Orçamento",
+    "approve": "Aprovar",
+    "reject": "Rejeitar",
+    "photos": "Fotografias",
+    "damagePhotos": "Fotografias de Danos",
+    "repairPhotos": "Fotografias de Reparação",
+    "completionPhotos": "Fotografias de Conclusão",
+    "addPhoto": "Adicionar Fotografia",
+    "assessorActions": "Ações do Perito",
+    "noClaims": "Sem sinistros",
+    "companies": "Seguradoras",
+    "addCompany": "Adicionar Seguradora",
+    "companyName": "Nome da Seguradora",
+    "slaHours": "SLA (horas)",
+    "claimCreated": "Sinistro iniciado",
+    "statusChanged": "Estado alterado",
+    "estimateCreated": "Orçamento criado"
   },
   "vehicles": {
     "title": "Veículos",

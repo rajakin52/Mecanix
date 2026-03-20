@@ -50,7 +50,8 @@
     "purchaseOrders": "Purchase Orders",
     "bills": "Bills",
     "expenses": "Expenses",
-    "invoices": "Invoices"
+    "invoices": "Invoices",
+    "insurance": "Insurance"
   },
   "jobs": {
     "title": "Job Cards",
@@ -260,6 +261,37 @@
     "payments": "Payments",
     "creditNotes": "Credit Notes",
     "generated": "Invoice generated"
+  },
+  "insurance": {
+    "title": "Insurance Claims",
+    "newClaim": "New Claim",
+    "claimNumber": "Claim #",
+    "insurer": "Insurance Company",
+    "policyNumber": "Policy #",
+    "excessAmount": "Excess",
+    "workshopEstimate": "Workshop Estimate",
+    "approvedAmount": "Approved Amount",
+    "status": "Status",
+    "selectInsurer": "Select insurance company",
+    "selectJob": "Select job card",
+    "estimate": "Estimate",
+    "createEstimate": "Create Estimate",
+    "approve": "Approve",
+    "reject": "Reject",
+    "photos": "Photos",
+    "damagePhotos": "Damage Photos",
+    "repairPhotos": "Repair Photos",
+    "completionPhotos": "Completion Photos",
+    "addPhoto": "Add Photo",
+    "assessorActions": "Assessor Actions",
+    "noClaims": "No insurance claims",
+    "companies": "Insurance Companies",
+    "addCompany": "Add Company",
+    "companyName": "Company Name",
+    "slaHours": "SLA (hours)",
+    "claimCreated": "Claim initiated",
+    "statusChanged": "Status changed",
+    "estimateCreated": "Estimate created"
   },
   "vehicles": {
     "title": "Vehicles",

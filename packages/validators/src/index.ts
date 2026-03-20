@@ -7,3 +7,4 @@ export * from './job';
 export * from './time';
 export * from './inventory';
 export * from './invoice';
+export * from './insurance';

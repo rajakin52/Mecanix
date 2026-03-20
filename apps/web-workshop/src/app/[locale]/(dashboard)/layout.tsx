@@ -34,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/bills', label: t('bills') },
     { href: '/expenses', label: t('expenses') },
     { href: '/invoices', label: t('invoices') },
+    { href: '/insurance', label: t('insurance') },
     { href: '/settings', label: t('settings') },
   ];
 
