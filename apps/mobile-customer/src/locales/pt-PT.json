@@ -1,0 +1,23 @@
+{
+  "common": {
+    "loading": "A carregar...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "search": "Pesquisar",
+    "noResults": "Sem resultados"
+  },
+  "tabs": {
+    "vehicles": "Meus Veículos",
+    "jobs": "Trabalhos Ativos",
+    "history": "Histórico",
+    "profile": "Perfil"
+  },
+  "auth": {
+    "login": "Entrar",
+    "phone": "Número de telemóvel",
+    "sendCode": "Enviar código",
+    "verifyCode": "Verificar código",
+    "otpPlaceholder": "Código de verificação"
+  }
+}

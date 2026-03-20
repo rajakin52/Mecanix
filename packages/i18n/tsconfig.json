@@ -1,0 +1,9 @@
+{
+  "extends": "@mecanix/tsconfig/library.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "resolveJsonModule": true
+  },
+  "include": ["src"]
+}

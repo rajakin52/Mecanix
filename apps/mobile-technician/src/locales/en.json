@@ -1,0 +1,21 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "search": "Search",
+    "noResults": "No results"
+  },
+  "tabs": {
+    "home": "Jobs",
+    "history": "History",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": "Sign in",
+    "signUp": "Create account",
+    "email": "Email",
+    "password": "Password"
+  }
+}

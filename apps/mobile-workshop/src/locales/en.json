@@ -1,0 +1,33 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "search": "Search",
+    "noResults": "No results"
+  },
+  "tabs": {
+    "home": "Home",
+    "customers": "Customers",
+    "vehicles": "Vehicles",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Sign in",
+    "signUp": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "workshopName": "Workshop name"
+  },
+  "customers": {
+    "title": "Customers",
+    "newCustomer": "New customer",
+    "searchPlaceholder": "Search customers..."
+  },
+  "vehicles": {
+    "title": "Vehicles",
+    "newVehicle": "New vehicle",
+    "searchPlaceholder": "Search by plate..."
+  }
+}

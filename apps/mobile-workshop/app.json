@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "MECANIX Workshop",
+    "slug": "mecanix-workshop",
+    "version": "0.0.1",
+    "scheme": "mecanix-workshop",
+    "platforms": ["ios", "android"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#4CAF50"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-localization"]
+  }
+}

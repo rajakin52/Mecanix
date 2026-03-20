@@ -1,0 +1,17 @@
+bucket_definitions:
+  tenant_data:
+    parameters:
+      - SELECT token_parameters.tenant_id AS tenant_id
+    data:
+      - SELECT id, tenant_id, full_name, phone, email, tax_id, address, notes,
+               created_at, updated_at, created_by, updated_by
+        FROM customers
+        WHERE tenant_id = bucket.tenant_id
+          AND deleted_at IS NULL
+
+      - SELECT id, tenant_id, customer_id, plate, vin, make, model, year, color,
+               fuel_type, engine_size, mileage, notes, photos,
+               created_at, updated_at, created_by, updated_by
+        FROM vehicles
+        WHERE tenant_id = bucket.tenant_id
+          AND deleted_at IS NULL

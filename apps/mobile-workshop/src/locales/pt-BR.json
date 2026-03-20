@@ -1,0 +1,33 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "search": "Pesquisar",
+    "noResults": "Sem resultados"
+  },
+  "tabs": {
+    "home": "Início",
+    "customers": "Clientes",
+    "vehicles": "Veículos",
+    "settings": "Configurações"
+  },
+  "auth": {
+    "login": "Entrar",
+    "signUp": "Criar conta",
+    "email": "Email",
+    "password": "Senha",
+    "workshopName": "Nome da oficina"
+  },
+  "customers": {
+    "title": "Clientes",
+    "newCustomer": "Novo cliente",
+    "searchPlaceholder": "Pesquisar clientes..."
+  },
+  "vehicles": {
+    "title": "Veículos",
+    "newVehicle": "Novo veículo",
+    "searchPlaceholder": "Pesquisar por placa..."
+  }
+}

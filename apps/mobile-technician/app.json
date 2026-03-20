@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "MECANIX Technician",
+    "slug": "mecanix-technician",
+    "version": "0.0.1",
+    "scheme": "mecanix-technician",
+    "platforms": ["ios", "android"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#1C1C1E"
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-localization"]
+  }
+}

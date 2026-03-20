@@ -1,0 +1,4 @@
+{
+  "extends": "@mecanix/tsconfig/expo.json",
+  "include": ["src"]
+}

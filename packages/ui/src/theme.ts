@@ -1,0 +1,70 @@
+export const colors = {
+  primary: {
+    50: '#E8F5E9',
+    100: '#C8E6C9',
+    200: '#A5D6A7',
+    300: '#81C784',
+    400: '#66BB6A',
+    500: '#4CAF50',
+    600: '#43A047',
+    700: '#388E3C',
+    800: '#2E7D32',
+    900: '#1B5E20',
+  },
+  secondary: {
+    50: '#F5F5F7',
+    100: '#E5E5EA',
+    200: '#C7C7CC',
+    300: '#AEAEB2',
+    400: '#8E8E93',
+    500: '#636366',
+    600: '#48484A',
+    700: '#363638',
+    800: '#1C1C1E',
+    900: '#0A0A0C',
+  },
+  success: '#00C853',
+  warning: '#FFB300',
+  error: '#FF3B30',
+  info: '#2196F3',
+  white: '#FFFFFF',
+  black: '#0A0A0C',
+  background: {
+    light: '#FFFFFF',
+    subtle: '#F8F9FA',
+    dark: '#0A0A0C',
+  },
+} as const;
+
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  base: 16,
+  lg: 20,
+  xl: 24,
+  '2xl': 32,
+  '3xl': 40,
+  '4xl': 48,
+  '5xl': 64,
+} as const;
+
+export const typography = {
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 32,
+    '4xl': 40,
+  },
+  fontWeight: {
+    regular: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold: '700' as const,
+    black: '900' as const,
+  },
+} as const;

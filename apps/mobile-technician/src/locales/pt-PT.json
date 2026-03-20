@@ -1,0 +1,21 @@
+{
+  "common": {
+    "loading": "A carregar...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "search": "Pesquisar",
+    "noResults": "Sem resultados"
+  },
+  "tabs": {
+    "home": "Trabalhos",
+    "history": "Histórico",
+    "profile": "Perfil"
+  },
+  "auth": {
+    "login": "Entrar",
+    "signUp": "Criar conta",
+    "email": "Email",
+    "password": "Palavra-passe"
+  }
+}
