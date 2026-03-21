@@ -51,7 +51,8 @@
     "bills": "Contas a Pagar",
     "expenses": "Despesas",
     "invoices": "Notas Fiscais",
-    "insurance": "Seguros"
+    "insurance": "Seguros",
+    "reports": "Relatórios"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -292,6 +293,29 @@
     "claimCreated": "Sinistro iniciado",
     "statusChanged": "Status alterado",
     "estimateCreated": "Orçamento criado"
+  },
+  "reports": {
+    "title": "Relatórios",
+    "selectReport": "Selecionar relatório",
+    "dateRange": "Período",
+    "from": "De",
+    "to": "Até",
+    "revenue": "Resumo de Receita",
+    "jobCards": "Relatório de Fichas de Trabalho",
+    "technicians": "Desempenho dos Técnicos",
+    "partsUsage": "Utilização de Peças",
+    "outstandingInvoices": "Notas Fiscais Pendentes",
+    "outstandingBills": "Contas a Pagar Pendentes",
+    "expensesByCategory": "Despesas por Categoria",
+    "incomeVsExpense": "Receita vs Despesa",
+    "insuranceClaims": "Sinistros",
+    "customerRetention": "Retenção de Clientes",
+    "creditNotes": "Notas de Crédito",
+    "totalInvoiced": "Total Faturado",
+    "paymentsReceived": "Pagamentos Recebidos",
+    "netProfit": "Lucro Líquido",
+    "noData": "Sem dados para este período",
+    "lowStock": "Alertas de Estoque Baixo"
   },
   "vehicles": {
     "title": "Veículos",

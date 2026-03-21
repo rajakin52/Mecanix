@@ -51,7 +51,8 @@
     "bills": "Bills",
     "expenses": "Expenses",
     "invoices": "Invoices",
-    "insurance": "Insurance"
+    "insurance": "Insurance",
+    "reports": "Reports"
   },
   "jobs": {
     "title": "Job Cards",
@@ -292,6 +293,29 @@
     "claimCreated": "Claim initiated",
     "statusChanged": "Status changed",
     "estimateCreated": "Estimate created"
+  },
+  "reports": {
+    "title": "Reports",
+    "selectReport": "Select report",
+    "dateRange": "Date range",
+    "from": "From",
+    "to": "To",
+    "revenue": "Revenue Summary",
+    "jobCards": "Job Card Report",
+    "technicians": "Technician Performance",
+    "partsUsage": "Parts Usage",
+    "outstandingInvoices": "Outstanding Invoices",
+    "outstandingBills": "Outstanding Bills",
+    "expensesByCategory": "Expenses by Category",
+    "incomeVsExpense": "Income vs Expense",
+    "insuranceClaims": "Insurance Claims",
+    "customerRetention": "Customer Retention",
+    "creditNotes": "Credit Notes",
+    "totalInvoiced": "Total Invoiced",
+    "paymentsReceived": "Payments Received",
+    "netProfit": "Net Profit",
+    "noData": "No data for this period",
+    "lowStock": "Low Stock Alerts"
   },
   "vehicles": {
     "title": "Vehicles",
