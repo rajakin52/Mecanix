@@ -14,6 +14,7 @@ import { PurchasesModule } from './modules/purchases/purchases.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
 import { InsuranceModule } from './modules/insurance/insurance.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -33,6 +34,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     ExpensesModule,
     InvoicesModule,
     InsuranceModule,
+    NotificationsModule,
   ],
   providers: [
     {
