@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateVendorInput, UpdateVendorInput } from '@mecanix/validators';
 
@@ -70,6 +70,33 @@ export class VendorsService {
 
   async update(tenantId: string, id: string, userId: string, input: UpdateVendorInput) {
     await this.getById(tenantId, id);
+
+    // Block deactivation if vendor has open POs or unpaid bills
+    if ((input as Record<string, unknown>).isActive === false) {
+      const client = this.supabase.getClient();
+
+      const { data: openPOs } = await client
+        .from('purchase_orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_id', id)
+        .eq('tenant_id', tenantId)
+        .not('status', 'in', '("complete","cancelled")');
+
+      if ((openPOs as unknown as { count: number })?.count > 0 || (openPOs && Array.isArray(openPOs) && openPOs.length > 0)) {
+        throw new BadRequestException('Cannot delete vendor with open purchase orders');
+      }
+
+      const { data: unpaidBills } = await client
+        .from('bills')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_id', id)
+        .eq('tenant_id', tenantId)
+        .neq('status', 'paid');
+
+      if ((unpaidBills as unknown as { count: number })?.count > 0 || (unpaidBills && Array.isArray(unpaidBills) && unpaidBills.length > 0)) {
+        throw new BadRequestException('Cannot delete vendor with unpaid bills');
+      }
+    }
 
     const updateData: Record<string, unknown> = {};
 
