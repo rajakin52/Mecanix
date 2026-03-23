@@ -9,7 +9,7 @@ export const generateInvoiceSchema = z.object({
 });
 
 export const recordInvoicePaymentSchema = z.object({
-  amount: z.number().min(0.01),
+  amount: z.coerce.number().min(0.01),
   paymentMethod: z.enum(['cash', 'transfer', 'card', 'mpesa', 'pix', 'multicaixa', 'other']),
   reference: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
@@ -17,7 +17,7 @@ export const recordInvoicePaymentSchema = z.object({
 });
 
 export const createCreditNoteSchema = z.object({
-  amount: z.number().min(0.01),
+  amount: z.coerce.number().min(0.01),
   reason: z.string().min(1).max(2000),
 });
 
