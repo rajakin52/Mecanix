@@ -176,12 +176,30 @@ export default function VendorsPage() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{tc('email')}</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">NIF</label>
+                  <input
+                    value={form.taxId}
+                    onChange={(e) => setForm({ ...form, taxId: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">{tc('email')}</label>
+                <label className="block text-sm font-medium text-gray-700">{tc('address')}</label>
                 <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
               </div>
@@ -198,12 +216,20 @@ export default function VendorsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('paymentTerms')}</label>
-                  <input
+                  <select
                     value={form.paymentTerms}
                     onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
-                    placeholder="Net 30"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                  />
+                  >
+                    <option value="">-</option>
+                    <option value="Immediate">Immediate</option>
+                    <option value="Net 15">Net 15</option>
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 45">Net 45</option>
+                    <option value="Net 60">Net 60</option>
+                    <option value="Net 90">Net 90</option>
+                    <option value="COD">COD</option>
+                  </select>
                 </div>
               </div>
               <div>
