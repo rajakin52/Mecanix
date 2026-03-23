@@ -38,7 +38,8 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   invoiced: [],
 };
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: string | undefined }) {
+  if (!status) return null;
   const cls = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600';
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>

@@ -116,16 +116,16 @@ export default function PartsPage() {
                       <td className="px-4 py-3 text-sm">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            part.stock_on_hand <= part.reorder_point
+                            (part.stock_qty ?? 0) <= (part.reorder_point ?? 0)
                               ? 'bg-red-100 text-red-700'
                               : 'bg-green-100 text-green-700'
                           }`}
                         >
-                          {part.stock_on_hand}
+                          {part.stock_qty ?? 0}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{part.cost_price.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{part.sell_price.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(part.unit_cost ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(part.sell_price ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{part.category}</td>
                     </tr>
                   ))
