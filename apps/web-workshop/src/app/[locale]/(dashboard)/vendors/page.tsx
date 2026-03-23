@@ -42,7 +42,7 @@ export default function VendorsPage() {
         notes: form.notes || undefined,
       });
       setShowModal(false);
-      setForm({ name: '', contactName: '', phone: '', email: '', leadTimeDays: '', paymentTerms: '', notes: '' });
+      setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vendor');
     }
