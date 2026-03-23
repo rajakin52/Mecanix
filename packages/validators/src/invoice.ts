@@ -10,7 +10,7 @@ export const generateInvoiceSchema = z.object({
 
 export const recordInvoicePaymentSchema = z.object({
   amount: z.coerce.number().min(0.01),
-  paymentMethod: z.enum(['cash', 'transfer', 'card', 'mpesa', 'pix', 'multicaixa', 'other']),
+  paymentMethod: z.string().transform((v) => v.toLowerCase()).pipe(z.enum(['cash', 'transfer', 'card', 'mpesa', 'pix', 'multicaixa', 'other'])),
   reference: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
   paymentDate: z.string().optional(),
