@@ -7,9 +7,9 @@ export const createInsuranceCompanySchema = z.object({
   code: z.string().max(50).optional(),
   contactName: z.string().max(200).optional(),
   phone: z.string().max(20).optional(),
-  email: z.string().email().max(200).optional(),
+  email: z.string().email().max(200).optional().or(z.literal('')),
   address: z.string().max(500).optional(),
-  slaHours: z.number().int().min(0).optional(),
+  slaHours: z.coerce.number().int().min(0).optional(),
 });
 
 export const updateInsuranceCompanySchema = createInsuranceCompanySchema.partial();
@@ -23,7 +23,7 @@ export const initiateClaimSchema = z.object({
   jobCardId: z.string().uuid(),
   insuranceCompanyId: z.string().uuid(),
   policyNumber: z.string().max(100).optional(),
-  excessAmount: z.number().min(0).optional(),
+  excessAmount: z.coerce.number().min(0).optional(),
 });
 
 export const changeClaimStatusSchema = z.object({
@@ -36,8 +36,8 @@ export const addClaimPhotoSchema = z.object({
   photoUrl: z.string().min(1).max(2000),
   stage: z.enum(['damage', 'repair', 'completion']),
   caption: z.string().max(500).optional(),
-  gpsLat: z.number().optional(),
-  gpsLng: z.number().optional(),
+  gpsLat: z.coerce.number().optional(),
+  gpsLng: z.coerce.number().optional(),
 });
 
 export type InitiateClaimInput = z.infer<typeof initiateClaimSchema>;
@@ -48,7 +48,7 @@ export type AddClaimPhotoInput = z.infer<typeof addClaimPhotoSchema>;
 
 export const reviewEstimateLineSchema = z.object({
   assessorStatus: z.enum(['pending', 'approved', 'adjusted', 'rejected']),
-  assessorPrice: z.number().min(0).optional(),
+  assessorPrice: z.coerce.number().min(0).optional(),
   assessorComment: z.string().max(2000).optional(),
 });
 

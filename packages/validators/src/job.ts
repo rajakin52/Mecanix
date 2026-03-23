@@ -6,7 +6,7 @@ export const createTechnicianSchema = z.object({
   fullName: z.string().min(2).max(200),
   phone: z.string().min(7).max(20).optional(),
   specializations: z.array(z.string()).default([]),
-  hourlyRate: z.number().min(0).optional(),
+  hourlyRate: z.coerce.number().min(0).optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -32,7 +32,7 @@ export const createJobCardSchema = z.object({
   insuranceCompany: z.string().max(200).optional(),
   policyNumber: z.string().max(100).optional(),
   claimReference: z.string().max(100).optional(),
-  excessAmount: z.number().min(0).optional(),
+  excessAmount: z.coerce.number().min(0).optional(),
   customerRemarks: z.string().max(5000).optional(),
   estimateFooter: z.string().max(2000).optional(),
 });
@@ -51,7 +51,7 @@ export const updateJobCardSchema = z.object({
   insuranceCompany: z.string().max(200).optional(),
   policyNumber: z.string().max(100).optional(),
   claimReference: z.string().max(100).optional(),
-  excessAmount: z.number().min(0).optional(),
+  excessAmount: z.coerce.number().min(0).optional(),
 });
 
 export const changeStatusSchema = z.object({
@@ -67,8 +67,8 @@ export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
 
 export const createLabourLineSchema = z.object({
   description: z.string().min(1).max(500),
-  hours: z.number().min(0),
-  rate: z.number().min(0),
+  hours: z.coerce.number().min(0),
+  rate: z.coerce.number().min(0),
   technicianId: z.string().uuid().optional(),
 });
 
@@ -82,9 +82,9 @@ export type UpdateLabourLineInput = z.infer<typeof updateLabourLineSchema>;
 export const createPartsLineSchema = z.object({
   partName: z.string().min(1).max(500),
   partNumber: z.string().max(100).optional(),
-  quantity: z.number().min(0),
-  unitCost: z.number().min(0),
-  markupPct: z.number().min(0).default(0),
+  quantity: z.coerce.number().min(0),
+  unitCost: z.coerce.number().min(0),
+  markupPct: z.coerce.number().min(0).default(0),
 });
 
 export const updatePartsLineSchema = createPartsLineSchema.partial();

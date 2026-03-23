@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const generateInvoiceSchema = z.object({
   jobCardId: z.string().uuid(),
-  customerPortion: z.number().min(0).optional(),
+  customerPortion: z.coerce.number().min(0).optional(),
   dueDate: z.string().optional(),
   notes: z.string().max(2000).optional(),
   footer: z.string().max(2000).optional(),
