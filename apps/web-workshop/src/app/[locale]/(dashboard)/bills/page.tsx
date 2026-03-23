@@ -29,29 +29,46 @@ export default function BillsPage() {
 
   const vendors = vendorsData?.data ?? [];
 
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    vendor_id: '',
+    vendorId: '',
+    billNumber: '',
     amount: 0,
-    due_date: '',
-    purchase_order_id: '',
+    dueDate: '',
+    purchaseOrderId: '',
     notes: '',
   });
 
   const handleCreate = async () => {
-    await createMutation.mutateAsync({
-      ...form,
-      amount: Number(form.amount),
-      purchase_order_id: form.purchase_order_id || null,
-    });
-    setShowModal(false);
-    setForm({ vendor_id: '', amount: 0, due_date: '', purchase_order_id: '', notes: '' });
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        vendorId: form.vendorId,
+        billNumber: form.billNumber,
+        amount: Number(form.amount),
+        dueDate: form.dueDate,
+        purchaseOrderId: form.purchaseOrderId || undefined,
+        notes: form.notes || undefined,
+      });
+      setShowModal(false);
+      setForm({ vendorId: '', billNumber: '', amount: 0, dueDate: '', purchaseOrderId: '', notes: '' });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create bill');
+    }
   };
+
+  const [payError, setPayError] = useState<string | null>(null);
 
   const handlePay = async () => {
     if (!payBillId) return;
-    await payMutation.mutateAsync({ id: payBillId, amount: payAmount });
-    setPayBillId(null);
-    setPayAmount(0);
+    try {
+      setPayError(null);
+      await payMutation.mutateAsync({ id: payBillId, amount: payAmount });
+      setPayBillId(null);
+      setPayAmount(0);
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Failed to record payment');
+    }
   };
 
   return (
@@ -154,11 +171,14 @@ export default function BillsPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('vendor')}</label>
                 <select
-                  value={form.vendor_id}
-                  onChange={(e) => setForm({ ...form, vendor_id: e.target.value })}
+                  value={form.vendorId}
+                  onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 >
                   <option value="">{t('selectVendor')}</option>
@@ -166,6 +186,14 @@ export default function BillsPage() {
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('billNumber')}</label>
+                <input
+                  value={form.billNumber}
+                  onChange={(e) => setForm({ ...form, billNumber: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -182,8 +210,8 @@ export default function BillsPage() {
                   <label className="block text-sm font-medium text-gray-700">{t('dueDate')}</label>
                   <input
                     type="date"
-                    value={form.due_date}
-                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                    value={form.dueDate}
+                    onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -203,7 +231,7 @@ export default function BillsPage() {
                 </button>
                 <button
                   onClick={handleCreate}
-                  disabled={createMutation.isPending || !form.vendor_id}
+                  disabled={createMutation.isPending || !form.vendorId || !form.billNumber}
                   className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                 >
                   {createMutation.isPending ? tc('loading') : tc('save')}
@@ -223,6 +251,9 @@ export default function BillsPage() {
               <button onClick={() => setPayBillId(null)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {payError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{payError}</div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('paymentAmount')}</label>
                 <input

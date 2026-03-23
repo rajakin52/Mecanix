@@ -37,21 +37,32 @@ export default function ExpensesPage() {
   const deleteMutation = useDeleteExpense();
   const createMutation = useCreateExpense();
 
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    expenseDate: new Date().toISOString().slice(0, 10),
     category: 'Other',
     description: '',
     amount: 0,
+    receiptUrl: '',
     notes: '',
   });
 
   const handleCreate = async () => {
-    await createMutation.mutateAsync({
-      ...form,
-      amount: Number(form.amount),
-    });
-    setShowModal(false);
-    setForm({ date: new Date().toISOString().slice(0, 10), category: 'Other', description: '', amount: 0, notes: '' });
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        expenseDate: form.expenseDate,
+        category: form.category,
+        description: form.description,
+        amount: Number(form.amount),
+        receiptUrl: form.receiptUrl || undefined,
+        notes: form.notes || undefined,
+      });
+      setShowModal(false);
+      setForm({ expenseDate: new Date().toISOString().slice(0, 10), category: 'Other', description: '', amount: 0, receiptUrl: '', notes: '' });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create expense');
+    }
   };
 
   const categoryTotals = summary?.by_category ?? [];
@@ -207,13 +218,16 @@ export default function ExpensesPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('date')}</label>
                   <input
                     type="date"
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    value={form.expenseDate}
+                    onChange={(e) => setForm({ ...form, expenseDate: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -245,6 +259,16 @@ export default function ExpensesPage() {
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('receipt')}</label>
+                <input
+                  type="url"
+                  value={form.receiptUrl}
+                  onChange={(e) => setForm({ ...form, receiptUrl: e.target.value })}
+                  placeholder="https://..."
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
               </div>

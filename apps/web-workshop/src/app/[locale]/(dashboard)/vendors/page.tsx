@@ -14,23 +14,34 @@ export default function VendorsPage() {
   const { data, isLoading } = useVendors(search || undefined);
   const createMutation = useCreateVendor();
 
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
-    contact_person: '',
+    contactName: '',
     phone: '',
     email: '',
-    lead_time_days: '',
-    payment_terms: '',
+    leadTimeDays: '',
+    paymentTerms: '',
     notes: '',
   });
 
   const handleCreate = async () => {
-    await createMutation.mutateAsync({
-      ...form,
-      lead_time_days: form.lead_time_days ? Number(form.lead_time_days) : null,
-    });
-    setShowModal(false);
-    setForm({ name: '', contact_person: '', phone: '', email: '', lead_time_days: '', payment_terms: '', notes: '' });
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        name: form.name,
+        contactName: form.contactName || undefined,
+        phone: form.phone || undefined,
+        email: form.email || undefined,
+        leadTimeDays: form.leadTimeDays ? Number(form.leadTimeDays) : undefined,
+        paymentTerms: form.paymentTerms || undefined,
+        notes: form.notes || undefined,
+      });
+      setShowModal(false);
+      setForm({ name: '', contactName: '', phone: '', email: '', leadTimeDays: '', paymentTerms: '', notes: '' });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create vendor');
+    }
   };
 
   const vendors = data?.data ?? [];
@@ -123,6 +134,9 @@ export default function VendorsPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">{tc('name')}</label>
                 <input
@@ -135,8 +149,8 @@ export default function VendorsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('contactPerson')}</label>
                   <input
-                    value={form.contact_person}
-                    onChange={(e) => setForm({ ...form, contact_person: e.target.value })}
+                    value={form.contactName}
+                    onChange={(e) => setForm({ ...form, contactName: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -163,8 +177,8 @@ export default function VendorsPage() {
                   <label className="block text-sm font-medium text-gray-700">{t('leadTime')}</label>
                   <input
                     type="number"
-                    value={form.lead_time_days}
-                    onChange={(e) => setForm({ ...form, lead_time_days: e.target.value })}
+                    value={form.leadTimeDays}
+                    onChange={(e) => setForm({ ...form, leadTimeDays: e.target.value })}
                     placeholder={t('days')}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
@@ -172,8 +186,8 @@ export default function VendorsPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('paymentTerms')}</label>
                   <input
-                    value={form.payment_terms}
-                    onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                    value={form.paymentTerms}
+                    onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
                     placeholder="Net 30"
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />

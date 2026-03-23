@@ -34,23 +34,25 @@ export default function PurchaseOrdersPage() {
   const { data: partsData } = useParts(1, '', undefined);
   const createMutation = useCreatePurchaseOrder();
 
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    vendor_id: '',
-    expected_date: '',
+    vendorId: '',
+    expectedDate: '',
     notes: '',
-    lines: [{ part_id: '', description: '', quantity: 1, unit_cost: 0 }],
+    lines: [{ partId: '', description: '', quantity: 1, unitCost: 0 }],
   });
 
   const addLine = () => {
     setForm({
       ...form,
-      lines: [...form.lines, { part_id: '', description: '', quantity: 1, unit_cost: 0 }],
+      lines: [...form.lines, { partId: '', description: '', quantity: 1, unitCost: 0 }],
     });
   };
 
-  const updateLine = (idx: number, field: string, value: string | number) => {
+  const updateLine = (idx: number, field: keyof typeof form.lines[number], value: string | number) => {
     const lines = [...form.lines];
-    lines[idx] = { ...lines[idx], [field]: value };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (lines[idx] as any) = { ...lines[idx], [field]: value };
     setForm({ ...form, lines });
   };
 
@@ -59,19 +61,24 @@ export default function PurchaseOrdersPage() {
   };
 
   const handleCreate = async () => {
-    await createMutation.mutateAsync({
-      vendor_id: form.vendor_id,
-      expected_date: form.expected_date || null,
-      notes: form.notes || null,
-      lines: form.lines.map((l) => ({
-        part_id: l.part_id || null,
-        description: l.description,
-        quantity: Number(l.quantity),
-        unit_cost: Number(l.unit_cost),
-      })),
-    });
-    setShowModal(false);
-    setForm({ vendor_id: '', expected_date: '', notes: '', lines: [{ part_id: '', description: '', quantity: 1, unit_cost: 0 }] });
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        vendorId: form.vendorId,
+        expectedDate: form.expectedDate || undefined,
+        notes: form.notes || undefined,
+        lines: form.lines.map((l) => ({
+          partId: l.partId,
+          description: l.description,
+          quantity: Number(l.quantity),
+          unitCost: Number(l.unitCost),
+        })),
+      });
+      setShowModal(false);
+      setForm({ vendorId: '', expectedDate: '', notes: '', lines: [{ partId: '', description: '', quantity: 1, unitCost: 0 }] });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create purchase order');
+    }
   };
 
   const vendors = vendorsData?.data ?? [];
@@ -184,12 +191,15 @@ export default function PurchaseOrdersPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('vendor')}</label>
                   <select
-                    value={form.vendor_id}
-                    onChange={(e) => setForm({ ...form, vendor_id: e.target.value })}
+                    value={form.vendorId}
+                    onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   >
                     <option value="">{t('selectVendor')}</option>
@@ -202,8 +212,8 @@ export default function PurchaseOrdersPage() {
                   <label className="block text-sm font-medium text-gray-700">{t('expectedDate')}</label>
                   <input
                     type="date"
-                    value={form.expected_date}
-                    onChange={(e) => setForm({ ...form, expected_date: e.target.value })}
+                    value={form.expectedDate}
+                    onChange={(e) => setForm({ ...form, expectedDate: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -227,13 +237,13 @@ export default function PurchaseOrdersPage() {
                       <div className="flex-1">
                         <label className="block text-xs text-gray-500">{t('part')}</label>
                         <select
-                          value={line.part_id}
+                          value={line.partId}
                           onChange={(e) => {
-                            updateLine(idx, 'part_id', e.target.value);
+                            updateLine(idx, 'partId', e.target.value);
                             const p = parts.find((pt) => pt.id === e.target.value);
                             if (p) {
                               updateLine(idx, 'description', p.description);
-                              updateLine(idx, 'unit_cost', p.cost_price);
+                              updateLine(idx, 'unitCost', p.cost_price);
                             }
                           }}
                           className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
@@ -266,8 +276,8 @@ export default function PurchaseOrdersPage() {
                         <input
                           type="number"
                           step="0.01"
-                          value={line.unit_cost}
-                          onChange={(e) => updateLine(idx, 'unit_cost', Number(e.target.value))}
+                          value={line.unitCost}
+                          onChange={(e) => updateLine(idx, 'unitCost', Number(e.target.value))}
                           className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                         />
                       </div>
@@ -301,7 +311,7 @@ export default function PurchaseOrdersPage() {
                 </button>
                 <button
                   onClick={handleCreate}
-                  disabled={createMutation.isPending || !form.vendor_id}
+                  disabled={createMutation.isPending || !form.vendorId}
                   className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                 >
                   {createMutation.isPending ? tc('loading') : tc('save')}

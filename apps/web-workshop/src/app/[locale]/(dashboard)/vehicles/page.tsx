@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useVehicles, useCreateVehicle } from '@/hooks/use-vehicles';
+import { useCustomers } from '@/hooks/use-customers';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createVehicleSchema } from '@mecanix/validators';
@@ -18,15 +19,22 @@ export default function VehiclesPage() {
 
   const { data, isLoading } = useVehicles(page, search);
   const createMutation = useCreateVehicle();
+  const { data: customersData } = useCustomers(1, '');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateVehicleInput>({
     resolver: zodResolver(createVehicleSchema),
   });
 
   const onSubmit = async (formData: CreateVehicleInput) => {
-    await createMutation.mutateAsync(formData);
-    setShowModal(false);
-    reset();
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync(formData as Parameters<typeof createMutation.mutateAsync>[0]);
+      setShowModal(false);
+      reset();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create vehicle');
+    }
   };
 
   return (
@@ -125,9 +133,19 @@ export default function VehiclesPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Customer ID</label>
-                <input {...register('customerId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                <label className="block text-sm font-medium text-gray-700">{t('customer')}</label>
+                <select {...register('customerId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2">
+                  <option value="">{tc('select')}...</option>
+                  {(customersData?.data as Array<Record<string, unknown>> | undefined)?.map((c) => (
+                    <option key={c.id as string} value={c.id as string}>
+                      {c.full_name as string}
+                    </option>
+                  ))}
+                </select>
                 {errors.customerId && <p className="mt-1 text-sm text-red-600">{errors.customerId.message}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">

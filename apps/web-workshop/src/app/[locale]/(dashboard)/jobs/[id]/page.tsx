@@ -83,38 +83,52 @@ export default function JobDetailPage() {
     statusMutation.mutate({ id, status: newStatus });
   };
 
+  const [labourError, setLabourError] = useState<string | null>(null);
+
   const handleAddLabour = async () => {
     if (!labourDesc || !labourHours || !labourRate) return;
-    await createLabour.mutateAsync({
-      jobId: id,
-      description: labourDesc,
-      hours: parseFloat(labourHours),
-      rate: parseFloat(labourRate),
-      technician_id: labourTechId || null,
-    });
-    setShowLabourForm(false);
-    setLabourDesc('');
-    setLabourHours('');
-    setLabourRate('');
-    setLabourTechId('');
+    try {
+      setLabourError(null);
+      await createLabour.mutateAsync({
+        jobId: id,
+        description: labourDesc,
+        hours: parseFloat(labourHours),
+        rate: parseFloat(labourRate),
+        technicianId: labourTechId || undefined,
+      });
+      setShowLabourForm(false);
+      setLabourDesc('');
+      setLabourHours('');
+      setLabourRate('');
+      setLabourTechId('');
+    } catch (err) {
+      setLabourError(err instanceof Error ? err.message : 'Failed to add labour line');
+    }
   };
+
+  const [partsError, setPartsError] = useState<string | null>(null);
 
   const handleAddPart = async () => {
     if (!partName || !partUnitCost) return;
-    await createParts.mutateAsync({
-      jobId: id,
-      part_name: partName,
-      part_number: partNumber || null,
-      quantity: parseInt(partQty, 10) || 1,
-      unit_cost: parseFloat(partUnitCost),
-      markup_pct: parseFloat(partMarkup) || 0,
-    });
-    setShowPartsForm(false);
-    setPartName('');
-    setPartNumber('');
-    setPartQty('1');
-    setPartUnitCost('');
-    setPartMarkup('0');
+    try {
+      setPartsError(null);
+      await createParts.mutateAsync({
+        jobId: id,
+        partName: partName,
+        partNumber: partNumber || undefined,
+        quantity: parseInt(partQty, 10) || 1,
+        unitCost: parseFloat(partUnitCost),
+        markupPct: parseFloat(partMarkup) || 0,
+      });
+      setShowPartsForm(false);
+      setPartName('');
+      setPartNumber('');
+      setPartQty('1');
+      setPartUnitCost('');
+      setPartMarkup('0');
+    } catch (err) {
+      setPartsError(err instanceof Error ? err.message : 'Failed to add parts line');
+    }
   };
 
   if (isLoading) {
@@ -289,6 +303,9 @@ export default function JobDetailPage() {
         {/* Inline labour form */}
         {showLabourForm && (
           <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            {labourError && (
+              <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{labourError}</div>
+            )}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700">{t('description')}</label>
@@ -401,6 +418,9 @@ export default function JobDetailPage() {
         {/* Inline parts form */}
         {showPartsForm && (
           <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            {partsError && (
+              <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{partsError}</div>
+            )}
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700">{t('partName')}</label>

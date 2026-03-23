@@ -18,27 +18,36 @@ export default function PartsPage() {
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
 
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    part_number: '',
+    partNumber: '',
     description: '',
     category: 'Other',
-    stock_on_hand: 0,
-    reorder_point: 5,
-    cost_price: 0,
-    sell_price: 0,
+    stockQty: 0,
+    reorderPoint: 5,
+    unitCost: 0,
+    sellPrice: 0,
     location: '',
   });
 
   const handleCreate = async () => {
-    await createMutation.mutateAsync({
-      ...form,
-      stock_on_hand: Number(form.stock_on_hand),
-      reorder_point: Number(form.reorder_point),
-      cost_price: Number(form.cost_price),
-      sell_price: Number(form.sell_price),
-    });
-    setShowModal(false);
-    setForm({ part_number: '', description: '', category: 'Other', stock_on_hand: 0, reorder_point: 5, cost_price: 0, sell_price: 0, location: '' });
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        partNumber: form.partNumber || undefined,
+        description: form.description,
+        category: form.category || undefined,
+        stockQty: Number(form.stockQty),
+        reorderPoint: Number(form.reorderPoint),
+        unitCost: Number(form.unitCost),
+        sellPrice: Number(form.sellPrice),
+        location: form.location || undefined,
+      });
+      setShowModal(false);
+      setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '' });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create part');
+    }
   };
 
   const lowStockCount = lowStockData?.count ?? 0;
@@ -164,12 +173,15 @@ export default function PartsPage() {
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('partNumber')}</label>
                   <input
-                    value={form.part_number}
-                    onChange={(e) => setForm({ ...form, part_number: e.target.value })}
+                    value={form.partNumber}
+                    onChange={(e) => setForm({ ...form, partNumber: e.target.value })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -199,8 +211,8 @@ export default function PartsPage() {
                   <label className="block text-sm font-medium text-gray-700">{t('stock')}</label>
                   <input
                     type="number"
-                    value={form.stock_on_hand}
-                    onChange={(e) => setForm({ ...form, stock_on_hand: Number(e.target.value) })}
+                    value={form.stockQty}
+                    onChange={(e) => setForm({ ...form, stockQty: Number(e.target.value) })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -208,8 +220,8 @@ export default function PartsPage() {
                   <label className="block text-sm font-medium text-gray-700">{t('reorderPoint')}</label>
                   <input
                     type="number"
-                    value={form.reorder_point}
-                    onChange={(e) => setForm({ ...form, reorder_point: Number(e.target.value) })}
+                    value={form.reorderPoint}
+                    onChange={(e) => setForm({ ...form, reorderPoint: Number(e.target.value) })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -220,8 +232,8 @@ export default function PartsPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={form.cost_price}
-                    onChange={(e) => setForm({ ...form, cost_price: Number(e.target.value) })}
+                    value={form.unitCost}
+                    onChange={(e) => setForm({ ...form, unitCost: Number(e.target.value) })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -230,8 +242,8 @@ export default function PartsPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={form.sell_price}
-                    onChange={(e) => setForm({ ...form, sell_price: Number(e.target.value) })}
+                    value={form.sellPrice}
+                    onChange={(e) => setForm({ ...form, sellPrice: Number(e.target.value) })}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>

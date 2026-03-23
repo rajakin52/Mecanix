@@ -75,19 +75,26 @@ export default function JobsPage() {
     setFormTaxable(true);
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const handleCreate = async () => {
     if (!formCustomerId || !formVehicleId || !formProblem) return;
-    await createMutation.mutateAsync({
-      customer_id: formCustomerId,
-      vehicle_id: formVehicleId,
-      reported_problem: formProblem,
-      primary_technician_id: formTechId || null,
-      labels: formLabels ? formLabels.split(',').map((l) => l.trim()).filter(Boolean) : [],
-      is_insurance: formInsurance,
-      is_taxable: formTaxable,
-    });
-    setShowModal(false);
-    resetForm();
+    try {
+      setFormError(null);
+      await createMutation.mutateAsync({
+        customerId: formCustomerId,
+        vehicleId: formVehicleId,
+        reportedProblem: formProblem,
+        primaryTechnicianId: formTechId || undefined,
+        labels: formLabels ? formLabels.split(',').map((l) => l.trim()).filter(Boolean) : [],
+        isInsurance: formInsurance,
+        isTaxable: formTaxable,
+      });
+      setShowModal(false);
+      resetForm();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create job');
+    }
   };
 
   const formatCurrency = (val: number) =>
@@ -230,6 +237,9 @@ export default function JobsPage() {
               </button>
             </div>
             <div className="space-y-4">
+              {formError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
               {/* Customer */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('selectCustomer')}</label>
