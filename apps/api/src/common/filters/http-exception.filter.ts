@@ -19,6 +19,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (!(exception instanceof HttpException)) {
       console.error('Unhandled exception:', exception);
+
+      // Handle Supabase/Postgres unique constraint violations
+      const exc = exception as Record<string, unknown>;
+      if (exc?.code === '23505' || (exc?.message as string)?.includes('duplicate key')) {
+        status = HttpStatus.CONFLICT;
+        code = 'DUPLICATE';
+        message = 'A record with this information already exists';
+      }
     }
 
     if (exception instanceof HttpException) {
