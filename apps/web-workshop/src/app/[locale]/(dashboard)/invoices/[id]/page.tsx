@@ -54,20 +54,30 @@ export default function InvoiceDetailPage() {
     await markAsSentMutation.mutateAsync(id);
   };
 
+  const [payError, setPayError] = useState<string | null>(null);
+  const [paySuccess, setPaySuccess] = useState<string | null>(null);
+
   const handleRecordPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) return;
-    await payMutation.mutateAsync({
-      invoiceId: id,
-      amount: Number(payAmount),
-      paymentMethod: payMethod,
-      reference: payRef || undefined,
-      notes: payNotes || undefined,
-    });
-    setShowPayModal(false);
-    setPayAmount('');
-    setPayMethod('cash');
-    setPayRef('');
-    setPayNotes('');
+    try {
+      setPayError(null);
+      await payMutation.mutateAsync({
+        invoiceId: id,
+        amount: Number(payAmount),
+        paymentMethod: payMethod,
+        reference: payRef || undefined,
+        notes: payNotes || undefined,
+      });
+      setShowPayModal(false);
+      setPayAmount('');
+      setPayMethod('cash');
+      setPayRef('');
+      setPayNotes('');
+      setPaySuccess('Payment recorded successfully!');
+      setTimeout(() => setPaySuccess(null), 3000);
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Failed to record payment');
+    }
   };
 
   const handleCreditNote = async () => {
@@ -97,6 +107,12 @@ export default function InvoiceDetailPage() {
 
   return (
     <div>
+      {paySuccess && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {paySuccess}
+        </div>
+      )}
+
       {/* Back link */}
       <div className="mb-4">
         <Link href="/invoices" className="text-sm text-primary-600 hover:underline">
@@ -391,6 +407,9 @@ export default function InvoiceDetailPage() {
               <button onClick={() => setShowPayModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {payError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{payError}</div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('paymentAmount')}</label>
                 <input
