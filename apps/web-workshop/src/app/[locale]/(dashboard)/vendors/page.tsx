@@ -11,6 +11,7 @@ export default function VendorsPage() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data, isLoading } = useVendors(search || undefined);
   const createMutation = useCreateVendor();
@@ -29,10 +30,10 @@ export default function VendorsPage() {
     notes: '',
   });
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     try {
       setFormError(null);
-      await createMutation.mutateAsync({
+      const payload = {
         name: form.name,
         contactName: form.contactName || undefined,
         phone: form.phone || undefined,
@@ -42,11 +43,20 @@ export default function VendorsPage() {
         leadTimeDays: form.leadTimeDays ? Number(form.leadTimeDays) : undefined,
         paymentTerms: form.paymentTerms || undefined,
         notes: form.notes || undefined,
-      });
+      };
+
+      if (editingId) {
+        await api.patch(`/vendors/${editingId}`, payload);
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+
       setShowModal(false);
+      setEditingId(null);
       setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' });
-      setSuccessMsg('Saved successfully!');
+      setSuccessMsg(editingId ? 'Updated successfully!' : 'Saved successfully!');
       setTimeout(() => setSuccessMsg(null), 3000);
+      window.location.reload();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vendor');
     }
@@ -59,7 +69,7 @@ export default function VendorsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('vendorsTitle')}</h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setEditingId(null); setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' }); setShowModal(true); }}
           className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
         >
           {t('newVendor')}
@@ -95,7 +105,6 @@ export default function VendorsPage() {
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('email')}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('leadTime')}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('paymentTerms')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -115,30 +124,64 @@ export default function VendorsPage() {
                         {vendor.lead_time_days ? `${vendor.lead_time_days} ${t('days')}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{vendor.payment_terms ?? '-'}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Delete this vendor?')) {
-                              api.patch(`/vendors/${vendor.id}`, { isActive: false }).then(() => {
-                                setSuccessMsg('Vendor deleted');
-                                setTimeout(() => setSuccessMsg(null), 3000);
-                                window.location.reload();
-                              });
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-800 text-xs"
-                        >
-                          {tc('delete')}
-                        </button>
-                      </td>
                     </tr>
                     {expandedId === vendor.id && (
                       <tr key={`${vendor.id}-detail`}>
-                        <td colSpan={7} className="bg-gray-50 px-6 py-4">
-                          <div className="text-sm text-gray-600">
-                            <p className="font-medium text-gray-900">{tc('notes')}</p>
-                            <p className="mt-1">{vendor.notes || '-'}</p>
+                        <td colSpan={6} className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <p className="font-medium text-gray-500">{tc('address')}</p>
+                                <p className="mt-0.5 text-gray-900">{vendor.address || '-'}</p>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-500">NIF</p>
+                                <p className="mt-0.5 text-gray-900">{vendor.tax_id || '-'}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm">
+                              <p className="font-medium text-gray-500">{tc('notes')}</p>
+                              <p className="mt-0.5 text-gray-900">{vendor.notes || '-'}</p>
+                            </div>
+                            <div className="flex justify-end gap-2 border-t border-gray-200 pt-3">
+                              <button
+                                onClick={() => {
+                                  setForm({
+                                    name: vendor.name || '',
+                                    contactName: vendor.contact_name || '',
+                                    phone: vendor.phone || '',
+                                    email: vendor.email || '',
+                                    address: vendor.address || '',
+                                    taxId: vendor.tax_id || '',
+                                    leadTimeDays: vendor.lead_time_days?.toString() || '',
+                                    paymentTerms: vendor.payment_terms || '',
+                                    notes: vendor.notes || '',
+                                  });
+                                  setEditingId(vendor.id);
+                                  setShowModal(true);
+                                }}
+                                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                              >
+                                {tc('edit')}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm('Are you sure you want to delete this vendor?')) {
+                                    api.patch(`/vendors/${vendor.id}`, { isActive: false })
+                                      .then(() => {
+                                        setSuccessMsg('Vendor deleted');
+                                        setTimeout(() => setSuccessMsg(null), 3000);
+                                        setExpandedId(null);
+                                        window.location.reload();
+                                      })
+                                      .catch(() => setFormError('Failed to delete vendor'));
+                                  }
+                                }}
+                                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                              >
+                                {tc('delete')}
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -162,8 +205,8 @@ export default function VendorsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{t('newVendor')}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
+              <h2 className="text-lg font-semibold">{editingId ? tc('edit') : t('newVendor')}</h2>
+              <button onClick={() => { setShowModal(false); setEditingId(null); }} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
               {formError && (
@@ -265,7 +308,7 @@ export default function VendorsPage() {
                   {tc('cancel')}
                 </button>
                 <button
-                  onClick={handleCreate}
+                  onClick={handleSave}
                   disabled={createMutation.isPending}
                   className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                 >
