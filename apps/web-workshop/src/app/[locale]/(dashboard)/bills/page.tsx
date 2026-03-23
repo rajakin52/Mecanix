@@ -27,9 +27,10 @@ export default function BillsPage() {
   const createMutation = useCreateBill();
   const payMutation = useRecordPayment();
 
-  const vendors = vendorsData?.data ?? [];
+  const vendors = Array.isArray(vendorsData) ? vendorsData : (vendorsData?.data ?? []);
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     vendorId: '',
     billNumber: '',
@@ -52,6 +53,8 @@ export default function BillsPage() {
       });
       setShowModal(false);
       setForm({ vendorId: '', billNumber: '', amount: 0, dueDate: '', purchaseOrderId: '', notes: '' });
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create bill');
     }
@@ -66,6 +69,8 @@ export default function BillsPage() {
       await payMutation.mutateAsync({ id: payBillId, amount: payAmount });
       setPayBillId(null);
       setPayAmount(0);
+      setSuccessMsg('Payment recorded successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setPayError(err instanceof Error ? err.message : 'Failed to record payment');
     }
@@ -82,6 +87,12 @@ export default function BillsPage() {
           {t('newBill')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-gray-500">{tc('loading')}</p>

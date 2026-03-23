@@ -35,6 +35,7 @@ export default function PurchaseOrdersPage() {
   const createMutation = useCreatePurchaseOrder();
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     vendorId: '',
     expectedDate: '',
@@ -76,12 +77,14 @@ export default function PurchaseOrdersPage() {
       });
       setShowModal(false);
       setForm({ vendorId: '', expectedDate: '', notes: '', lines: [{ partId: '', description: '', quantity: 1, unitCost: 0 }] });
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create purchase order');
     }
   };
 
-  const vendors = vendorsData?.data ?? [];
+  const vendors = Array.isArray(vendorsData) ? vendorsData : (vendorsData?.data ?? []);
   const parts = partsData?.data ?? [];
 
   return (
@@ -95,6 +98,12 @@ export default function PurchaseOrdersPage() {
           {t('newPO')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       {/* Status tabs */}
       <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1">

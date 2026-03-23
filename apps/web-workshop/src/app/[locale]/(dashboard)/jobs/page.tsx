@@ -77,6 +77,7 @@ export default function JobsPage() {
   };
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!formCustomerId || !formVehicleId || !formProblem) return;
@@ -93,6 +94,8 @@ export default function JobsPage() {
       });
       setShowModal(false);
       resetForm();
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create job');
     }
@@ -112,6 +115,12 @@ export default function JobsPage() {
           {t('newJob')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       {/* Status tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">

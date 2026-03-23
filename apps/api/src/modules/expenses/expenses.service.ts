@@ -22,7 +22,6 @@ export class ExpensesService {
       .from('expenses')
       .select('*', { count: 'exact' })
       .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
       .order('expense_date', { ascending: false });
 
     if (category) {
@@ -59,7 +58,6 @@ export class ExpensesService {
       .select('*')
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .is('deleted_at', null)
       .single();
 
     if (error || !data) {

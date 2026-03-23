@@ -13,6 +13,7 @@ export default function InsuranceCompaniesPage() {
   const createMutation = useCreateInsuranceCompany();
 
   const [showModal, setShowModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -37,6 +38,8 @@ export default function InsuranceCompaniesPage() {
     setPhone('');
     setEmail('');
     setSlaHours('');
+    setSuccessMsg('Saved successfully!');
+    setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   const companies = (data as Array<Record<string, unknown>> | undefined) ?? [];
@@ -49,6 +52,12 @@ export default function InsuranceCompaniesPage() {
           &larr; {tc('back')}
         </Link>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('companies')}</h1>

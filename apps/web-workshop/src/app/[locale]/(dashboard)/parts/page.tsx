@@ -19,6 +19,7 @@ export default function PartsPage() {
   const createMutation = useCreatePart();
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     partNumber: '',
     description: '',
@@ -45,6 +46,8 @@ export default function PartsPage() {
       });
       setShowModal(false);
       setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '' });
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create part');
     }
@@ -70,6 +73,12 @@ export default function PartsPage() {
           {t('newPart')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input

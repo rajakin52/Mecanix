@@ -15,6 +15,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const { data, isLoading } = useCustomers(page, search);
   const createMutation = useCreateCustomer();
@@ -28,6 +29,8 @@ export default function CustomersPage() {
     await createMutation.mutateAsync(formData);
     setShowModal(false);
     reset();
+    setSuccessMsg('Saved successfully!');
+    setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   return (
@@ -41,6 +44,12 @@ export default function CustomersPage() {
           {t('newCustomer')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="mb-4">
         <input

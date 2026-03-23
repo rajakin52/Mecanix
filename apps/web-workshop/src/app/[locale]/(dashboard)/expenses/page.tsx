@@ -38,6 +38,7 @@ export default function ExpensesPage() {
   const createMutation = useCreateExpense();
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     expenseDate: new Date().toISOString().slice(0, 10),
     category: 'Other',
@@ -60,6 +61,8 @@ export default function ExpensesPage() {
       });
       setShowModal(false);
       setForm({ expenseDate: new Date().toISOString().slice(0, 10), category: 'Other', description: '', amount: 0, receiptUrl: '', notes: '' });
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create expense');
     }
@@ -78,6 +81,12 @@ export default function ExpensesPage() {
           {t('newExpense')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       {/* Summary cards */}
       {categoryTotals.length > 0 && (

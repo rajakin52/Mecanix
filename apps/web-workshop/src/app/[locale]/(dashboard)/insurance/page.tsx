@@ -40,6 +40,7 @@ export default function InsuranceClaimsPage() {
   const [page, setPage] = useState(1);
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [showNewClaimModal, setShowNewClaimModal] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const { data, isLoading } = useClaims(page, activeStatus);
   const initiateMutation = useInitiateClaim();
@@ -68,6 +69,8 @@ export default function InsuranceClaimsPage() {
     setClaimInsurerId('');
     setClaimPolicyNumber('');
     setClaimExcess('');
+    setSuccessMsg('Saved successfully!');
+    setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   const jobs = (insuranceJobsData?.data as Array<Record<string, unknown>> | undefined) ?? [];
@@ -92,6 +95,12 @@ export default function InsuranceClaimsPage() {
           </button>
         </div>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       {/* Status Tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">

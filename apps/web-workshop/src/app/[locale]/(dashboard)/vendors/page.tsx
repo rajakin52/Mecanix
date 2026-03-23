@@ -15,6 +15,7 @@ export default function VendorsPage() {
   const createMutation = useCreateVendor();
 
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
     contactName: '',
@@ -43,12 +44,14 @@ export default function VendorsPage() {
       });
       setShowModal(false);
       setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' });
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vendor');
     }
   };
 
-  const vendors = data?.data ?? [];
+  const vendors = Array.isArray(data) ? data : (data?.data ?? []);
 
   return (
     <div>
@@ -61,6 +64,12 @@ export default function VendorsPage() {
           {t('newVendor')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="mb-4">
         <input

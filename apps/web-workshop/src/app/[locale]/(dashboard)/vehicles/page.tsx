@@ -21,6 +21,7 @@ export default function VehiclesPage() {
   const createMutation = useCreateVehicle();
   const { data: customersData } = useCustomers(1, '');
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateVehicleInput>({
     resolver: zodResolver(createVehicleSchema),
@@ -32,6 +33,8 @@ export default function VehiclesPage() {
       await createMutation.mutateAsync(formData as Parameters<typeof createMutation.mutateAsync>[0]);
       setShowModal(false);
       reset();
+      setSuccessMsg('Saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vehicle');
     }
@@ -48,6 +51,12 @@ export default function VehiclesPage() {
           {t('newVehicle')}
         </button>
       </div>
+
+      {successMsg && (
+        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+          {successMsg}
+        </div>
+      )}
 
       <div className="mb-4">
         <input
