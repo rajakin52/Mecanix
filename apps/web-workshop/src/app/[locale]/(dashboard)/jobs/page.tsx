@@ -172,16 +172,16 @@ export default function JobsPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {(job.vehicles as Record<string, string> | undefined)?.plate ?? '-'}
+                        {((job.vehicle ?? job.vehicles) as Record<string, string> | undefined)?.plate ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {(job.customers as Record<string, string> | undefined)?.full_name ?? '-'}
+                        {((job.customer ?? job.customers) as Record<string, string> | undefined)?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <StatusBadge status={job.status as string} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {(job.technicians as Record<string, string> | null | undefined)?.full_name ?? '-'}
+                        {((job.primary_technician ?? job.technicians) as Record<string, string> | null | undefined)?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
                         {formatCurrency(job.grand_total as number)}

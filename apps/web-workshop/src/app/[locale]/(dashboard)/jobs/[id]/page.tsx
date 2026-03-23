@@ -140,9 +140,9 @@ export default function JobDetailPage() {
   }
 
   const typedJob = job as Record<string, unknown>;
-  const vehicle = typedJob.vehicles as Record<string, string> | undefined;
-  const customer = typedJob.customers as Record<string, string> | undefined;
-  const technician = typedJob.technicians as Record<string, string> | null | undefined;
+  const vehicle = (typedJob.vehicle ?? typedJob.vehicles) as Record<string, string> | undefined;
+  const customer = (typedJob.customer ?? typedJob.customers) as Record<string, string> | undefined;
+  const technician = (typedJob.primary_technician ?? typedJob.technicians) as Record<string, string> | null | undefined;
   const currentStatus = typedJob.status as string;
   const nextStatuses = STATUS_TRANSITIONS[currentStatus] ?? [];
   const labels = (typedJob.labels as string[]) ?? [];
