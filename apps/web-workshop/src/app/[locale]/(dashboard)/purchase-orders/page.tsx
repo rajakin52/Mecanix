@@ -248,12 +248,16 @@ export default function PurchaseOrdersPage() {
                         <select
                           value={line.partId}
                           onChange={(e) => {
-                            updateLine(idx, 'partId', e.target.value);
-                            const p = parts.find((pt) => pt.id === e.target.value);
-                            if (p) {
-                              updateLine(idx, 'description', p.description);
-                              updateLine(idx, 'unitCost', p.cost_price);
-                            }
+                            const partId = e.target.value;
+                            const p = parts.find((pt: Record<string, unknown>) => pt.id === partId);
+                            const lines = [...form.lines];
+                            lines[idx] = {
+                              ...lines[idx],
+                              partId,
+                              description: p ? (p.description as string) : lines[idx].description,
+                              unitCost: p ? (p.unit_cost as number) : lines[idx].unitCost,
+                            };
+                            setForm({ ...form, lines });
                           }}
                           className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                         >
