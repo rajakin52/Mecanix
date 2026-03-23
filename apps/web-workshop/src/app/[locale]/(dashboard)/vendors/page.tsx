@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useVendors, useCreateVendor } from '@/hooks/use-purchases';
+import { api } from '@/lib/api';
 
 export default function VendorsPage() {
   const t = useTranslations('purchases');
@@ -94,6 +95,7 @@ export default function VendorsPage() {
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('email')}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('leadTime')}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('paymentTerms')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
@@ -106,17 +108,34 @@ export default function VendorsPage() {
                       onClick={() => setExpandedId(expandedId === vendor.id ? null : vendor.id)}
                     >
                       <td className="px-4 py-3 text-sm font-medium text-primary-600">{vendor.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.contact_person ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.contact_name ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{vendor.phone ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{vendor.email ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {vendor.lead_time_days ? `${vendor.lead_time_days} ${t('days')}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{vendor.payment_terms ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete this vendor?')) {
+                              api.patch(`/vendors/${vendor.id}`, { isActive: false }).then(() => {
+                                setSuccessMsg('Vendor deleted');
+                                setTimeout(() => setSuccessMsg(null), 3000);
+                                window.location.reload();
+                              });
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          {tc('delete')}
+                        </button>
+                      </td>
                     </tr>
                     {expandedId === vendor.id && (
                       <tr key={`${vendor.id}-detail`}>
-                        <td colSpan={6} className="bg-gray-50 px-6 py-4">
+                        <td colSpan={7} className="bg-gray-50 px-6 py-4">
                           <div className="text-sm text-gray-600">
                             <p className="font-medium text-gray-900">{tc('notes')}</p>
                             <p className="mt-1">{vendor.notes || '-'}</p>
