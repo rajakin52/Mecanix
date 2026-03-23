@@ -79,9 +79,11 @@ export class VendorsService {
       phone: 'phone',
       email: 'email',
       address: 'address',
+      taxId: 'tax_id',
       leadTimeDays: 'lead_time_days',
       paymentTerms: 'payment_terms',
       notes: 'notes',
+      isActive: 'is_active',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {
