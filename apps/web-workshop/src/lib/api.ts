@@ -15,6 +15,13 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
   const json = await res.json();
 
   if (!json.success) {
+    // Auto-redirect to login on 401 (expired/invalid token)
+    if (res.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
     throw new Error(json.error?.message ?? 'Request failed');
   }
 
