@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-400',
 };
 
-const PAYMENT_METHODS = ['Cash', 'Transfer', 'Card', 'M-Pesa', 'PIX', 'Multicaixa', 'Other'];
+const PAYMENT_METHODS = ['cash', 'transfer', 'card', 'mpesa', 'pix', 'multicaixa', 'other'];
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -65,7 +65,7 @@ export default function InvoiceDetailPage() {
     });
     setShowPayModal(false);
     setPayAmount('');
-    setPayMethod('Cash');
+    setPayMethod('cash');
     setPayRef('');
     setPayNotes('');
   };
@@ -130,13 +130,13 @@ export default function InvoiceDetailPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">{t('customer')}</p>
           <p className="mt-1 text-sm font-medium text-gray-900">
-            {(inv.customers as Record<string, string> | undefined)?.full_name ?? '-'}
+            {((inv.customer ?? inv.customers) as Record<string, string> | undefined)?.full_name ?? '-'}
           </p>
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</p>
           <Link href={`/jobs/${inv.job_card_id as string}`} className="mt-1 block text-sm font-medium text-primary-600 hover:underline">
-            {(inv.job_cards as Record<string, string> | undefined)?.job_number ?? '-'}
+            {((inv.job_card ?? inv.job_cards) as Record<string, string> | undefined)?.job_number ?? '-'}
           </Link>
         </div>
       </div>
