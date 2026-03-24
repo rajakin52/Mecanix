@@ -69,8 +69,9 @@ export default function BookAppointmentScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiGet<Vehicle[]>('/vehicles?pageSize=100');
-        setVehicles(Array.isArray(data) ? data : []);
+        const response = await apiGet<Vehicle[] | { data: Vehicle[] }>('/vehicles?pageSize=100');
+        const list = Array.isArray(response) ? response : (response as { data: Vehicle[] }).data ?? [];
+        setVehicles(list);
       } catch { /* empty */ }
     })();
   }, []);

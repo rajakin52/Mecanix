@@ -146,7 +146,7 @@ export default function NewJobScreen() {
     if (createdJobId && selectedItems.length > 0) {
       try {
         for (const item of selectedItems) {
-          await apiFetch(`/jobs/${createdJobId}/labour`, {
+          await apiFetch(`/jobs/${createdJobId}/labour-lines`, {
             method: 'POST',
             body: JSON.stringify({
               description: item.name,

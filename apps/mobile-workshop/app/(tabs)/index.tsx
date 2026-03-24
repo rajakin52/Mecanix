@@ -54,8 +54,9 @@ export default function HomeScreen() {
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const data = await apiFetch<JobCard[]>('/jobs');
-      setJobs(Array.isArray(data) ? data : []);
+      const response = await apiFetch<JobCard[] | { data: JobCard[] }>('/jobs');
+      const list = Array.isArray(response) ? response : (response as { data: JobCard[] }).data ?? [];
+      setJobs(list);
     } catch {
       // silent — dashboard degrades gracefully
     } finally {

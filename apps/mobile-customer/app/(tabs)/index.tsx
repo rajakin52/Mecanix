@@ -45,8 +45,9 @@ export default function VehiclesScreen() {
   const fetchVehicles = useCallback(async () => {
     try {
       setError('');
-      const data = await apiGet<{ items: Vehicle[]; total: number }>('/vehicles?pageSize=100');
-      setVehicles(data.items ?? []);
+      const response = await apiGet<Vehicle[] | { data: Vehicle[] }>('/vehicles?pageSize=100');
+      const list = Array.isArray(response) ? response : (response as { data: Vehicle[] }).data ?? [];
+      setVehicles(list);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.error');
       setError(message);

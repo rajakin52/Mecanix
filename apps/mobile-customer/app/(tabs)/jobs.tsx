@@ -57,9 +57,10 @@ export default function JobsScreen() {
   const fetchJobs = useCallback(async () => {
     try {
       setError('');
-      const data = await apiGet<{ items: JobCard[]; total: number }>('/jobs?pageSize=50');
+      const response = await apiGet<JobCard[] | { data: JobCard[] }>('/jobs?pageSize=50');
+      const allJobs = Array.isArray(response) ? response : (response as { data: JobCard[] }).data ?? [];
       // Filter to show only active (non-completed, non-invoiced, non-cancelled)
-      const activeJobs = (data.items ?? []).filter(
+      const activeJobs = allJobs.filter(
         (j) => !['completed', 'invoiced', 'cancelled'].includes(j.status),
       );
       setJobs(activeJobs);

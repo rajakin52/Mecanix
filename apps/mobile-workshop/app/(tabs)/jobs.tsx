@@ -70,8 +70,9 @@ export default function JobsScreen() {
       if (statusFilter) params.set('status', statusFilter);
       params.set('pageSize', '100');
       const qs = params.toString();
-      const data = await apiFetch<JobCard[]>(`/jobs${qs ? `?${qs}` : ''}`);
-      setJobs(Array.isArray(data) ? data : []);
+      const response = await apiFetch<JobCard[] | { data: JobCard[] }>(`/jobs${qs ? `?${qs}` : ''}`);
+      const list = Array.isArray(response) ? response : (response as { data: JobCard[] }).data ?? [];
+      setJobs(list);
     } catch {
       Alert.alert(t('common.error'), t('jobs.fetchError'));
     } finally {

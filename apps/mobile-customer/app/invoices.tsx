@@ -44,8 +44,9 @@ export default function InvoicesScreen() {
 
   const fetchInvoices = useCallback(async () => {
     try {
-      const data = await apiGet<Invoice[]>('/invoices?pageSize=100');
-      setInvoices(Array.isArray(data) ? data : []);
+      const response = await apiGet<Invoice[] | { data: Invoice[] }>('/invoices?pageSize=100');
+      const list = Array.isArray(response) ? response : (response as { data: Invoice[] }).data ?? [];
+      setInvoices(list);
     } catch { /* empty */ } finally {
       setLoading(false);
       setRefreshing(false);

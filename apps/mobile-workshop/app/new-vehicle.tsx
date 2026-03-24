@@ -47,8 +47,10 @@ export default function NewVehicleScreen() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const params = customerSearch ? `?search=${encodeURIComponent(customerSearch)}` : '';
-      const data = await apiFetch<Customer[]>(`/customers${params}&pageSize=50`);
+      const params = customerSearch
+        ? `?search=${encodeURIComponent(customerSearch)}&pageSize=50`
+        : '?pageSize=50';
+      const data = await apiFetch<Customer[]>(`/customers${params}`);
       setCustomers(Array.isArray(data) ? data : []);
     } catch { /* empty */ }
   }, [customerSearch]);

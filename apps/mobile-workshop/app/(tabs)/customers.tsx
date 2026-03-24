@@ -60,8 +60,9 @@ export default function CustomersScreen() {
       params.set('sortOrder', sortBy === 'created_at' ? 'desc' : 'asc');
       params.set('pageSize', '100');
       const qs = params.toString();
-      const data = await apiFetch<Customer[]>(`/customers?${qs}`);
-      setCustomers(Array.isArray(data) ? data : []);
+      const response = await apiFetch<Customer[] | { data: Customer[] }>(`/customers?${qs}`);
+      const list = Array.isArray(response) ? response : (response as { data: Customer[] }).data ?? [];
+      setCustomers(list);
     } catch {
       Alert.alert(t('common.error'), t('customers.fetchError'));
     } finally {

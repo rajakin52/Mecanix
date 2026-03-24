@@ -181,7 +181,7 @@ export default function JobDetailScreen() {
     if (!job || !labourDesc.trim()) return;
     setAddingLine(true);
     try {
-      await apiFetch(`/jobs/${job.id}/labour`, {
+      await apiFetch(`/jobs/${job.id}/labour-lines`, {
         method: 'POST',
         body: JSON.stringify({
           description: labourDesc.trim(),
@@ -201,7 +201,7 @@ export default function JobDetailScreen() {
     if (!job || !partName.trim()) return;
     setAddingLine(true);
     try {
-      await apiFetch(`/jobs/${job.id}/parts`, {
+      await apiFetch(`/jobs/${job.id}/parts-lines`, {
         method: 'POST',
         body: JSON.stringify({
           partName: partName.trim(),

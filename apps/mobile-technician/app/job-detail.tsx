@@ -14,7 +14,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { apiGet, apiPost } from '../src/lib/api';
+import { apiGet, apiPost, apiPatch } from '../src/lib/api';
 import PhotoAnnotator from '../src/components/PhotoAnnotator';
 import VoiceTextInput from '../src/components/VoiceTextInput';
 
@@ -115,7 +115,7 @@ export default function JobDetailScreen() {
         ? `${currentNotes}\n\n[${timestamp}]\n${noteText.trim()}`
         : `[${timestamp}]\n${noteText.trim()}`;
 
-      await apiPost(`/jobs/${job.id}`, { internalNotes: newNotes });
+      await apiPatch(`/jobs/${job.id}`, { internalNotes: newNotes });
       setNoteText('');
       await fetchJob();
       Alert.alert(t('common.success'), t('jobDetail.noteAdded'));
@@ -151,7 +151,7 @@ export default function JobDetailScreen() {
     try {
       const currentLabels = job.labels ?? [];
       if (!currentLabels.includes(flag)) {
-        await apiPost(`/jobs/${job.id}`, {
+        await apiPatch(`/jobs/${job.id}`, {
           labels: [...currentLabels, flag],
         });
         await fetchJob();

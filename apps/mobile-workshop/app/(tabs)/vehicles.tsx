@@ -53,8 +53,9 @@ export default function VehiclesScreen() {
       params.set('sortOrder', sortBy === 'created_at' ? 'desc' : 'asc');
       params.set('pageSize', '100');
       const qs = params.toString();
-      const data = await apiFetch<Vehicle[]>(`/vehicles${qs ? `?${qs}` : ''}`);
-      setVehicles(Array.isArray(data) ? data : []);
+      const response = await apiFetch<Vehicle[] | { data: Vehicle[] }>(`/vehicles${qs ? `?${qs}` : ''}`);
+      const list = Array.isArray(response) ? response : (response as { data: Vehicle[] }).data ?? [];
+      setVehicles(list);
     } catch {
       Alert.alert(t('common.error'), t('vehicles.fetchError'));
     } finally {

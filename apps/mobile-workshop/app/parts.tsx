@@ -51,8 +51,9 @@ export default function PartsScreen() {
       if (showLowStock) params.set('lowStock', 'true');
       params.set('pageSize', '200');
       const qs = params.toString();
-      const data = await apiFetch<Part[]>(`/parts${qs ? `?${qs}` : ''}`);
-      setParts(Array.isArray(data) ? data : []);
+      const response = await apiFetch<Part[] | { data: Part[] }>(`/parts${qs ? `?${qs}` : ''}`);
+      const list = Array.isArray(response) ? response : (response as { data: Part[] }).data ?? [];
+      setParts(list);
     } catch {
       Alert.alert(t('common.error'), t('parts.fetchError'));
     } finally {

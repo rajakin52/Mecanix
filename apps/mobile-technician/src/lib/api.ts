@@ -29,3 +29,18 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   if (!json.success) throw new Error(json.error?.message ?? 'Request failed');
   return json.data;
 }
+
+export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
+  const token = await SecureStore.getItemAsync('auth_token');
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : '{}',
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error?.message ?? 'Request failed');
+  return json.data;
+}

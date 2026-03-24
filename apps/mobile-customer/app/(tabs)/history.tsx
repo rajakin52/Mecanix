@@ -43,9 +43,10 @@ export default function HistoryScreen() {
   const fetchHistory = useCallback(async () => {
     try {
       setError('');
-      const data = await apiGet<{ items: JobCard[]; total: number }>('/jobs?pageSize=100');
+      const response = await apiGet<JobCard[] | { data: JobCard[] }>('/jobs?pageSize=100');
+      const allJobs = Array.isArray(response) ? response : (response as { data: JobCard[] }).data ?? [];
       // Filter to completed/invoiced jobs
-      const completedJobs = (data.items ?? []).filter((j) =>
+      const completedJobs = allJobs.filter((j) =>
         ['completed', 'invoiced'].includes(j.status),
       );
       // Sort by updated_at descending
