@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateJobCardInput, UpdateJobCardInput, PaginationInput } from '@mecanix/validators';
+import { sanitizeSearch } from '../../common/utils/sanitize';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing', 'in_progress'],
@@ -41,8 +42,9 @@ export class JobsService {
       .is('deleted_at', null);
 
     if (search) {
+      const s = sanitizeSearch(search);
       query = query.or(
-        `job_number.ilike.%${search}%,reported_problem.ilike.%${search}%`,
+        `job_number.ilike.%${s}%,reported_problem.ilike.%${s}%`,
       );
     }
 
@@ -276,8 +278,15 @@ export class JobsService {
   }
 
   async getStatusHistory(tenantId: string, jobId: string) {
-    // Verify job exists
-    await this.getById(tenantId, jobId);
+    // Lightweight existence check instead of full getById
+    const { data: exists } = await this.supabase.getClient()
+      .from('job_cards')
+      .select('id')
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!exists) throw new NotFoundException('Job card not found');
 
     const { data, error } = await this.supabase
       .getClient()

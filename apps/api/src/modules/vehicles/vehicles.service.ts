@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateVehicleInput, UpdateVehicleInput, PaginationInput } from '@mecanix/validators';
+import { sanitizeSearch } from '../../common/utils/sanitize';
 
 @Injectable()
 export class VehiclesService {
@@ -23,7 +24,8 @@ export class VehiclesService {
     }
 
     if (search) {
-      query = query.or(`plate.ilike.%${search}%,vin.ilike.%${search}%,make.ilike.%${search}%,model.ilike.%${search}%`);
+      const s = sanitizeSearch(search);
+      query = query.or(`plate.ilike.%${s}%,vin.ilike.%${s}%,make.ilike.%${s}%,model.ilike.%${s}%`);
     }
 
     if (sortBy) {

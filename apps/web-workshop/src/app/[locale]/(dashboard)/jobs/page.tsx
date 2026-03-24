@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useJobs, useCreateJob, useTechnicians } from '@/hooks/use-jobs';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
@@ -45,11 +46,12 @@ export default function JobsPage() {
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [showModal, setShowModal] = useState(false);
 
-  const { data, isLoading } = useJobs(page, search, activeStatus);
+  const { data, isLoading } = useJobs(page, debouncedSearch, activeStatus);
   const createMutation = useCreateJob();
 
   // Form state for new job card

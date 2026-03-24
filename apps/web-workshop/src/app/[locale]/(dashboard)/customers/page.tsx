@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useCustomers, useCreateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,12 +26,13 @@ export default function CustomersPage() {
   const t = useTranslations('customers');
   const tc = useTranslations('common');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
-  const { data, isLoading } = useCustomers(page, search);
+  const { data, isLoading } = useCustomers(page, debouncedSearch);
   const createMutation = useCreateCustomer();
   const deleteMutation = useDeleteCustomer();
 
@@ -45,7 +47,7 @@ export default function CustomersPage() {
     setShowModal(false);
     reset();
     setIsCorporate(false);
-    setSuccessMsg('Customer created successfully!');
+    setSuccessMsg(t('createdSuccess'));
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
@@ -53,7 +55,7 @@ export default function CustomersPage() {
     if (!deleteConfirm) return;
     await deleteMutation.mutateAsync(deleteConfirm.id);
     setDeleteConfirm(null);
-    setSuccessMsg('Customer deleted successfully!');
+    setSuccessMsg(t('deletedSuccess'));
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
@@ -260,7 +262,7 @@ export default function CustomersPage() {
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">{tc('confirmDelete')}</h2>
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
+              {t('confirmDelete')}
             </p>
             <div className="flex justify-end gap-2">
               <button

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useVendors, useCreateVendor } from '@/hooks/use-purchases';
 import { api } from '@/lib/api';
 
@@ -9,11 +10,12 @@ export default function VendorsPage() {
   const t = useTranslations('purchases');
   const tc = useTranslations('common');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [showModal, setShowModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { data, isLoading } = useVendors(search || undefined);
+  const { data, isLoading } = useVendors(debouncedSearch || undefined);
   const createMutation = useCreateVendor();
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export default function VendorsPage() {
       setShowModal(false);
       setEditingId(null);
       setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' });
-      setSuccessMsg(editingId ? 'Updated successfully!' : 'Saved successfully!');
+      setSuccessMsg(editingId ? t('updatedSuccess') : t('createdSuccess'));
       setTimeout(() => setSuccessMsg(null), 3000);
       window.location.reload();
     } catch (err) {
@@ -166,10 +168,10 @@ export default function VendorsPage() {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (confirm('Are you sure you want to delete this vendor?')) {
+                                  if (confirm(t('confirmDeleteVendor'))) {
                                     api.patch(`/vendors/${vendor.id}`, { isActive: false })
                                       .then(() => {
-                                        setSuccessMsg('Vendor deleted');
+                                        setSuccessMsg(t('deletedSuccess'));
                                         setTimeout(() => setSuccessMsg(null), 3000);
                                         setExpandedId(null);
                                         window.location.reload();

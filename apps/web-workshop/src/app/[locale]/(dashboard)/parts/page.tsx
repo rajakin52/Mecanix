@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 
@@ -13,12 +14,13 @@ export default function PartsPage() {
   const tc = useTranslations('common');
   const tt = useTranslations('tecdoc');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [showTecDoc, setShowTecDoc] = useState(false);
 
-  const { data, isLoading } = useParts(page, search, category || undefined);
+  const { data, isLoading } = useParts(page, debouncedSearch, category || undefined);
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
 

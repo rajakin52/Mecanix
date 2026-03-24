@@ -249,12 +249,12 @@ export class InvoicesService {
   async getFinancialSummary(tenantId: string) {
     const client = this.supabase.getClient();
 
-    // All non-deleted invoices
+    // All non-deleted, non-cancelled invoices
     const { data: invoices, error } = await client
       .from('invoices')
       .select('status, grand_total, balance_due, due_date, created_at')
       .eq('tenant_id', tenantId)
-;
+      .neq('status', 'cancelled');
 
     if (error) throw error;
 

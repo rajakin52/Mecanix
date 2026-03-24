@@ -120,7 +120,10 @@
     "corporateAccount": "Conta Empresarial",
     "currentBalance": "Saldo Actual",
     "editCustomer": "Editar Cliente",
-    "paymentTerms": "Condições de Pagamento"
+    "paymentTerms": "Condições de Pagamento",
+    "createdSuccess": "Cliente criado com sucesso!",
+    "deletedSuccess": "Cliente eliminado com sucesso!",
+    "confirmDelete": "Tem certeza que deseja eliminar este cliente?"
   },
   "time": {
     "floorTitle": "Vista da Oficina em Tempo Real",
@@ -217,7 +220,11 @@
     "billStatus_unpaid": "Por Pagar",
     "billStatus_partial": "Parcial",
     "billStatus_paid": "Paga",
-    "billStatus_overdue": "Vencida"
+    "billStatus_overdue": "Vencida",
+    "createdSuccess": "Fornecedor criado com sucesso!",
+    "updatedSuccess": "Fornecedor atualizado com sucesso!",
+    "deletedSuccess": "Fornecedor eliminado com sucesso!",
+    "confirmDeleteVendor": "Tem certeza que deseja eliminar este fornecedor?"
   },
   "expenses": {
     "title": "Despesas",

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useVehicles, useCreateVehicle } from '@/hooks/use-vehicles';
 import { useCustomers } from '@/hooks/use-customers';
 import { useForm } from 'react-hook-form';
@@ -14,10 +15,11 @@ export default function VehiclesPage() {
   const t = useTranslations('vehicles');
   const tc = useTranslations('common');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
 
-  const { data, isLoading } = useVehicles(page, search);
+  const { data, isLoading } = useVehicles(page, debouncedSearch);
   const createMutation = useCreateVehicle();
   const { data: customersData } = useCustomers(1, '');
   const [formError, setFormError] = useState<string | null>(null);

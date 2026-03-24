@@ -61,6 +61,7 @@ describe('CustomersService', () => {
       const result = await service.create('t1', 'u1', {
         fullName: 'New Customer',
         phone: '+244 923 456 789',
+        isCorporate: false,
       });
 
       expect(result.full_name).toBe('New Customer');

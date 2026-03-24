@@ -21,6 +21,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { TecDocModule } from './modules/tecdoc/tecdoc.module';
 import { MpesaModule } from './modules/mpesa/mpesa.module';
+import { HealthModule } from './modules/health/health.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -47,6 +48,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     RemindersModule,
     TecDocModule,
     MpesaModule,
+    HealthModule,
   ],
   providers: [
     {

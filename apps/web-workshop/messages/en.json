@@ -120,7 +120,10 @@
     "corporateAccount": "Corporate Account",
     "currentBalance": "Current Balance",
     "editCustomer": "Edit Customer",
-    "paymentTerms": "Payment Terms"
+    "paymentTerms": "Payment Terms",
+    "createdSuccess": "Customer created successfully!",
+    "deletedSuccess": "Customer deleted successfully!",
+    "confirmDelete": "Are you sure you want to delete this customer?"
   },
   "time": {
     "floorTitle": "Live Floor View",
@@ -217,7 +220,11 @@
     "billStatus_unpaid": "Unpaid",
     "billStatus_partial": "Partial",
     "billStatus_paid": "Paid",
-    "billStatus_overdue": "Overdue"
+    "billStatus_overdue": "Overdue",
+    "createdSuccess": "Vendor created successfully!",
+    "updatedSuccess": "Vendor updated successfully!",
+    "deletedSuccess": "Vendor deleted successfully!",
+    "confirmDeleteVendor": "Are you sure you want to delete this vendor?"
   },
   "expenses": {
     "title": "Expenses",

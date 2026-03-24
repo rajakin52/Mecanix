@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateCustomerInput, UpdateCustomerInput, PaginationInput } from '@mecanix/validators';
+import { sanitizeSearch } from '../../common/utils/sanitize';
 
 @Injectable()
 export class CustomersService {
@@ -19,7 +20,8 @@ export class CustomersService {
       .is('deleted_at', null);
 
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`);
+      const s = sanitizeSearch(search);
+      query = query.or(`full_name.ilike.%${s}%,phone.ilike.%${s}%`);
     }
 
     if (sortBy) {
@@ -141,7 +143,7 @@ export class CustomersService {
       .select('id, full_name, phone, email')
       .eq('tenant_id', tenantId)
       .is('deleted_at', null)
-      .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .or(`full_name.ilike.%${sanitizeSearch(query)}%,phone.ilike.%${sanitizeSearch(query)}%`)
       .limit(20);
 
     if (error) throw error;
