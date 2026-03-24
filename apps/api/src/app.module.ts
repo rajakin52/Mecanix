@@ -17,6 +17,8 @@ import { InsuranceModule } from './modules/insurance/insurance.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -39,6 +41,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     InspectionsModule,
     NotificationsModule,
     ReportsModule,
+    AppointmentsModule,
+    RemindersModule,
   ],
   providers: [
     {

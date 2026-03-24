@@ -6,6 +6,7 @@ import { useVehicles } from '@/hooks/use-vehicles';
 import { useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { useLowStock } from '@/hooks/use-parts';
+import { useDueReminders } from '@/hooks/use-reminders';
 import { useFormat } from '@/hooks/use-format';
 import { Link } from '@/i18n/navigation';
 
@@ -15,6 +16,7 @@ export default function DashboardPage() {
   const tv = useTranslations('vehicles');
   const ti = useTranslations('invoices');
   const tr = useTranslations('reports');
+  const trem = useTranslations('reminders');
 
   const { money } = useFormat();
 
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const { data: summaryData } = useFinancialSummary();
   const { data: jobsData, isLoading: loadingJobs } = useJobs(1, '');
   const { data: lowStockData } = useLowStock();
+  const { data: dueRemindersData, isLoading: loadingReminders } = useDueReminders();
 
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
@@ -172,6 +175,53 @@ export default function DashboardPage() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* Due Reminders */}
+      <div className="mt-6 rounded-lg border border-amber-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {trem('dueReminders')}
+            {dueRemindersData && (dueRemindersData as Array<Record<string, unknown>>).length > 0 && (
+              <span className="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {(dueRemindersData as Array<Record<string, unknown>>).length}
+              </span>
+            )}
+          </h2>
+        </div>
+        {loadingReminders ? (
+          <p className="text-sm text-gray-500">{t('loading')}</p>
+        ) : !dueRemindersData || (dueRemindersData as Array<Record<string, unknown>>).length === 0 ? (
+          <p className="text-sm text-gray-400">{trem('noDueReminders')}</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {(dueRemindersData as Array<Record<string, unknown>>).slice(0, 5).map((rem) => {
+              const vehicle = rem.vehicles as Record<string, unknown> | null;
+              return (
+                <li key={String(rem.id)} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {rem.service_name as string}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      <span className="font-mono">{vehicle?.plate as string}</span>
+                      {' - '}
+                      {vehicle?.make as string} {vehicle?.model as string}
+                    </p>
+                  </div>
+                  <div className="text-end">
+                    {rem.next_date && (
+                      <span className="block text-xs text-amber-700">{rem.next_date as string}</span>
+                    )}
+                    {rem.next_mileage && (
+                      <span className="block text-xs text-amber-700">{(rem.next_mileage as number).toLocaleString()} km</span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* Recent Activity */}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useVehicle, useUpdateVehicle } from '@/hooks/use-vehicles';
+import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkReminderSent } from '@/hooks/use-reminders';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -15,10 +16,25 @@ export default function VehicleDetailPage() {
   const id = params.id as string;
   const tv = useTranslations('vehicles');
   const t = useTranslations('common');
+  const tr = useTranslations('reminders');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderType, setReminderType] = useState<'date' | 'mileage' | 'both'>('date');
+  const [reminderForm, setReminderForm] = useState({
+    serviceName: '',
+    nextDate: '',
+    dateIntervalDays: '',
+    nextMileage: '',
+    mileageInterval: '',
+    notes: '',
+  });
 
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const updateMutation = useUpdateVehicle();
+  const { data: reminders, isLoading: loadingReminders } = useVehicleReminders(id);
+  const createReminder = useCreateReminder();
+  const completeReminder = useCompleteReminder();
+  const markSent = useMarkReminderSent();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateVehicleInput>({
     resolver: zodResolver(updateVehicleSchema),
@@ -44,6 +60,24 @@ export default function VehicleDetailPage() {
   const onSubmit = async (formData: UpdateVehicleInput) => {
     await updateMutation.mutateAsync({ id, ...formData });
     setShowEditModal(false);
+  };
+
+  const handleCreateReminder = async () => {
+    const v2 = vehicle as Record<string, unknown>;
+    await createReminder.mutateAsync({
+      vehicleId: id,
+      customerId: v2.customer_id as string,
+      reminderType: reminderType,
+      serviceName: reminderForm.serviceName,
+      ...(reminderType !== 'mileage' && reminderForm.nextDate ? { nextDate: reminderForm.nextDate } : {}),
+      ...(reminderType !== 'mileage' && reminderForm.dateIntervalDays ? { dateIntervalDays: Number(reminderForm.dateIntervalDays) } : {}),
+      ...(reminderType !== 'date' && reminderForm.nextMileage ? { nextMileage: Number(reminderForm.nextMileage) } : {}),
+      ...(reminderType !== 'date' && reminderForm.mileageInterval ? { mileageInterval: Number(reminderForm.mileageInterval) } : {}),
+      ...(reminderForm.notes ? { notes: reminderForm.notes } : {}),
+    });
+    setShowReminderForm(false);
+    setReminderForm({ serviceName: '', nextDate: '', dateIntervalDays: '', nextMileage: '', mileageInterval: '', notes: '' });
+    setReminderType('date');
   };
 
   if (isLoading) {
@@ -191,6 +225,214 @@ export default function VehicleDetailPage() {
       <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">{tv('serviceHistory')}</h2>
         <p className="py-8 text-center text-sm text-gray-500">{tv('noServiceHistory')}</p>
+      </div>
+
+      {/* Service Reminders */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">{tr('title')}</h2>
+          <button
+            onClick={() => setShowReminderForm(!showReminderForm)}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {tr('addReminder')}
+          </button>
+        </div>
+
+        {/* Inline Add Reminder Form */}
+        {showReminderForm && (
+          <div className="mb-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">{tr('serviceName')}</label>
+                <select
+                  value={reminderForm.serviceName}
+                  onChange={(e) => setReminderForm({ ...reminderForm, serviceName: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="">{tr('selectService')}</option>
+                  <option value="Oil Change">{tr('serviceOilChange')}</option>
+                  <option value="Brake Pads">{tr('serviceBrakePads')}</option>
+                  <option value="Timing Belt">{tr('serviceTimingBelt')}</option>
+                  <option value="Tire Rotation">{tr('serviceTireRotation')}</option>
+                  <option value="Air Filter">{tr('serviceAirFilter')}</option>
+                  <option value="General Service">{tr('serviceGeneral')}</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">{tr('reminderType')}</label>
+                <div className="mt-1 flex gap-4">
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="radio"
+                      checked={reminderType === 'date'}
+                      onChange={() => setReminderType('date')}
+                    />
+                    {tr('dateBased')}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="radio"
+                      checked={reminderType === 'mileage'}
+                      onChange={() => setReminderType('mileage')}
+                    />
+                    {tr('mileageBased')}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-sm">
+                    <input
+                      type="radio"
+                      checked={reminderType === 'both'}
+                      onChange={() => setReminderType('both')}
+                    />
+                    {tr('both')}
+                  </label>
+                </div>
+              </div>
+
+              {(reminderType === 'date' || reminderType === 'both') && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tr('nextDate')}</label>
+                    <input
+                      type="date"
+                      value={reminderForm.nextDate}
+                      onChange={(e) => setReminderForm({ ...reminderForm, nextDate: e.target.value })}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tr('intervalDays')}</label>
+                    <input
+                      type="number"
+                      value={reminderForm.dateIntervalDays}
+                      onChange={(e) => setReminderForm({ ...reminderForm, dateIntervalDays: e.target.value })}
+                      placeholder="180"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                    />
+                  </div>
+                </>
+              )}
+
+              {(reminderType === 'mileage' || reminderType === 'both') && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tr('nextMileage')}</label>
+                    <input
+                      type="number"
+                      value={reminderForm.nextMileage}
+                      onChange={(e) => setReminderForm({ ...reminderForm, nextMileage: e.target.value })}
+                      placeholder="50000"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tr('intervalKm')}</label>
+                    <input
+                      type="number"
+                      value={reminderForm.mileageInterval}
+                      onChange={(e) => setReminderForm({ ...reminderForm, mileageInterval: e.target.value })}
+                      placeholder="10000"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>
+                <textarea
+                  value={reminderForm.notes}
+                  onChange={(e) => setReminderForm({ ...reminderForm, notes: e.target.value })}
+                  rows={2}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowReminderForm(false)}
+                className="rounded-md border px-3 py-1.5 text-sm"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleCreateReminder}
+                disabled={!reminderForm.serviceName || createReminder.isPending}
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {createReminder.isPending ? t('loading') : t('save')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Reminders Table */}
+        {loadingReminders ? (
+          <p className="text-sm text-gray-500">{t('loading')}</p>
+        ) : !reminders || reminders.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-500">{tr('noReminders')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr className="text-xs uppercase text-gray-500">
+                  <th className="py-2 pe-4 text-start font-semibold">{tr('serviceName')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{tr('type')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{tr('nextDue')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{tr('status')}</th>
+                  <th className="py-2 text-start font-semibold">{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(reminders as Array<Record<string, unknown>>).map((rem) => {
+                  const statusColors: Record<string, string> = {
+                    active: 'bg-blue-100 text-blue-800',
+                    sent: 'bg-yellow-100 text-yellow-800',
+                    completed: 'bg-green-100 text-green-800',
+                    cancelled: 'bg-gray-100 text-gray-600',
+                  };
+                  return (
+                    <tr key={rem.id as string}>
+                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.service_name as string}</td>
+                      <td className="py-3 pe-4 text-gray-600 capitalize">{rem.reminder_type as string}</td>
+                      <td className="py-3 pe-4 text-gray-600">
+                        {rem.next_date && <span>{rem.next_date as string}</span>}
+                        {rem.next_date && rem.next_mileage && <span> / </span>}
+                        {rem.next_mileage && <span>{(rem.next_mileage as number).toLocaleString()} km</span>}
+                      </td>
+                      <td className="py-3 pe-4">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status as string] ?? 'bg-gray-100'}`}>
+                          {tr(`status_${rem.status as string}`)}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex gap-2">
+                          {(rem.status === 'active') && (
+                            <button
+                              onClick={() => markSent.mutate(rem.id as string)}
+                              className="text-xs text-amber-600 hover:underline"
+                            >
+                              {tr('markSent')}
+                            </button>
+                          )}
+                          {(rem.status === 'active' || rem.status === 'sent') && (
+                            <button
+                              onClick={() => completeReminder.mutate(rem.id as string)}
+                              className="text-xs text-green-600 hover:underline"
+                            >
+                              {tr('markCompleted')}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Edit Vehicle Modal */}

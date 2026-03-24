@@ -10,3 +10,5 @@ export * from './invoice';
 export * from './insurance';
 export * from './notification';
 export * from './inspection';
+export * from './appointment';
+export * from './reminder';
