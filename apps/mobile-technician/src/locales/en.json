@@ -5,7 +5,13 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "search": "Search",
-    "noResults": "No results"
+    "noResults": "No results",
+    "error": "Error",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "hours": "hours",
+    "minutes": "min",
+    "totalHours": "Total Hours"
   },
   "tabs": {
     "home": "Jobs",
@@ -13,9 +19,54 @@
     "profile": "Profile"
   },
   "auth": {
-    "login": "Sign in",
+    "login": "Sign In",
     "signUp": "Create account",
     "email": "Email",
-    "password": "Password"
+    "password": "Password",
+    "loginFailed": "Login failed. Check your credentials.",
+    "logout": "Sign Out",
+    "logoutConfirm": "Are you sure you want to sign out?"
+  },
+  "jobs": {
+    "assignedJobs": "Assigned Jobs",
+    "noJobs": "No jobs assigned",
+    "startTimer": "Start Timer",
+    "reportedProblem": "Reported Problem"
+  },
+  "timer": {
+    "activeTimer": "Active Timer",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "noActiveTimer": "No active timer"
+  },
+  "clock": {
+    "clockIn": "Clock In",
+    "clockOut": "Clock Out",
+    "clockedIn": "Clocked In",
+    "hoursToday": "Hours Today",
+    "notClockedIn": "Not clocked in"
+  },
+  "history": {
+    "title": "Time History",
+    "noEntries": "No time entries found",
+    "completedEntries": "Completed Entries"
+  },
+  "profile": {
+    "title": "Profile",
+    "todayStats": "Today's Stats",
+    "weekStats": "This Week",
+    "hoursLogged": "Hours Logged",
+    "jobsWorked": "Jobs Worked",
+    "technician": "Technician"
+  },
+  "status": {
+    "PENDING": "Pending",
+    "DIAGNOSED": "Diagnosed",
+    "APPROVED": "Approved",
+    "IN_PROGRESS": "In Progress",
+    "COMPLETED": "Completed",
+    "DELIVERED": "Delivered",
+    "CANCELLED": "Cancelled"
   }
 }

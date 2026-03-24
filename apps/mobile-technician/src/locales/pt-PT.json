@@ -5,7 +5,13 @@
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "search": "Pesquisar",
-    "noResults": "Sem resultados"
+    "noResults": "Sem resultados",
+    "error": "Erro",
+    "today": "Hoje",
+    "thisWeek": "Esta Semana",
+    "hours": "horas",
+    "minutes": "min",
+    "totalHours": "Total de Horas"
   },
   "tabs": {
     "home": "Trabalhos",
@@ -16,6 +22,51 @@
     "login": "Entrar",
     "signUp": "Criar conta",
     "email": "Email",
-    "password": "Palavra-passe"
+    "password": "Palavra-passe",
+    "loginFailed": "Falha no login. Verifique as credenciais.",
+    "logout": "Sair",
+    "logoutConfirm": "Tem a certeza que deseja sair?"
+  },
+  "jobs": {
+    "assignedJobs": "Trabalhos Atribuídos",
+    "noJobs": "Sem trabalhos atribuídos",
+    "startTimer": "Iniciar Temporizador",
+    "reportedProblem": "Problema Reportado"
+  },
+  "timer": {
+    "activeTimer": "Temporizador Ativo",
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "stop": "Parar",
+    "noActiveTimer": "Sem temporizador ativo"
+  },
+  "clock": {
+    "clockIn": "Registar Entrada",
+    "clockOut": "Registar Saída",
+    "clockedIn": "Entrada Registada",
+    "hoursToday": "Horas Hoje",
+    "notClockedIn": "Sem entrada registada"
+  },
+  "history": {
+    "title": "Histórico de Tempo",
+    "noEntries": "Sem registos de tempo",
+    "completedEntries": "Registos Concluídos"
+  },
+  "profile": {
+    "title": "Perfil",
+    "todayStats": "Estatísticas de Hoje",
+    "weekStats": "Esta Semana",
+    "hoursLogged": "Horas Registadas",
+    "jobsWorked": "Trabalhos Realizados",
+    "technician": "Técnico"
+  },
+  "status": {
+    "PENDING": "Pendente",
+    "DIAGNOSED": "Diagnosticado",
+    "APPROVED": "Aprovado",
+    "IN_PROGRESS": "Em Progresso",
+    "COMPLETED": "Concluído",
+    "DELIVERED": "Entregue",
+    "CANCELLED": "Cancelado"
   }
 }
