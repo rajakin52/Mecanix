@@ -23,6 +23,9 @@ import { TecDocModule } from './modules/tecdoc/tecdoc.module';
 import { MpesaModule } from './modules/mpesa/mpesa.module';
 import { PettyCashModule } from './modules/petty-cash/petty-cash.module';
 import { DocumentRemindersModule } from './modules/document-reminders/document-reminders.module';
+import { CrmModule } from './modules/crm/crm.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { GatePassModule } from './modules/gate-pass/gate-pass.module';
 import { HealthModule } from './modules/health/health.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -52,6 +55,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     MpesaModule,
     PettyCashModule,
     DocumentRemindersModule,
+    CrmModule,
+    LoyaltyModule,
+    GatePassModule,
     HealthModule,
   ],
   providers: [

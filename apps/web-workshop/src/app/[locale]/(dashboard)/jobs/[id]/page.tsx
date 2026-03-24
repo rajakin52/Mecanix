@@ -14,6 +14,7 @@ import {
   useTechnicians,
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
+import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -293,9 +294,17 @@ export default function JobDetailPage() {
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
 
+  const tg = useTranslations('gatePass');
   const { data: job, isLoading } = useJob(id);
   const statusMutation = useUpdateJobStatus();
   const { data: techData } = useTechnicians();
+  const { data: gatePasses } = useGatePasses(id);
+  const createGatePass = useCreateGatePass();
+  const [showGatePassForm, setShowGatePassForm] = useState(false);
+  const [gpMileage, setGpMileage] = useState('');
+  const [gpNotes, setGpNotes] = useState('');
+  const [gpType, setGpType] = useState<string>('exit');
+  const [gpError, setGpError] = useState<string | null>(null);
 
   // Labour lines
   const { data: labourLines } = useLabourLines(id);
@@ -757,6 +766,111 @@ export default function JobDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Gate Pass */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">{tg('title')}</h2>
+          {(currentStatus === 'ready' || currentStatus === 'invoiced') && (
+            <button
+              onClick={() => setShowGatePassForm(true)}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              {tg('issueGatePass')}
+            </button>
+          )}
+        </div>
+
+        {/* Gate Pass List */}
+        {gatePasses && (gatePasses as Array<Record<string, unknown>>).length > 0 ? (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{tg('passNumber')}</th>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{tg('type')}</th>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{tg('date')}</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{tg('mileage')}</th>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{tg('authorizedBy')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {(gatePasses as Array<Record<string, unknown>>).map((gp) => (
+                <tr key={gp.id as string}>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{gp.pass_number as string}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      gp.pass_type === 'exit' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {tg(`passType_${gp.pass_type as string}`)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-600">{new Date(gp.issued_at as string).toLocaleString()}</td>
+                  <td className="px-4 py-2 text-end text-sm text-gray-600">{gp.mileage != null ? `${gp.mileage} km` : '-'}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600">
+                    {(gp.authorizer as Record<string, string> | null)?.full_name ?? '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-4">{tg('noGatePasses')}</p>
+        )}
+
+        {/* Gate Pass Form */}
+        {showGatePassForm && (
+          <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            {gpError && (
+              <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{gpError}</div>
+            )}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tg('type')}</label>
+                <select value={gpType} onChange={(e) => setGpType(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-white">
+                  <option value="exit">{tg('passType_exit')}</option>
+                  <option value="entry">{tg('passType_entry')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tg('mileage')}</label>
+                <input type="number" min="0" value={gpMileage} onChange={(e) => setGpMileage(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="km" />
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700">{tc('notes')}</label>
+                <input value={gpNotes} onChange={(e) => setGpNotes(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button onClick={() => { setShowGatePassForm(false); setGpError(null); }} className="rounded-md border px-3 py-1.5 text-sm">{tc('cancel')}</button>
+              <button
+                onClick={async () => {
+                  try {
+                    setGpError(null);
+                    await createGatePass.mutateAsync({
+                      jobCardId: id,
+                      vehicleId: typedJob.vehicle_id as string,
+                      customerId: typedJob.customer_id as string,
+                      passType: gpType,
+                      mileage: gpMileage ? parseInt(gpMileage, 10) : undefined,
+                      notes: gpNotes || undefined,
+                    });
+                    setShowGatePassForm(false);
+                    setGpMileage('');
+                    setGpNotes('');
+                    setGpType('exit');
+                  } catch (err) {
+                    setGpError(err instanceof Error ? err.message : 'Failed to create gate pass');
+                  }
+                }}
+                disabled={createGatePass.isPending}
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {createGatePass.isPending ? tc('loading') : tg('issueGatePass')}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status History */}

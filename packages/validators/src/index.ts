@@ -12,3 +12,6 @@ export * from './notification';
 export * from './inspection';
 export * from './appointment';
 export * from './reminder';
+export * from './crm';
+export * from './loyalty';
+export * from './gate-pass';

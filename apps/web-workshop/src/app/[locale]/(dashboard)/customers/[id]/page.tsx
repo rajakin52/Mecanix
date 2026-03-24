@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
+import { useLoyalty, useLoyaltyTransactions, useEarnPoints, useRedeemPoints } from '@/hooks/use-loyalty';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,15 +32,26 @@ export default function CustomerDetailPage() {
   const tc = useTranslations('customers');
   const tv = useTranslations('vehicles');
   const t = useTranslations('common');
+  const tl = useTranslations('loyalty');
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editIsCorporate, setEditIsCorporate] = useState(false);
+  const [showEarnModal, setShowEarnModal] = useState(false);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
+  const [earnAmount, setEarnAmount] = useState('');
+  const [earnInvoiceId, setEarnInvoiceId] = useState('');
+  const [redeemPoints, setRedeemPointsVal] = useState('');
+  const [redeemDesc, setRedeemDesc] = useState('');
 
   const { data: customer, isLoading, isError } = useCustomer(id);
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles(1, '', id);
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
+  const { data: loyalty } = useLoyalty(id);
+  const { data: loyaltyTxs } = useLoyaltyTransactions(id);
+  const earnMutation = useEarnPoints();
+  const redeemMutation = useRedeemPoints();
 
   const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<UpdateCustomerInput>({
     resolver: zodResolver(updateCustomerSchema),
@@ -224,6 +236,163 @@ export default function CustomerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Loyalty Program */}
+      <div className="mt-8">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">{tl('title')}</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowEarnModal(true)}
+              className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700"
+            >
+              {tl('earnPoints')}
+            </button>
+            <button
+              onClick={() => setShowRedeemModal(true)}
+              className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700"
+            >
+              {tl('redeemPoints')}
+            </button>
+          </div>
+        </div>
+
+        {/* Loyalty Card */}
+        {loyalty && (
+          <div className="mb-4 rounded-lg border border-gray-200 bg-white p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{tl('currentPoints')}</p>
+                <p className="text-3xl font-bold text-gray-900">{loyalty.points}</p>
+              </div>
+              <div>
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${
+                  loyalty.tier === 'platinum' ? 'bg-gray-800 text-white' :
+                  loyalty.tier === 'gold' ? 'bg-yellow-100 text-yellow-800' :
+                  loyalty.tier === 'silver' ? 'bg-gray-200 text-gray-700' :
+                  'bg-orange-100 text-orange-700'
+                }`}>
+                  {tl(`tier_${loyalty.tier}`)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Points History */}
+        <div className="overflow-hidden rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tl('date')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tl('type')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tl('description')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{tl('points')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{tl('balance')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {loyaltyTxs && loyaltyTxs.length > 0 ? (
+                loyaltyTxs.map((tx) => (
+                  <tr key={tx.id}>
+                    <td className="px-4 py-3 text-sm text-gray-600">{new Date(tx.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        tx.transaction_type === 'earn' ? 'bg-green-100 text-green-700' :
+                        tx.transaction_type === 'redeem' ? 'bg-amber-100 text-amber-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {tl(`txType_${tx.transaction_type}`)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{tx.description}</td>
+                    <td className={`px-4 py-3 text-end text-sm font-medium ${tx.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {tx.points > 0 ? '+' : ''}{tx.points}
+                    </td>
+                    <td className="px-4 py-3 text-end text-sm text-gray-900">{tx.balance_after}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">{tl('noTransactions')}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Earn Points Modal */}
+      {showEarnModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">{tl('earnPoints')}</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tl('invoiceId')}</label>
+                <input value={earnInvoiceId} onChange={(e) => setEarnInvoiceId(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tl('amount')}</label>
+                <input type="number" step="0.01" min="0" value={earnAmount} onChange={(e) => setEarnAmount(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowEarnModal(false)} className="rounded-md border px-4 py-2 text-sm">{t('cancel')}</button>
+                <button
+                  onClick={async () => {
+                    if (earnInvoiceId && earnAmount) {
+                      await earnMutation.mutateAsync({ customerId: id, invoiceId: earnInvoiceId, amount: parseFloat(earnAmount) });
+                      setShowEarnModal(false);
+                      setEarnAmount('');
+                      setEarnInvoiceId('');
+                    }
+                  }}
+                  disabled={earnMutation.isPending}
+                  className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {earnMutation.isPending ? t('loading') : tl('earnPoints')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Redeem Points Modal */}
+      {showRedeemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">{tl('redeemPoints')}</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tl('points')}</label>
+                <input type="number" min="1" value={redeemPoints} onChange={(e) => setRedeemPointsVal(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{tl('description')}</label>
+                <input value={redeemDesc} onChange={(e) => setRedeemDesc(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowRedeemModal(false)} className="rounded-md border px-4 py-2 text-sm">{t('cancel')}</button>
+                <button
+                  onClick={async () => {
+                    if (redeemPoints && redeemDesc) {
+                      await redeemMutation.mutateAsync({ customerId: id, points: parseInt(redeemPoints, 10), description: redeemDesc });
+                      setShowRedeemModal(false);
+                      setRedeemPointsVal('');
+                      setRedeemDesc('');
+                    }
+                  }}
+                  disabled={redeemMutation.isPending}
+                  className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {redeemMutation.isPending ? t('loading') : tl('redeemPoints')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Customer Modal */}
       {showEditModal && (
