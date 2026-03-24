@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { InvoicesService } from './invoices.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -22,7 +24,7 @@ import type {
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('invoices')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
@@ -50,6 +52,7 @@ export class InvoicesController {
   }
 
   @Post('generate')
+  @Roles('owner', 'manager', 'receptionist')
   async generate(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
@@ -59,6 +62,7 @@ export class InvoicesController {
   }
 
   @Post(':id/send')
+  @Roles('owner', 'manager', 'receptionist')
   async send(
     @TenantId() tenantId: string,
     @Param('id') id: string,

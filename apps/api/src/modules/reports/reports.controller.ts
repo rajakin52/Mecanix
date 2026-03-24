@@ -1,6 +1,8 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { TenantId } from '../../common/decorators/user.decorator';
 
 function getDefaultDateRange(): { startDate: string; endDate: string } {
@@ -13,7 +15,8 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
 }
 
 @Controller('reports')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
+@Roles('owner', 'manager')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

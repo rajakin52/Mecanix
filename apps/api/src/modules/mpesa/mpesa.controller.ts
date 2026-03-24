@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { MpesaService } from './mpesa.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { mpesaPaySchema } from '@mecanix/validators';
+import type { MpesaPayInput } from '@mecanix/validators';
 
 @Controller('mpesa')
 @UseGuards(TenantGuard)
@@ -9,7 +12,7 @@ export class MpesaController {
 
   @Post('pay')
   async initiatePayment(
-    @Body() body: { phoneNumber: string; amount: number; invoiceId: string },
+    @Body(new ZodValidationPipe(mpesaPaySchema)) body: MpesaPayInput,
   ) {
     return this.mpesaService.initiatePayment({
       phoneNumber: body.phoneNumber,

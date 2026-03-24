@@ -16,7 +16,7 @@ async function bootstrap() {
       'http://localhost:3001',
       'http://localhost:8081',
       'https://mecanix-web-ten.vercel.app',
-      /\.vercel\.app$/,
+      /^https:\/\/mecanix-.*rajakin52s-projects\.vercel\.app$/,
     ],
     credentials: true,
   });

@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { createCustomerSchema, updateCustomerSchema, paginationSchema } from '@mecanix/validators';
@@ -18,7 +20,7 @@ import type { CreateCustomerInput, UpdateCustomerInput, PaginationInput } from '
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('customers')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
@@ -66,6 +68,7 @@ export class CustomersController {
   }
 
   @Delete(':id')
+  @Roles('owner', 'manager')
   async delete(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,

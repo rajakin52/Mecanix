@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { createExpenseSchema, updateExpenseSchema, paginationSchema } from '@mecanix/validators';
@@ -18,7 +20,8 @@ import type { CreateExpenseInput, UpdateExpenseInput, PaginationInput } from '@m
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('expenses')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
+@Roles('owner', 'manager')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 

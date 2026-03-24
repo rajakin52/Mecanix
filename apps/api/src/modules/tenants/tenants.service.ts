@@ -121,4 +121,38 @@ export class TenantsService {
 
     return data;
   }
+
+  async getSetting(tenantId: string, key: string, defaultValue?: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', key)
+      .single();
+
+    if (error || !data) {
+      return defaultValue ?? null;
+    }
+
+    return data.value as string;
+  }
+
+  async setSetting(tenantId: string, key: string, value: string): Promise<{ key: string; value: string }> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('tenant_settings')
+      .upsert(
+        { tenant_id: tenantId, key, value },
+        { onConflict: 'tenant_id,key' },
+      )
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException('Failed to save setting');
+    }
+
+    return { key: data.key as string, value: data.value as string };
+  }
 }

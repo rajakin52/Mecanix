@@ -141,13 +141,14 @@ export class InvoicesService {
     if (rpcError) throw rpcError;
 
     // 5. Get tax rate from tenant settings
-    const { data: tenantSettings } = await client
+    const { data: taxRateSetting } = await client
       .from('tenant_settings')
-      .select('tax_rate')
+      .select('value')
       .eq('tenant_id', tenantId)
+      .eq('key', 'tax_rate')
       .single();
 
-    const taxRate = tenantSettings?.tax_rate ?? 14;
+    const taxRate = taxRateSetting?.value ? Number(taxRateSetting.value) : 14;
 
     // 6. Calculate totals
     const subtotal = labourTotal + partsTotal;

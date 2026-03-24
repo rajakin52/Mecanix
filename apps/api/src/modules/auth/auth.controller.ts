@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { loginSchema, signUpSchema } from '@mecanix/validators';
-import type { LoginInput, SignUpInput } from '@mecanix/validators';
+import { loginSchema, signUpSchema, inviteUserSchema } from '@mecanix/validators';
+import type { LoginInput, SignUpInput, InviteUserInput } from '@mecanix/validators';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -29,10 +31,11 @@ export class AuthController {
   }
 
   @Post('invite')
-  @UseGuards(TenantGuard)
+  @UseGuards(TenantGuard, RolesGuard)
+  @Roles('owner', 'manager')
   async invite(
     @CurrentUser() user: RequestUser,
-    @Body() body: { email: string; fullName: string; role: string },
+    @Body(new ZodValidationPipe(inviteUserSchema)) body: InviteUserInput,
   ) {
     return this.authService.inviteUser(user.tenantId, body.email, body.fullName, body.role, user.id);
   }

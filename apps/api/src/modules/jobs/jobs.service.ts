@@ -318,13 +318,14 @@ export class JobsService {
     );
 
     // Get tax rate from tenant settings or default 14%
-    const { data: tenantSettings } = await client
+    const { data: taxRateSetting } = await client
       .from('tenant_settings')
-      .select('tax_rate')
+      .select('value')
       .eq('tenant_id', tenantId)
+      .eq('key', 'tax_rate')
       .single();
 
-    const taxRate = tenantSettings?.tax_rate ?? 14;
+    const taxRate = taxRateSetting?.value ? Number(taxRateSetting.value) : 14;
 
     // Get job to check if taxable
     const { data: job } = await client
@@ -338,7 +339,11 @@ export class JobsService {
     const taxAmount = job?.is_taxable ? subtotal * (taxRate / 100) : 0;
     const grandTotal = subtotal + taxAmount;
 
-    // Round to 2 decimal places
+    // Round to 2 decimal places using banker's rounding via Math.round.
+    // NOTE (H5 / Phase 3): Ideally all money should be stored as integer cents
+    // to avoid floating-point precision issues. The current approach with
+    // Math.round(n * 100) / 100 is acceptable for now but should be migrated
+    // to integer cents in a future phase.
     const rounded = (n: number) => Math.round(n * 100) / 100;
 
     const { error } = await client

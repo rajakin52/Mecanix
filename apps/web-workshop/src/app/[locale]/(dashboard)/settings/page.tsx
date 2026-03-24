@@ -51,6 +51,11 @@ export default function SettingsPage() {
   const [savingCurrency, setSavingCurrency] = useState(false);
   const [currencyMessage, setCurrencyMessage] = useState('');
 
+  // Tax rate state
+  const [taxRate, setTaxRate] = useState<string>('14');
+  const [savingTaxRate, setSavingTaxRate] = useState(false);
+  const [taxRateMessage, setTaxRateMessage] = useState('');
+
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
       .then((data) => {
@@ -65,6 +70,13 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Fetch tax rate setting
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/tax_rate')
+      .then((data) => {
+        if (data.value) setTaxRate(data.value);
+      })
+      .catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -77,6 +89,19 @@ export default function SettingsPage() {
       setMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTaxRate = async () => {
+    setSavingTaxRate(true);
+    setTaxRateMessage('');
+    try {
+      await api.put('/tenants/me/settings/tax_rate', { value: taxRate });
+      setTaxRateMessage('Tax rate saved');
+    } catch (err) {
+      setTaxRateMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingTaxRate(false);
     }
   };
 
@@ -159,6 +184,34 @@ export default function SettingsPage() {
                 onChange={(e) => setAddress(e.target.value)}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Tax Rate (%)</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(e.target.value)}
+                  className="block w-24 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-500">%</span>
+                <button
+                  onClick={handleSaveTaxRate}
+                  disabled={savingTaxRate}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingTaxRate ? t('loading') : t('save')}
+                </button>
+              </div>
+              {taxRateMessage && (
+                <p className={`mt-1 text-sm ${taxRateMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {taxRateMessage}
+                </p>
+              )}
             </div>
 
             {/* Read-only fields */}

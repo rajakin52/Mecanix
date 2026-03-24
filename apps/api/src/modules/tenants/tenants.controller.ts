@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { updateTenantSchema } from '@mecanix/validators';
+import type { UpdateTenantInput } from '@mecanix/validators';
 
 @Controller('tenants')
 @UseGuards(TenantGuard, RolesGuard)
@@ -19,7 +22,7 @@ export class TenantsController {
   @Roles('owner')
   async updateTenant(
     @TenantId() tenantId: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateTenantSchema)) body: UpdateTenantInput,
   ) {
     return this.tenantsService.updateTenant(tenantId, body);
   }
@@ -45,5 +48,24 @@ export class TenantsController {
     @Body() body: { currency: string | null },
   ) {
     return this.tenantsService.setSecondaryCurrency(tenantId, body.currency);
+  }
+
+  @Get('me/settings/:key')
+  async getSetting(
+    @TenantId() tenantId: string,
+    @Param('key') key: string,
+  ) {
+    const value = await this.tenantsService.getSetting(tenantId, key);
+    return { key, value };
+  }
+
+  @Put('me/settings/:key')
+  @Roles('owner')
+  async setSetting(
+    @TenantId() tenantId: string,
+    @Param('key') key: string,
+    @Body() body: { value: string },
+  ) {
+    return this.tenantsService.setSetting(tenantId, key, body.value);
   }
 }
