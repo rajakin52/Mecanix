@@ -9,3 +9,4 @@ export * from './inventory';
 export * from './invoice';
 export * from './insurance';
 export * from './notification';
+export * from './inspection';

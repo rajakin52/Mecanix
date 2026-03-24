@@ -13,6 +13,7 @@ import {
   useCreatePartsLine,
   useTechnicians,
 } from '@/hooks/use-jobs';
+import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -45,6 +46,244 @@ function StatusBadge({ status }: { status: string | undefined }) {
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
       {status.replace(/_/g, ' ')}
     </span>
+  );
+}
+
+const FUEL_LEVELS = ['empty', 'quarter', 'half', 'three_quarter', 'full'] as const;
+
+const CHECKLIST_KEYS = [
+  'hasSpareTire',
+  'hasJack',
+  'hasTools',
+  'hasRadio',
+  'hasMats',
+  'hasHubcaps',
+  'hasAntenna',
+  'hasDocuments',
+] as const;
+
+function FuelGaugeIcon({ level, active }: { level: string; active: boolean }) {
+  const fills: Record<string, number> = {
+    empty: 0, quarter: 25, half: 50, three_quarter: 75, full: 100,
+  };
+  const pct = fills[level] ?? 0;
+  return (
+    <svg viewBox="0 0 24 32" className={`h-8 w-6 ${active ? 'text-primary-600' : 'text-gray-300'}`} fill="none">
+      <rect x="2" y="2" width="20" height="28" rx="3" stroke="currentColor" strokeWidth="2" />
+      <rect
+        x="4"
+        y={String(28 - (pct / 100) * 24)}
+        width="16"
+        height={String((pct / 100) * 24)}
+        rx="1"
+        fill="currentColor"
+        opacity={active ? 1 : 0.3}
+      />
+    </svg>
+  );
+}
+
+function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: string }) {
+  const t = useTranslations('inspection');
+  const tc = useTranslations('common');
+  const { data: inspection, isLoading } = useInspection(jobCardId);
+  const createMutation = useCreateInspection();
+
+  const [showForm, setShowForm] = useState(false);
+  const [mileageIn, setMileageIn] = useState('');
+  const [fuelLevel, setFuelLevel] = useState<string>('');
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({
+    hasSpareTire: false, hasJack: false, hasTools: false, hasRadio: false,
+    hasMats: false, hasHubcaps: false, hasAntenna: false, hasDocuments: false,
+  });
+  const [personalItems, setPersonalItems] = useState('');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const checklistLabels: Record<string, string> = {
+    hasSpareTire: t('spareTire'), hasJack: t('jack'), hasTools: t('tools'),
+    hasRadio: t('radio'), hasMats: t('floorMats'), hasHubcaps: t('hubcaps'),
+    hasAntenna: t('antenna'), hasDocuments: t('documents'),
+  };
+
+  const fuelLabels: Record<string, string> = {
+    empty: t('empty'), quarter: t('quarter'), half: t('half'),
+    three_quarter: t('threeQuarter'), full: t('full'),
+  };
+
+  const handleSave = async () => {
+    try {
+      setFormError(null);
+      const payload: Record<string, unknown> = { jobCardId, vehicleId, ...checklist };
+      if (mileageIn) payload.mileageIn = Number(mileageIn);
+      if (fuelLevel) payload.fuelLevel = fuelLevel;
+      if (personalItems) payload.personalItems = personalItems;
+      if (notes) payload.notes = notes;
+      await createMutation.mutateAsync(payload);
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save inspection');
+    }
+  };
+
+  if (isLoading) return <div className="text-gray-500 text-sm">{tc('loading')}</div>;
+
+  // Read-only view when inspection exists
+  if (inspection && !showForm) {
+    const insp = inspection as Record<string, unknown>;
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('title')}</h3>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {insp.mileage_in && (
+            <div>
+              <span className="font-medium text-gray-500">{t('mileageIn')}:</span>{' '}
+              <span className="text-gray-900">{String(insp.mileage_in)} km</span>
+            </div>
+          )}
+          {insp.fuel_level && (
+            <div>
+              <span className="font-medium text-gray-500">{t('fuelLevel')}:</span>{' '}
+              <span className="text-gray-900">{fuelLabels[insp.fuel_level as string] ?? insp.fuel_level}</span>
+            </div>
+          )}
+        </div>
+        <div className="mt-4">
+          <span className="text-sm font-medium text-gray-500">{t('checklist')}:</span>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {CHECKLIST_KEYS.map((key) => {
+              const snakeKey = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+              const checked = Boolean(insp[snakeKey]);
+              return (
+                <div key={key} className={`flex items-center gap-1.5 text-sm ${checked ? 'text-green-700' : 'text-gray-400'}`}>
+                  <span>{checked ? '\u2713' : '\u2717'}</span>
+                  <span>{checklistLabels[key]}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {insp.personal_items && (
+          <div className="mt-4 text-sm">
+            <span className="font-medium text-gray-500">{t('personalItems')}:</span>
+            <p className="mt-1 text-gray-900">{String(insp.personal_items)}</p>
+          </div>
+        )}
+        {insp.notes && (
+          <div className="mt-4 text-sm">
+            <span className="font-medium text-gray-500">{tc('notes')}:</span>
+            <p className="mt-1 text-gray-900">{String(insp.notes)}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Start button
+  if (!showForm) {
+    return (
+      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+        <h3 className="mb-2 text-lg font-semibold text-gray-900">{t('title')}</h3>
+        <button
+          onClick={() => setShowForm(true)}
+          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+        >
+          {t('startCheckIn')}
+        </button>
+      </div>
+    );
+  }
+
+  // Inline form
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('title')}</h3>
+      {formError && (
+        <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{formError}</div>
+      )}
+      <div className="space-y-5">
+        {/* Mileage */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">{t('mileageIn')}</label>
+          <input
+            type="number" min={0} value={mileageIn}
+            onChange={(e) => setMileageIn(e.target.value)}
+            placeholder="km"
+            className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        {/* Fuel level */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('fuelLevel')}</label>
+          <div className="flex gap-3">
+            {FUEL_LEVELS.map((level) => (
+              <button
+                key={level} type="button"
+                onClick={() => setFuelLevel(level)}
+                className={`flex flex-col items-center gap-1 rounded-md border px-3 py-2 text-xs transition-colors ${
+                  fuelLevel === level
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <FuelGaugeIcon level={level} active={fuelLevel === level} />
+                {fuelLabels[level]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Checklist */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('checklist')}</label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {CHECKLIST_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
+                <input
+                  type="checkbox" checked={checklist[key]}
+                  onChange={(e) => setChecklist((prev) => ({ ...prev, [key]: e.target.checked }))}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                {checklistLabels[key]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Personal items */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">{t('personalItems')}</label>
+          <textarea
+            value={personalItems} onChange={(e) => setPersonalItems(e.target.value)} rows={2}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">{tc('notes')}</label>
+          <textarea
+            value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={() => setShowForm(false)}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            {tc('cancel')}
+          </button>
+          <button onClick={handleSave} disabled={createMutation.isPending}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {createMutation.isPending ? tc('loading') : tc('save')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -257,6 +496,12 @@ export default function JobDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Vehicle Inspection */}
+      <InspectionSection
+        jobCardId={id}
+        vehicleId={(typedJob.vehicle_id as string) ?? ''}
+      />
 
       {/* Labour Lines */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

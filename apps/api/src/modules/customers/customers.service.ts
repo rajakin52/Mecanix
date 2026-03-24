@@ -71,6 +71,7 @@ export class CustomersService {
         email: input.email || null,
         tax_id: input.taxId || null,
         address: input.address || null,
+        payment_terms: input.paymentTerms || null,
         notes: input.notes || null,
         created_by: userId,
         updated_by: userId,
@@ -92,6 +93,7 @@ export class CustomersService {
     if (input.email !== undefined) updateData['email'] = input.email || null;
     if (input.taxId !== undefined) updateData['tax_id'] = input.taxId || null;
     if (input.address !== undefined) updateData['address'] = input.address || null;
+    if (input.paymentTerms !== undefined) updateData['payment_terms'] = input.paymentTerms || null;
     if (input.notes !== undefined) updateData['notes'] = input.notes || null;
 
     const { data, error } = await this.supabase

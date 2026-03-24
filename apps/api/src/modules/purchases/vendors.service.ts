@@ -55,11 +55,11 @@ export class VendorsService {
         email: input.email || null,
         address: input.address || null,
         lead_time_days: input.leadTimeDays ?? null,
+        tax_id: input.taxId || null,
         payment_terms: input.paymentTerms || null,
         notes: input.notes || null,
         is_active: true,
         created_by: userId,
-        
       })
       .select()
       .single();

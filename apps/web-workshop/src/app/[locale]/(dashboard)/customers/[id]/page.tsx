@@ -3,27 +3,41 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useCustomer, useUpdateCustomer } from '@/hooks/use-customers';
+import { useCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateCustomerSchema } from '@mecanix/validators';
 import type { UpdateCustomerInput } from '@mecanix/validators';
 
+const PAYMENT_TERMS_OPTIONS = [
+  { value: '', label: '— Select —' },
+  { value: 'Immediate', label: 'Immediate' },
+  { value: 'Net 15', label: 'Net 15' },
+  { value: 'Net 30', label: 'Net 30' },
+  { value: 'Net 45', label: 'Net 45' },
+  { value: 'Net 60', label: 'Net 60' },
+  { value: 'Net 90', label: 'Net 90' },
+  { value: 'COD', label: 'COD' },
+];
+
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const router = useRouter();
 
   const tc = useTranslations('customers');
   const tv = useTranslations('vehicles');
   const t = useTranslations('common');
 
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: customer, isLoading, isError } = useCustomer(id);
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles(1, '', id);
   const updateMutation = useUpdateCustomer();
+  const deleteMutation = useDeleteCustomer();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateCustomerInput>({
     resolver: zodResolver(updateCustomerSchema),
@@ -37,6 +51,7 @@ export default function CustomerDetailPage() {
         email: (customer as Record<string, unknown>).email as string ?? '',
         taxId: (customer as Record<string, unknown>).tax_id as string ?? '',
         address: (customer as Record<string, unknown>).address as string ?? '',
+        paymentTerms: (customer as Record<string, unknown>).payment_terms as string ?? '',
         notes: (customer as Record<string, unknown>).notes as string ?? '',
       });
     }
@@ -45,6 +60,11 @@ export default function CustomerDetailPage() {
   const onSubmit = async (formData: UpdateCustomerInput) => {
     await updateMutation.mutateAsync({ id, ...formData });
     setShowEditModal(false);
+  };
+
+  const handleDelete = async () => {
+    await deleteMutation.mutateAsync(id);
+    router.push('/customers');
   };
 
   if (isLoading) {
@@ -80,12 +100,20 @@ export default function CustomerDetailPage() {
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">{c.full_name as string}</h1>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-          >
-            {t('edit')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              {t('edit')}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              {t('delete')}
+            </button>
+          </div>
         </div>
 
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -100,6 +128,10 @@ export default function CustomerDetailPage() {
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('taxId')}</dt>
             <dd className="mt-1 text-sm text-gray-900">{(c.tax_id as string) || '-'}</dd>
+          </div>
+          <div>
+            <dt className="text-sm font-medium text-gray-500">{tc('paymentTerms')}</dt>
+            <dd className="mt-1 text-sm text-gray-900">{(c.payment_terms as string) || '-'}</dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('address')}</dt>
@@ -184,6 +216,14 @@ export default function CustomerDetailPage() {
                 <input {...register('taxId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">{tc('paymentTerms')}</label>
+                <select {...register('paymentTerms')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
+                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">{tc('address')}</label>
                 <input {...register('address')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
               </div>
@@ -204,6 +244,33 @@ export default function CustomerDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">{t('confirmDelete')}</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{c.full_name as string}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-md border px-4 py-2 text-sm"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? t('loading') : t('delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}

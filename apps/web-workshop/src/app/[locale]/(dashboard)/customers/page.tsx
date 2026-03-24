@@ -9,6 +9,17 @@ import { createCustomerSchema } from '@mecanix/validators';
 import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 
+const PAYMENT_TERMS_OPTIONS = [
+  { value: '', label: '— Select —' },
+  { value: 'Immediate', label: 'Immediate' },
+  { value: 'Net 15', label: 'Net 15' },
+  { value: 'Net 30', label: 'Net 30' },
+  { value: 'Net 45', label: 'Net 45' },
+  { value: 'Net 60', label: 'Net 60' },
+  { value: 'Net 90', label: 'Net 90' },
+  { value: 'COD', label: 'COD' },
+];
+
 export default function CustomersPage() {
   const t = useTranslations('customers');
   const tc = useTranslations('common');
@@ -16,6 +27,7 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useCustomers(page, search);
   const createMutation = useCreateCustomer();
@@ -29,7 +41,15 @@ export default function CustomersPage() {
     await createMutation.mutateAsync(formData);
     setShowModal(false);
     reset();
-    setSuccessMsg('Saved successfully!');
+    setSuccessMsg('Customer created successfully!');
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    await deleteMutation.mutateAsync(deleteConfirm.id);
+    setDeleteConfirm(null);
+    setSuccessMsg('Customer deleted successfully!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
@@ -88,7 +108,7 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-sm text-gray-600">{(customer.email as string) ?? '-'}</td>
                       <td className="px-4 py-3 text-sm">
                         <button
-                          onClick={() => deleteMutation.mutate(customer.id as string)}
+                          onClick={() => setDeleteConfirm({ id: customer.id as string, name: customer.full_name as string })}
                           className="text-red-600 hover:text-red-800"
                         >
                           {tc('delete')}
@@ -137,7 +157,7 @@ export default function CustomersPage() {
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">{t('newCustomer')}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#10005;</button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
@@ -157,6 +177,14 @@ export default function CustomersPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('taxId')}</label>
                 <input {...register('taxId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('paymentTerms')}</label>
+                <select {...register('paymentTerms')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
+                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('address')}</label>
@@ -179,6 +207,33 @@ export default function CustomersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">{tc('confirmDelete')}</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="rounded-md border px-4 py-2 text-sm"
+              >
+                {tc('cancel')}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? tc('loading') : tc('delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}

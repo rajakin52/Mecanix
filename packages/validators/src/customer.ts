@@ -6,6 +6,7 @@ export const createCustomerSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   taxId: z.string().optional(),
   address: z.string().max(500).optional(),
+  paymentTerms: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
 });
 

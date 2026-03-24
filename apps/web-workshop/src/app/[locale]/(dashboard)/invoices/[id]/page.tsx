@@ -129,6 +129,12 @@ export default function InvoiceDetailPage() {
           </span>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => window.open(`/${locale}/print/invoice/${id}`, '_blank')}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Print / PDF
+          </button>
           {status === 'draft' && (
             <button
               onClick={handleMarkAsSent}
