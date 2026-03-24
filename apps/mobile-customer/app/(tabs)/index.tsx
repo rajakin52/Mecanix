@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { apiGet } from '../../src/lib/api';
 
 interface Vehicle {
@@ -35,6 +36,7 @@ interface JobCard {
 
 export default function VehiclesScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,25 +65,11 @@ export default function VehiclesScreen() {
     fetchVehicles();
   }, [fetchVehicles]);
 
-  const handleVehicleTap = async (vehicle: Vehicle) => {
-    try {
-      const history = await apiGet<JobCard[]>(`/vehicles/${vehicle.id}/history`);
-      if (history && history.length > 0) {
-        const last = history[0];
-        Alert.alert(
-          t('vehicles.serviceHistory'),
-          `${t('vehicles.lastService')}:\n\n` +
-            `${t('jobs.jobNumber', { number: last.job_number })}\n` +
-            `${t('jobs.status.' + last.status)}\n` +
-            (last.reported_problem ? `${last.reported_problem}\n` : '') +
-            (last.grand_total != null ? `${t('jobs.total')}: ${last.grand_total.toFixed(2)}` : ''),
-        );
-      } else {
-        Alert.alert(t('vehicles.serviceHistory'), t('vehicles.noHistory'));
-      }
-    } catch {
-      Alert.alert(t('vehicles.serviceHistory'), t('vehicles.noHistory'));
-    }
+  const handleVehicleTap = (vehicle: Vehicle) => {
+    router.push({
+      pathname: '/vehicle-detail',
+      params: { vehicleId: vehicle.id, vehiclePlate: vehicle.plate },
+    });
   };
 
   const renderVehicle = ({ item }: { item: Vehicle }) => (
@@ -123,7 +111,7 @@ export default function VehiclesScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#0087FF" />
       </View>
     );
   }
@@ -147,7 +135,7 @@ export default function VehiclesScreen() {
         renderItem={renderVehicle}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4CAF50" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0087FF" />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -156,6 +144,15 @@ export default function VehiclesScreen() {
           </View>
         }
       />
+
+      {/* Book Service FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/book-appointment')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.fabText}>{t('booking.bookService')}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -261,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 8,
@@ -271,4 +268,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    left: 16,
+    right: 16,
+    backgroundColor: '#0087FF',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#0087FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabText: { color: '#fff', fontSize: 17, fontWeight: '700' },
 });

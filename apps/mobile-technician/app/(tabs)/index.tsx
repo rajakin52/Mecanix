@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { apiGet, apiPost } from '../../src/lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -75,7 +76,7 @@ function calcElapsed(entry: TimeEntry): number {
 const STATUS_COLORS: Record<string, string> = {
   PENDING: '#FFB300',
   DIAGNOSED: '#2196F3',
-  APPROVED: '#4CAF50',
+  APPROVED: '#0087FF',
   IN_PROGRESS: '#FF9800',
   COMPLETED: '#8BC34A',
   DELIVERED: '#9E9E9E',
@@ -88,6 +89,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function JobsScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
 
   const [techId, setTechId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -104,9 +106,10 @@ export default function JobsScreen() {
   const resolveTechnician = useCallback(async () => {
     try {
       const techs = await apiGet<Technician[]>('/technicians');
-      if (techs.length > 0) {
-        setTechId(techs[0].id);
-        return techs[0].id;
+      const first = techs[0];
+      if (first) {
+        setTechId(first.id);
+        return first.id;
       }
     } catch (_e) {
       // ignore
@@ -282,7 +285,16 @@ export default function JobsScreen() {
   const renderJobCard = ({ item }: { item: Job }) => {
     const statusColor = STATUS_COLORS[item.status] ?? '#636366';
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={[styles.card, { borderLeftColor: statusColor }]}
+        onPress={() =>
+          router.push({
+            pathname: '/job-detail',
+            params: { jobId: item.id, jobNumber: item.job_number },
+          })
+        }
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.jobNumber}>{item.job_number}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '22' }]}>
@@ -295,16 +307,18 @@ export default function JobsScreen() {
         {item.vehicle && (
           <Text style={styles.vehicleInfo}>
             {item.vehicle.plate_number}
-            {item.vehicle.make ? ` - ${item.vehicle.make}` : ''}
+            {item.vehicle.make ? ` — ${item.vehicle.make}` : ''}
             {item.vehicle.model ? ` ${item.vehicle.model}` : ''}
           </Text>
         )}
 
         {item.reported_problem ? (
-          <Text style={styles.problem} numberOfLines={2}>
-            {t('jobs.reportedProblem')}: {item.reported_problem}
+          <Text style={styles.problem} numberOfLines={3}>
+            {item.reported_problem}
           </Text>
         ) : null}
+
+        <Text style={styles.tapHint}>{t('jobs.tapForDetails')}</Text>
 
         {!hasActiveTimer && (
           <TouchableOpacity
@@ -316,7 +330,7 @@ export default function JobsScreen() {
             <Text style={styles.startButtonText}>{t('jobs.startTimer')}</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -397,7 +411,7 @@ export default function JobsScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="#4CAF50"
-            colors={['#4CAF50']}
+            colors={['#0087FF']}
           />
         }
       />
@@ -477,7 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9800',
   },
   resumeBtn: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
   },
   stopBtn: {
     backgroundColor: '#F44336',
@@ -498,7 +512,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   clockInBtn: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
   },
   clockOutBtn: {
     backgroundColor: '#D32F2F',
@@ -528,8 +542,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#2C2C2E',
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#636366',
+    minHeight: 120,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -538,8 +555,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   jobNumber: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   statusBadge: {
@@ -553,17 +570,25 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   vehicleInfo: {
-    fontSize: 15,
+    fontSize: 17,
+    fontWeight: '500',
     color: '#AEAEB2',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   problem: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#8E8E93',
     marginBottom: 12,
+    lineHeight: 20,
+  },
+  tapHint: {
+    fontSize: 12,
+    color: '#636366',
+    textAlign: 'right',
+    marginTop: 4,
   },
   startButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',

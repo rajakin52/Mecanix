@@ -2,11 +2,14 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text, StyleSheet } from 'react-native';
 
+const PRIMARY = '#0087FF';
+
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     jobs: '\u{1F527}',
     history: '\u{1F4CB}',
     profile: '\u{1F464}',
+    settings: '\u{2699}\u{FE0F}',
   };
   return (
     <Text style={[styles.icon, focused && styles.iconActive]}>
@@ -22,7 +25,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: '#4CAF50',
+        tabBarActiveTintColor: PRIMARY,
         tabBarInactiveTintColor: '#636366',
         tabBarStyle: {
           backgroundColor: '#1C1C1E',
@@ -64,6 +67,13 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.profile'),
           tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t('tabs.settings'),
+          tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
         }}
       />
     </Tabs>

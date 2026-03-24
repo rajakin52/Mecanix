@@ -140,9 +140,140 @@ export class VehiclesService {
   }
 
   async getHistory(tenantId: string, vehicleId: string) {
-    // Placeholder — will return job cards / service records when that module exists
     await this.getById(tenantId, vehicleId);
-    return [];
+
+    const client = this.supabase.getClient();
+
+    // Fetch all job cards for this vehicle with parts lines
+    const { data: jobs, error: jobsError } = await client
+      .from('job_cards')
+      .select(
+        '*, customer:customers(id, full_name), primary_technician:technicians(id, full_name)',
+      )
+      .eq('vehicle_id', vehicleId)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (jobsError) throw jobsError;
+
+    // Fetch all parts lines for these jobs
+    const jobIds = (jobs ?? []).map((j: { id: string }) => j.id);
+
+    let partsLines: Array<{
+      id: string;
+      job_card_id: string;
+      part_name: string;
+      part_number: string | null;
+      quantity: number;
+      unit_cost: number;
+      sell_price: number;
+      subtotal: number;
+      created_at: string;
+    }> = [];
+
+    if (jobIds.length > 0) {
+      const { data: parts, error: partsError } = await client
+        .from('parts_lines')
+        .select('*')
+        .in('job_card_id', jobIds)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+
+      if (partsError) throw partsError;
+      partsLines = parts ?? [];
+    }
+
+    // Group parts by job
+    const partsByJob: Record<string, typeof partsLines> = {};
+    for (const pl of partsLines) {
+      if (!partsByJob[pl.job_card_id]) partsByJob[pl.job_card_id] = [];
+      partsByJob[pl.job_card_id]!.push(pl);
+    }
+
+    // Build parts install history: group by part_name/part_number, track last installed
+    const partsHistory: Record<
+      string,
+      { part_name: string; part_number: string | null; last_installed: string; install_count: number; jobs: string[] }
+    > = {};
+
+    for (const pl of partsLines) {
+      const key = pl.part_number ?? pl.part_name;
+      if (!partsHistory[key]) {
+        partsHistory[key] = {
+          part_name: pl.part_name,
+          part_number: pl.part_number,
+          last_installed: pl.created_at,
+          install_count: 0,
+          jobs: [],
+        };
+      }
+      partsHistory[key]!.install_count += pl.quantity;
+      if (!partsHistory[key]!.jobs.includes(pl.job_card_id)) {
+        partsHistory[key]!.jobs.push(pl.job_card_id);
+      }
+      // Track most recent install
+      if (pl.created_at > partsHistory[key]!.last_installed) {
+        partsHistory[key]!.last_installed = pl.created_at;
+      }
+    }
+
+    // Build cost summary with category breakdown
+    const CATEGORY_LABELS: Record<string, string> = {
+      mechanical: 'mechanical',
+      body_work: 'body_work',
+      electrical: 'electrical',
+      maintenance: 'maintenance',
+    };
+
+    const costByCategory: Record<string, { labour: number; parts: number; total: number; count: number }> = {};
+    let totalLabour = 0;
+    let totalParts = 0;
+    let totalSpent = 0;
+
+    for (const j of (jobs ?? []) as Array<Record<string, unknown>>) {
+      const labour = (j.labour_total as number) ?? 0;
+      const parts = (j.parts_total as number) ?? 0;
+      const grand = (j.grand_total as number) ?? 0;
+      totalLabour += labour;
+      totalParts += parts;
+      totalSpent += grand;
+
+      // Determine category from labels
+      const labels = (j.labels as string[]) ?? [];
+      let category = 'mechanical'; // default
+      for (const label of labels) {
+        if (CATEGORY_LABELS[label]) {
+          category = label;
+          break;
+        }
+      }
+
+      if (!costByCategory[category]) {
+        costByCategory[category] = { labour: 0, parts: 0, total: 0, count: 0 };
+      }
+      costByCategory[category]!.labour += labour;
+      costByCategory[category]!.parts += parts;
+      costByCategory[category]!.total += grand;
+      costByCategory[category]!.count += 1;
+    }
+
+    return {
+      jobs: (jobs ?? []).map((j: Record<string, unknown>) => ({
+        ...j,
+        parts_lines: partsByJob[j.id as string] ?? [],
+      })),
+      parts_history: Object.values(partsHistory).sort(
+        (a, b) => b.last_installed.localeCompare(a.last_installed),
+      ),
+      cost_summary: {
+        total_spent: Math.round(totalSpent * 100) / 100,
+        labour_total: Math.round(totalLabour * 100) / 100,
+        parts_total: Math.round(totalParts * 100) / 100,
+        job_count: (jobs ?? []).length,
+        by_category: costByCategory,
+      },
+    };
   }
 
   async uploadPhoto(tenantId: string, vehicleId: string, userId: string, file: Buffer, filename: string) {

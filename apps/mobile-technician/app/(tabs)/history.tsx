@@ -88,9 +88,10 @@ export default function HistoryScreen() {
   const resolveTechnician = useCallback(async (): Promise<string | null> => {
     try {
       const techs = await apiGet<Technician[]>('/technicians');
-      if (techs.length > 0) {
-        setTechId(techs[0].id);
-        return techs[0].id;
+      const first = techs[0];
+      if (first) {
+        setTechId(first.id);
+        return first.id;
       }
     } catch (_e) {
       // ignore
@@ -207,7 +208,7 @@ export default function HistoryScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="#4CAF50"
-            colors={['#4CAF50']}
+            colors={['#0087FF']}
           />
         }
       />
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#4CAF50',
+    color: '#0087FF',
     marginVertical: 4,
     fontVariant: ['tabular-nums'],
   },
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
   duration: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#4CAF50',
+    color: '#0087FF',
     fontVariant: ['tabular-nums'],
   },
   plate: {
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#4CAF50',
+    color: '#0087FF',
     fontVariant: ['tabular-nums'],
   },
 

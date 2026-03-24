@@ -7,16 +7,22 @@
     "search": "Pesquisar",
     "noResults": "Sem resultados",
     "error": "Erro",
+    "success": "Sucesso",
     "today": "Hoje",
     "thisWeek": "Esta Semana",
     "hours": "horas",
     "minutes": "min",
-    "totalHours": "Total de Horas"
+    "totalHours": "Total de Horas",
+    "ok": "OK",
+    "confirm": "Confirmar",
+    "back": "Voltar",
+    "done": "Concluído"
   },
   "tabs": {
     "home": "Trabalhos",
     "history": "Histórico",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "settings": "Definições"
   },
   "auth": {
     "login": "Entrar",
@@ -31,7 +37,9 @@
     "assignedJobs": "Trabalhos Atribuídos",
     "noJobs": "Sem trabalhos atribuídos",
     "startTimer": "Iniciar Temporizador",
-    "reportedProblem": "Problema Reportado"
+    "reportedProblem": "Problema Reportado",
+    "viewDetails": "Ver Detalhes",
+    "tapForDetails": "Toque para detalhes"
   },
   "timer": {
     "activeTimer": "Temporizador Ativo",
@@ -67,6 +75,72 @@
     "IN_PROGRESS": "Em Progresso",
     "COMPLETED": "Concluído",
     "DELIVERED": "Entregue",
-    "CANCELLED": "Cancelado"
+    "CANCELLED": "Cancelado",
+    "received": "Recebido",
+    "diagnosing": "A Diagnosticar",
+    "awaiting_approval": "Aguarda Aprovação",
+    "in_progress": "Em Curso",
+    "awaiting_parts": "Aguarda Peças",
+    "quality_check": "Controlo de Qualidade",
+    "ready": "Pronto",
+    "invoiced": "Facturado"
+  },
+  "jobDetail": {
+    "title": "Detalhes do Trabalho",
+    "vehicle": "Veículo",
+    "customer": "Cliente",
+    "technician": "Técnico",
+    "problem": "Problema Reportado",
+    "internalNotes": "Notas Internas",
+    "viewVehicleHistory": "Histórico do Veículo",
+    "notes": "Notas do Técnico",
+    "addNote": "Adicionar Nota",
+    "notePlaceholder": "Descreva o trabalho realizado, observações...",
+    "noteAdded": "Nota adicionada",
+    "noteError": "Erro ao adicionar nota",
+    "photos": "Fotografias do Trabalho",
+    "addPhoto": "Adicionar Foto",
+    "photoAdded": "Fotografia carregada",
+    "photoError": "Erro ao carregar fotografia",
+    "flags": "Sinalizações",
+    "partsNeeded": "Peças Necessárias",
+    "partsNeededDesc": "Solicitar peças ao armazém",
+    "blocked": "Bloqueado",
+    "blockedDesc": "Alertar o gestor sobre bloqueio",
+    "flagSet": "Sinalização definida — gestor notificado",
+    "flagError": "Erro ao definir sinalização",
+    "markComplete": "Marcar Trabalho Concluído",
+    "markCompleteConfirm": "Mover este trabalho para Controlo de Qualidade?",
+    "markCompleteSuccess": "Trabalho movido para Controlo de Qualidade",
+    "markCompleteError": "Erro ao atualizar estado do trabalho",
+    "fetchError": "Erro ao carregar detalhes do trabalho",
+    "noNotes": "Sem notas ainda",
+    "noPhotos": "Sem fotografias ainda",
+    "annotatePhoto": "Anotar Fotografia",
+    "annotateHint": "Desenhe na foto para destacar problemas",
+    "saveAnnotation": "Guardar",
+    "clearAnnotation": "Limpar",
+    "voiceHint": "Toque no mic para ditar"
+  },
+  "vehicleHistory": {
+    "title": "Histórico do Veículo",
+    "repairHistory": "Histórico de Reparações",
+    "partsHistory": "Histórico de Peças",
+    "noHistory": "Sem histórico de reparações",
+    "noPartsHistory": "Nenhuma peça instalada ainda",
+    "lastInstalled": "Última instalação",
+    "totalInstalled": "{{count}} instaladas em {{jobs}} trabalho(s)",
+    "fetchError": "Erro ao carregar histórico do veículo"
+  },
+  "settings": {
+    "title": "Definições",
+    "language": "Idioma",
+    "languageNames": {
+      "en": "English",
+      "pt-PT": "Português (Portugal)",
+      "pt-BR": "Português (Brasil)"
+    },
+    "about": "Sobre",
+    "version": "Versão"
   }
 }

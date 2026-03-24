@@ -57,8 +57,10 @@ function isThisWeek(iso: string): boolean {
 }
 
 function formatHours(totalSeconds: number): string {
-  const h = (totalSeconds / 3600).toFixed(1);
-  return h;
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -75,8 +77,9 @@ export default function ProfileScreen() {
   const fetchData = useCallback(async () => {
     try {
       const techs = await apiGet<Technician[]>('/technicians');
-      if (techs.length > 0) {
-        setTechnician(techs[0]);
+      const first = techs[0];
+      if (first) {
+        setTechnician(first);
 
         try {
           const timeEntries = await apiGet<TimeEntry[]>('/time');
@@ -178,14 +181,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Logout */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.logoutText}>{t('auth.logout')}</Text>
-      </TouchableOpacity>
+      {/* Logout moved to Settings tab */}
     </ScrollView>
   );
 }
@@ -218,7 +214,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -235,7 +231,7 @@ const styles = StyleSheet.create({
   },
   specialty: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#0087FF',
     marginTop: 2,
   },
   email: {
@@ -270,7 +266,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#4CAF50',
+    color: '#0087FF',
     fontVariant: ['tabular-nums'],
   },
   statLabel: {

@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#4CAF50',
+    color: '#0087FF',
     letterSpacing: -1,
   },
   subtitle: {
@@ -162,12 +162,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   button: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#4CAF50',
+    shadowColor: '#0087FF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

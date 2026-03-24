@@ -81,7 +81,7 @@ export default function HistoryScreen() {
   };
 
   const renderJob = ({ item }: { item: JobCard }) => {
-    const statusColor = STATUS_COLORS[item.status] ?? STATUS_COLORS.completed;
+    const statusColor = STATUS_COLORS[item.status] ?? { bg: '#E8F5E9', text: '#2E7D32' };
     const statusLabel = t(`jobs.status.${item.status}`, { defaultValue: item.status });
 
     return (
@@ -126,7 +126,7 @@ export default function HistoryScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#0087FF" />
       </View>
     );
   }
@@ -150,7 +150,7 @@ export default function HistoryScreen() {
         renderItem={renderJob}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4CAF50" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0087FF" />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 8,

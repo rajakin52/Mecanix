@@ -8,6 +8,7 @@ import en from '../locales/en.json';
 const deviceLocale = Localization.getLocales()[0]?.languageTag ?? 'pt-PT';
 
 i18next.use(initReactI18next).init({
+  compatibilityJSON: 'v3',
   resources: {
     'pt-PT': { translation: ptPT },
     'pt-BR': { translation: ptBR },

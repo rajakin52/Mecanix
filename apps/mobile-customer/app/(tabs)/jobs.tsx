@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { apiGet } from '../../src/lib/api';
 
 interface JobCard {
@@ -47,6 +48,7 @@ const STATUS_ORDER = [
 
 export default function JobsScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [jobs, setJobs] = useState<JobCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -113,11 +115,15 @@ export default function JobsScreen() {
   };
 
   const renderJob = ({ item }: { item: JobCard }) => {
-    const statusColor = STATUS_COLORS[item.status] ?? STATUS_COLORS.open;
+    const statusColor = STATUS_COLORS[item.status] ?? { bg: '#E3F2FD', text: '#1565C0' };
     const statusLabel = t(`jobs.status.${item.status}`, { defaultValue: item.status });
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push({ pathname: '/job-detail', params: { jobId: item.id, jobNumber: item.job_number } })}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardTop}>
           <Text style={styles.jobNumber}>
             {t('jobs.jobNumber', { number: item.job_number })}
@@ -152,14 +158,14 @@ export default function JobsScreen() {
             <Text style={styles.totalValue}>{item.grand_total.toFixed(2)}</Text>
           </View>
         ) : null}
-      </View>
+      </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#0087FF" />
       </View>
     );
   }
@@ -183,7 +189,7 @@ export default function JobsScreen() {
         renderItem={renderJob}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4CAF50" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0087FF" />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -297,7 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   progressDotActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
   },
   progressDotInactive: {
     backgroundColor: '#E0E0E0',
@@ -308,7 +314,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   progressLineActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
   },
   progressLineInactive: {
     backgroundColor: '#E0E0E0',
@@ -351,7 +357,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#0087FF',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 8,

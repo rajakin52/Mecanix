@@ -2,6 +2,8 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Platform, Text } from 'react-native';
 
+const PRIMARY = '#0087FF';
+
 function TabIcon({ label, color }: { label: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{label}</Text>;
 }
@@ -23,7 +25,7 @@ export default function TabsLayout() {
           fontSize: 18,
           color: '#1C1C1E',
         },
-        tabBarActiveTintColor: '#4CAF50',
+        tabBarActiveTintColor: PRIMARY,
         tabBarInactiveTintColor: '#8E8E93',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
@@ -69,6 +71,14 @@ export default function TabsLayout() {
           title: t('tabs.profile'),
           tabBarLabel: t('tabs.profile'),
           tabBarIcon: ({ color }) => <TabIcon label={'\u{1F464}'} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t('tabs.settings'),
+          tabBarLabel: t('tabs.settings'),
+          tabBarIcon: ({ color }) => <TabIcon label={'\u{2699}\u{FE0F}'} color={color} />,
         }}
       />
     </Tabs>

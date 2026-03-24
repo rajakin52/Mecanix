@@ -7,16 +7,22 @@
     "search": "Search",
     "noResults": "No results",
     "error": "Error",
+    "success": "Success",
     "today": "Today",
     "thisWeek": "This Week",
     "hours": "hours",
     "minutes": "min",
-    "totalHours": "Total Hours"
+    "totalHours": "Total Hours",
+    "ok": "OK",
+    "confirm": "Confirm",
+    "back": "Back",
+    "done": "Done"
   },
   "tabs": {
     "home": "Jobs",
     "history": "History",
-    "profile": "Profile"
+    "profile": "Profile",
+    "settings": "Settings"
   },
   "auth": {
     "login": "Sign In",
@@ -31,7 +37,9 @@
     "assignedJobs": "Assigned Jobs",
     "noJobs": "No jobs assigned",
     "startTimer": "Start Timer",
-    "reportedProblem": "Reported Problem"
+    "reportedProblem": "Reported Problem",
+    "viewDetails": "View Details",
+    "tapForDetails": "Tap for details"
   },
   "timer": {
     "activeTimer": "Active Timer",
@@ -67,6 +75,72 @@
     "IN_PROGRESS": "In Progress",
     "COMPLETED": "Completed",
     "DELIVERED": "Delivered",
-    "CANCELLED": "Cancelled"
+    "CANCELLED": "Cancelled",
+    "received": "Received",
+    "diagnosing": "Diagnosing",
+    "awaiting_approval": "Awaiting Approval",
+    "in_progress": "In Progress",
+    "awaiting_parts": "Awaiting Parts",
+    "quality_check": "Quality Check",
+    "ready": "Ready",
+    "invoiced": "Invoiced"
+  },
+  "jobDetail": {
+    "title": "Job Details",
+    "vehicle": "Vehicle",
+    "customer": "Customer",
+    "technician": "Technician",
+    "problem": "Reported Problem",
+    "internalNotes": "Internal Notes",
+    "viewVehicleHistory": "Vehicle History",
+    "notes": "Technician Notes",
+    "addNote": "Add Note",
+    "notePlaceholder": "Describe work done, observations...",
+    "noteAdded": "Note added",
+    "noteError": "Failed to add note",
+    "photos": "Job Photos",
+    "addPhoto": "Add Photo",
+    "photoAdded": "Photo uploaded",
+    "photoError": "Failed to upload photo",
+    "flags": "Job Flags",
+    "partsNeeded": "Parts Needed",
+    "partsNeededDesc": "Request parts from inventory",
+    "blocked": "Blocked",
+    "blockedDesc": "Alert manager about blockage",
+    "flagSet": "Flag set — manager notified",
+    "flagError": "Failed to set flag",
+    "markComplete": "Mark Work Complete",
+    "markCompleteConfirm": "Move this job to Quality Check?",
+    "markCompleteSuccess": "Job moved to Quality Check",
+    "markCompleteError": "Failed to update job status",
+    "fetchError": "Failed to load job details",
+    "noNotes": "No notes yet",
+    "noPhotos": "No photos yet",
+    "annotatePhoto": "Annotate Photo",
+    "annotateHint": "Draw on the photo to highlight issues",
+    "saveAnnotation": "Save",
+    "clearAnnotation": "Clear",
+    "voiceHint": "Tap mic to dictate"
+  },
+  "vehicleHistory": {
+    "title": "Vehicle History",
+    "repairHistory": "Repair History",
+    "partsHistory": "Parts History",
+    "noHistory": "No repair history",
+    "noPartsHistory": "No parts installed yet",
+    "lastInstalled": "Last installed",
+    "totalInstalled": "{{count}} installed across {{jobs}} job(s)",
+    "fetchError": "Failed to load vehicle history"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageNames": {
+      "en": "English",
+      "pt-PT": "Português (Portugal)",
+      "pt-BR": "Português (Brasil)"
+    },
+    "about": "About",
+    "version": "Version"
   }
 }
