@@ -34,6 +34,16 @@ export class EstimatesController {
     return this.estimatesService.create(tenantId, claimId, user.id);
   }
 
+  @Post('claims/:claimId/supplement')
+  async createSupplement(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('claimId') claimId: string,
+    @Body() body: { reason: string },
+  ) {
+    return this.estimatesService.createSupplement(tenantId, claimId, user.id, body.reason);
+  }
+
   @Get('estimates/:id')
   async getById(
     @TenantId() tenantId: string,

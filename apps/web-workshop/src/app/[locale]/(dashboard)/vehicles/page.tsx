@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useVehicles, useCreateVehicle } from '@/hooks/use-vehicles';
@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
+import { api } from '@/lib/api';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -25,9 +26,35 @@ export default function VehiclesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateVehicleInput>({
+  const [vinLoading, setVinLoading] = useState(false);
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateVehicleInput>({
     resolver: zodResolver(createVehicleSchema),
   });
+
+  const handleVinChange = useCallback(async (vin: string) => {
+    if (vin.length !== 17) return;
+    setVinLoading(true);
+    try {
+      const info = await api.get<{ make: string; model: string; year: number | null; engineSize: string | null; fuelType: string | null }>(`/vehicles/vin/${vin}`);
+      if (info) {
+        if (info.make && info.make !== 'Unknown') setValue('make', info.make);
+        if (info.model && info.model !== 'Unknown') setValue('model', info.model);
+        if (info.year) setValue('year', info.year);
+        if (info.fuelType) {
+          const fuelMap: Record<string, string> = { gasoline: 'petrol', diesel: 'diesel', electric: 'electric', hybrid: 'hybrid' };
+          const mapped = fuelMap[info.fuelType] ?? info.fuelType;
+          if (['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].includes(mapped)) {
+            setValue('fuelType', mapped as 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg');
+          }
+        }
+        if (info.engineSize) setValue('engineSize', info.engineSize);
+      }
+    } catch {
+      // VIN decode failed silently — user can fill in manually
+    } finally {
+      setVinLoading(false);
+    }
+  }, [setValue]);
 
   const onSubmit = async (formData: CreateVehicleInput) => {
     try {
@@ -167,7 +194,21 @@ export default function VehiclesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('vin')}</label>
-                  <input {...register('vin')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  <div className="relative">
+                    <input
+                      {...register('vin', {
+                        onChange: (e) => handleVinChange(e.target.value),
+                      })}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                      maxLength={17}
+                      placeholder="17 characters"
+                    />
+                    {vinLoading && (
+                      <span className="absolute end-3 top-1/2 -translate-y-1/2 text-xs text-primary-600">
+                        {tc('loading')}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

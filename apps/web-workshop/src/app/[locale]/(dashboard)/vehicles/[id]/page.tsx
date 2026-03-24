@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useVehicle, useUpdateVehicle } from '@/hooks/use-vehicles';
+import { api } from '@/lib/api';
 import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkReminderSent } from '@/hooks/use-reminders';
+import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentReminder } from '@/hooks/use-document-reminders';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -17,8 +19,17 @@ export default function VehicleDetailPage() {
   const tv = useTranslations('vehicles');
   const t = useTranslations('common');
   const tr = useTranslations('reminders');
+  const td = useTranslations('documentReminders');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [showDocReminderForm, setShowDocReminderForm] = useState(false);
+  const [docForm, setDocForm] = useState({
+    documentType: 'vehicle_license',
+    documentName: '',
+    expiryDate: '',
+    reminderDays: '30',
+    notes: '',
+  });
   const [reminderType, setReminderType] = useState<'date' | 'mileage' | 'both'>('date');
   const [reminderForm, setReminderForm] = useState({
     serviceName: '',
@@ -35,10 +46,39 @@ export default function VehicleDetailPage() {
   const createReminder = useCreateReminder();
   const completeReminder = useCompleteReminder();
   const markSent = useMarkReminderSent();
+  const [vinLoading, setVinLoading] = useState(false);
+  const { data: docReminders, isLoading: loadingDocReminders } = useDocumentReminders(id);
+  const createDocReminder = useCreateDocumentReminder();
+  const renewDocReminder = useRenewDocumentReminder();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateVehicleInput>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<UpdateVehicleInput>({
     resolver: zodResolver(updateVehicleSchema),
   });
+
+  const handleVinChange = useCallback(async (vin: string) => {
+    if (vin.length !== 17) return;
+    setVinLoading(true);
+    try {
+      const info = await api.get<{ make: string; model: string; year: number | null; engineSize: string | null; fuelType: string | null }>(`/vehicles/vin/${vin}`);
+      if (info) {
+        if (info.make && info.make !== 'Unknown') setValue('make', info.make);
+        if (info.model && info.model !== 'Unknown') setValue('model', info.model);
+        if (info.year) setValue('year', info.year);
+        if (info.fuelType) {
+          const fuelMap: Record<string, string> = { gasoline: 'petrol', diesel: 'diesel', electric: 'electric', hybrid: 'hybrid' };
+          const mapped = fuelMap[info.fuelType] ?? info.fuelType;
+          if (['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].includes(mapped)) {
+            setValue('fuelType', mapped as 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg');
+          }
+        }
+        if (info.engineSize) setValue('engineSize', info.engineSize);
+      }
+    } catch {
+      // VIN decode failed silently
+    } finally {
+      setVinLoading(false);
+    }
+  }, [setValue]);
 
   useEffect(() => {
     if (vehicle) {
@@ -60,6 +100,21 @@ export default function VehicleDetailPage() {
   const onSubmit = async (formData: UpdateVehicleInput) => {
     await updateMutation.mutateAsync({ id, ...formData });
     setShowEditModal(false);
+  };
+
+  const handleCreateDocReminder = async () => {
+    const v2 = vehicle as Record<string, unknown>;
+    await createDocReminder.mutateAsync({
+      vehicleId: id,
+      customerId: v2.customer_id as string | undefined,
+      documentType: docForm.documentType,
+      documentName: docForm.documentName,
+      expiryDate: docForm.expiryDate,
+      reminderDays: docForm.reminderDays ? Number(docForm.reminderDays) : undefined,
+      notes: docForm.notes || undefined,
+    });
+    setShowDocReminderForm(false);
+    setDocForm({ documentType: 'vehicle_license', documentName: '', expiryDate: '', reminderDays: '30', notes: '' });
   };
 
   const handleCreateReminder = async () => {
@@ -435,6 +490,142 @@ export default function VehicleDetailPage() {
         )}
       </div>
 
+      {/* Document Reminders */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">{td('title')}</h2>
+          <button
+            onClick={() => setShowDocReminderForm(!showDocReminderForm)}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {td('addReminder')}
+          </button>
+        </div>
+
+        {/* Inline Add Document Reminder Form */}
+        {showDocReminderForm && (
+          <div className="mb-6 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{td('documentType')}</label>
+                <select
+                  value={docForm.documentType}
+                  onChange={(e) => setDocForm({ ...docForm, documentType: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="vehicle_license">{td('type_vehicle_license')}</option>
+                  <option value="insurance_policy">{td('type_insurance_policy')}</option>
+                  <option value="inspection_certificate">{td('type_inspection_certificate')}</option>
+                  <option value="driving_license">{td('type_driving_license')}</option>
+                  <option value="road_tax">{td('type_road_tax')}</option>
+                  <option value="other">{td('type_other')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{td('documentName')}</label>
+                <input
+                  value={docForm.documentName}
+                  onChange={(e) => setDocForm({ ...docForm, documentName: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{td('expiryDate')}</label>
+                <input
+                  type="date"
+                  value={docForm.expiryDate}
+                  onChange={(e) => setDocForm({ ...docForm, expiryDate: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{td('reminderDays')}</label>
+                <input
+                  type="number"
+                  value={docForm.reminderDays}
+                  onChange={(e) => setDocForm({ ...docForm, reminderDays: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>
+                <textarea
+                  value={docForm.notes}
+                  onChange={(e) => setDocForm({ ...docForm, notes: e.target.value })}
+                  rows={2}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setShowDocReminderForm(false)} className="rounded-md border px-3 py-1.5 text-sm">
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleCreateDocReminder}
+                disabled={!docForm.documentName || !docForm.expiryDate || createDocReminder.isPending}
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {createDocReminder.isPending ? t('loading') : t('save')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Document Reminders Table */}
+        {loadingDocReminders ? (
+          <p className="text-sm text-gray-500">{t('loading')}</p>
+        ) : !docReminders || docReminders.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-500">{td('noReminders')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr className="text-xs uppercase text-gray-500">
+                  <th className="py-2 pe-4 text-start font-semibold">{td('documentName')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{td('documentType')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{td('expiryDate')}</th>
+                  <th className="py-2 pe-4 text-start font-semibold">{td('status')}</th>
+                  <th className="py-2 text-start font-semibold">{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(docReminders as Array<Record<string, unknown>>).map((rem) => {
+                  const statusColors: Record<string, string> = {
+                    active: 'bg-blue-100 text-blue-800',
+                    reminded: 'bg-yellow-100 text-yellow-800',
+                    renewed: 'bg-green-100 text-green-800',
+                    expired: 'bg-red-100 text-red-800',
+                  };
+                  return (
+                    <tr key={rem.id as string}>
+                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.document_name as string}</td>
+                      <td className="py-3 pe-4 text-gray-600">{td(`type_${rem.document_type as string}`)}</td>
+                      <td className="py-3 pe-4 text-gray-600">{rem.expiry_date as string}</td>
+                      <td className="py-3 pe-4">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status as string] ?? 'bg-gray-100'}`}>
+                          {td(`status_${rem.status as string}`)}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        {(rem.status === 'active' || rem.status === 'reminded') && (
+                          <button
+                            onClick={() => renewDocReminder.mutate(rem.id as string)}
+                            className="text-xs text-green-600 hover:underline"
+                          >
+                            {td('markRenewed')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Edit Vehicle Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -454,7 +645,21 @@ export default function VehicleDetailPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{tv('vin')}</label>
-                  <input {...register('vin')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  <div className="relative">
+                    <input
+                      {...register('vin', {
+                        onChange: (e) => handleVinChange(e.target.value),
+                      })}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                      maxLength={17}
+                      placeholder="17 characters"
+                    />
+                    {vinLoading && (
+                      <span className="absolute end-3 top-1/2 -translate-y-1/2 text-xs text-primary-600">
+                        {t('loading')}
+                      </span>
+                    )}
+                  </div>
                   {errors.vin && <p className="mt-1 text-sm text-red-600">{errors.vin.message}</p>}
                 </div>
               </div>

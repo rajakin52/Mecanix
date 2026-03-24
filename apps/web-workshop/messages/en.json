@@ -53,7 +53,8 @@
     "invoices": "Invoices",
     "insurance": "Insurance",
     "reports": "Reports",
-    "appointments": "Appointments"
+    "appointments": "Appointments",
+    "pettyCash": "Petty Cash"
   },
   "jobs": {
     "title": "Job Cards",
@@ -500,5 +501,40 @@
     "dueReminders": "Due Reminders",
     "noDueReminders": "No reminders due",
     "created": "Reminder created"
+  },
+  "pettyCash": {
+    "title": "Petty Cash",
+    "deposit": "Deposit",
+    "withdrawal": "Withdrawal",
+    "currentBalance": "Current Balance",
+    "date": "Date",
+    "type": "Type",
+    "description": "Description",
+    "category": "Category",
+    "reference": "Reference",
+    "amount": "Amount",
+    "noTransactions": "No transactions found",
+    "created": "Transaction created"
+  },
+  "documentReminders": {
+    "title": "Document Reminders",
+    "addReminder": "Add Reminder",
+    "documentType": "Document Type",
+    "documentName": "Document Name",
+    "expiryDate": "Expiry Date",
+    "reminderDays": "Reminder Days",
+    "status": "Status",
+    "type_vehicle_license": "Vehicle License",
+    "type_insurance_policy": "Insurance Policy",
+    "type_inspection_certificate": "Inspection Certificate",
+    "type_driving_license": "Driving License",
+    "type_road_tax": "Road Tax",
+    "type_other": "Other",
+    "status_active": "Active",
+    "status_reminded": "Reminded",
+    "status_renewed": "Renewed",
+    "status_expired": "Expired",
+    "markRenewed": "Mark Renewed",
+    "noReminders": "No document reminders"
   }
 }

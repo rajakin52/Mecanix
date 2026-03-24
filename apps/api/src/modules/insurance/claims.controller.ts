@@ -85,6 +85,15 @@ export class ClaimsController {
     return this.claimsService.addPhoto(tenantId, id, user.id, body);
   }
 
+  @Post(':id/total-loss')
+  async checkTotalLoss(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { vehicleValue: number },
+  ) {
+    return this.claimsService.checkTotalLoss(tenantId, id, body.vehicleValue);
+  }
+
   @Get(':id/photos')
   async getPhotos(
     @TenantId() tenantId: string,

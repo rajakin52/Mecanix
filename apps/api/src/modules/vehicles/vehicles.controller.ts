@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
+import { VinService } from './vin.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -20,7 +21,10 @@ import type { RequestUser } from '../../common/guards/tenant.guard';
 @Controller('vehicles')
 @UseGuards(TenantGuard)
 export class VehiclesController {
-  constructor(private readonly vehiclesService: VehiclesService) {}
+  constructor(
+    private readonly vehiclesService: VehiclesService,
+    private readonly vinService: VinService,
+  ) {}
 
   @Get()
   async list(
@@ -29,6 +33,11 @@ export class VehiclesController {
     @Query('customerId') customerId?: string,
   ) {
     return this.vehiclesService.list(tenantId, query, customerId);
+  }
+
+  @Get('vin/:vin')
+  async decodeVin(@Param('vin') vin: string) {
+    return this.vinService.decode(vin);
   }
 
   @Get(':id')

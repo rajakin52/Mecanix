@@ -257,6 +257,36 @@ export class ClaimsService {
     return data ?? [];
   }
 
+  async checkTotalLoss(tenantId: string, claimId: string, vehicleValue: number) {
+    const claim = await this.getById(tenantId, claimId);
+    const workshopEstimate = (claim.workshop_estimate as number) ?? 0;
+
+    if (vehicleValue <= 0) {
+      throw new BadRequestException('Vehicle value must be greater than zero');
+    }
+
+    const ratio = Math.round((workshopEstimate / vehicleValue) * 100) / 100;
+    const isTotalLoss = ratio > 0.75;
+
+    const client = this.supabase.getClient();
+    await client
+      .from('insurance_claims')
+      .update({
+        vehicle_value: vehicleValue,
+        is_total_loss: isTotalLoss,
+        total_loss_ratio: ratio,
+      })
+      .eq('id', claimId)
+      .eq('tenant_id', tenantId);
+
+    return {
+      vehicleValue,
+      workshopEstimate,
+      ratio,
+      isTotalLoss,
+    };
+  }
+
   async getAssessorActions(claimId: string) {
     const client = this.supabase.getClient();
 

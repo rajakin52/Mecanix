@@ -53,7 +53,8 @@
     "invoices": "Faturas",
     "insurance": "Seguros",
     "reports": "Relatórios",
-    "appointments": "Agendamentos"
+    "appointments": "Agendamentos",
+    "pettyCash": "Caixa Pequena"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -500,5 +501,40 @@
     "dueReminders": "Lembretes Pendentes",
     "noDueReminders": "Sem lembretes pendentes",
     "created": "Lembrete criado"
+  },
+  "pettyCash": {
+    "title": "Caixa Pequena",
+    "deposit": "Depósito",
+    "withdrawal": "Levantamento",
+    "currentBalance": "Saldo Atual",
+    "date": "Data",
+    "type": "Tipo",
+    "description": "Descrição",
+    "category": "Categoria",
+    "reference": "Referência",
+    "amount": "Valor",
+    "noTransactions": "Sem transações",
+    "created": "Transação criada"
+  },
+  "documentReminders": {
+    "title": "Lembretes de Documentos",
+    "addReminder": "Adicionar Lembrete",
+    "documentType": "Tipo de Documento",
+    "documentName": "Nome do Documento",
+    "expiryDate": "Data de Validade",
+    "reminderDays": "Dias de Aviso",
+    "status": "Estado",
+    "type_vehicle_license": "Licença do Veículo",
+    "type_insurance_policy": "Apólice de Seguro",
+    "type_inspection_certificate": "Certificado de Inspeção",
+    "type_driving_license": "Carta de Condução",
+    "type_road_tax": "Imposto Rodoviário",
+    "type_other": "Outro",
+    "status_active": "Ativo",
+    "status_reminded": "Lembrado",
+    "status_renewed": "Renovado",
+    "status_expired": "Expirado",
+    "markRenewed": "Marcar Renovado",
+    "noReminders": "Sem lembretes de documentos"
   }
 }

@@ -59,3 +59,53 @@ export const approveEstimateSchema = z.object({
 
 export type ReviewEstimateLineInput = z.infer<typeof reviewEstimateLineSchema>;
 export type ApproveEstimateInput = z.infer<typeof approveEstimateSchema>;
+
+// ---------- Supplement ----------
+
+export const createSupplementSchema = z.object({
+  reason: z.string().min(1).max(2000),
+});
+
+export type CreateSupplementInput = z.infer<typeof createSupplementSchema>;
+
+// ---------- Total Loss ----------
+
+export const checkTotalLossSchema = z.object({
+  vehicleValue: z.coerce.number().positive(),
+});
+
+export type CheckTotalLossInput = z.infer<typeof checkTotalLossSchema>;
+
+// ---------- Petty Cash ----------
+
+export const createPettyCashSchema = z.object({
+  transactionType: z.enum(['deposit', 'withdrawal']),
+  amount: z.coerce.number().positive(),
+  description: z.string().min(1).max(500),
+  category: z.string().max(100).optional(),
+  reference: z.string().max(200).optional(),
+  transactionDate: z.string().optional(),
+});
+
+export type CreatePettyCashInput = z.infer<typeof createPettyCashSchema>;
+
+// ---------- Document Reminders ----------
+
+export const createDocumentReminderSchema = z.object({
+  vehicleId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional(),
+  documentType: z.enum([
+    'vehicle_license',
+    'insurance_policy',
+    'inspection_certificate',
+    'driving_license',
+    'road_tax',
+    'other',
+  ]),
+  documentName: z.string().min(1).max(200),
+  expiryDate: z.string().min(1),
+  reminderDays: z.coerce.number().int().min(1).optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+export type CreateDocumentReminderInput = z.infer<typeof createDocumentReminderSchema>;
