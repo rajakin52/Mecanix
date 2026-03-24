@@ -259,6 +259,61 @@
     "noPassesYet": "No gate passes for this job",
     "fetchError": "Failed to load gate passes"
   },
+  "newVehicle": {
+    "title": "New Vehicle",
+    "plate": "License Plate",
+    "make": "Make",
+    "model": "Model",
+    "year": "Year",
+    "color": "Color",
+    "fuelType": "Fuel Type",
+    "vin": "VIN",
+    "mileage": "Mileage (km)",
+    "selectCustomer": "Select Owner",
+    "createSuccess": "Vehicle registered successfully",
+    "createError": "Failed to register vehicle",
+    "plateRequired": "License plate is required"
+  },
+  "editCustomer": {
+    "title": "Edit Customer",
+    "saveSuccess": "Customer updated",
+    "saveError": "Failed to update customer"
+  },
+  "editVehicle": {
+    "title": "Edit Vehicle",
+    "saveSuccess": "Vehicle updated",
+    "saveError": "Failed to update vehicle"
+  },
+  "appointments": {
+    "title": "Appointments",
+    "today": "Today's Appointments",
+    "noAppointments": "No appointments for this day",
+    "scheduled": "Scheduled",
+    "confirmed": "Confirmed",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No Show",
+    "serviceType": "Service",
+    "createJobFromAppointment": "Open Job Card",
+    "fetchError": "Failed to load appointments"
+  },
+  "labourParts": {
+    "labourLines": "Labour",
+    "partsLines": "Parts",
+    "addLabour": "Add Labour",
+    "addPart": "Add Part",
+    "description": "Description",
+    "hours": "Hours",
+    "rate": "Rate",
+    "partName": "Part Name",
+    "partNumber": "Part Number",
+    "quantity": "Quantity",
+    "unitCost": "Unit Cost",
+    "subtotal": "Subtotal",
+    "addSuccess": "Line added",
+    "addError": "Failed to add line"
+  },
   "upsell": {
     "title": "Add-On Services",
     "subtitle": "Would you like to offer any additional services?",

@@ -259,6 +259,61 @@
     "noPassesYet": "Sem passes para este trabalho",
     "fetchError": "Erro ao carregar passes"
   },
+  "newVehicle": {
+    "title": "Novo Veículo",
+    "plate": "Matrícula",
+    "make": "Marca",
+    "model": "Modelo",
+    "year": "Ano",
+    "color": "Cor",
+    "fuelType": "Combustível",
+    "vin": "VIN",
+    "mileage": "Quilometragem (km)",
+    "selectCustomer": "Selecionar Proprietário",
+    "createSuccess": "Veículo registado com sucesso",
+    "createError": "Erro ao registar veículo",
+    "plateRequired": "A matrícula é obrigatória"
+  },
+  "editCustomer": {
+    "title": "Editar Cliente",
+    "saveSuccess": "Cliente atualizado",
+    "saveError": "Erro ao atualizar cliente"
+  },
+  "editVehicle": {
+    "title": "Editar Veículo",
+    "saveSuccess": "Veículo atualizado",
+    "saveError": "Erro ao atualizar veículo"
+  },
+  "appointments": {
+    "title": "Marcações",
+    "today": "Marcações de Hoje",
+    "noAppointments": "Sem marcações para este dia",
+    "scheduled": "Agendada",
+    "confirmed": "Confirmada",
+    "in_progress": "Em Curso",
+    "completed": "Concluída",
+    "cancelled": "Cancelada",
+    "no_show": "Não Compareceu",
+    "serviceType": "Serviço",
+    "createJobFromAppointment": "Abrir Ficha de Trabalho",
+    "fetchError": "Erro ao carregar marcações"
+  },
+  "labourParts": {
+    "labourLines": "Mão de Obra",
+    "partsLines": "Peças",
+    "addLabour": "Adicionar Mão de Obra",
+    "addPart": "Adicionar Peça",
+    "description": "Descrição",
+    "hours": "Horas",
+    "rate": "Taxa",
+    "partName": "Nome da Peça",
+    "partNumber": "Referência",
+    "quantity": "Quantidade",
+    "unitCost": "Custo Unitário",
+    "subtotal": "Subtotal",
+    "addSuccess": "Linha adicionada",
+    "addError": "Erro ao adicionar linha"
+  },
   "upsell": {
     "title": "Serviços Adicionais",
     "subtitle": "Gostaria de oferecer algum serviço adicional?",

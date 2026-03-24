@@ -56,6 +56,26 @@ interface JobDetail {
     changed_at: string;
     notes: string | null;
   }>;
+  labour_lines?: Array<{
+    id: string;
+    description: string;
+    hours: number;
+    rate: number;
+    subtotal: number;
+  }>;
+  parts_lines?: Array<{
+    id: string;
+    part_name: string;
+    part_number: string | null;
+    quantity: number;
+    unit_cost: number;
+    sell_price: number;
+    subtotal: number;
+  }>;
+  labour_total?: number;
+  parts_total?: number;
+  tax_amount?: number;
+  grand_total?: number;
   vehicle?: {
     id: string;
     plate: string;
@@ -96,6 +116,18 @@ export default function JobDetailScreen() {
   const [inspection, setInspection] = useState<InspectionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Add labour/parts
+  const [showAddLabour, setShowAddLabour] = useState(false);
+  const [showAddPart, setShowAddPart] = useState(false);
+  const [labourDesc, setLabourDesc] = useState('');
+  const [labourHours, setLabourHours] = useState('');
+  const [labourRate, setLabourRate] = useState('');
+  const [partName, setPartName] = useState('');
+  const [partNumber, setPartNumber] = useState('');
+  const [partQty, setPartQty] = useState('');
+  const [partCost, setPartCost] = useState('');
+  const [addingLine, setAddingLine] = useState(false);
 
   // Status change modal
   const [statusModalVisible, setStatusModalVisible] = useState(false);
@@ -143,6 +175,47 @@ export default function JobDetailScreen() {
         vehiclePlate: job.vehicle?.plate ?? '',
       },
     });
+  };
+
+  const handleAddLabour = async () => {
+    if (!job || !labourDesc.trim()) return;
+    setAddingLine(true);
+    try {
+      await apiFetch(`/jobs/${job.id}/labour`, {
+        method: 'POST',
+        body: JSON.stringify({
+          description: labourDesc.trim(),
+          hours: parseFloat(labourHours) || 1,
+          rate: parseFloat(labourRate) || 0,
+        }),
+      });
+      setLabourDesc(''); setLabourHours(''); setLabourRate('');
+      setShowAddLabour(false);
+      await fetchData();
+    } catch {
+      Alert.alert(t('common.error'), t('labourParts.addError'));
+    } finally { setAddingLine(false); }
+  };
+
+  const handleAddPart = async () => {
+    if (!job || !partName.trim()) return;
+    setAddingLine(true);
+    try {
+      await apiFetch(`/jobs/${job.id}/parts`, {
+        method: 'POST',
+        body: JSON.stringify({
+          partName: partName.trim(),
+          partNumber: partNumber.trim() || undefined,
+          quantity: parseFloat(partQty) || 1,
+          unitCost: parseFloat(partCost) || 0,
+        }),
+      });
+      setPartName(''); setPartNumber(''); setPartQty(''); setPartCost('');
+      setShowAddPart(false);
+      await fetchData();
+    } catch {
+      Alert.alert(t('common.error'), t('labourParts.addError'));
+    } finally { setAddingLine(false); }
   };
 
   const handleStatusChange = async () => {
@@ -404,6 +477,82 @@ export default function JobDetailScreen() {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* ─── LABOUR LINES ─── */}
+        <View style={styles.linesSection}>
+          <View style={styles.linesSectionHeader}>
+            <Text style={styles.linesSectionTitle}>{t('labourParts.labourLines')}</Text>
+            <TouchableOpacity onPress={() => setShowAddLabour(!showAddLabour)}>
+              <Text style={styles.addLineBtn}>+ {t('labourParts.addLabour')}</Text>
+            </TouchableOpacity>
+          </View>
+          {(job.labour_lines ?? []).map((l) => (
+            <View key={l.id} style={styles.lineItem}>
+              <Text style={styles.lineDesc}>{l.description}</Text>
+              <Text style={styles.lineAmount}>{l.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+            </View>
+          ))}
+          {(job.labour_lines ?? []).length === 0 && !showAddLabour && (
+            <Text style={styles.noLines}>—</Text>
+          )}
+          {showAddLabour && (
+            <View style={styles.addLineForm}>
+              <TextInput style={styles.lineInput} placeholder={t('labourParts.description')} placeholderTextColor="#8E8E93" value={labourDesc} onChangeText={setLabourDesc} />
+              <View style={styles.lineInputRow}>
+                <TextInput style={[styles.lineInput, { flex: 1 }]} placeholder={t('labourParts.hours')} placeholderTextColor="#8E8E93" value={labourHours} onChangeText={setLabourHours} keyboardType="numeric" />
+                <TextInput style={[styles.lineInput, { flex: 1 }]} placeholder={t('labourParts.rate')} placeholderTextColor="#8E8E93" value={labourRate} onChangeText={setLabourRate} keyboardType="numeric" />
+              </View>
+              <TouchableOpacity style={[styles.lineSubmitBtn, addingLine && { opacity: 0.4 }]} onPress={handleAddLabour} disabled={addingLine || !labourDesc.trim()}>
+                <Text style={styles.lineSubmitText}>{t('common.add')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* ─── PARTS LINES ─── */}
+        <View style={styles.linesSection}>
+          <View style={styles.linesSectionHeader}>
+            <Text style={styles.linesSectionTitle}>{t('labourParts.partsLines')}</Text>
+            <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
+              <Text style={styles.addLineBtn}>+ {t('labourParts.addPart')}</Text>
+            </TouchableOpacity>
+          </View>
+          {(job.parts_lines ?? []).map((p) => (
+            <View key={p.id} style={styles.lineItem}>
+              <Text style={styles.lineDesc}>{p.part_name} x{p.quantity}</Text>
+              <Text style={styles.lineAmount}>{p.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+            </View>
+          ))}
+          {(job.parts_lines ?? []).length === 0 && !showAddPart && (
+            <Text style={styles.noLines}>—</Text>
+          )}
+          {showAddPart && (
+            <View style={styles.addLineForm}>
+              <TextInput style={styles.lineInput} placeholder={t('labourParts.partName')} placeholderTextColor="#8E8E93" value={partName} onChangeText={setPartName} />
+              <TextInput style={styles.lineInput} placeholder={t('labourParts.partNumber')} placeholderTextColor="#8E8E93" value={partNumber} onChangeText={setPartNumber} />
+              <View style={styles.lineInputRow}>
+                <TextInput style={[styles.lineInput, { flex: 1 }]} placeholder={t('labourParts.quantity')} placeholderTextColor="#8E8E93" value={partQty} onChangeText={setPartQty} keyboardType="numeric" />
+                <TextInput style={[styles.lineInput, { flex: 1 }]} placeholder={t('labourParts.unitCost')} placeholderTextColor="#8E8E93" value={partCost} onChangeText={setPartCost} keyboardType="numeric" />
+              </View>
+              <TouchableOpacity style={[styles.lineSubmitBtn, addingLine && { opacity: 0.4 }]} onPress={handleAddPart} disabled={addingLine || !partName.trim()}>
+                <Text style={styles.lineSubmitText}>{t('common.add')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Totals */}
+        {(job.grand_total ?? 0) > 0 && (
+          <View style={styles.totalsCard}>
+            <View style={styles.totalRow}><Text style={styles.totalLabel}>{t('labourParts.labourLines')}</Text><Text style={styles.totalValue}>{(job.labour_total ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text></View>
+            <View style={styles.totalRow}><Text style={styles.totalLabel}>{t('labourParts.partsLines')}</Text><Text style={styles.totalValue}>{(job.parts_total ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text></View>
+            {(job.tax_amount ?? 0) > 0 && <View style={styles.totalRow}><Text style={styles.totalLabel}>Tax</Text><Text style={styles.totalValue}>{(job.tax_amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text></View>}
+            <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#E5E5EA', paddingTop: 8, marginTop: 4 }]}>
+              <Text style={[styles.totalLabel, { fontWeight: '700', color: '#1C1C1E' }]}>Total</Text>
+              <Text style={[styles.totalValue, { fontSize: 18, fontWeight: '800' }]}>{(job.grand_total ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+            </View>
           </View>
         )}
 
@@ -734,6 +883,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // Labour/Parts
+  linesSection: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#F8F9FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E5EA' },
+  linesSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  linesSectionTitle: { fontSize: 14, fontWeight: '700', color: '#636366', textTransform: 'uppercase', letterSpacing: 0.5 },
+  addLineBtn: { fontSize: 14, fontWeight: '600', color: '#0087FF' },
+  lineItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: '#E5E5EA' },
+  lineDesc: { fontSize: 14, color: '#363638', flex: 1 },
+  lineAmount: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
+  noLines: { textAlign: 'center', color: '#AEAEB2', fontSize: 14, paddingVertical: 4 },
+  addLineForm: { marginTop: 8, gap: 8 },
+  lineInput: { borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 8, padding: 10, fontSize: 15, backgroundColor: '#fff' },
+  lineInputRow: { flexDirection: 'row', gap: 8 },
+  lineSubmitBtn: { backgroundColor: '#0087FF', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  lineSubmitText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  totalsCard: { marginHorizontal: 16, marginTop: 10, backgroundColor: '#F8F9FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E5EA' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  totalLabel: { fontSize: 14, color: '#636366' },
+  totalValue: { fontSize: 14, fontWeight: '600', color: '#1C1C1E' },
 
   // Gate pass
   gatePassBtn: {

@@ -230,6 +230,25 @@
     "viewDetails": "View Details",
     "fetchError": "Failed to load invoices"
   },
+  "myAppointments": {
+    "title": "My Appointments",
+    "empty": "No appointments booked",
+    "emptyHint": "Book a service to see your appointments here",
+    "upcoming": "Upcoming",
+    "past": "Past",
+    "cancel": "Cancel Appointment",
+    "cancelConfirm": "Are you sure you want to cancel this appointment?",
+    "cancelSuccess": "Appointment cancelled",
+    "cancelError": "Failed to cancel appointment",
+    "status": {
+      "scheduled": "Scheduled",
+      "confirmed": "Confirmed",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show"
+    }
+  },
   "upsell": {
     "title": "Enhance Your Service",
     "subtitle": "Add these popular services to your visit",

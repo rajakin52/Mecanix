@@ -124,10 +124,19 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Logout */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
-        <Text style={styles.logoutText}>{t('common.logout')}</Text>
-      </TouchableOpacity>
+      {/* Quick links */}
+      <View style={styles.quickLinks}>
+        <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/my-appointments')} activeOpacity={0.7}>
+          <Text style={styles.quickLinkIcon}>📅</Text>
+          <Text style={styles.quickLinkText}>{t('myAppointments.title')}</Text>
+          <Text style={styles.quickLinkArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickLink} onPress={() => router.push('/invoices')} activeOpacity={0.7}>
+          <Text style={styles.quickLinkIcon}>🧾</Text>
+          <Text style={styles.quickLinkText}>{t('invoices.title')}</Text>
+          <Text style={styles.quickLinkArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -221,4 +230,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+  // Quick links
+  quickLinks: { marginTop: 20, gap: 8 },
+  quickLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  quickLinkIcon: { fontSize: 22 },
+  quickLinkText: { flex: 1, fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
+  quickLinkArrow: { fontSize: 18, color: '#8E8E93' },
 });

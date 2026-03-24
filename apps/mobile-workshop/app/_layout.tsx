@@ -23,6 +23,14 @@ export default function RootLayout() {
         options={{ headerShown: true }}
       />
       <Stack.Screen
+        name="new-vehicle"
+        options={{ headerShown: true, presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="appointments"
+        options={{ headerShown: true }}
+      />
+      <Stack.Screen
         name="parts"
         options={{ headerShown: true }}
       />

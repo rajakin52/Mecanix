@@ -230,6 +230,25 @@
     "viewDetails": "Ver Detalhes",
     "fetchError": "Erro ao carregar facturas"
   },
+  "myAppointments": {
+    "title": "As Minhas Marcações",
+    "empty": "Sem marcações",
+    "emptyHint": "Marque um serviço para ver as suas marcações aqui",
+    "upcoming": "Próximas",
+    "past": "Anteriores",
+    "cancel": "Cancelar Marcação",
+    "cancelConfirm": "Tem a certeza que deseja cancelar esta marcação?",
+    "cancelSuccess": "Marcação cancelada",
+    "cancelError": "Erro ao cancelar marcação",
+    "status": {
+      "scheduled": "Agendada",
+      "confirmed": "Confirmada",
+      "in_progress": "Em Curso",
+      "completed": "Concluída",
+      "cancelled": "Cancelada",
+      "no_show": "Não Compareceu"
+    }
+  },
   "upsell": {
     "title": "Melhore o Seu Serviço",
     "subtitle": "Adicione estes serviços populares à sua visita",

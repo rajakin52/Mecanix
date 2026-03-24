@@ -22,6 +22,14 @@ export default function RootLayout() {
         name="invoice-detail"
         options={{ headerShown: true }}
       />
+      <Stack.Screen
+        name="invoices"
+        options={{ headerShown: true }}
+      />
+      <Stack.Screen
+        name="my-appointments"
+        options={{ headerShown: true }}
+      />
     </Stack>
   );
 }

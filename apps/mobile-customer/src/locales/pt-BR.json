@@ -230,6 +230,25 @@
     "viewDetails": "Ver Detalhes",
     "fetchError": "Erro ao carregar faturas"
   },
+  "myAppointments": {
+    "title": "Meus Agendamentos",
+    "empty": "Sem agendamentos",
+    "emptyHint": "Agende um serviço para ver seus agendamentos aqui",
+    "upcoming": "Próximos",
+    "past": "Anteriores",
+    "cancel": "Cancelar Agendamento",
+    "cancelConfirm": "Tem certeza que deseja cancelar este agendamento?",
+    "cancelSuccess": "Agendamento cancelado",
+    "cancelError": "Erro ao cancelar agendamento",
+    "status": {
+      "scheduled": "Agendado",
+      "confirmed": "Confirmado",
+      "in_progress": "Em Andamento",
+      "completed": "Concluído",
+      "cancelled": "Cancelado",
+      "no_show": "Não Compareceu"
+    }
+  },
   "upsell": {
     "title": "Melhore Seu Serviço",
     "subtitle": "Adicione estes serviços populares à sua visita",
