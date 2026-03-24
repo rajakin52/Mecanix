@@ -8,6 +8,10 @@ export const createCustomerSchema = z.object({
   address: z.string().max(500).optional(),
   paymentTerms: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
+  isCorporate: z.boolean().default(false),
+  companyName: z.string().max(200).optional(),
+  billingContact: z.string().max(200).optional(),
+  creditLimit: z.coerce.number().min(0).optional(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

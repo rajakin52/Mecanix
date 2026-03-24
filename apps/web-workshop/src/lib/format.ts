@@ -49,6 +49,35 @@ export function formatDate(
 }
 
 /**
+ * Format a monetary amount in both primary and secondary currencies.
+ *
+ * @param amount - The numeric amount in primary currency
+ * @param primaryCurrency - ISO 4217 primary currency code (e.g., 'AOA')
+ * @param secondaryCurrency - ISO 4217 secondary currency code (e.g., 'USD') or null
+ * @param exchangeRate - How many units of primary = 1 unit of secondary (e.g., 850 means 1 USD = 850 AOA)
+ * @param locale - BCP 47 locale string
+ * @returns Object with primary and optional secondary formatted strings
+ */
+export function formatDualCurrency(
+  amount: number | string | null | undefined,
+  primaryCurrency: string,
+  secondaryCurrency: string | null,
+  exchangeRate: number | null,
+  locale = 'pt-PT',
+): { primary: string; secondary: string | null } {
+  const num = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0);
+  const primary = formatCurrency(num, primaryCurrency, locale);
+
+  if (!secondaryCurrency || !exchangeRate || exchangeRate <= 0) {
+    return { primary, secondary: null };
+  }
+
+  const converted = num / exchangeRate;
+  const secondary = formatCurrency(converted, secondaryCurrency, locale);
+  return { primary, secondary };
+}
+
+/**
  * Format a number (non-currency) with locale.
  */
 export function formatNumber(

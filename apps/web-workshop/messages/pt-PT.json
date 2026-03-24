@@ -112,7 +112,15 @@
     "created": "Cliente criado com sucesso",
     "updated": "Cliente atualizado com sucesso",
     "deleted": "Cliente eliminado com sucesso",
-    "linkedVehicles": "Veículos associados"
+    "linkedVehicles": "Veículos associados",
+    "corporate": "Empresarial",
+    "companyName": "Nome da Empresa",
+    "billingContact": "Contacto de Facturação",
+    "creditLimit": "Limite de Crédito",
+    "corporateAccount": "Conta Empresarial",
+    "currentBalance": "Saldo Actual",
+    "editCustomer": "Editar Cliente",
+    "paymentTerms": "Condições de Pagamento"
   },
   "time": {
     "floorTitle": "Vista da Oficina em Tempo Real",
@@ -397,6 +405,18 @@
     "status_completed": "Concluído",
     "status_cancelled": "Cancelado",
     "status_no_show": "Não Compareceu"
+  },
+  "currency": {
+    "currency": "Moeda",
+    "primaryCurrency": "Moeda Principal",
+    "secondaryCurrency": "Moeda Secundária",
+    "exchangeRate": "Taxa de Câmbio",
+    "lastUpdated": "Última atualização",
+    "setCurrency": "Guardar Definições de Moeda",
+    "none": "Nenhuma",
+    "saved": "Definições de moeda guardadas",
+    "saveFailed": "Falha ao guardar definições de moeda",
+    "dualCurrencyDescription": "Exibir preços numa moeda secundária ao lado da moeda principal."
   },
   "reminders": {
     "title": "Lembretes de Serviço",

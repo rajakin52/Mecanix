@@ -9,6 +9,9 @@ interface Tenant {
   slug: string;
   country: string;
   currency: string;
+  secondary_currency: string | null;
+  exchange_rate: number | null;
+  exchange_rate_updated_at: string | null;
   timezone: string;
   locale: string;
 }

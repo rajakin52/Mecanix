@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateCustomerSchema } from '@mecanix/validators';
 import type { UpdateCustomerInput } from '@mecanix/validators';
+import { Building2 } from 'lucide-react';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -33,18 +34,21 @@ export default function CustomerDetailPage() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editIsCorporate, setEditIsCorporate] = useState(false);
 
   const { data: customer, isLoading, isError } = useCustomer(id);
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles(1, '', id);
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateCustomerInput>({
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<UpdateCustomerInput>({
     resolver: zodResolver(updateCustomerSchema),
   });
 
   useEffect(() => {
     if (customer) {
+      const corp = !!(customer as Record<string, unknown>).is_corporate;
+      setEditIsCorporate(corp);
       reset({
         fullName: (customer as Record<string, unknown>).full_name as string ?? '',
         phone: (customer as Record<string, unknown>).phone as string ?? '',
@@ -53,6 +57,10 @@ export default function CustomerDetailPage() {
         address: (customer as Record<string, unknown>).address as string ?? '',
         paymentTerms: (customer as Record<string, unknown>).payment_terms as string ?? '',
         notes: (customer as Record<string, unknown>).notes as string ?? '',
+        isCorporate: corp,
+        companyName: (customer as Record<string, unknown>).company_name as string ?? '',
+        billingContact: (customer as Record<string, unknown>).billing_contact as string ?? '',
+        creditLimit: (customer as Record<string, unknown>).credit_limit as number ?? undefined,
       });
     }
   }, [customer, reset]);
@@ -99,7 +107,15 @@ export default function CustomerDetailPage() {
       {/* Customer Profile Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">{c.full_name as string}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">{c.full_name as string}</h1>
+            {c.is_corporate && (
+              <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                <Building2 className="h-3.5 w-3.5" />
+                {tc('corporate')}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowEditModal(true)}
@@ -141,6 +157,27 @@ export default function CustomerDetailPage() {
             <dt className="text-sm font-medium text-gray-500">{tc('notes')}</dt>
             <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{(c.notes as string) || '-'}</dd>
           </div>
+
+          {c.is_corporate && (
+            <>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{tc('companyName')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{(c.company_name as string) || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{tc('billingContact')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{(c.billing_contact as string) || '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{tc('creditLimit')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{c.credit_limit != null ? Number(c.credit_limit).toFixed(2) : '-'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-medium text-gray-500">{tc('currentBalance')}</dt>
+                <dd className="mt-1 text-sm text-gray-900">{c.current_balance != null ? Number(c.current_balance).toFixed(2) : '0.00'}</dd>
+              </div>
+            </>
+          )}
         </dl>
       </div>
 
@@ -231,6 +268,39 @@ export default function CustomerDetailPage() {
                 <label className="block text-sm font-medium text-gray-700">{tc('notes')}</label>
                 <textarea {...register('notes')} rows={3} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
               </div>
+
+              {/* Corporate Account Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="editIsCorporate"
+                  checked={editIsCorporate}
+                  onChange={(e) => {
+                    setEditIsCorporate(e.target.checked);
+                    setValue('isCorporate', e.target.checked);
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="editIsCorporate" className="text-sm font-medium text-gray-700">{tc('corporateAccount')}</label>
+              </div>
+
+              {editIsCorporate && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tc('companyName')}</label>
+                    <input {...register('companyName')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tc('billingContact')}</label>
+                    <input {...register('billingContact')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tc('creditLimit')}</label>
+                    <input {...register('creditLimit')} type="number" min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowEditModal(false)} className="rounded-md border px-4 py-2 text-sm">
                   {t('cancel')}

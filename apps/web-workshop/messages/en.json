@@ -112,7 +112,15 @@
     "created": "Customer created successfully",
     "updated": "Customer updated successfully",
     "deleted": "Customer deleted successfully",
-    "linkedVehicles": "Linked vehicles"
+    "linkedVehicles": "Linked vehicles",
+    "corporate": "Corporate",
+    "companyName": "Company Name",
+    "billingContact": "Billing Contact",
+    "creditLimit": "Credit Limit",
+    "corporateAccount": "Corporate Account",
+    "currentBalance": "Current Balance",
+    "editCustomer": "Edit Customer",
+    "paymentTerms": "Payment Terms"
   },
   "time": {
     "floorTitle": "Live Floor View",
@@ -397,6 +405,18 @@
     "status_completed": "Completed",
     "status_cancelled": "Cancelled",
     "status_no_show": "No Show"
+  },
+  "currency": {
+    "currency": "Currency",
+    "primaryCurrency": "Primary Currency",
+    "secondaryCurrency": "Secondary Currency",
+    "exchangeRate": "Exchange Rate",
+    "lastUpdated": "Last updated",
+    "setCurrency": "Save Currency Settings",
+    "none": "None",
+    "saved": "Currency settings saved",
+    "saveFailed": "Failed to save currency settings",
+    "dualCurrencyDescription": "Display prices in a secondary currency alongside your primary currency."
   },
   "reminders": {
     "title": "Service Reminders",

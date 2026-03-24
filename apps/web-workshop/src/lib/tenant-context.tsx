@@ -5,6 +5,8 @@ import { useTenant } from '@/hooks/use-tenant';
 
 interface TenantContextValue {
   currency: string;
+  secondaryCurrency: string | null;
+  exchangeRate: number | null;
   country: string;
   locale: string;
   tenantName: string;
@@ -13,6 +15,8 @@ interface TenantContextValue {
 
 const TenantContext = createContext<TenantContextValue>({
   currency: 'AOA',
+  secondaryCurrency: null,
+  exchangeRate: null,
   country: 'AO',
   locale: 'pt-PT',
   tenantName: '',
@@ -26,6 +30,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     <TenantContext.Provider
       value={{
         currency: (tenant?.currency as string) ?? 'AOA',
+        secondaryCurrency: (tenant?.secondary_currency as string) ?? null,
+        exchangeRate: tenant?.exchange_rate ? Number(tenant.exchange_rate) : null,
         country: (tenant?.country as string) ?? 'AO',
         locale: (tenant?.locale as string) ?? 'pt-PT',
         tenantName: (tenant?.name as string) ?? '',

@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createCustomerSchema } from '@mecanix/validators';
 import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
+import { Building2 } from 'lucide-react';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -33,7 +34,9 @@ export default function CustomersPage() {
   const createMutation = useCreateCustomer();
   const deleteMutation = useDeleteCustomer();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateCustomerInput>({
+  const [isCorporate, setIsCorporate] = useState(false);
+
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<CreateCustomerInput>({
     resolver: zodResolver(createCustomerSchema),
   });
 
@@ -41,6 +44,7 @@ export default function CustomersPage() {
     await createMutation.mutateAsync(formData);
     setShowModal(false);
     reset();
+    setIsCorporate(false);
     setSuccessMsg('Customer created successfully!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -100,8 +104,14 @@ export default function CustomersPage() {
                   data.data.map((customer: Record<string, unknown>) => (
                     <tr key={customer.id as string} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/customers/${customer.id as string}`}>
+                        <Link href={`/customers/${customer.id as string}`} className="inline-flex items-center gap-1.5">
                           {customer.full_name as string}
+                          {customer.is_corporate && (
+                            <span className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+                              <Building2 className="h-3 w-3" />
+                              {t('corporate')}
+                            </span>
+                          )}
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{customer.phone as string}</td>
@@ -194,6 +204,39 @@ export default function CustomersPage() {
                 <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>
                 <textarea {...register('notes')} rows={3} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
               </div>
+
+              {/* Corporate Account Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isCorporate"
+                  checked={isCorporate}
+                  onChange={(e) => {
+                    setIsCorporate(e.target.checked);
+                    setValue('isCorporate', e.target.checked);
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="isCorporate" className="text-sm font-medium text-gray-700">{t('corporateAccount')}</label>
+              </div>
+
+              {isCorporate && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('companyName')}</label>
+                    <input {...register('companyName')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('billingContact')}</label>
+                    <input {...register('billingContact')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('creditLimit')}</label>
+                    <input {...register('creditLimit')} type="number" min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowModal(false)} className="rounded-md border px-4 py-2 text-sm">
                   {tc('cancel')}
