@@ -5,19 +5,69 @@
     "cancel": "Cancelar",
     "delete": "Excluir",
     "search": "Pesquisar",
-    "noResults": "Sem resultados"
+    "noResults": "Sem resultados",
+    "error": "Algo deu errado",
+    "retry": "Tentar novamente",
+    "logout": "Sair",
+    "logoutConfirm": "Tem certeza que deseja sair?",
+    "yes": "Sim",
+    "no": "Nao"
   },
   "tabs": {
-    "vehicles": "Meus Veículos",
+    "vehicles": "Meus Veiculos",
     "jobs": "Trabalhos Ativos",
-    "history": "Histórico",
+    "history": "Historico",
     "profile": "Perfil"
   },
   "auth": {
     "login": "Entrar",
-    "phone": "Número de celular",
-    "sendCode": "Enviar código",
-    "verifyCode": "Verificar código",
-    "otpPlaceholder": "Código de verificação"
+    "email": "Email",
+    "password": "Senha",
+    "subtitle": "Portal do Proprietario",
+    "invalidCredentials": "Email ou senha invalidos",
+    "loginFailed": "Falha no login. Tente novamente."
+  },
+  "vehicles": {
+    "title": "Meus Veiculos",
+    "empty": "Nenhum veiculo cadastrado",
+    "year": "Ano",
+    "color": "Cor",
+    "vin": "VIN",
+    "mileage": "Quilometragem",
+    "serviceHistory": "Historico de Servico",
+    "lastService": "Ultimo Servico",
+    "noHistory": "Sem historico de servico para este veiculo"
+  },
+  "jobs": {
+    "title": "Trabalhos Ativos",
+    "empty": "Sem trabalhos ativos",
+    "jobNumber": "Trabalho #{{number}}",
+    "reportedProblem": "Problema Reportado",
+    "total": "Total",
+    "vehicle": "Veiculo",
+    "status": {
+      "open": "Aberto",
+      "in_progress": "Em Progresso",
+      "waiting_parts": "Aguardando Pecas",
+      "waiting_approval": "Aguardando Aprovacao",
+      "completed": "Concluido",
+      "invoiced": "Faturado",
+      "cancelled": "Cancelado"
+    }
+  },
+  "history": {
+    "title": "Historico de Servico",
+    "empty": "Sem servicos concluidos",
+    "completedOn": "Concluido em",
+    "service": "Servico",
+    "cost": "Custo"
+  },
+  "profile": {
+    "title": "Perfil",
+    "name": "Nome",
+    "email": "Email",
+    "phone": "Telefone",
+    "role": "Funcao",
+    "customer": "Cliente"
   }
 }

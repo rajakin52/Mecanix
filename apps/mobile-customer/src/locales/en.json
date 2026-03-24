@@ -5,7 +5,13 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "search": "Search",
-    "noResults": "No results"
+    "noResults": "No results",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "logout": "Log Out",
+    "logoutConfirm": "Are you sure you want to log out?",
+    "yes": "Yes",
+    "no": "No"
   },
   "tabs": {
     "vehicles": "My Vehicles",
@@ -14,10 +20,54 @@
     "profile": "Profile"
   },
   "auth": {
-    "login": "Sign in",
-    "phone": "Phone number",
-    "sendCode": "Send code",
-    "verifyCode": "Verify code",
-    "otpPlaceholder": "Verification code"
+    "login": "Sign In",
+    "email": "Email",
+    "password": "Password",
+    "subtitle": "Vehicle Owner Portal",
+    "invalidCredentials": "Invalid email or password",
+    "loginFailed": "Login failed. Please try again."
+  },
+  "vehicles": {
+    "title": "My Vehicles",
+    "empty": "No vehicles registered yet",
+    "year": "Year",
+    "color": "Color",
+    "vin": "VIN",
+    "mileage": "Mileage",
+    "serviceHistory": "Service History",
+    "lastService": "Last Service",
+    "noHistory": "No service history for this vehicle"
+  },
+  "jobs": {
+    "title": "Active Jobs",
+    "empty": "No active jobs",
+    "jobNumber": "Job #{{number}}",
+    "reportedProblem": "Reported Problem",
+    "total": "Total",
+    "vehicle": "Vehicle",
+    "status": {
+      "open": "Open",
+      "in_progress": "In Progress",
+      "waiting_parts": "Waiting Parts",
+      "waiting_approval": "Waiting Approval",
+      "completed": "Completed",
+      "invoiced": "Invoiced",
+      "cancelled": "Cancelled"
+    }
+  },
+  "history": {
+    "title": "Service History",
+    "empty": "No completed services yet",
+    "completedOn": "Completed",
+    "service": "Service",
+    "cost": "Cost"
+  },
+  "profile": {
+    "title": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "role": "Role",
+    "customer": "Customer"
   }
 }
