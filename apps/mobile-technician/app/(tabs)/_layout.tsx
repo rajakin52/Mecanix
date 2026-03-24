@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import OfflineBanner from '../../src/components/OfflineBanner';
 
 const PRIMARY = '#0087FF';
 
@@ -22,6 +23,8 @@ export default function TabsLayout() {
   const { t } = useTranslation();
 
   return (
+    <View style={{ flex: 1 }}>
+    <OfflineBanner />
     <Tabs
       screenOptions={{
         headerShown: true,
@@ -77,6 +80,7 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
 

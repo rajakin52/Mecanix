@@ -1,17 +1,45 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
+import { PushService } from './push.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { TenantId } from '../../common/decorators/user.decorator';
+import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { sendMessageSchema, sendTestSchema } from '@mecanix/validators';
 import type { SendMessageInput, SendTestInput } from '@mecanix/validators';
+import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('notifications')
 @UseGuards(TenantGuard)
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
+    private readonly pushService: PushService,
   ) {}
+
+  // ── Push token management ──
+
+  @Post('push/register')
+  async registerPushToken(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { pushToken: string; platform: string; appType: string },
+  ) {
+    return this.pushService.registerToken(
+      tenantId,
+      user.id,
+      body.pushToken,
+      body.platform as 'ios' | 'android' | 'web',
+      body.appType as 'customer' | 'workshop' | 'technician',
+    );
+  }
+
+  @Delete('push/token')
+  async deactivatePushToken(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { pushToken: string },
+  ) {
+    return this.pushService.deactivateToken(user.id, body.pushToken);
+  }
 
   @Post('send')
   async sendMessage(

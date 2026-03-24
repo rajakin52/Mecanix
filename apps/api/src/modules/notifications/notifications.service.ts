@@ -1,18 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { WhatsAppService } from './whatsapp.service';
+import { PushService } from './push.service';
 import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly whatsapp: WhatsAppService,
+    private readonly push: PushService,
     private readonly supabase: SupabaseService,
   ) {}
 
   /** Send notification when job card is created */
   async onJobCreated(tenantId: string, jobCardId: string) {
     const job = await this.getJobWithCustomer(tenantId, jobCardId);
-    if (!job || !job.customer?.phone) return;
+    if (!job) return;
 
     const message = this.getTemplate('job_created', {
       plate: job.vehicle?.plate ?? '',
@@ -20,13 +24,27 @@ export class NotificationsService {
       jobNumber: job.job_number ?? '',
     });
 
-    return this.whatsapp.sendText(job.customer.phone, message);
+    // WhatsApp
+    if (job.customer?.phone) {
+      try { await this.whatsapp.sendText(job.customer.phone, message); } catch (e) { this.logger.warn(`WhatsApp failed: ${e}`); }
+    }
+
+    // Push notification
+    if (job.customer_id) {
+      try {
+        await this.push.sendToCustomer(tenantId, job.customer_id, {
+          title: 'Vehicle Received',
+          body: `Your ${job.vehicle?.make ?? ''} ${job.vehicle?.model ?? ''} (${job.vehicle?.plate ?? ''}) has been checked in. Job: ${job.job_number}`,
+          data: { jobId: jobCardId, type: 'job_created' },
+        }, 'job', jobCardId);
+      } catch (e) { this.logger.warn(`Push failed: ${e}`); }
+    }
   }
 
   /** Send when status changes to awaiting_approval (quote ready) */
   async onAwaitingApproval(tenantId: string, jobCardId: string) {
     const job = await this.getJobWithCustomer(tenantId, jobCardId);
-    if (!job || !job.customer?.phone) return;
+    if (!job) return;
 
     const message = this.getTemplate('awaiting_approval', {
       plate: job.vehicle?.plate ?? '',
@@ -34,20 +52,44 @@ export class NotificationsService {
       jobNumber: job.job_number ?? '',
     });
 
-    return this.whatsapp.sendText(job.customer.phone, message);
+    if (job.customer?.phone) {
+      try { await this.whatsapp.sendText(job.customer.phone, message); } catch (e) { this.logger.warn(`WhatsApp failed: ${e}`); }
+    }
+
+    if (job.customer_id) {
+      try {
+        await this.push.sendToCustomer(tenantId, job.customer_id, {
+          title: 'Quote Ready — Your Approval Needed',
+          body: `A repair quote of ${job.grand_total ?? 0} is ready for your ${job.vehicle?.plate ?? 'vehicle'}. Tap to review and approve.`,
+          data: { jobId: jobCardId, type: 'awaiting_approval' },
+        }, 'job', jobCardId);
+      } catch (e) { this.logger.warn(`Push failed: ${e}`); }
+    }
   }
 
   /** Send when vehicle is ready for collection */
   async onReadyForCollection(tenantId: string, jobCardId: string) {
     const job = await this.getJobWithCustomer(tenantId, jobCardId);
-    if (!job || !job.customer?.phone) return;
+    if (!job) return;
 
     const message = this.getTemplate('ready_collection', {
       plate: job.vehicle?.plate ?? '',
       jobNumber: job.job_number ?? '',
     });
 
-    return this.whatsapp.sendText(job.customer.phone, message);
+    if (job.customer?.phone) {
+      try { await this.whatsapp.sendText(job.customer.phone, message); } catch (e) { this.logger.warn(`WhatsApp failed: ${e}`); }
+    }
+
+    if (job.customer_id) {
+      try {
+        await this.push.sendToCustomer(tenantId, job.customer_id, {
+          title: 'Your Vehicle is Ready! 🚗',
+          body: `Your ${job.vehicle?.plate ?? 'vehicle'} is ready for collection. Job: ${job.job_number}`,
+          data: { jobId: jobCardId, type: 'ready_collection' },
+        }, 'job', jobCardId);
+      } catch (e) { this.logger.warn(`Push failed: ${e}`); }
+    }
   }
 
   /** Send when invoice is generated */
