@@ -15,6 +15,7 @@ import {
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
+import { useAiDiagnose } from '@/hooks/use-ai';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -81,6 +82,47 @@ function FuelGaugeIcon({ level, active }: { level: string; active: boolean }) {
         opacity={active ? 1 : 0.3}
       />
     </svg>
+  );
+}
+
+function AiDiagnosisPanel({ reportedProblem, vehicleMake, vehicleModel, vehicleYear }: {
+  reportedProblem: string; vehicleMake: string; vehicleModel: string; vehicleYear?: number;
+}) {
+  const t = useTranslations('ai');
+  const diagnose = useAiDiagnose();
+  const [showSuggestion, setShowSuggestion] = useState(false);
+
+  const handleDiagnose = async () => {
+    if (!reportedProblem || !vehicleMake) return;
+    try {
+      await diagnose.mutateAsync({ reportedProblem, vehicleMake, vehicleModel, vehicleYear });
+      setShowSuggestion(true);
+    } catch {
+      // handled by mutation
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={handleDiagnose}
+        disabled={diagnose.isPending || !reportedProblem}
+        className="inline-flex items-center gap-1.5 rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+      >
+        {diagnose.isPending ? t('analyzing') : t('aiDiagnosis')}
+      </button>
+      {showSuggestion && diagnose.data && (
+        <div className="mt-2 rounded-md border border-purple-200 bg-purple-50 p-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-purple-700 uppercase">{t('aiSuggestion')}</span>
+            <button onClick={() => setShowSuggestion(false)} className="text-xs text-purple-400 hover:text-purple-600">
+              {t('hide')}
+            </button>
+          </div>
+          <p className="text-sm text-purple-900 whitespace-pre-wrap">{(diagnose.data as { suggestion: string }).suggestion}</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -451,6 +493,12 @@ export default function JobDetailPage() {
           <div>
             <h3 className="text-sm font-semibold text-gray-500">{t('reportedProblem')}</h3>
             <p className="mt-1 text-gray-900 whitespace-pre-wrap">{typedJob.reported_problem as string}</p>
+            <AiDiagnosisPanel
+              reportedProblem={(typedJob.reported_problem as string) ?? ''}
+              vehicleMake={vehicle?.make ?? ''}
+              vehicleModel={vehicle?.model ?? ''}
+              vehicleYear={vehicle?.year ? Number(vehicle.year) : undefined}
+            />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-gray-500">{t('internalNotes')}</h3>

@@ -27,6 +27,9 @@ import { CrmModule } from './modules/crm/crm.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { GatePassModule } from './modules/gate-pass/gate-pass.module';
 import { HealthModule } from './modules/health/health.module';
+import { AiModule } from './modules/ai/ai.module';
+import { AmcModule } from './modules/amc/amc.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -59,6 +62,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     LoyaltyModule,
     GatePassModule,
     HealthModule,
+    AiModule,
+    AmcModule,
+    MarketingModule,
   ],
   providers: [
     {

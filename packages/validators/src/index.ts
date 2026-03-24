@@ -15,3 +15,6 @@ export * from './reminder';
 export * from './crm';
 export * from './loyalty';
 export * from './gate-pass';
+export * from './ai';
+export * from './amc';
+export * from './marketing';

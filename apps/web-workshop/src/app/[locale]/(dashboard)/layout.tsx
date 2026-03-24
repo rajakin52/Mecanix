@@ -38,6 +38,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/petty-cash', label: t('pettyCash') },
     { href: '/invoices', label: t('invoices') },
     { href: '/insurance', label: t('insurance') },
+    { href: '/amc', label: t('amc') },
+    { href: '/marketing', label: t('marketing') },
     { href: '/reports', label: t('reports') },
     { href: '/settings', label: t('settings') },
   ];
