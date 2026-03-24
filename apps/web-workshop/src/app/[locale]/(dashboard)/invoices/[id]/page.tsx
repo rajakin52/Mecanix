@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote } from '@/hooks/use-invoices';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
+import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
 import { Link } from '@/i18n/navigation';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,10 +26,14 @@ export default function InvoiceDetailPage() {
   const tc = useTranslations('common');
   const locale = useLocale();
 
+  const tm = useTranslations('mpesa');
+
   const { data: invoice, isLoading } = useInvoice(id);
   const markAsSentMutation = useMarkAsSent();
   const payMutation = useRecordPayment();
   const creditNoteMutation = useCreateCreditNote();
+  const { data: mpesaConfig } = useMpesaConfigured();
+  const mpesaPayMutation = useMpesaPay();
 
   // Fetch labour and parts lines from the job card
   const jobCardId = (invoice as Record<string, unknown> | undefined)?.job_card_id as string | undefined;
@@ -41,6 +46,10 @@ export default function InvoiceDetailPage() {
   const [payMethod, setPayMethod] = useState('Cash');
   const [payRef, setPayRef] = useState('');
   const [payNotes, setPayNotes] = useState('');
+
+  // M-Pesa state
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [mpesaMsg, setMpesaMsg] = useState<string | null>(null);
 
   // Credit note modal state
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -439,6 +448,57 @@ export default function InvoiceDetailPage() {
                   ))}
                 </select>
               </div>
+              {/* M-Pesa section */}
+              {payMethod === 'mpesa' && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <p className="text-sm font-medium text-blue-800">{tm('title')}</p>
+                  {mpesaConfig?.configured === false && (
+                    <p className="text-xs text-amber-700">{tm('notConfigured')}</p>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{tm('phoneNumber')}</label>
+                    <input
+                      type="tel"
+                      value={mpesaPhone}
+                      onChange={(e) => setMpesaPhone(e.target.value)}
+                      placeholder={tm('phonePlaceholder')}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!mpesaPhone || !payAmount) return;
+                      setMpesaMsg(null);
+                      try {
+                        const result = await mpesaPayMutation.mutateAsync({
+                          phoneNumber: mpesaPhone,
+                          amount: Number(payAmount),
+                          invoiceId: id,
+                        });
+                        const r = result as Record<string, unknown>;
+                        if (r.success) {
+                          setMpesaMsg(tm('requestSent'));
+                        } else {
+                          setMpesaMsg((r.error as string) ?? tm('requestFailed'));
+                        }
+                      } catch {
+                        setMpesaMsg(tm('requestFailed'));
+                      }
+                    }}
+                    disabled={mpesaPayMutation.isPending || !mpesaPhone || !payAmount}
+                    className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {mpesaPayMutation.isPending ? tc('loading') : tm('sendRequest')}
+                  </button>
+                  {mpesaMsg && (
+                    <p className={`text-xs ${mpesaMsg.includes('Sent') || mpesaMsg.includes('Enviado') ? 'text-green-700' : 'text-red-700'}`}>
+                      {mpesaMsg}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('reference')}</label>
                 <input

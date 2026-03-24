@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
@@ -44,5 +44,26 @@ export class NotificationsController {
       body.phone,
       'MECANIX: Mensagem de teste. A integração WhatsApp está a funcionar correctamente!',
     );
+  }
+
+  @Get('templates')
+  async getTemplates() {
+    return this.notificationsService.getTemplates();
+  }
+
+  @Post('appointment/:appointmentId/confirmed')
+  async onAppointmentConfirmed(
+    @TenantId() tenantId: string,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    return this.notificationsService.onAppointmentConfirmed(tenantId, appointmentId);
+  }
+
+  @Post('reminder/:reminderId/due')
+  async onServiceReminderDue(
+    @TenantId() tenantId: string,
+    @Param('reminderId') reminderId: string,
+  ) {
+    return this.notificationsService.onServiceReminderDue(tenantId, reminderId);
   }
 }

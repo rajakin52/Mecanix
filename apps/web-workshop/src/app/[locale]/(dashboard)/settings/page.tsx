@@ -4,12 +4,23 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { useRouter, usePathname } from '@/i18n/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { formatDate } from '@/lib/format';
+
+const NOTIFICATION_TYPES = [
+  'job_created',
+  'awaiting_approval',
+  'ready_collection',
+  'invoice_generated',
+  'service_reminder',
+  'appointment_confirmation',
+  'appointment_reminder',
+] as const;
 
 export default function SettingsPage() {
   const t = useTranslations('common');
   const tc = useTranslations('currency');
+  const tn = useTranslations('notifications');
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -21,6 +32,17 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [message, setMessage] = useState('');
+
+  // Notification toggles (display-only, not persisted)
+  const [notifToggles, setNotifToggles] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(NOTIFICATION_TYPES.map((t) => [t, true])),
+  );
+  const [showTemplatePreview, setShowTemplatePreview] = useState<string | null>(null);
+
+  const { data: templates } = useQuery({
+    queryKey: ['notification-templates'],
+    queryFn: () => api.get<Record<string, Record<string, string>>>('/notifications/templates'),
+  });
 
   // Currency state
   const [secondaryCurrency, setSecondaryCurrency] = useState<string>('');
@@ -256,6 +278,69 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">{tn('title')}</h2>
+            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              WhatsApp
+            </span>
+          </div>
+          <p className="mb-4 text-sm text-gray-500">{tn('description')}</p>
+
+          <div className="space-y-3">
+            {NOTIFICATION_TYPES.map((type) => (
+              <div key={type} className="rounded-md border border-gray-100 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNotifToggles((prev) => ({ ...prev, [type]: !prev[type] }))
+                      }
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
+                        notifToggles[type] ? 'bg-primary-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                          notifToggles[type] ? 'translate-x-4' : 'translate-x-0.5'
+                        } mt-0.5`}
+                      />
+                    </button>
+                    <span className="text-sm font-medium text-gray-900">{tn(type)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowTemplatePreview(showTemplatePreview === type ? null : type)
+                    }
+                    className="text-xs text-primary-600 hover:underline"
+                  >
+                    {showTemplatePreview === type ? tn('hidePreview') : tn('showPreview')}
+                  </button>
+                </div>
+                {showTemplatePreview === type && templates && (
+                  <div className="mt-2 space-y-1">
+                    <p className="rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-600 font-mono">
+                      <span className="font-semibold text-gray-500">PT:</span>{' '}
+                      {(templates as Record<string, Record<string, string>>)[type]?.pt ?? '-'}
+                    </p>
+                    <p className="rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-600 font-mono">
+                      <span className="font-semibold text-gray-500">EN:</span>{' '}
+                      {(templates as Record<string, Record<string, string>>)[type]?.en ?? '-'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-4 text-xs text-gray-400">
+            {tn('toggleNote')}
+          </p>
         </div>
       </div>
     </div>

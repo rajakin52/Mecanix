@@ -19,6 +19,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { TecDocModule } from './modules/tecdoc/tecdoc.module';
+import { MpesaModule } from './modules/mpesa/mpesa.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -43,6 +45,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     ReportsModule,
     AppointmentsModule,
     RemindersModule,
+    TecDocModule,
+    MpesaModule,
   ],
   providers: [
     {
