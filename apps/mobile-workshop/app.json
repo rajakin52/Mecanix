@@ -4,11 +4,41 @@
     "slug": "mecanix-workshop",
     "version": "0.0.1",
     "scheme": "mecanix-workshop",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "icon": "./assets/icon.png",
     "splash": {
       "backgroundColor": "#4CAF50"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-localization"]
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "mecanix-workshop"
+      }
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mecanix.workshop"
+    },
+    "android": {
+      "package": "com.mecanix.workshop",
+      "adaptiveIcon": {
+        "backgroundColor": "#4CAF50"
+      }
+    }
   }
 }

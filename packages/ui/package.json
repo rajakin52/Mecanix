@@ -8,9 +8,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/"
   },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-native": "0.76.5"
+  "dependencies": {},
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": ">=0.76.0"
   },
   "devDependencies": {
     "@mecanix/tsconfig": "workspace:*",
