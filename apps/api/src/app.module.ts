@@ -31,6 +31,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AmcModule } from './modules/amc/amc.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 import { UpsellModule } from './modules/upsell/upsell.module';
+import { CashRegisterModule } from './modules/cash-register/cash-register.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -67,6 +68,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     AmcModule,
     MarketingModule,
     UpsellModule,
+    CashRegisterModule,
   ],
   providers: [
     {

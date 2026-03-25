@@ -174,6 +174,16 @@ export default function HomeScreen() {
       <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
       <View style={styles.actionsRow}>
         <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FFF8E1' }]}
+          onPress={() => router.push('/cash-register')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.actionIcon, { color: '#F57F17' }]}>💰</Text>
+          <Text style={[styles.actionLabel, { color: '#F57F17' }]}>{t('cashRegister.title')}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.actionsRow}>
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => router.push('/new-job')}
           activeOpacity={0.8}

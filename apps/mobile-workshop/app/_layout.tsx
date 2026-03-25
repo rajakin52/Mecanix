@@ -38,6 +38,10 @@ export default function RootLayout() {
         name="gate-pass"
         options={{ headerShown: true }}
       />
+      <Stack.Screen
+        name="cash-register"
+        options={{ headerShown: true }}
+      />
     </Stack>
   );
 }
