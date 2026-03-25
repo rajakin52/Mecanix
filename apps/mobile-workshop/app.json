@@ -5,7 +5,10 @@
     "version": "0.0.1",
     "scheme": "mecanix-workshop",
     "orientation": "portrait",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "icon": "./assets/icon.png",
     "splash": {
       "backgroundColor": "#0087FF"
@@ -22,7 +25,10 @@
       "adaptiveIcon": {
         "backgroundColor": "#0087FF"
       },
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -38,11 +44,16 @@
       ]
     ],
     "extra": {
-      "router": { "origin": false },
-      "eas": { "projectId": "mecanix-workshop" }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3d684eee-f8e5-4d3e-be45-e33cb5a4ceef"
+      }
     },
     "experiments": {
       "tsconfigPaths": true
-    }
+    },
+    "owner": "rajakurban"
   }
 }

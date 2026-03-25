@@ -5,7 +5,10 @@
     "version": "0.0.1",
     "scheme": "mecanix-technician",
     "orientation": "portrait",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -23,7 +26,10 @@
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0C"
       },
-      "permissions": ["CAMERA", "NOTIFICATIONS"]
+      "permissions": [
+        "CAMERA",
+        "NOTIFICATIONS"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -38,8 +44,13 @@
       ]
     ],
     "extra": {
-      "router": { "origin": false },
-      "eas": { "projectId": "mecanix-technician" }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "71d242b8-cfbf-40da-b4f4-ca0ed25eec36"
+      }
+    },
+    "owner": "rajakurban"
   }
 }
