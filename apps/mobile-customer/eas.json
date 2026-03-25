@@ -1,5 +1,5 @@
 {
-  "cli": { "version": ">= 5.0.0" },
+  "cli": { "version": ">= 5.0.0", "appVersionSource": "remote" },
   "build": {
     "development": {
       "developmentClient": true,
@@ -11,6 +11,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "credentialsSource": "remote",
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api-production-9d84.up.railway.app/api/v1"
       }
