@@ -12,12 +12,12 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mecanix-api.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://api-production-9d84.up.railway.app/api/v1"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mecanix-api.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://api-production-9d84.up.railway.app/api/v1"
       }
     }
   }
