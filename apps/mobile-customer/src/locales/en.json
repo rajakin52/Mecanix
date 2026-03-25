@@ -30,7 +30,14 @@
     "password": "Password",
     "subtitle": "Vehicle Owner Portal",
     "invalidCredentials": "Invalid email or password",
-    "loginFailed": "Login failed. Please try again."
+    "loginFailed": "Login failed. Please try again.",
+    "createAccount": "Create Account",
+    "fullName": "Full Name",
+    "phone": "Phone Number",
+    "passwordHint": "Minimum 8 characters",
+    "signupFailed": "Signup failed. Please try again.",
+    "noAccount": "Don't have an account? Sign up",
+    "alreadyHaveAccount": "Already have an account? Sign in"
   },
   "vehicles": {
     "title": "My Vehicles",

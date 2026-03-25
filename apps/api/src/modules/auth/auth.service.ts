@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { SignUpInput, LoginInput } from '@mecanix/validators';
+import type { SignUpInput, LoginInput, CustomerSignUpInput } from '@mecanix/validators';
 
 @Injectable()
 export class AuthService {
@@ -161,6 +161,173 @@ export class AuthService {
         expiresAt: data.session.expires_at,
       },
     };
+  }
+
+  /**
+   * Customer self-registration.
+   * If email/phone matches an existing customer record, links to it.
+   * Otherwise creates a new customer record.
+   */
+  async customerSignUp(input: CustomerSignUpInput) {
+    const client = this.supabase.getClient();
+    const admin = this.supabase.getClient().auth.admin;
+
+    // 1. Create Supabase auth user
+    const { data: authData, error: authError } = await admin.createUser({
+      email: input.email,
+      password: input.password,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      if (authError.message?.includes('already registered')) {
+        throw new BadRequestException('An account with this email already exists. Please log in.');
+      }
+      throw new InternalServerErrorException('Failed to create account');
+    }
+
+    const authUserId = authData.user.id;
+
+    try {
+      // 2. Find existing customer by email or phone (across all tenants)
+      let existingCustomer: Record<string, unknown> | null = null;
+      let tenantId: string | null = null;
+
+      // Try email match first
+      const { data: byEmail } = await client
+        .from('customers')
+        .select('*, tenant:tenants(id, name, slug, country, currency)')
+        .eq('email', input.email)
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (byEmail) {
+        existingCustomer = byEmail;
+        tenantId = byEmail.tenant_id;
+      } else {
+        // Try phone match
+        const { data: byPhone } = await client
+          .from('customers')
+          .select('*, tenant:tenants(id, name, slug, country, currency)')
+          .eq('phone', input.phone)
+          .is('deleted_at', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (byPhone) {
+          existingCustomer = byPhone;
+          tenantId = byPhone.tenant_id;
+        }
+      }
+
+      // If workshopCode provided and no match found, find tenant by slug
+      if (!tenantId && input.workshopCode) {
+        const { data: tenant } = await client
+          .from('tenants')
+          .select('id')
+          .eq('slug', input.workshopCode)
+          .single();
+        if (tenant) tenantId = tenant.id;
+      }
+
+      // If still no tenant, we can't create user (need at least one tenant)
+      if (!tenantId) {
+        // Find any tenant as fallback (first tenant in system)
+        const { data: anyTenant } = await client
+          .from('tenants')
+          .select('id')
+          .limit(1)
+          .single();
+        if (anyTenant) tenantId = anyTenant.id;
+      }
+
+      if (!tenantId) {
+        await admin.deleteUser(authUserId);
+        throw new BadRequestException('No workshop found. Please contact your workshop for an invite.');
+      }
+
+      // 3. Create user row
+      const { data: user, error: userError } = await client
+        .from('users')
+        .insert({
+          tenant_id: tenantId,
+          auth_id: authUserId,
+          email: input.email,
+          full_name: input.fullName,
+          role: 'customer',
+          phone: input.phone,
+        })
+        .select()
+        .single();
+
+      if (userError) {
+        await admin.deleteUser(authUserId);
+        throw new InternalServerErrorException('Failed to create user profile');
+      }
+
+      // 4. Link to existing customer or create new one
+      if (existingCustomer) {
+        // Link existing customer to this auth user
+        await client
+          .from('customers')
+          .update({ user_id: user.id })
+          .eq('id', existingCustomer.id);
+      } else {
+        // Create new customer record
+        await client
+          .from('customers')
+          .insert({
+            tenant_id: tenantId,
+            full_name: input.fullName,
+            email: input.email,
+            phone: input.phone,
+            user_id: user.id,
+            created_by: user.id,
+          });
+      }
+
+      // 5. Generate session
+      const anonClient = this.supabase.createAnonClient();
+      const { data: session, error: sessionError } = await anonClient.auth.signInWithPassword({
+        email: input.email,
+        password: input.password,
+      });
+
+      if (sessionError) {
+        throw new InternalServerErrorException('Account created but login failed');
+      }
+
+      // Get tenant info
+      const { data: tenant } = await client
+        .from('tenants')
+        .select('id, name, slug, country, currency')
+        .eq('id', tenantId)
+        .single();
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role,
+          tenantId,
+        },
+        tenant,
+        session: {
+          accessToken: session.session.access_token,
+          refreshToken: session.session.refresh_token,
+          expiresAt: session.session.expires_at,
+        },
+        linkedExistingCustomer: !!existingCustomer,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      await admin.deleteUser(authUserId);
+      throw new InternalServerErrorException('Customer signup failed');
+    }
   }
 
   async refreshToken(refreshToken: string) {

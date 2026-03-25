@@ -30,7 +30,16 @@ export const updateTenantSchema = z.object({
   logoUrl: z.string().optional(),
 });
 
+export const customerSignUpSchema = z.object({
+  fullName: z.string().min(2).max(200),
+  email: z.string().email(),
+  phone: z.string().min(7).max(20),
+  password: z.string().min(8).max(72),
+  workshopCode: z.string().optional(), // Tenant slug — links to workshop
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
+export type CustomerSignUpInput = z.infer<typeof customerSignUpSchema>;

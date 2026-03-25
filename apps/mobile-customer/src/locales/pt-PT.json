@@ -30,7 +30,14 @@
     "password": "Palavra-passe",
     "subtitle": "Portal do Proprietário",
     "invalidCredentials": "Email ou palavra-passe inválidos",
-    "loginFailed": "Falha no login. Tente novamente."
+    "loginFailed": "Falha no login. Tente novamente.",
+    "createAccount": "Criar Conta",
+    "fullName": "Nome Completo",
+    "phone": "Telefone",
+    "passwordHint": "Mínimo 8 caracteres",
+    "signupFailed": "Erro no registo. Tente novamente.",
+    "noAccount": "Não tem conta? Registe-se",
+    "alreadyHaveAccount": "Já tem conta? Entrar"
   },
   "vehicles": {
     "title": "Meus Veículos",

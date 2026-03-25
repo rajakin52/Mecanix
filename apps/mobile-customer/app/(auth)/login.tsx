@@ -109,6 +109,13 @@ export default function LoginScreen() {
             {loading ? t('common.loading') : t('auth.login')}
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => router.push('/(auth)/signup')}
+        >
+          <Text style={styles.linkText}>{t('auth.noAccount')}</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -180,5 +187,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  linkButton: {
+    alignItems: 'center' as const,
+    marginTop: 20,
+  },
+  linkText: {
+    color: '#0087FF',
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
 });
