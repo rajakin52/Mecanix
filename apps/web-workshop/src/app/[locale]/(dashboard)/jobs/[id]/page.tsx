@@ -366,6 +366,8 @@ export default function JobDetailPage() {
   const [partQty, setPartQty] = useState('1');
   const [partUnitCost, setPartUnitCost] = useState('');
   const [partMarkup, setPartMarkup] = useState('0');
+  const [partSellPrice, setPartSellPrice] = useState('');
+  const [partPriceMode, setPartPriceMode] = useState<'markup' | 'manual'>('markup');
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
@@ -399,8 +401,20 @@ export default function JobDetailPage() {
 
   const [partsError, setPartsError] = useState<string | null>(null);
 
+  // Computed preview of sell price
+  const computedSellPrice = partPriceMode === 'manual'
+    ? parseFloat(partSellPrice) || 0
+    : (parseFloat(partUnitCost) || 0) * (1 + (parseFloat(partMarkup) || 0) / 100);
+  const computedSubtotal = computedSellPrice * (parseInt(partQty, 10) || 1);
+
+  // When manual sell price changes, compute the implied markup
+  const computedMarkupFromManual = partPriceMode === 'manual' && parseFloat(partUnitCost) > 0
+    ? Math.round(((parseFloat(partSellPrice) || 0) / parseFloat(partUnitCost) - 1) * 100)
+    : 0;
+
   const handleAddPart = async () => {
     if (!partName || !partUnitCost) return;
+    const finalMarkup = partPriceMode === 'manual' ? computedMarkupFromManual : parseFloat(partMarkup) || 0;
     try {
       setPartsError(null);
       await createParts.mutateAsync({
@@ -409,7 +423,7 @@ export default function JobDetailPage() {
         partNumber: partNumber || undefined,
         quantity: parseInt(partQty, 10) || 1,
         unitCost: parseFloat(partUnitCost),
-        markupPct: parseFloat(partMarkup) || 0,
+        markupPct: Math.max(0, finalMarkup),
       });
       setShowPartsForm(false);
       setPartName('');
@@ -417,6 +431,8 @@ export default function JobDetailPage() {
       setPartQty('1');
       setPartUnitCost('');
       setPartMarkup('0');
+      setPartSellPrice('');
+      setPartPriceMode('markup');
     } catch (err) {
       setPartsError(err instanceof Error ? err.message : 'Failed to add parts line');
     }
@@ -758,18 +774,80 @@ export default function JobDetailPage() {
                   step="0.01"
                   value={partUnitCost}
                   onChange={(e) => setPartUnitCost(e.target.value)}
+                  placeholder="0.00"
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('markupPct')}</label>
+            </div>
+
+            {/* Pricing mode toggle */}
+            <div className="mt-3 flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-700">Pricing:</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
-                  type="number"
-                  step="1"
-                  value={partMarkup}
-                  onChange={(e) => setPartMarkup(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  type="radio"
+                  name="priceMode"
+                  checked={partPriceMode === 'markup'}
+                  onChange={() => setPartPriceMode('markup')}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
                 />
+                <span className="text-sm text-gray-700">Cost + Markup %</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priceMode"
+                  checked={partPriceMode === 'manual'}
+                  onChange={() => setPartPriceMode('manual')}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">Manual Sell Price</span>
+              </label>
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+              {partPriceMode === 'markup' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('markupPct')}</label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      step="1"
+                      value={partMarkup}
+                      onChange={(e) => setPartMarkup(e.target.value)}
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 pe-8 text-sm"
+                    />
+                    <span className="absolute end-3 top-2.5 text-sm text-gray-400">%</span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Sell Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={partSellPrice}
+                    onChange={(e) => setPartSellPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="mt-1 block w-full rounded-md border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium ring-1 ring-primary-200"
+                  />
+                </div>
+              )}
+
+              {/* Live preview */}
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className="block text-xs font-medium text-gray-500">{t('sellPrice')}</span>
+                <span className="text-lg font-bold text-gray-900">{formatCurrency(computedSellPrice)}</span>
+              </div>
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className="block text-xs font-medium text-gray-500">{t('markupPct')}</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {partPriceMode === 'manual' ? `${computedMarkupFromManual}%` : `${partMarkup || 0}%`}
+                </span>
+              </div>
+              <div className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2">
+                <span className="block text-xs font-medium text-primary-600">{t('subtotal')}</span>
+                <span className="text-lg font-bold text-primary-700">{formatCurrency(computedSubtotal)}</span>
               </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">
