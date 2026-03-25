@@ -58,11 +58,13 @@ interface PurchaseOrder {
   id: string;
   po_number: string;
   vendor_id: string;
-  vendor_name: string;
+  vendor_name?: string;
+  vendor?: { id: string; name: string } | null;
   status: string;
   order_date: string;
   expected_date: string | null;
-  total: number;
+  total_amount?: number;
+  total?: number;
   notes: string | null;
   lines?: PurchaseOrderLine[];
   created_at: string;

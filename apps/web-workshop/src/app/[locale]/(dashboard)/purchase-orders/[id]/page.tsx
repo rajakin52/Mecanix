@@ -61,7 +61,7 @@ export default function PurchaseOrderDetailPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{po.po_number}</h1>
-            <p className="mt-1 text-sm text-gray-600">{t('vendor')}: {po.vendor_name ?? '-'}</p>
+            <p className="mt-1 text-sm text-gray-600">{t('vendor')}: {po.vendor?.name ?? po.vendor_name ?? '-'}</p>
           </div>
           <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusBadge(po.status)}`}>
             {t(`status_${po.status}`)}
@@ -78,7 +78,7 @@ export default function PurchaseOrderDetailPage() {
           </div>
           <div>
             <span className="text-gray-500">{t('total')}</span>
-            <p className="text-lg font-bold">{(po.total ?? 0).toFixed(2)}</p>
+            <p className="text-lg font-bold">{(po.total_amount ?? po.total ?? 0).toFixed(2)}</p>
           </div>
         </div>
         {po.notes && (
