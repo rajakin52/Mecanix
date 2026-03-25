@@ -87,6 +87,10 @@ export default function CustomersScreen() {
       Alert.alert(t('common.error'), t('customers.nameRequired'));
       return;
     }
+    if (!phone.trim() || phone.trim().length < 7) {
+      Alert.alert(t('common.error'), t('customers.phone') + ' required (min 7 digits)');
+      return;
+    }
 
     setFormLoading(true);
     try {
@@ -95,7 +99,7 @@ export default function CustomersScreen() {
         body: JSON.stringify({
           fullName: fullName.trim(),
           phone: phone.trim(),
-          email: email.trim(),
+          email: email.trim() || undefined,
         }),
       });
       setFullName('');
@@ -215,10 +219,10 @@ export default function CustomersScreen() {
               <TouchableOpacity
                 style={[
                   styles.submitButton,
-                  !fullName.trim() && { opacity: 0.4 },
+                  (!fullName.trim() || phone.trim().length < 7) && { opacity: 0.4 },
                 ]}
                 onPress={handleCreate}
-                disabled={formLoading || !fullName.trim()}
+                disabled={formLoading || !fullName.trim() || phone.trim().length < 7}
               >
                 <Text style={styles.submitButtonText}>
                   {formLoading ? t('common.loading') : t('common.save')}
