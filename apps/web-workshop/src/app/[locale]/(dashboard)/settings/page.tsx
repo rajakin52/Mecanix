@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
-import { useRouter, usePathname } from '@/i18n/navigation';
+import { useRouter, usePathname, Link } from '@/i18n/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { formatDate } from '@/lib/format';
 
@@ -148,6 +148,20 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-bold text-gray-900">{t('settings')}</h1>
 
       <div className="mt-8 max-w-2xl space-y-8">
+        {/* ERP Integration Link */}
+        <Link
+          href="/settings/erp"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">ERP Integration (Primavera)</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Configure Primavera V10 connection, document series, tax &amp; article mappings
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* Workshop Info */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Workshop Info</h2>
