@@ -1,0 +1,11 @@
+node_modules
+.git
+.claude
+.env
+*.md
+apps/mobile-*
+apps/web-*
+mobile/
+supabase/
+docker/
+.github/

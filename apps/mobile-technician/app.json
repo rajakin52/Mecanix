@@ -4,11 +4,42 @@
     "slug": "mecanix-technician",
     "version": "0.0.1",
     "scheme": "mecanix-technician",
+    "orientation": "portrait",
     "platforms": ["ios", "android"],
     "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#1C1C1E"
+      "backgroundColor": "#0A0A0C"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-localization"]
+    "ios": {
+      "bundleIdentifier": "com.mecanix.technician",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "MECANIX needs camera access to capture job photos and annotate damage"
+      }
+    },
+    "android": {
+      "package": "com.mecanix.technician",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A0C"
+      },
+      "permissions": ["CAMERA", "NOTIFICATIONS"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0087FF"
+        }
+      ]
+    ],
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "mecanix-technician" }
+    }
   }
 }

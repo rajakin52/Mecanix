@@ -11,13 +11,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:8081',
-      'https://mecanix-web-ten.vercel.app',
-      /^https:\/\/mecanix-.*rajakin52s-projects\.vercel\.app$/,
-    ],
+    origin: true, // Allow all origins — mobile apps don't send Origin headers consistently
     credentials: true,
   });
 

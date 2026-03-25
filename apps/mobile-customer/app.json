@@ -4,11 +4,41 @@
     "slug": "mecanix-customer",
     "version": "0.0.1",
     "scheme": "mecanix-customer",
+    "orientation": "portrait",
     "platforms": ["ios", "android"],
     "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#4CAF50"
+      "backgroundColor": "#0087FF"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-localization"]
+    "ios": {
+      "bundleIdentifier": "com.mecanix.customer",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "MECANIX needs camera access to capture vehicle photos"
+      }
+    },
+    "android": {
+      "package": "com.mecanix.customer",
+      "adaptiveIcon": {
+        "backgroundColor": "#0087FF"
+      },
+      "permissions": ["CAMERA", "NOTIFICATIONS"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0087FF"
+        }
+      ]
+    ],
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "mecanix-customer" }
+    }
   }
 }

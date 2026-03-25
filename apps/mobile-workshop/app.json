@@ -4,41 +4,45 @@
     "slug": "mecanix-workshop",
     "version": "0.0.1",
     "scheme": "mecanix-workshop",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "orientation": "portrait",
+    "platforms": ["ios", "android"],
     "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#4CAF50"
+      "backgroundColor": "#0087FF"
+    },
+    "ios": {
+      "bundleIdentifier": "com.mecanix.workshop",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "MECANIX needs camera access for vehicle inspections and photos"
+      }
+    },
+    "android": {
+      "package": "com.mecanix.workshop",
+      "adaptiveIcon": {
+        "backgroundColor": "#0087FF"
+      },
+      "permissions": ["CAMERA"]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-localization",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "MECANIX needs camera access for vehicle inspections"
+        }
+      ]
     ],
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "mecanix-workshop"
-      }
+      "router": { "origin": false },
+      "eas": { "projectId": "mecanix-workshop" }
     },
     "experiments": {
       "tsconfigPaths": true
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.mecanix.workshop"
-    },
-    "android": {
-      "package": "com.mecanix.workshop",
-      "adaptiveIcon": {
-        "backgroundColor": "#4CAF50"
-      }
     }
   }
 }
