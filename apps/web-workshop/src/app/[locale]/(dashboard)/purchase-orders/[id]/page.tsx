@@ -61,7 +61,7 @@ export default function PurchaseOrderDetailPage() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{po.po_number}</h1>
-            <p className="mt-1 text-sm text-gray-600">{t('vendor')}: {po.vendor_name}</p>
+            <p className="mt-1 text-sm text-gray-600">{t('vendor')}: {po.vendor_name ?? '-'}</p>
           </div>
           <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${statusBadge(po.status)}`}>
             {t(`status_${po.status}`)}
@@ -78,7 +78,7 @@ export default function PurchaseOrderDetailPage() {
           </div>
           <div>
             <span className="text-gray-500">{t('total')}</span>
-            <p className="text-lg font-bold">{po.total.toFixed(2)}</p>
+            <p className="text-lg font-bold">{(po.total ?? 0).toFixed(2)}</p>
           </div>
         </div>
         {po.notes && (
@@ -110,23 +110,23 @@ export default function PurchaseOrderDetailPage() {
                   <td className="px-4 py-3 text-sm text-gray-700">{line.description}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{line.part_id ?? '-'}</td>
                   <td className="px-4 py-3 text-end text-sm text-gray-700">{line.quantity}</td>
-                  <td className="px-4 py-3 text-end text-sm text-gray-700">{line.unit_cost.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-end text-sm text-gray-700">{(line.unit_cost ?? 0).toFixed(2)}</td>
                   <td className="px-4 py-3 text-end text-sm">
                     <span
                       className={`font-medium ${
-                        line.received_qty >= line.quantity
+                        (line.received_qty ?? 0) >= (line.quantity ?? 0)
                           ? 'text-green-600'
-                          : line.received_qty > 0
+                          : (line.received_qty ?? 0) > 0
                             ? 'text-yellow-600'
                             : 'text-gray-500'
                       }`}
                     >
-                      {line.received_qty} / {line.quantity}
+                      {line.received_qty ?? 0} / {line.quantity ?? 0}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">{line.subtotal.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">{(line.subtotal ?? 0).toFixed(2)}</td>
                   <td className="px-4 py-3 text-end text-sm">
-                    {line.received_qty < line.quantity && (
+                    {(line.received_qty ?? 0) < (line.quantity ?? 0) && (
                       <button
                         onClick={() => {
                           setReceiveLineId(line.id);
