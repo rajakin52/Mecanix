@@ -8,6 +8,10 @@ import { useParts } from '@/hooks/use-parts';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'complete'] as const;
 
+function safe(val: unknown): number {
+  return typeof val === 'number' ? val : Number(val) || 0;
+}
+
 function statusBadge(status: string) {
   const map: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-700',
@@ -140,24 +144,28 @@ export default function PurchaseOrdersPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {data?.data && data.data.length > 0 ? (
-                  data.data.map((po) => (
-                    <tr key={po.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/purchase-orders/${po.id}`}>{po.po_number}</Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{po.vendor_name}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(po.status)}`}>
-                          {t(`status_${po.status}`)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{new Date(po.order_date).toLocaleDateString()}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {po.expected_date ? new Date(po.expected_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">{po.total.toFixed(2)}</td>
-                    </tr>
-                  ))
+                  data.data.map((po) => {
+                    const vendorLabel = (po.vendor as Record<string, unknown> | null)?.name ?? po.vendor_name ?? '-';
+                    const total = safe(po.total_amount ?? po.total);
+                    return (
+                      <tr key={po.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
+                          <Link href={`/purchase-orders/${po.id}`}>{po.po_number}</Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{vendorLabel as string}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(po.status)}`}>
+                            {t(`status_${po.status}`)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{new Date(po.order_date).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">
+                          {po.expected_date ? new Date(po.expected_date).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">{total.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
