@@ -246,14 +246,15 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
     );
   }
 
-  // Start button
+  // Start button — inspection is mandatory, show prominent warning
   if (!showForm) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">{t('title')}</h3>
+      <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 p-6 text-center">
+        <h3 className="mb-2 text-lg font-semibold text-orange-800">{t('title')} — Required</h3>
+        <p className="mb-4 text-sm text-orange-600">Vehicle inspection must be completed before the job can proceed.</p>
         <button
           onClick={() => setShowForm(true)}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          className="rounded-md bg-orange-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 shadow-sm"
         >
           {t('startCheckIn')}
         </button>
@@ -322,72 +323,104 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Exterior Damage</label>
 
-          {/* Car diagram — clickable zones */}
-          <div className="relative mx-auto mb-4 w-full max-w-lg">
-            <svg viewBox="0 0 400 200" className="w-full" style={{ minHeight: 180 }}>
-              {/* Car body outline */}
-              <rect x="60" y="60" width="280" height="80" rx="20" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
-              <rect x="100" y="30" width="200" height="50" rx="12" fill="#F9FAFB" stroke="#D1D5DB" strokeWidth="1.5" />
-              {/* Wheels */}
-              <circle cx="110" cy="140" r="20" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5" />
-              <circle cx="290" cy="140" r="20" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5" />
-              {/* Clickable zones */}
-              {[
-                { id: 'Front', x: 40, y: 60, w: 40, h: 80 },
-                { id: 'Rear', x: 320, y: 60, w: 40, h: 80 },
-                { id: 'Left Side', x: 100, y: 30, w: 200, h: 30 },
-                { id: 'Right Side', x: 100, y: 140, w: 200, h: 30 },
-                { id: 'Hood', x: 100, y: 60, w: 100, h: 40 },
-                { id: 'Trunk', x: 200, y: 60, w: 100, h: 40 },
-                { id: 'Roof', x: 140, y: 30, w: 120, h: 20 },
-                { id: 'Windshield', x: 100, y: 50, w: 80, h: 20 },
-                { id: 'Rear Window', x: 220, y: 50, w: 80, h: 20 },
-              ].map((zone) => {
-                const hasDamage = damages.some((d) => d.location === zone.id);
-                return (
-                  <g key={zone.id}>
-                    <rect
-                      x={zone.x} y={zone.y} width={zone.w} height={zone.h}
-                      fill={hasDamage ? 'rgba(239,68,68,0.25)' : 'transparent'}
-                      stroke={hasDamage ? '#EF4444' : 'transparent'}
-                      strokeWidth="2"
-                      rx="4"
-                      className="cursor-pointer hover:fill-blue-100 hover:stroke-blue-400"
-                      strokeDasharray={hasDamage ? '0' : '4'}
-                      onClick={() => setNewDamageLocation(zone.id)}
-                    />
-                    <text
-                      x={zone.x + zone.w / 2} y={zone.y + zone.h / 2 + 4}
-                      textAnchor="middle" fontSize="9" fill="#6B7280"
-                      className="pointer-events-none select-none"
-                    >
-                      {zone.id}
-                    </text>
-                  </g>
-                );
-              })}
-              {/* Damage markers */}
-              {damages.map((d, i) => {
-                const zone = [
-                  { id: 'Front', cx: 60, cy: 100 }, { id: 'Rear', cx: 340, cy: 100 },
-                  { id: 'Left Side', cx: 200, cy: 45 }, { id: 'Right Side', cx: 200, cy: 155 },
-                  { id: 'Hood', cx: 150, cy: 80 }, { id: 'Trunk', cx: 250, cy: 80 },
-                  { id: 'Roof', cx: 200, cy: 38 }, { id: 'Windshield', cx: 140, cy: 58 },
-                  { id: 'Rear Window', cx: 260, cy: 58 },
-                ].find((z) => z.id === d.location);
-                if (!zone) return null;
-                return (
-                  <g key={i}>
-                    <circle cx={zone.cx} cy={zone.cy} r="10" fill="#EF4444" opacity="0.8" />
-                    <text x={zone.cx} y={zone.cy + 4} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">
-                      {i + 1}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-            <p className="text-center text-xs text-gray-400 mt-1">Click a zone on the diagram to mark damage</p>
-          </div>
+          {/* Car diagram — top-down exploded view with clickable zones */}
+          {(() => {
+            const zones = [
+              // Front bumper area (top of diagram = front of car)
+              { id: 'Front Bumper', path: 'M120,10 L280,10 Q290,10 290,20 L290,45 L110,45 L110,20 Q110,10 120,10 Z', cx: 200, cy: 28 },
+              // Hood
+              { id: 'Hood', path: 'M115,50 L285,50 L280,130 Q275,140 270,140 L130,140 Q125,140 120,130 Z', cx: 200, cy: 95 },
+              // Windshield
+              { id: 'Windshield', path: 'M135,145 L265,145 L255,195 Q250,200 245,200 L155,200 Q150,200 145,195 Z', cx: 200, cy: 172 },
+              // Roof
+              { id: 'Roof', path: 'M148,205 L252,205 L252,310 L148,310 Z', cx: 200, cy: 258 },
+              // Rear Window
+              { id: 'Rear Window', path: 'M145,315 L255,315 L265,365 Q268,370 265,375 L135,375 Q132,370 135,365 Z', cx: 200, cy: 345 },
+              // Trunk
+              { id: 'Trunk', path: 'M120,380 L280,380 Q285,380 285,390 L280,460 L120,460 L115,390 Q115,380 120,380 Z', cx: 200, cy: 420 },
+              // Rear Bumper
+              { id: 'Rear Bumper', path: 'M115,465 L285,465 L290,495 Q290,505 280,505 L120,505 Q110,505 110,495 Z', cx: 200, cy: 485 },
+              // Left front door (viewer's right)
+              { id: 'Left Front Door', path: 'M290,95 L340,105 Q350,108 355,115 L355,205 L340,205 L290,200 Z', cx: 325, cy: 150 },
+              // Left rear door
+              { id: 'Left Rear Door', path: 'M290,210 L340,210 L355,210 L355,315 Q350,320 340,322 L290,315 Z', cx: 325, cy: 265 },
+              // Right front door (viewer's left)
+              { id: 'Right Front Door', path: 'M110,95 L60,105 Q50,108 45,115 L45,205 L60,205 L110,200 Z', cx: 75, cy: 150 },
+              // Right rear door
+              { id: 'Right Rear Door', path: 'M110,210 L60,210 L45,210 L45,315 Q50,320 60,322 L110,315 Z', cx: 75, cy: 265 },
+              // Front left wheel
+              { id: 'Front Left Wheel', path: 'M355,80 A25,25 0 1,1 355,130 A25,25 0 1,1 355,80 Z', cx: 355, cy: 105 },
+              // Front right wheel
+              { id: 'Front Right Wheel', path: 'M45,80 A25,25 0 1,1 45,130 A25,25 0 1,1 45,80 Z', cx: 45, cy: 105 },
+              // Rear left wheel
+              { id: 'Rear Left Wheel', path: 'M355,370 A25,25 0 1,1 355,420 A25,25 0 1,1 355,370 Z', cx: 355, cy: 395 },
+              // Rear right wheel
+              { id: 'Rear Right Wheel', path: 'M45,370 A25,25 0 1,1 45,420 A25,25 0 1,1 45,370 Z', cx: 45, cy: 395 },
+              // Left mirror
+              { id: 'Left Mirror', path: 'M350,70 L375,60 L380,75 L355,85 Z', cx: 365, cy: 72 },
+              // Right mirror
+              { id: 'Right Mirror', path: 'M50,70 L25,60 L20,75 L45,85 Z', cx: 35, cy: 72 },
+            ];
+            return (
+            <div className="relative mx-auto mb-4 w-full max-w-md">
+              <svg viewBox="0 0 400 520" className="w-full" style={{ minHeight: 400 }}>
+                <defs>
+                  <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.1" />
+                  </filter>
+                </defs>
+                {/* Background */}
+                <rect x="0" y="0" width="400" height="520" fill="#FAFAFA" rx="12" />
+                {/* Render all zones */}
+                {zones.map((zone) => {
+                  const hasDamage = damages.some((d) => d.location === zone.id);
+                  const isWheel = zone.id.includes('Wheel');
+                  const isMirror = zone.id.includes('Mirror');
+                  return (
+                    <g key={zone.id} filter="url(#shadow)">
+                      <path
+                        d={zone.path}
+                        fill={hasDamage ? '#FEE2E2' : isWheel ? '#E5E7EB' : '#F3F4F6'}
+                        stroke={hasDamage ? '#EF4444' : '#9CA3AF'}
+                        strokeWidth={hasDamage ? '2.5' : '1.2'}
+                        className="cursor-pointer transition-all duration-150 hover:fill-blue-100 hover:stroke-blue-500 hover:stroke-2"
+                        onClick={() => setNewDamageLocation(zone.id)}
+                      />
+                      <text
+                        x={zone.cx} y={zone.cy + (isMirror || isWheel ? 0 : 4)}
+                        textAnchor="middle" fontSize={isMirror ? '6' : isWheel ? '7' : '8'}
+                        fill={hasDamage ? '#DC2626' : '#6B7280'}
+                        fontWeight={hasDamage ? 'bold' : 'normal'}
+                        className="pointer-events-none select-none"
+                      >
+                        {zone.id.replace('Left ', 'L ').replace('Right ', 'R ').replace(' Wheel', '').replace(' Mirror', '')}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* Damage markers */}
+                {damages.map((d, i) => {
+                  const zone = zones.find((z) => z.id === d.location);
+                  if (!zone) return null;
+                  return (
+                    <g key={`dmg-${i}`}>
+                      <circle cx={zone.cx} cy={zone.cy - 14} r="11" fill="#EF4444" stroke="#fff" strokeWidth="2" />
+                      <text x={zone.cx} y={zone.cy - 10} textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">
+                        {i + 1}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* Direction labels */}
+                <text x="200" y="8" textAnchor="middle" fontSize="10" fill="#9CA3AF" fontWeight="600">FRONT</text>
+                <text x="200" y="518" textAnchor="middle" fontSize="10" fill="#9CA3AF" fontWeight="600">REAR</text>
+                <text x="8" y="260" textAnchor="middle" fontSize="10" fill="#9CA3AF" fontWeight="600" transform="rotate(-90, 8, 260)">RIGHT</text>
+                <text x="392" y="260" textAnchor="middle" fontSize="10" fill="#9CA3AF" fontWeight="600" transform="rotate(90, 392, 260)">Left</text>
+              </svg>
+              <p className="text-center text-xs text-gray-400 mt-1">Click any panel to mark damage</p>
+            </div>
+            );
+          })()}
 
           {/* Add damage form */}
           {newDamageLocation && (
