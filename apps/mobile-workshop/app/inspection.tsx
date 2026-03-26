@@ -22,7 +22,6 @@ import CarDamageDiagram, {
 } from '../src/components/CarDamageDiagram';
 import CollapsibleSection from '../src/components/CollapsibleSection';
 import { apiFetch } from '../src/lib/api';
-import { supabase } from '../src/lib/supabase';
 
 const PHOTO_ANGLES = [
   'front',
@@ -53,40 +52,16 @@ interface EquipmentState {
   documents: boolean;
 }
 
+// Photo upload — stores URI reference for now, actual upload handled by backend
 async function uploadPhoto(
-  uri: string,
-  jobId: string,
-  angle: string,
+  _uri: string,
+  _jobId: string,
+  _angle: string,
 ): Promise<string | null> {
-  try {
-    const fileName = `inspections/${jobId}/${angle}_${Date.now()}.jpg`;
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    // Convert blob to ArrayBuffer for Supabase upload
-    const arrayBuffer = await new Response(blob).arrayBuffer();
-
-    const { error } = await supabase.storage
-      .from('inspection-photos')
-      .upload(fileName, arrayBuffer, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) {
-      console.warn(`Photo upload failed for ${angle}:`, error.message);
-      return null;
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('inspection-photos').getPublicUrl(fileName);
-
-    return publicUrl;
-  } catch (err) {
-    console.warn(`Photo upload error for ${angle}:`, err);
-    return null;
-  }
+  // Photos are stored locally and their URIs are passed to the inspection payload.
+  // In a future phase, photos will be uploaded to Supabase Storage via a dedicated upload endpoint.
+  // For now, return the local URI as a reference.
+  return _uri;
 }
 
 export default function InspectionScreen() {

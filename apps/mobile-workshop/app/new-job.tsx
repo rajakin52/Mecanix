@@ -123,24 +123,17 @@ export default function NewJobScreen() {
 
   const navigateAfterJob = () => {
     if (!createdJobId || !selectedVehicle) return;
-    // Inspection is mandatory — navigate directly
-    Alert.alert(t('common.success'), t('jobs.createSuccess') + '\n\nVehicle inspection is required before proceeding.', [
-      {
-        text: t('inspection.title'),
-        onPress: () => {
-          router.replace({
-            pathname: '/inspection',
-            params: {
-              jobId: createdJobId,
-              vehicleId: selectedVehicle.id,
-              jobNumber: createdJobNumber ?? '',
-              vehiclePlate: selectedVehicle.plate,
-              mandatory: '1',
-            },
-          });
-        },
+    // Go directly to inspection — no alert, inspection is mandatory
+    router.replace({
+      pathname: '/inspection',
+      params: {
+        jobId: createdJobId,
+        vehicleId: selectedVehicle.id,
+        jobNumber: createdJobNumber ?? '',
+        vehiclePlate: selectedVehicle.plate,
+        mandatory: '1',
       },
-    ]);
+    });
   };
 
   const handleUpsellConfirm = async (selectedItems: Array<{ name: string; price: number }>) => {
