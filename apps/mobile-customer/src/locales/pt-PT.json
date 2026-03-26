@@ -87,7 +87,9 @@
     "emptyHint": "Os seus registos de serviço concluídos aparecerão aqui",
     "completedOn": "Concluído em",
     "service": "Serviço",
-    "cost": "Custo"
+    "cost": "Custo",
+    "viewDetails": "Ver Detalhes",
+    "viewInvoice": "Ver Fatura"
   },
   "profile": {
     "title": "Perfil",

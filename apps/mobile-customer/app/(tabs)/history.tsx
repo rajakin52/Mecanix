@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { apiGet } from '../../src/lib/api';
 
 interface JobCard {
@@ -33,9 +34,17 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   cancelled: { bg: '#FAFAFA', text: '#757575' },
 };
 
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  job_card_id: string;
+}
+
 export default function HistoryScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [jobs, setJobs] = useState<JobCard[]>([]);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, Invoice>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +63,19 @@ export default function HistoryScreen() {
         (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
       );
       setJobs(completedJobs);
+
+      // Fetch invoices to map job_card_id → invoice
+      try {
+        const invResponse = await apiGet<Invoice[] | { data: Invoice[] }>('/invoices?pageSize=200');
+        const invoices = Array.isArray(invResponse)
+          ? invResponse
+          : (invResponse as { data: Invoice[] }).data ?? [];
+        const map: Record<string, Invoice> = {};
+        for (const inv of invoices) {
+          if (inv.job_card_id) map[inv.job_card_id] = inv;
+        }
+        setInvoiceMap(map);
+      } catch { /* invoices are optional */ }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('common.error');
       setError(message);
@@ -84,9 +106,14 @@ export default function HistoryScreen() {
   const renderJob = ({ item }: { item: JobCard }) => {
     const statusColor = STATUS_COLORS[item.status] ?? { bg: '#E8F5E9', text: '#2E7D32' };
     const statusLabel = t(`jobs.status.${item.status}`, { defaultValue: item.status });
+    const invoice = invoiceMap[item.id];
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.7}
+        onPress={() => router.push({ pathname: '/job-detail', params: { id: item.id } })}
+      >
         <View style={styles.cardTop}>
           <View style={styles.cardLeft}>
             <Text style={styles.dateText}>{formatDate(item.updated_at)}</Text>
@@ -120,7 +147,24 @@ export default function HistoryScreen() {
             <Text style={styles.totalValue}>{item.grand_total.toFixed(2)}</Text>
           </View>
         ) : null}
-      </View>
+
+        <View style={styles.actionsRow}>
+          <View style={styles.viewDetailsBadge}>
+            <Text style={styles.viewDetailsText}>{t('history.viewDetails', { defaultValue: 'View Details' })}</Text>
+          </View>
+          {invoice && (
+            <TouchableOpacity
+              style={styles.invoiceBtn}
+              onPress={(e) => {
+                e.stopPropagation();
+                router.push({ pathname: '/invoice-detail', params: { id: invoice.id } });
+              }}
+            >
+              <Text style={styles.invoiceBtnText}>{t('history.viewInvoice', { defaultValue: 'View Invoice' })}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -261,6 +305,34 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#1C1C1E',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  viewDetailsBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#F0F0F5',
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#636366',
+  },
+  invoiceBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#E3F2FD',
+  },
+  invoiceBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0087FF',
   },
   emptyContainer: {
     alignItems: 'center',

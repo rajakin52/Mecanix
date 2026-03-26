@@ -82,8 +82,13 @@ export default function BookAppointmentScreen() {
     (async () => {
       setLoading(true);
       try {
-        const data = await apiGet<TimeSlot[]>(`/appointments/slots/${selectedDate}`);
-        setSlots(Array.isArray(data) ? data : []);
+        const data = await apiGet<string[] | TimeSlot[]>(`/appointments/slots/${selectedDate}`);
+        const raw = Array.isArray(data) ? data : [];
+        // API returns string[] of available times — normalize to TimeSlot[]
+        const normalized: TimeSlot[] = raw.map((item) =>
+          typeof item === 'string' ? { time: item, available: true } : item,
+        );
+        setSlots(normalized);
       } catch {
         setSlots([]);
       } finally {
