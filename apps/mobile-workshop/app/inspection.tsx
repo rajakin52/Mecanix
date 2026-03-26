@@ -97,7 +97,10 @@ export default function InspectionScreen() {
     vehicleId: string;
     jobNumber?: string;
     vehiclePlate?: string;
+    mandatory?: string;
   }>();
+
+  const isMandatory = params.mandatory === '1';
 
   // Photos — one per angle
   const [photos, setPhotos] = useState<Record<PhotoAngle, string | null>>({
@@ -174,10 +177,32 @@ export default function InspectionScreen() {
     setSignatureData(null);
   };
 
+  const REQUIRED_OUTSIDE_PHOTOS: PhotoAngle[] = ['front', 'rear', 'left', 'right'];
+
   const handleSubmit = async () => {
     if (!params.jobId || !params.vehicleId) {
       Alert.alert(t('common.error'), 'Missing job or vehicle ID');
       return;
+    }
+
+    // Validate mandatory fields
+    if (isMandatory || true) {
+      const missingPhotos = REQUIRED_OUTSIDE_PHOTOS.filter((angle) => !photos[angle]);
+      if (missingPhotos.length > 0) {
+        Alert.alert(
+          t('common.error'),
+          `Please take the following exterior photos: ${missingPhotos.map((a) => t(`inspection.photoAngles.${a}`)).join(', ')}`,
+        );
+        return;
+      }
+      if (!mileage.trim()) {
+        Alert.alert(t('common.error'), 'Odometer reading is required');
+        return;
+      }
+      if (!fuelLevel) {
+        Alert.alert(t('common.error'), 'Fuel level is required');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -306,17 +331,24 @@ export default function InspectionScreen() {
           );
         })()}
 
-        {/* ─── SECTION 1: PHOTOS ─── */}
+        {/* ─── SECTION 1: PHOTOS (Required: front, rear, left, right) ─── */}
         <CollapsibleSection
-          title={t('inspection.section.photos')}
+          title={`${t('inspection.section.photos')} *`}
           defaultOpen={true}
           badge={`${Object.values(photos).filter(Boolean).length}/6`}
         >
         <View style={styles.photoGrid}>
-          {PHOTO_ANGLES.map((angle) => (
+          {PHOTO_ANGLES.map((angle) => {
+            const isRequired = REQUIRED_OUTSIDE_PHOTOS.includes(angle);
+            const isTaken = !!photos[angle];
+            return (
             <TouchableOpacity
               key={angle}
-              style={styles.photoCard}
+              style={[
+                styles.photoCard,
+                isRequired && !isTaken && styles.photoCardRequired,
+                isTaken && styles.photoCardDone,
+              ]}
               onPress={() => capturePhoto(angle)}
               activeOpacity={0.7}
             >
@@ -343,9 +375,11 @@ export default function InspectionScreen() {
               )}
               <Text style={styles.photoAngleLabel}>
                 {t(`inspection.photoAngles.${angle}`)}
+                {isRequired ? ' *' : ''}
               </Text>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
 
         </CollapsibleSection>
@@ -353,6 +387,7 @@ export default function InspectionScreen() {
         {/* ─── SECTION 2: DAMAGE MAP ─── */}
         <CollapsibleSection
           title={t('inspection.section.damage')}
+          defaultOpen={true}
           badge={damages.length > 0 ? `${damages.length}` : undefined}
         >
         <View style={{ paddingHorizontal: 16 }}>
@@ -362,10 +397,11 @@ export default function InspectionScreen() {
 
         {/* ─── SECTION 3: VEHICLE DETAILS ─── */}
         <CollapsibleSection
-          title={t('inspection.section.vehicle')}
-          badge={mileage.trim() || fuelLevel ? '✓' : undefined}
+          title={`${t('inspection.section.vehicle')} *`}
+          defaultOpen={true}
+          badge={mileage.trim() && fuelLevel ? '✓' : undefined}
         >
-        <Text style={styles.fieldLabel}>{t('inspection.mileage')}</Text>
+        <Text style={styles.fieldLabel}>{t('inspection.mileage')} *</Text>
         <TextInput
           style={styles.input}
           placeholder={t('inspection.mileagePlaceholder')}
@@ -375,7 +411,7 @@ export default function InspectionScreen() {
           keyboardType="numeric"
         />
 
-        <Text style={styles.fieldLabel}>{t('inspection.fuelLevel')}</Text>
+        <Text style={styles.fieldLabel}>{t('inspection.fuelLevel')} *</Text>
         <View style={styles.fuelRow}>
           {FUEL_LEVELS.map((level) => (
             <TouchableOpacity
@@ -626,6 +662,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F7',
     borderWidth: 1,
     borderColor: '#E5E5EA',
+  },
+  photoCardRequired: {
+    borderColor: '#FF9800',
+    borderWidth: 2,
+    backgroundColor: '#FFF8E1',
+  },
+  photoCardDone: {
+    borderColor: '#4CAF50',
+    borderWidth: 2,
   },
   photoWrapper: { flex: 1 },
   photoImage: {

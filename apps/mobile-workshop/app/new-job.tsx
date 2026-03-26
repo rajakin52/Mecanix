@@ -123,7 +123,8 @@ export default function NewJobScreen() {
 
   const navigateAfterJob = () => {
     if (!createdJobId || !selectedVehicle) return;
-    Alert.alert(t('common.success'), t('jobs.createSuccess'), [
+    // Inspection is mandatory — navigate directly
+    Alert.alert(t('common.success'), t('jobs.createSuccess') + '\n\nVehicle inspection is required before proceeding.', [
       {
         text: t('inspection.title'),
         onPress: () => {
@@ -134,11 +135,11 @@ export default function NewJobScreen() {
               vehicleId: selectedVehicle.id,
               jobNumber: createdJobNumber ?? '',
               vehiclePlate: selectedVehicle.plate,
+              mandatory: '1',
             },
           });
         },
       },
-      { text: t('common.done'), onPress: () => router.back() },
     ]);
   };
 
