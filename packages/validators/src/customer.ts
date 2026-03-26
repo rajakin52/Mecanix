@@ -12,6 +12,7 @@ export const createCustomerSchema = z.object({
   companyName: z.string().max(200).optional(),
   billingContact: z.string().max(200).optional(),
   creditLimit: z.coerce.number().min(0).optional(),
+  priceGroupId: z.string().uuid().optional().or(z.literal('')),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

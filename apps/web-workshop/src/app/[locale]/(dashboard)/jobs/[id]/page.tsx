@@ -16,6 +16,7 @@ import {
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 import { useAiDiagnose } from '@/hooks/use-ai';
+import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -357,6 +358,11 @@ export default function JobDetailPage() {
   const [labourRate, setLabourRate] = useState('');
   const [labourTechId, setLabourTechId] = useState('');
 
+  // Pricing
+  const { data: pricingSettings } = usePricingSettings();
+  const isAutomatic = pricingSettings?.pricingMode === 'automatic';
+  const allowOverride = pricingSettings?.allowManualOverride ?? true;
+
   // Parts lines
   const { data: partsLines } = usePartsLines(id);
   const createParts = useCreatePartsLine();
@@ -368,6 +374,7 @@ export default function JobDetailPage() {
   const [partMarkup, setPartMarkup] = useState('0');
   const [partSellPrice, setPartSellPrice] = useState('');
   const [partPriceMode, setPartPriceMode] = useState<'markup' | 'manual'>('markup');
+  const [resolvedMarkupInfo, setResolvedMarkupInfo] = useState<string | null>(null);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
@@ -433,6 +440,7 @@ export default function JobDetailPage() {
       setPartMarkup('0');
       setPartSellPrice('');
       setPartPriceMode('markup');
+      setResolvedMarkupInfo(null);
     } catch (err) {
       setPartsError(err instanceof Error ? err.message : 'Failed to add parts line');
     }
@@ -694,7 +702,28 @@ export default function JobDetailPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">{t('partsLines')}</h2>
           <button
-            onClick={() => setShowPartsForm(true)}
+            onClick={async () => {
+              setShowPartsForm(true);
+              // Auto-fill markup from pricing engine
+              if (isAutomatic && typedJob?.customer_id) {
+                try {
+                  const resp = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL ?? ''}/pricing/resolve?customerId=${typedJob.customer_id}`,
+                    { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } },
+                  );
+                  const json = await resp.json();
+                  if (json.success && json.data) {
+                    setPartMarkup(String(json.data.markupPct));
+                    const sourceMap: Record<string, string> = {
+                      group_category: 'Price Group + Category',
+                      group_default: 'Price Group Default',
+                      tenant_default: 'Company Default',
+                    };
+                    setResolvedMarkupInfo(sourceMap[json.data.source] ?? json.data.source);
+                  }
+                } catch { /* fallback to manual */ }
+              }
+            }}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
           >
             {t('addPart')}
@@ -815,10 +844,21 @@ export default function JobDetailPage() {
                       step="1"
                       value={partMarkup}
                       onChange={(e) => setPartMarkup(e.target.value)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 pe-8 text-sm"
+                      disabled={isAutomatic && !allowOverride}
+                      className={`block w-full rounded-md border px-3 py-2 pe-8 text-sm ${
+                        isAutomatic && !allowOverride
+                          ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : 'border-gray-300'
+                      }`}
                     />
                     <span className="absolute end-3 top-2.5 text-sm text-gray-400">%</span>
                   </div>
+                  {resolvedMarkupInfo && (
+                    <p className="mt-1 text-xs text-blue-600">
+                      Auto-filled from: {resolvedMarkupInfo}
+                      {isAutomatic && !allowOverride && ' (override disabled)'}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div>

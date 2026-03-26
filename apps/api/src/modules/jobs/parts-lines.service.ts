@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
+import { PricingService } from '../pricing/pricing.service';
 import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class PartsLinesService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly jobsService: JobsService,
+    private readonly pricingService: PricingService,
   ) {}
 
   async list(tenantId: string, jobCardId: string) {
@@ -29,7 +31,60 @@ export class PartsLinesService {
     userId: string,
     input: CreatePartsLineInput,
   ) {
-    const markupPct = input.markupPct ?? 0;
+    // Get pricing settings
+    const pricingSettings = await this.pricingService.getPricingSettings(tenantId);
+
+    let markupPct = input.markupPct ?? 0;
+    let priceOverridden = false;
+    let originalMarkupPct: number | null = null;
+
+    // In automatic mode, resolve markup from pricing engine
+    if (pricingSettings.pricingMode === 'automatic') {
+      // Look up the job's customer
+      const { data: job } = await this.supabase
+        .getClient()
+        .from('job_cards')
+        .select('customer_id')
+        .eq('id', jobCardId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      // Look up part category if we have a part reference
+      let partCategory: string | null = null;
+      if (input.partNumber) {
+        const { data: part } = await this.supabase
+          .getClient()
+          .from('parts')
+          .select('category')
+          .eq('tenant_id', tenantId)
+          .eq('part_number', input.partNumber)
+          .limit(1)
+          .maybeSingle();
+        partCategory = part?.category ?? null;
+      }
+
+      const resolved = await this.pricingService.resolveMarkup(
+        tenantId,
+        job?.customer_id ?? null,
+        partCategory,
+      );
+
+      originalMarkupPct = resolved.markupPct;
+
+      // If user provided a different markup and override is allowed, mark as overridden
+      if (input.markupPct !== undefined && input.markupPct !== resolved.markupPct) {
+        if (pricingSettings.allowManualOverride) {
+          markupPct = input.markupPct;
+          priceOverridden = true;
+        } else {
+          // Override not allowed — use resolved
+          markupPct = resolved.markupPct;
+        }
+      } else {
+        markupPct = resolved.markupPct;
+      }
+    }
+
     const sellPrice = Math.round(input.unitCost * (1 + markupPct / 100) * 100) / 100;
     const subtotal = Math.round(input.quantity * sellPrice * 100) / 100;
 
@@ -46,6 +101,8 @@ export class PartsLinesService {
         markup_pct: markupPct,
         sell_price: sellPrice,
         subtotal,
+        price_overridden: priceOverridden,
+        original_markup_pct: originalMarkupPct,
       })
       .select()
       .single();
@@ -90,7 +147,13 @@ export class PartsLinesService {
     if (input.partNumber !== undefined) updateData['part_number'] = input.partNumber || null;
     if (input.quantity !== undefined) updateData['quantity'] = input.quantity;
     if (input.unitCost !== undefined) updateData['unit_cost'] = input.unitCost;
-    if (input.markupPct !== undefined) updateData['markup_pct'] = input.markupPct;
+    if (input.markupPct !== undefined) {
+      updateData['markup_pct'] = input.markupPct;
+      // Track if user overrides the original resolved markup
+      if (existing.original_markup_pct != null && input.markupPct !== Number(existing.original_markup_pct)) {
+        updateData['price_overridden'] = true;
+      }
+    }
 
     const { data, error } = await this.supabase
       .getClient()

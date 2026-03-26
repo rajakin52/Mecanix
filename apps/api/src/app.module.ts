@@ -33,6 +33,7 @@ import { MarketingModule } from './modules/marketing/marketing.module';
 import { UpsellModule } from './modules/upsell/upsell.module';
 import { CashRegisterModule } from './modules/cash-register/cash-register.module';
 import { ErpIntegrationModule } from './modules/erp-integration/erp-integration.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -71,6 +72,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     UpsellModule,
     CashRegisterModule,
     ErpIntegrationModule,
+    PricingModule,
   ],
   providers: [
     {

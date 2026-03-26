@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { updateCustomerSchema } from '@mecanix/validators';
 import type { UpdateCustomerInput } from '@mecanix/validators';
 import { Building2 } from 'lucide-react';
+import { usePriceGroups } from '@/hooks/use-pricing';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -48,6 +49,8 @@ export default function CustomerDetailPage() {
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles(1, '', id);
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
+  const { data: priceGroups } = usePriceGroups();
+  const pgList = Array.isArray(priceGroups) ? priceGroups : [];
   const { data: loyalty } = useLoyalty(id);
   const { data: loyaltyTxs } = useLoyaltyTransactions(id);
   const earnMutation = useEarnPoints();
@@ -73,6 +76,7 @@ export default function CustomerDetailPage() {
         companyName: (customer as Record<string, unknown>).company_name as string ?? '',
         billingContact: (customer as Record<string, unknown>).billing_contact as string ?? '',
         creditLimit: (customer as Record<string, unknown>).credit_limit as number ?? undefined,
+        priceGroupId: (customer as Record<string, unknown>).price_group_id as string ?? '',
       });
     }
   }, [customer, reset]);
@@ -160,6 +164,12 @@ export default function CustomerDetailPage() {
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('paymentTerms')}</dt>
             <dd className="mt-1 text-sm text-gray-900">{(c.payment_terms as string) || '-'}</dd>
+          </div>
+          <div>
+            <dt className="text-sm font-medium text-gray-500">Price Group</dt>
+            <dd className="mt-1 text-sm text-gray-900">
+              {pgList.find((pg) => pg.id === (c.price_group_id as string))?.name || 'Default'}
+            </dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('address')}</dt>
@@ -426,6 +436,15 @@ export default function CustomerDetailPage() {
                 <select {...register('paymentTerms')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
                   {PAYMENT_TERMS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Price Group</label>
+                <select {...register('priceGroupId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
+                  <option value="">— Default pricing —</option>
+                  {pgList.map((pg) => (
+                    <option key={pg.id} value={pg.id}>{pg.name} ({pg.default_markup_pct}%)</option>
                   ))}
                 </select>
               </div>

@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useRouter, usePathname, Link } from '@/i18n/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { formatDate } from '@/lib/format';
+import { usePricingSettings, useUpdatePricingSettings } from '@/hooks/use-pricing';
 
 const NOTIFICATION_TYPES = [
   'job_created',
@@ -148,6 +149,20 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-bold text-gray-900">{t('settings')}</h1>
 
       <div className="mt-8 max-w-2xl space-y-8">
+        {/* Pricing Link */}
+        <Link
+          href="/settings/pricing"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Pricing &amp; Markup</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Configure pricing mode, price groups, and category markup rules
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* ERP Integration Link */}
         <Link
           href="/settings/erp"

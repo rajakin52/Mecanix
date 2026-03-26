@@ -79,6 +79,7 @@ export class CustomersService {
         company_name: input.companyName || null,
         billing_contact: input.billingContact || null,
         credit_limit: input.creditLimit ?? null,
+        price_group_id: input.priceGroupId || null,
         created_by: userId,
         updated_by: userId,
       })
@@ -105,6 +106,7 @@ export class CustomersService {
     if (input.companyName !== undefined) updateData['company_name'] = input.companyName || null;
     if (input.billingContact !== undefined) updateData['billing_contact'] = input.billingContact || null;
     if (input.creditLimit !== undefined) updateData['credit_limit'] = input.creditLimit ?? null;
+    if (input.priceGroupId !== undefined) updateData['price_group_id'] = input.priceGroupId || null;
 
     const { data, error } = await this.supabase
       .getClient()

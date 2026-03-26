@@ -10,6 +10,7 @@ import { createCustomerSchema } from '@mecanix/validators';
 import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { Building2 } from 'lucide-react';
+import { usePriceGroups } from '@/hooks/use-pricing';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -35,6 +36,8 @@ export default function CustomersPage() {
   const { data, isLoading } = useCustomers(page, debouncedSearch);
   const createMutation = useCreateCustomer();
   const deleteMutation = useDeleteCustomer();
+  const { data: priceGroups } = usePriceGroups();
+  const pgList = Array.isArray(priceGroups) ? priceGroups : [];
 
   const [isCorporate, setIsCorporate] = useState(false);
 
@@ -195,6 +198,15 @@ export default function CustomersPage() {
                 <select {...register('paymentTerms')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
                   {PAYMENT_TERMS_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Price Group</label>
+                <select {...register('priceGroupId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
+                  <option value="">— Default pricing —</option>
+                  {pgList.map((pg) => (
+                    <option key={pg.id} value={pg.id}>{pg.name} ({pg.default_markup_pct}%)</option>
                   ))}
                 </select>
               </div>
