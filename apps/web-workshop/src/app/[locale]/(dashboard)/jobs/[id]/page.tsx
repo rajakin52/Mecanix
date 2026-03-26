@@ -140,6 +140,10 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
     hasSpareTire: false, hasJack: false, hasTools: false, hasRadio: false,
     hasMats: false, hasHubcaps: false, hasAntenna: false, hasDocuments: false,
   });
+  const [damages, setDamages] = useState<Array<{ location: string; type: string; description: string }>>([]);
+  const [newDamageLocation, setNewDamageLocation] = useState('');
+  const [newDamageType, setNewDamageType] = useState('scratch');
+  const [newDamageDesc, setNewDamageDesc] = useState('');
   const [personalItems, setPersonalItems] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -161,6 +165,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
       const payload: Record<string, unknown> = { jobCardId, vehicleId, ...checklist };
       if (mileageIn) payload.mileageIn = Number(mileageIn);
       if (fuelLevel) payload.fuelLevel = fuelLevel;
+      if (damages.length > 0) payload.exteriorDamage = damages;
       if (personalItems) payload.personalItems = personalItems;
       if (notes) payload.notes = notes;
       await createMutation.mutateAsync(payload);
@@ -207,6 +212,24 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
             })}
           </div>
         </div>
+        {Array.isArray(insp.exterior_damage) && (insp.exterior_damage as Array<Record<string, string>>).length > 0 && (
+          <div className="mt-4">
+            <span className="text-sm font-medium text-gray-500">Exterior Damage:</span>
+            <div className="mt-2 space-y-2">
+              {(insp.exterior_damage as Array<Record<string, string>>).map((d, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-md border border-red-100 bg-red-50 p-3 text-sm">
+                  <span className="inline-flex rounded-full bg-red-200 px-2 py-0.5 text-xs font-bold text-red-800">{i + 1}</span>
+                  <div>
+                    <span className="font-medium text-red-800">{d.location}</span>
+                    <span className="mx-1 text-red-400">|</span>
+                    <span className="text-red-700">{d.type}</span>
+                    {d.description && <p className="mt-0.5 text-red-600">{d.description}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {insp.personal_items && (
           <div className="mt-4 text-sm">
             <span className="font-medium text-gray-500">{t('personalItems')}:</span>
@@ -293,6 +316,154 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Exterior Damage */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Exterior Damage</label>
+
+          {/* Car diagram — clickable zones */}
+          <div className="relative mx-auto mb-4 w-full max-w-lg">
+            <svg viewBox="0 0 400 200" className="w-full" style={{ minHeight: 180 }}>
+              {/* Car body outline */}
+              <rect x="60" y="60" width="280" height="80" rx="20" fill="#F3F4F6" stroke="#D1D5DB" strokeWidth="1.5" />
+              <rect x="100" y="30" width="200" height="50" rx="12" fill="#F9FAFB" stroke="#D1D5DB" strokeWidth="1.5" />
+              {/* Wheels */}
+              <circle cx="110" cy="140" r="20" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5" />
+              <circle cx="290" cy="140" r="20" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="1.5" />
+              {/* Clickable zones */}
+              {[
+                { id: 'Front', x: 40, y: 60, w: 40, h: 80 },
+                { id: 'Rear', x: 320, y: 60, w: 40, h: 80 },
+                { id: 'Left Side', x: 100, y: 30, w: 200, h: 30 },
+                { id: 'Right Side', x: 100, y: 140, w: 200, h: 30 },
+                { id: 'Hood', x: 100, y: 60, w: 100, h: 40 },
+                { id: 'Trunk', x: 200, y: 60, w: 100, h: 40 },
+                { id: 'Roof', x: 140, y: 30, w: 120, h: 20 },
+                { id: 'Windshield', x: 100, y: 50, w: 80, h: 20 },
+                { id: 'Rear Window', x: 220, y: 50, w: 80, h: 20 },
+              ].map((zone) => {
+                const hasDamage = damages.some((d) => d.location === zone.id);
+                return (
+                  <g key={zone.id}>
+                    <rect
+                      x={zone.x} y={zone.y} width={zone.w} height={zone.h}
+                      fill={hasDamage ? 'rgba(239,68,68,0.25)' : 'transparent'}
+                      stroke={hasDamage ? '#EF4444' : 'transparent'}
+                      strokeWidth="2"
+                      rx="4"
+                      className="cursor-pointer hover:fill-blue-100 hover:stroke-blue-400"
+                      strokeDasharray={hasDamage ? '0' : '4'}
+                      onClick={() => setNewDamageLocation(zone.id)}
+                    />
+                    <text
+                      x={zone.x + zone.w / 2} y={zone.y + zone.h / 2 + 4}
+                      textAnchor="middle" fontSize="9" fill="#6B7280"
+                      className="pointer-events-none select-none"
+                    >
+                      {zone.id}
+                    </text>
+                  </g>
+                );
+              })}
+              {/* Damage markers */}
+              {damages.map((d, i) => {
+                const zone = [
+                  { id: 'Front', cx: 60, cy: 100 }, { id: 'Rear', cx: 340, cy: 100 },
+                  { id: 'Left Side', cx: 200, cy: 45 }, { id: 'Right Side', cx: 200, cy: 155 },
+                  { id: 'Hood', cx: 150, cy: 80 }, { id: 'Trunk', cx: 250, cy: 80 },
+                  { id: 'Roof', cx: 200, cy: 38 }, { id: 'Windshield', cx: 140, cy: 58 },
+                  { id: 'Rear Window', cx: 260, cy: 58 },
+                ].find((z) => z.id === d.location);
+                if (!zone) return null;
+                return (
+                  <g key={i}>
+                    <circle cx={zone.cx} cy={zone.cy} r="10" fill="#EF4444" opacity="0.8" />
+                    <text x={zone.cx} y={zone.cy + 4} textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">
+                      {i + 1}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+            <p className="text-center text-xs text-gray-400 mt-1">Click a zone on the diagram to mark damage</p>
+          </div>
+
+          {/* Add damage form */}
+          {newDamageLocation && (
+            <div className="mb-3 rounded-md border border-orange-200 bg-orange-50 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-orange-800">New damage: {newDamageLocation}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  value={newDamageType}
+                  onChange={(e) => setNewDamageType(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                >
+                  <option value="scratch">Scratch</option>
+                  <option value="dent">Dent</option>
+                  <option value="crack">Crack</option>
+                  <option value="broken">Broken</option>
+                  <option value="paint_damage">Paint Damage</option>
+                  <option value="rust">Rust</option>
+                  <option value="missing">Missing Part</option>
+                  <option value="other">Other</option>
+                </select>
+                <input
+                  value={newDamageDesc}
+                  onChange={(e) => setNewDamageDesc(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDamages([...damages, { location: newDamageLocation, type: newDamageType, description: newDamageDesc }]);
+                      setNewDamageLocation('');
+                      setNewDamageDesc('');
+                      setNewDamageType('scratch');
+                    }}
+                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setNewDamageLocation(''); setNewDamageDesc(''); }}
+                    className="rounded-md border px-2 py-1.5 text-sm text-gray-500"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Damage list */}
+          {damages.length > 0 && (
+            <div className="space-y-1">
+              {damages.map((d, i) => (
+                <div key={i} className="flex items-center justify-between rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm">
+                  <div>
+                    <span className="inline-flex rounded-full bg-red-200 px-1.5 py-0.5 text-xs font-bold text-red-800 me-2">{i + 1}</span>
+                    <span className="font-medium text-red-800">{d.location}</span>
+                    <span className="mx-1 text-red-300">|</span>
+                    <span className="text-red-700">{d.type}</span>
+                    {d.description && <span className="ms-1 text-red-500">— {d.description}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDamages(damages.filter((_, j) => j !== i))}
+                    className="text-red-400 hover:text-red-600 text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Personal items */}
