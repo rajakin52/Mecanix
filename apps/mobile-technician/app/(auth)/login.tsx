@@ -33,11 +33,18 @@ export default function LoginScreen() {
         return;
       }
 
-      const { access_token, refresh_token } = data.data ?? data;
+      const result = data.data ?? data;
+      const token = result.session?.accessToken ?? result.access_token ?? result.accessToken;
+      const refresh = result.session?.refreshToken ?? result.refresh_token ?? result.refreshToken;
 
-      await SecureStore.setItemAsync('auth_token', access_token);
-      if (refresh_token) {
-        await SecureStore.setItemAsync('refresh_token', refresh_token);
+      if (!token) {
+        Alert.alert(t('common.error'), 'No access token received');
+        return;
+      }
+
+      await SecureStore.setItemAsync('auth_token', token);
+      if (refresh) {
+        await SecureStore.setItemAsync('refresh_token', refresh);
       }
 
       router.replace('/(tabs)');
