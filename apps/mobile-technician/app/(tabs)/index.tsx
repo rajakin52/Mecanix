@@ -185,7 +185,7 @@ export default function JobsScreen() {
     if (!techId) return;
     setLoadingAction(true);
     try {
-      const record = await apiPost<ClockRecord>('/clock/in', { technician_id: techId });
+      const record = await apiPost<ClockRecord>('/clock/in', { technicianId: techId });
       setClockRecord(record);
     } catch (e: unknown) {
       Alert.alert(t('common.error'), e instanceof Error ? e.message : 'Failed');
@@ -197,7 +197,7 @@ export default function JobsScreen() {
     if (!techId) return;
     setLoadingAction(true);
     try {
-      const record = await apiPost<ClockRecord>('/clock/out', { technician_id: techId });
+      const record = await apiPost<ClockRecord>('/clock/out', { technicianId: techId });
       setClockRecord(record);
     } catch (e: unknown) {
       Alert.alert(t('common.error'), e instanceof Error ? e.message : 'Failed');
@@ -210,8 +210,8 @@ export default function JobsScreen() {
     setLoadingAction(true);
     try {
       const entry = await apiPost<TimeEntry>('/time/start', {
-        job_id: jobId,
-        technician_id: techId,
+        jobCardId: jobId,
+        technicianId: techId,
       });
       setActiveEntry(entry);
       setElapsed(0);
