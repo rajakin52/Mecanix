@@ -16,7 +16,7 @@ export default function RootLayout() {
       setIsLoggedIn(!!token);
       setIsReady(true);
     })();
-  }, []);
+  }, [segments]);
 
   useEffect(() => {
     if (!isReady) return;
