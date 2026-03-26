@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { supabase } from '../../src/lib/supabase';
+import { apiFetch } from '../../src/lib/api';
 
 const LANGUAGES = ['en', 'pt-PT', 'pt-BR'] as const;
 
@@ -21,9 +21,9 @@ export default function SettingsScreen() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data?.user?.email ?? null);
-    });
+    apiFetch<{ email?: string }>('/auth/profile')
+      .then((profile) => setUserEmail(profile?.email ?? null))
+      .catch(() => setUserEmail(null));
   }, []);
 
   const changeLanguage = async (lang: string) => {
@@ -38,14 +38,9 @@ export default function SettingsScreen() {
         text: t('common.logout'),
         style: 'destructive',
         onPress: async () => {
-          try {
-            await supabase.auth.signOut();
-            await SecureStore.deleteItemAsync('auth_token');
-            router.replace('/(auth)/login');
-          } catch {
-            await SecureStore.deleteItemAsync('auth_token');
-            router.replace('/(auth)/login');
-          }
+          await SecureStore.deleteItemAsync('auth_token');
+          await SecureStore.deleteItemAsync('refresh_token');
+          router.replace('/(auth)/login');
         },
       },
     ]);

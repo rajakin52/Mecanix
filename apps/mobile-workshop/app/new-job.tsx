@@ -71,8 +71,9 @@ export default function NewJobScreen() {
       const params = customerSearch
         ? `?search=${encodeURIComponent(customerSearch)}`
         : '';
-      const data = await apiFetch<Customer[]>(`/customers${params}`);
-      setCustomers(Array.isArray(data) ? data : []);
+      const data = await apiFetch<Customer[] | { data: Customer[] }>(`/customers${params}`);
+      const list = Array.isArray(data) ? data : (data as { data: Customer[] }).data ?? [];
+      setCustomers(list);
     } catch {
       // silent — user will see empty list
     } finally {
@@ -92,10 +93,11 @@ export default function NewJobScreen() {
     if (!selectedCustomer) return;
     setVehiclesLoading(true);
     try {
-      const data = await apiFetch<Vehicle[]>(
+      const data = await apiFetch<Vehicle[] | { data: Vehicle[] }>(
         `/vehicles?customerId=${selectedCustomer.id}`,
       );
-      setVehicles(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data as { data: Vehicle[] }).data ?? [];
+      setVehicles(list);
     } catch {
       // silent
     } finally {

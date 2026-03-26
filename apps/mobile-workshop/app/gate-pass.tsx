@@ -51,7 +51,8 @@ export default function GatePassScreen() {
       const data = await apiFetch<GatePass[]>(
         `/gate-passes?jobCardId=${params.jobId}`,
       );
-      setPasses(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : (data as { data: GatePass[] }).data ?? [];
+      setPasses(list);
     } catch {
       Alert.alert(t('common.error'), t('gatePass.fetchError'));
     } finally {
