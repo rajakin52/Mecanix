@@ -105,7 +105,8 @@ export default function JobsScreen() {
   /* ---- Resolve technician ID ---- */
   const resolveTechnician = useCallback(async () => {
     try {
-      const techs = await apiGet<Technician[]>('/technicians');
+      const techsRaw = await apiGet<Technician[] | { data: Technician[] }>('/technicians');
+      const techs = Array.isArray(techsRaw) ? techsRaw : (techsRaw as { data: Technician[] }).data ?? [];
       const first = techs[0];
       if (first) {
         setTechId(first.id);
@@ -122,10 +123,11 @@ export default function JobsScreen() {
     async (tid?: string | null) => {
       const id = tid ?? techId;
       try {
-        const [jobsData] = await Promise.all([
-          apiGet<Job[]>('/jobs'),
+        const [jobsRaw] = await Promise.all([
+          apiGet<Job[] | { data: Job[] }>('/jobs'),
         ]);
-        setJobs(jobsData);
+        const jobsList = Array.isArray(jobsRaw) ? jobsRaw : (jobsRaw as { data: Job[] }).data ?? [];
+        setJobs(jobsList);
 
         if (id) {
           try {

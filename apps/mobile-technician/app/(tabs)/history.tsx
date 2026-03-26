@@ -87,7 +87,8 @@ export default function HistoryScreen() {
 
   const resolveTechnician = useCallback(async (): Promise<string | null> => {
     try {
-      const techs = await apiGet<Technician[]>('/technicians');
+      const techsRaw = await apiGet<Technician[] | { data: Technician[] }>('/technicians');
+      const techs = Array.isArray(techsRaw) ? techsRaw : (techsRaw as { data: Technician[] }).data ?? [];
       const first = techs[0];
       if (first) {
         setTechId(first.id);
@@ -103,7 +104,8 @@ export default function HistoryScreen() {
     const id = tid ?? techId;
     if (!id) return;
     try {
-      const data = await apiGet<TimeEntry[]>(`/time?technician_id=${id}&status=STOPPED`);
+      const raw = await apiGet<TimeEntry[] | { data: TimeEntry[] }>(`/time?technician_id=${id}&status=STOPPED`);
+      const data = Array.isArray(raw) ? raw : (raw as { data: TimeEntry[] }).data ?? [];
       // Sort newest first
       const sorted = data.sort(
         (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
@@ -112,7 +114,8 @@ export default function HistoryScreen() {
     } catch (_e) {
       // If the endpoint doesn't support query params, just get all
       try {
-        const all = await apiGet<TimeEntry[]>('/time');
+        const allRaw = await apiGet<TimeEntry[] | { data: TimeEntry[] }>('/time');
+        const all = Array.isArray(allRaw) ? allRaw : (allRaw as { data: TimeEntry[] }).data ?? [];
         const filtered = all
           .filter((e) => e.status === 'STOPPED')
           .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());

@@ -76,13 +76,15 @@ export default function ProfileScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const techs = await apiGet<Technician[]>('/technicians');
+      const techsRaw = await apiGet<Technician[] | { data: Technician[] }>('/technicians');
+      const techs = Array.isArray(techsRaw) ? techsRaw : (techsRaw as { data: Technician[] }).data ?? [];
       const first = techs[0];
       if (first) {
         setTechnician(first);
 
         try {
-          const timeEntries = await apiGet<TimeEntry[]>('/time');
+          const timeRaw = await apiGet<TimeEntry[] | { data: TimeEntry[] }>('/time');
+          const timeEntries = Array.isArray(timeRaw) ? timeRaw : (timeRaw as { data: TimeEntry[] }).data ?? [];
           setEntries(timeEntries.filter((e) => e.status === 'STOPPED'));
         } catch (_e) {
           setEntries([]);
@@ -138,7 +140,7 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
             {technician
-              ? `${technician.first_name[0]}${technician.last_name[0]}`
+              ? `${(technician.first_name || '?')[0]}${(technician.last_name || '')[0]}`
               : '?'}
           </Text>
         </View>
