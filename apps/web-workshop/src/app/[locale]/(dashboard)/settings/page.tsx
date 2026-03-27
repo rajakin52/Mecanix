@@ -177,6 +177,20 @@ export default function SettingsPage() {
           <span className="text-gray-400 text-xl">→</span>
         </Link>
 
+        {/* AGT E-Invoicing Link */}
+        <Link
+          href="/settings/agt"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">AGT Electronic Invoicing</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Document series, hash chain, RSA keys, and SAF-T (AO) export
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">{'\u2192'}</span>
+        </Link>
+
         {/* ERP Integration Link */}
         <Link
           href="/settings/erp"

@@ -5,8 +5,10 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { CreditNotesController } from './credit-notes.controller';
 import { CreditNotesService } from './credit-notes.service';
+import { AgtModule } from '../agt/agt.module';
 
 @Module({
+  imports: [AgtModule],
   controllers: [InvoicesController, PaymentsController, CreditNotesController],
   providers: [InvoicesService, PaymentsService, CreditNotesService],
   exports: [InvoicesService, PaymentsService, CreditNotesService],

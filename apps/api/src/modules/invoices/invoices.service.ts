@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AgtService } from '../agt/agt.service';
 import type { GenerateInvoiceInput, PaginationInput } from '@mecanix/validators';
 
 interface InvoiceFilters {
@@ -9,7 +10,12 @@ interface InvoiceFilters {
 
 @Injectable()
 export class InvoicesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly logger = new Logger('InvoicesService');
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly agtService: AgtService,
+  ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: InvoiceFilters = {}) {
     const client = this.supabase.getClient();
@@ -198,6 +204,39 @@ export class InvoicesService {
       .single();
 
     if (insertError) throw insertError;
+
+    // 8b. Generate hash chain (AGT compliance)
+    try {
+      const now = new Date();
+      const hashResult = await this.agtService.generateDocumentHash(
+        tenantId,
+        'FT',
+        now.toISOString().slice(0, 10),
+        now.toISOString().replace(/\.\d{3}Z$/, ''),
+        round2(grandTotal),
+      );
+
+      // Update invoice with hash data
+      await client
+        .from('invoices')
+        .update({
+          document_type: 'FT',
+          series_id: hashResult.seriesId,
+          saft_document_number: hashResult.saftDocumentNumber,
+          hash: hashResult.hash,
+          hash_control: hashResult.hashControl,
+          short_hash: hashResult.shortHash,
+          previous_hash: hashResult.previousHash,
+          system_entry_date: now.toISOString(),
+        })
+        .eq('id', invoice.id);
+
+      this.logger.log(`Hash generated for invoice ${invoice.invoice_number}: ${hashResult.shortHash}`);
+    } catch (err) {
+      // Hash generation is non-blocking — invoice is still valid without hash
+      // (series may not be initialized yet)
+      this.logger.warn(`Hash generation skipped for ${invoice.invoice_number}: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
 
     // 9. Update job card status to 'invoiced'
     const currentStatus = jobCard.status as string;
