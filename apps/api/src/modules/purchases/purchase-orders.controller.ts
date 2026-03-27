@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PurchaseOrdersService } from './purchase-orders.service';
+import { CostingService } from '../parts/costing.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -35,7 +36,10 @@ const changePoStatusSchema = z.object({
 @Controller('purchase-orders')
 @UseGuards(TenantGuard)
 export class PurchaseOrdersController {
-  constructor(private readonly purchaseOrdersService: PurchaseOrdersService) {}
+  constructor(
+    private readonly purchaseOrdersService: PurchaseOrdersService,
+    private readonly costingService: CostingService,
+  ) {}
 
   @Get()
   async list(
@@ -100,5 +104,14 @@ export class PurchaseOrdersController {
     @Body(new ZodValidationPipe(changePoStatusSchema)) body: { status: string },
   ) {
     return this.purchaseOrdersService.updateStatus(tenantId, id, user.id, body.status);
+  }
+
+  @Post(':id/landed-costs')
+  async applyLandedCosts(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { additionalCosts: Array<{ type: string; amount: number }> },
+  ) {
+    return this.costingService.applyLandedCosts(tenantId, id, body.additionalCosts);
   }
 }
