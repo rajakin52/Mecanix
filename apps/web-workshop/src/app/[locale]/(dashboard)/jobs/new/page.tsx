@@ -374,14 +374,35 @@ export default function NewJobWizard() {
                 </div>
 
                 <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">Select Vehicle</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">Select Vehicle</h3>
+                  <input
+                    placeholder="Search by plate, make or model..."
+                    onChange={(e) => {
+                      const q = e.target.value.toLowerCase();
+                      // Filter is done inline below
+                      (e.target as HTMLInputElement).dataset.filter = q;
+                      // Force re-render by setting a dummy state
+                      setPlateSearch(q);
+                    }}
+                    className="mb-3 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
                   {vehicleList.length > 0 ? (
-                    <div className="space-y-2">
-                      {vehicleList.map((v) => (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {vehicleList
+                        .filter((v) => {
+                          if (!plateSearch) return true;
+                          const q = plateSearch.toLowerCase();
+                          return v.plate.toLowerCase().includes(q) ||
+                            v.make.toLowerCase().includes(q) ||
+                            v.model.toLowerCase().includes(q) ||
+                            (v.vin ?? '').toLowerCase().includes(q);
+                        })
+                        .map((v) => (
                         <button key={v.id} onClick={() => setSelectedVehicle(v)}
                           className="w-full text-start rounded-lg border-2 border-gray-200 px-4 py-3 hover:border-primary-500 hover:bg-primary-50 transition-all">
                           <span className="text-lg font-mono font-bold text-gray-900">{v.plate}</span>
                           <span className="ms-3 text-sm text-gray-600">{v.make} {v.model} {v.year ? `(${v.year})` : ''}</span>
+                          {v.vin && <span className="ms-2 text-xs text-gray-400 font-mono">{v.vin}</span>}
                         </button>
                       ))}
                     </div>
