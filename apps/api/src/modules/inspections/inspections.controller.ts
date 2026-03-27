@@ -52,4 +52,39 @@ export class InspectionsController {
   ) {
     return this.inspectionsService.update(tenantId, id, user.id, body);
   }
+
+  // ── Inspection Templates ──────────────────────────────────
+
+  @Get('templates')
+  async listTemplates(@TenantId() tenantId: string) {
+    return this.inspectionsService.listTemplates(tenantId);
+  }
+
+  @Post('templates')
+  async createTemplate(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.inspectionsService.createTemplate(tenantId, user.id, body);
+  }
+
+  @Post('templates/initialize-default')
+  async initializeDefault(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.inspectionsService.initializeDefaultTemplate(tenantId, user.id);
+  }
+
+  // ── DVI Items ─────────────────────────────────────────────
+
+  @Patch('items/:itemId')
+  async updateDviItem(
+    @TenantId() tenantId: string,
+    @Param('itemId') itemId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.inspectionsService.updateDviItem(tenantId, itemId, body);
+  }
 }

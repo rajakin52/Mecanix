@@ -145,6 +145,51 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
   const [newDamageLocation, setNewDamageLocation] = useState('');
   const [newDamageType, setNewDamageType] = useState('scratch');
   const [newDamageDesc, setNewDamageDesc] = useState('');
+
+  // DVI items (traffic light)
+  const [dviItems, setDviItems] = useState<Array<{ name: string; category: string; status: string; notes: string; recommendation: string }>>([]);
+  const [dviLoaded, setDviLoaded] = useState(false);
+
+  // Load default DVI template
+  if (!dviLoaded && showForm) {
+    const defaultItems = [
+      { name: 'Brake Pads - Front', category: 'brakes' },
+      { name: 'Brake Pads - Rear', category: 'brakes' },
+      { name: 'Brake Discs', category: 'brakes' },
+      { name: 'Brake Fluid', category: 'brakes' },
+      { name: 'Engine Oil', category: 'engine' },
+      { name: 'Coolant Level', category: 'engine' },
+      { name: 'Drive Belts', category: 'engine' },
+      { name: 'Air Filter', category: 'engine' },
+      { name: 'Battery', category: 'electrical' },
+      { name: 'Shocks - Front', category: 'suspension' },
+      { name: 'Shocks - Rear', category: 'suspension' },
+      { name: 'Steering', category: 'suspension' },
+      { name: 'Tires - FL', category: 'tires' },
+      { name: 'Tires - FR', category: 'tires' },
+      { name: 'Tires - RL', category: 'tires' },
+      { name: 'Tires - RR', category: 'tires' },
+      { name: 'Headlights', category: 'lights' },
+      { name: 'Tail/Brake Lights', category: 'lights' },
+      { name: 'Wipers', category: 'body' },
+      { name: 'A/C System', category: 'hvac' },
+      { name: 'Exhaust', category: 'exhaust' },
+    ];
+    setDviItems(defaultItems.map((d) => ({ ...d, status: 'not_inspected', notes: '', recommendation: '' })));
+    setDviLoaded(true);
+  }
+
+  const updateDviItem = (index: number, field: string, value: string) => {
+    setDviItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const statusColors: Record<string, { bg: string; border: string; text: string; label: string }> = {
+    green: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Good' },
+    yellow: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Monitor' },
+    red: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Urgent' },
+    not_inspected: { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: 'N/A' },
+  };
+
   const [personalItems, setPersonalItems] = useState('');
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -167,6 +212,9 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
       if (mileageIn) payload.mileageIn = Number(mileageIn);
       if (fuelLevel) payload.fuelLevel = fuelLevel;
       if (damages.length > 0) payload.exteriorDamage = damages;
+      // DVI items
+      const inspectedItems = dviItems.filter((i) => i.status !== 'not_inspected');
+      if (inspectedItems.length > 0) payload.dviItems = inspectedItems;
       if (personalItems) payload.personalItems = personalItems;
       if (notes) payload.notes = notes;
       await createMutation.mutateAsync(payload);
@@ -235,6 +283,25 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
           <div className="mt-4 text-sm">
             <span className="font-medium text-gray-500">{t('personalItems')}:</span>
             <p className="mt-1 text-gray-900">{String(insp.personal_items)}</p>
+          </div>
+        )}
+        {/* DVI items read-only */}
+        {Array.isArray((insp as Record<string, unknown>).dvi_items) && ((insp as Record<string, unknown>).dvi_items as Array<Record<string, unknown>>).length > 0 && (
+          <div className="mt-4">
+            <span className="text-sm font-medium text-gray-500">DVI Inspection:</span>
+            <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {((insp as Record<string, unknown>).dvi_items as Array<Record<string, unknown>>).map((item, i) => {
+                const s = item.status as string;
+                const bgColor = s === 'green' ? 'bg-green-50 text-green-700' : s === 'yellow' ? 'bg-yellow-50 text-yellow-700' : s === 'red' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-400';
+                return (
+                  <div key={i} className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs ${bgColor}`}>
+                    <span className={`inline-block h-2 w-2 rounded-full ${s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-300'}`} />
+                    <span className="font-medium">{item.name as string}</span>
+                    {item.notes && <span className="text-gray-400 truncate max-w-[80px]">— {item.notes as string}</span>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
         {insp.notes && (
@@ -498,6 +565,67 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
               ))}
             </div>
           )}
+        </div>
+
+        {/* ── DVI Traffic Light Inspection ── */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">Vehicle Inspection (DVI)</label>
+          <div className="mb-2 flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full bg-green-500" /> Good</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full bg-yellow-500" /> Monitor</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full bg-red-500" /> Urgent</span>
+          </div>
+
+          {/* Group by category */}
+          {(() => {
+            const categories = [...new Set(dviItems.map((i) => i.category))];
+            return categories.map((cat) => (
+              <div key={cat} className="mb-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{cat}</p>
+                <div className="space-y-1">
+                  {dviItems.map((item, idx) => {
+                    if (item.category !== cat) return null;
+                    const sc = statusColors[item.status] ?? statusColors.not_inspected;
+                    return (
+                      <div key={idx} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${sc.bg} ${sc.border}`}>
+                        <span className={`text-sm font-medium flex-1 ${sc.text}`}>{item.name}</span>
+                        <div className="flex gap-1">
+                          {(['green', 'yellow', 'red'] as const).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => updateDviItem(idx, 'status', item.status === s ? 'not_inspected' : s)}
+                              className={`h-6 w-6 rounded-full border-2 transition-all ${
+                                item.status === s
+                                  ? `${s === 'green' ? 'bg-green-500 border-green-600' : s === 'yellow' ? 'bg-yellow-500 border-yellow-600' : 'bg-red-500 border-red-600'} ring-2 ring-offset-1 ${s === 'green' ? 'ring-green-300' : s === 'yellow' ? 'ring-yellow-300' : 'ring-red-300'}`
+                                  : `${s === 'green' ? 'bg-green-200 border-green-300' : s === 'yellow' ? 'bg-yellow-200 border-yellow-300' : 'bg-red-200 border-red-300'} opacity-50 hover:opacity-100`
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        {(item.status === 'yellow' || item.status === 'red') && (
+                          <input
+                            value={item.notes}
+                            onChange={(e) => updateDviItem(idx, 'notes', e.target.value)}
+                            placeholder="Notes..."
+                            className="w-40 rounded border border-gray-300 px-2 py-1 text-xs"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ));
+          })()}
+
+          {/* Summary */}
+          <div className="mt-3 flex gap-3 text-xs font-medium">
+            <span className="text-green-700">{dviItems.filter((i) => i.status === 'green').length} Good</span>
+            <span className="text-yellow-700">{dviItems.filter((i) => i.status === 'yellow').length} Monitor</span>
+            <span className="text-red-700">{dviItems.filter((i) => i.status === 'red').length} Urgent</span>
+            <span className="text-gray-400">{dviItems.filter((i) => i.status === 'not_inspected').length} Not inspected</span>
+          </div>
         </div>
 
         {/* Personal items */}
