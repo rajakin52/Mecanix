@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class EstimatesService {
@@ -310,5 +311,147 @@ export class EstimatesService {
 
     if (error) throw error;
     return data;
+  }
+
+  // ── Public Token-Based Access ─────────────────────────────
+
+  private readonly TOKEN_SECRET = process.env['SUPABASE_SERVICE_ROLE_KEY']?.slice(0, 32) ?? 'mecanix-estimate-token-secret-key';
+
+  /**
+   * Generate a signed token for public estimate access (7 days validity).
+   */
+  generatePublicToken(estimateId: string): string {
+    const payload = `${estimateId}:${Date.now() + 7 * 24 * 60 * 60 * 1000}`;
+    const hmac = crypto.createHmac('sha256', this.TOKEN_SECRET).update(payload).digest('hex');
+    const token = Buffer.from(`${payload}:${hmac}`).toString('base64url');
+    return token;
+  }
+
+  /**
+   * Validate a public token and return the estimate ID.
+   */
+  validatePublicToken(token: string): string | null {
+    try {
+      const decoded = Buffer.from(token, 'base64url').toString();
+      const parts = decoded.split(':');
+      if (parts.length !== 3) return null;
+
+      const [estimateId, expiryStr, providedHmac] = parts;
+      const expiry = Number(expiryStr);
+
+      if (Date.now() > expiry) return null; // Expired
+
+      const expectedHmac = crypto
+        .createHmac('sha256', this.TOKEN_SECRET)
+        .update(`${estimateId}:${expiryStr}`)
+        .digest('hex');
+
+      if (providedHmac !== expectedHmac) return null; // Tampered
+
+      return estimateId!;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get estimate data for public display (no tenant check — token-validated).
+   */
+  async getPublicEstimate(estimateId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: estimate } = await client
+      .from('estimates')
+      .select('*')
+      .eq('id', estimateId)
+      .single();
+
+    if (!estimate) throw new NotFoundException('Estimate not found');
+
+    // Get job card with customer/vehicle info
+    const { data: job } = await client
+      .from('job_cards')
+      .select('*, customer:customers(full_name, phone, email), vehicle:vehicles(plate, make, model, year)')
+      .eq('id', estimate.job_card_id)
+      .single();
+
+    // Get tenant info
+    const { data: tenant } = await client
+      .from('tenants')
+      .select('name, phone, email, address, tax_id')
+      .eq('id', estimate.tenant_id)
+      .single();
+
+    return {
+      estimate,
+      customer: (job as Record<string, unknown>)?.customer ?? null,
+      vehicle: (job as Record<string, unknown>)?.vehicle ?? null,
+      workshop: tenant,
+    };
+  }
+
+  /**
+   * Approve via public token (no auth required).
+   */
+  async approvePublic(estimateId: string, input?: { notes?: string }) {
+    const { data: estimate } = await this.supabase
+      .getClient()
+      .from('estimates')
+      .select('status, tenant_id, job_card_id')
+      .eq('id', estimateId)
+      .single();
+
+    if (!estimate) throw new NotFoundException('Estimate not found');
+    if (estimate.status !== 'sent' && estimate.status !== 'draft') {
+      throw new BadRequestException('Estimate is no longer available for approval');
+    }
+
+    await this.supabase
+      .getClient()
+      .from('estimates')
+      .update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        approval_method: 'public_link',
+        approval_notes: input?.notes ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', estimateId);
+
+    // Transition job
+    const { data: job } = await this.supabase
+      .getClient()
+      .from('job_cards')
+      .select('status')
+      .eq('id', estimate.job_card_id)
+      .single();
+
+    if (job && ['awaiting_approval', 'awaiting_reapproval'].includes(job.status as string)) {
+      await this.supabase
+        .getClient()
+        .from('job_cards')
+        .update({ status: 'in_progress' })
+        .eq('id', estimate.job_card_id);
+    }
+
+    return { approved: true };
+  }
+
+  /**
+   * Reject via public token.
+   */
+  async rejectPublic(estimateId: string, input?: { notes?: string }) {
+    await this.supabase
+      .getClient()
+      .from('estimates')
+      .update({
+        status: 'rejected',
+        rejected_at: new Date().toISOString(),
+        approval_notes: input?.notes ?? 'Rejected via link',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', estimateId);
+
+    return { rejected: true };
   }
 }

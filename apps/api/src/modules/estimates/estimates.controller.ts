@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   UseGuards,
@@ -11,6 +12,39 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+
+// Public endpoints (no auth — token validated)
+@Controller('public/estimates')
+export class PublicEstimatesController {
+  constructor(private readonly estimatesService: EstimatesService) {}
+
+  @Get(':token')
+  async getPublic(@Param('token') token: string) {
+    const estimateId = this.estimatesService.validatePublicToken(token);
+    if (!estimateId) throw new NotFoundException('Invalid or expired link');
+    return this.estimatesService.getPublicEstimate(estimateId);
+  }
+
+  @Post(':token/approve')
+  async approvePublic(
+    @Param('token') token: string,
+    @Body() body: { notes?: string },
+  ) {
+    const estimateId = this.estimatesService.validatePublicToken(token);
+    if (!estimateId) throw new NotFoundException('Invalid or expired link');
+    return this.estimatesService.approvePublic(estimateId, body);
+  }
+
+  @Post(':token/reject')
+  async rejectPublic(
+    @Param('token') token: string,
+    @Body() body: { notes?: string },
+  ) {
+    const estimateId = this.estimatesService.validatePublicToken(token);
+    if (!estimateId) throw new NotFoundException('Invalid or expired link');
+    return this.estimatesService.rejectPublic(estimateId, body);
+  }
+}
 
 @Controller()
 @UseGuards(TenantGuard)
@@ -64,6 +98,12 @@ export class EstimatesController {
     @Body() body: { notes?: string; signatureUrl?: string; method?: string },
   ) {
     return this.estimatesService.approve(tenantId, id, body);
+  }
+
+  @Get('estimates/:id/public-link')
+  async getPublicLink(@Param('id') id: string) {
+    const token = this.estimatesService.generatePublicToken(id);
+    return { token, url: `/public/estimate/${token}` };
   }
 
   @Post('estimates/:id/reject')
