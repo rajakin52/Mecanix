@@ -78,3 +78,17 @@ export function useCustomerRetentionReport(startDate?: string, endDate?: string)
     queryFn: () => api.get<Record<string, unknown>>(`/reports/customer-retention${buildParams(startDate, endDate)}`),
   });
 }
+
+export function usePartsProfitabilityReport(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-parts-profitability', startDate, endDate],
+    queryFn: () => api.get<Record<string, unknown>>(`/reports/parts-profitability${buildParams(startDate, endDate)}`),
+  });
+}
+
+export function useEstimateVsActualReport(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-estimate-vs-actual', startDate, endDate],
+    queryFn: () => api.get<Record<string, unknown>>(`/reports/estimate-vs-actual${buildParams(startDate, endDate)}`),
+  });
+}

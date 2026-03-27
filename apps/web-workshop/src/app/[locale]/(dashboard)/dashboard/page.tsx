@@ -8,6 +8,7 @@ import { useJobs } from '@/hooks/use-jobs';
 import { useLowStock } from '@/hooks/use-parts';
 import { useDueReminders } from '@/hooks/use-reminders';
 import { useFormat } from '@/hooks/use-format';
+import { useDeferredSummary } from '@/hooks/use-deferred';
 import { Link } from '@/i18n/navigation';
 
 export default function DashboardPage() {
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { data: jobsData, isLoading: loadingJobs } = useJobs(1, '');
   const { data: lowStockData } = useLowStock();
   const { data: dueRemindersData, isLoading: loadingReminders } = useDueReminders();
+  const { data: deferredData } = useDeferredSummary();
 
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
@@ -284,6 +286,31 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Deferred Services Widget */}
+      {deferredData && (deferredData as Record<string, number>).totalPending > 0 && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 p-6 shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold text-orange-900">Deferred Services</h2>
+          <div className="grid grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-orange-800">{(deferredData as Record<string, number>).totalPending}</p>
+              <p className="text-xs text-orange-600">Pending</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-red-600">{(deferredData as Record<string, number>).redCount}</p>
+              <p className="text-xs text-red-500">Urgent</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-yellow-600">{(deferredData as Record<string, number>).yellowCount}</p>
+              <p className="text-xs text-yellow-500">Monitor</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-green-700">{money((deferredData as Record<string, number>).potentialRevenue)}</p>
+              <p className="text-xs text-green-600">Revenue Opportunity</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

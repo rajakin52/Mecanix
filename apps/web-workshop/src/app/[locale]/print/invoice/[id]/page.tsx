@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useInvoice } from '@/hooks/use-invoices';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
+import { QRCodeSVG } from 'qrcode.react';
 import { useTenant } from '@/hooks/use-tenant';
 import { useEffect } from 'react';
 
@@ -62,6 +63,21 @@ export default function PrintInvoicePage() {
           size: A4;
         }
       `}</style>
+
+      {/* QR Code */}
+      <div className="mt-6 flex items-center justify-between border-t pt-4">
+        <div>
+          <QRCodeSVG
+            value={`INV:${inv.invoice_number}|NIF:${inv.customer_tax_id ?? ''}|DATE:${inv.created_at?.slice(0, 10)}|TOTAL:${Number(inv.grand_total).toFixed(2)}|HASH:${inv.short_hash ?? ''}`}
+            size={80}
+          />
+          <p className="text-[8px] text-gray-400 mt-1">{inv.short_hash ?? ''}</p>
+        </div>
+        <div className="text-end text-xs text-gray-400">
+          <p>MECANIX Workshop Management</p>
+          {inv.saft_document_number && <p className="font-mono">{inv.saft_document_number}</p>}
+        </div>
+      </div>
 
       {/* Print/Close buttons - hidden on print */}
       <div className="no-print fixed top-4 right-4 flex gap-2 z-50">

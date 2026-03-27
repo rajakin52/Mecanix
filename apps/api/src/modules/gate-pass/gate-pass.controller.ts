@@ -43,4 +43,12 @@ export class GatePassController {
   ) {
     return this.gatePassService.create(tenantId, user.id, body);
   }
+
+  @Post(':id/return')
+  async markReturned(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.gatePassService.markReturned(tenantId, id);
+  }
 }
