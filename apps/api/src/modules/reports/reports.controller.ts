@@ -155,4 +155,34 @@ export class ReportsController {
       endDate || defaults.endDate,
     );
   }
+
+  @Get('parts-profitability')
+  @UseGuards(TenantGuard)
+  async partsProfitability(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.partsItemProfitability(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('estimate-vs-actual')
+  @UseGuards(TenantGuard)
+  async estimateVsActual(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.estimateVsActual(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
 }

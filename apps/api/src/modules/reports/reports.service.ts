@@ -557,4 +557,154 @@ export class ReportsService {
       notes: rows,
     };
   }
+
+  /**
+   * Parts profitability report — margin analysis per item.
+   */
+  async partsItemProfitability(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    // Get all parts lines from invoiced jobs in date range
+    const { data: jobs } = await client
+      .from('job_cards')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'invoiced')
+      .gte('date_closed', startDate)
+      .lte('date_closed', endDate);
+
+    if (!jobs || jobs.length === 0) {
+      return { items: [], summary: { totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 } };
+    }
+
+    const jobIds = jobs.map((j) => j.id);
+
+    const { data: partsLines } = await client
+      .from('parts_lines')
+      .select('part_name, part_number, quantity, unit_cost, sell_price, subtotal, markup_pct')
+      .eq('tenant_id', tenantId)
+      .in('job_card_id', jobIds);
+
+    if (!partsLines || partsLines.length === 0) {
+      return { items: [], summary: { totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 } };
+    }
+
+    // Aggregate by part_name
+    const byItem: Record<string, {
+      partName: string;
+      partNumber: string | null;
+      qtySold: number;
+      totalCost: number;
+      totalRevenue: number;
+      avgMarkup: number;
+      occurrences: number;
+    }> = {};
+
+    for (const line of partsLines) {
+      const key = (line.part_name as string) ?? 'Unknown';
+      if (!byItem[key]) {
+        byItem[key] = {
+          partName: key,
+          partNumber: line.part_number as string | null,
+          qtySold: 0,
+          totalCost: 0,
+          totalRevenue: 0,
+          avgMarkup: 0,
+          occurrences: 0,
+        };
+      }
+      const item = byItem[key]!;
+      const qty = Number(line.quantity) || 0;
+      const cost = Number(line.unit_cost) || 0;
+      item.qtySold += qty;
+      item.totalCost += round2(qty * cost);
+      item.totalRevenue += Number(line.subtotal) || 0;
+      item.avgMarkup += Number(line.markup_pct) || 0;
+      item.occurrences += 1;
+    }
+
+    const items = Object.values(byItem).map((item) => ({
+      partName: item.partName,
+      partNumber: item.partNumber,
+      qtySold: round2(item.qtySold),
+      avgCost: item.qtySold > 0 ? round2(item.totalCost / item.qtySold) : 0,
+      avgSellPrice: item.qtySold > 0 ? round2(item.totalRevenue / item.qtySold) : 0,
+      avgMarkupPct: item.occurrences > 0 ? round2(item.avgMarkup / item.occurrences) : 0,
+      totalRevenue: round2(item.totalRevenue),
+      totalCost: round2(item.totalCost),
+      grossProfit: round2(item.totalRevenue - item.totalCost),
+      marginPct: item.totalRevenue > 0
+        ? round2(((item.totalRevenue - item.totalCost) / item.totalRevenue) * 100)
+        : 0,
+    }));
+
+    // Sort by gross profit descending
+    items.sort((a, b) => b.grossProfit - a.grossProfit);
+
+    const totalRevenue = round2(items.reduce((s, i) => s + i.totalRevenue, 0));
+    const totalCost = round2(items.reduce((s, i) => s + i.totalCost, 0));
+    const totalProfit = round2(totalRevenue - totalCost);
+    const avgMargin = totalRevenue > 0 ? round2((totalProfit / totalRevenue) * 100) : 0;
+
+    return {
+      items,
+      summary: { totalRevenue, totalCost, totalProfit, avgMargin },
+    };
+  }
+
+  /**
+   * Estimate vs Actual comparison report.
+   */
+  async estimateVsActual(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    // Get invoiced jobs with estimates
+    const { data: jobs } = await client
+      .from('job_cards')
+      .select('id, job_number, current_estimate_id, labour_total, parts_total, grand_total, date_closed')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'invoiced')
+      .not('current_estimate_id', 'is', null)
+      .gte('date_closed', startDate)
+      .lte('date_closed', endDate);
+
+    if (!jobs || jobs.length === 0) return { comparisons: [], summary: { avgVariance: 0 } };
+
+    const comparisons = [];
+    for (const job of jobs) {
+      // Get estimate
+      const { data: estimate } = await client
+        .from('estimates')
+        .select('estimate_number, grand_total, labour_total, parts_total')
+        .eq('id', job.current_estimate_id)
+        .single();
+
+      if (!estimate) continue;
+
+      const estTotal = Number(estimate.grand_total) || 0;
+      const actTotal = Number(job.grand_total) || 0;
+      const variance = round2(actTotal - estTotal);
+      const variancePct = estTotal > 0 ? round2((variance / estTotal) * 100) : 0;
+
+      comparisons.push({
+        jobNumber: job.job_number,
+        estimateNumber: estimate.estimate_number,
+        dateClosed: job.date_closed,
+        estimatedTotal: round2(estTotal),
+        actualTotal: round2(actTotal),
+        variance,
+        variancePct,
+        estimatedLabour: round2(Number(estimate.labour_total) || 0),
+        actualLabour: round2(Number(job.labour_total) || 0),
+        estimatedParts: round2(Number(estimate.parts_total) || 0),
+        actualParts: round2(Number(job.parts_total) || 0),
+      });
+    }
+
+    const avgVariance = comparisons.length > 0
+      ? round2(comparisons.reduce((s, c) => s + c.variancePct, 0) / comparisons.length)
+      : 0;
+
+    return { comparisons, summary: { avgVariance, totalJobs: comparisons.length } };
+  }
 }
