@@ -18,6 +18,7 @@ import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
 import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
+import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -717,6 +718,13 @@ export default function JobDetailPage() {
     setApplyingServices(false);
   };
 
+  // Estimates
+  const { data: estimates } = useEstimates(id);
+  const createEstimate = useCreateEstimate();
+  const sendEstimate = useSendEstimate();
+  const approveEstimate = useApproveEstimate();
+  const estimateList = Array.isArray(estimates) ? estimates : [];
+
   const { data: labourLines } = useLabourLines(id);
   const createLabour = useCreateLabourLine();
   const [showLabourForm, setShowLabourForm] = useState(false);
@@ -1039,6 +1047,98 @@ export default function JobDetailPage() {
             >
               {applyingServices ? tc('loading') : `Apply to Job Card`}
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Estimates ── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Estimates</h2>
+          <button
+            onClick={async () => {
+              try { await createEstimate.mutateAsync({ jobId: id }); } catch { /* handled */ }
+            }}
+            disabled={createEstimate.isPending}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {createEstimate.isPending ? tc('loading') : '+ Create Estimate'}
+          </button>
+        </div>
+
+        {estimateList.length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-4">No estimates yet. Create one to snapshot current job lines for customer approval.</p>
+        ) : (
+          <div className="space-y-2">
+            {estimateList.map((est) => {
+              const statusColors: Record<string, string> = {
+                draft: 'bg-gray-100 text-gray-700',
+                sent: 'bg-blue-100 text-blue-700',
+                approved: 'bg-green-100 text-green-700',
+                rejected: 'bg-red-100 text-red-700',
+                superseded: 'bg-gray-100 text-gray-400 line-through',
+              };
+              return (
+                <div key={est.id} className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono font-semibold text-gray-900">{est.estimate_number}</span>
+                    <span className="text-xs text-gray-500">v{est.version}</span>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[est.status] ?? 'bg-gray-100'}`}>
+                      {est.status}
+                    </span>
+                    {est.is_revision && <span className="text-xs text-orange-600">Revision</span>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-900">{Number(est.grand_total).toFixed(2)}</span>
+                    <div className="flex gap-1">
+                      {est.status === 'draft' && (
+                        <>
+                          <button
+                            onClick={() => sendEstimate.mutate({ id: est.id, channels: ['print'] })}
+                            className="rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+                          >
+                            Mark Sent
+                          </button>
+                          <a
+                            href={`/print/estimate/${est.id}`}
+                            target="_blank"
+                            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Print
+                          </a>
+                        </>
+                      )}
+                      {est.status === 'sent' && (
+                        <>
+                          <button
+                            onClick={() => approveEstimate.mutate({ id: est.id, method: 'manual' })}
+                            className="rounded-md bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700"
+                          >
+                            Approve
+                          </button>
+                          <a
+                            href={`/print/estimate/${est.id}`}
+                            target="_blank"
+                            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Print
+                          </a>
+                        </>
+                      )}
+                      {(est.status === 'approved' || est.status === 'rejected') && (
+                        <a
+                          href={`/print/estimate/${est.id}`}
+                          target="_blank"
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          View
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
