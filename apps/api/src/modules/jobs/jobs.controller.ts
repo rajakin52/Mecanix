@@ -98,4 +98,15 @@ export class JobsController {
   ) {
     return this.jobsService.getStatusHistory(tenantId, id);
   }
+
+  /**
+   * Get the last completed job for a vehicle — for "Repeat Last Service".
+   */
+  @Get('vehicle/:vehicleId/last-service')
+  async getLastService(
+    @TenantId() tenantId: string,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    return this.jobsService.getLastService(tenantId, vehicleId);
+  }
 }

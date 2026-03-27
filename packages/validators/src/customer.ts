@@ -13,6 +13,7 @@ export const createCustomerSchema = z.object({
   billingContact: z.string().max(200).optional(),
   creditLimit: z.coerce.number().min(0).optional(),
   priceGroupId: z.string().uuid().optional().or(z.literal('')),
+  preferredChannel: z.enum(['whatsapp', 'email', 'app', 'sms']).optional(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

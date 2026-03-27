@@ -109,6 +109,40 @@ export class PartsLinesService {
 
     if (error) throw error;
 
+    // Deduct stock if part exists in inventory
+    if (input.partNumber) {
+      const { data: part } = await this.supabase
+        .getClient()
+        .from('parts')
+        .select('id, stock_qty')
+        .eq('tenant_id', tenantId)
+        .eq('part_number', input.partNumber)
+        .limit(1)
+        .maybeSingle();
+
+      if (part && Number(part.stock_qty) >= input.quantity) {
+        const newQty = Number(part.stock_qty) - input.quantity;
+        await this.supabase.getClient()
+          .from('parts')
+          .update({ stock_qty: newQty })
+          .eq('id', part.id)
+          .eq('tenant_id', tenantId);
+
+        // Record inventory adjustment
+        await this.supabase.getClient()
+          .from('inventory_adjustments')
+          .insert({
+            tenant_id: tenantId,
+            part_id: part.id,
+            quantity_change: -input.quantity,
+            quantity_before: part.stock_qty,
+            quantity_after: newQty,
+            reason: 'Issued to job card',
+            reference: jobCardId,
+          });
+      }
+    }
+
     await this.jobsService.recalculateTotals(tenantId, jobCardId);
 
     return data;
@@ -172,6 +206,15 @@ export class PartsLinesService {
   }
 
   async delete(tenantId: string, id: string, jobCardId: string) {
+    // Get line data before deleting (for stock return)
+    const { data: line } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .select('part_number, quantity')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
     const { error } = await this.supabase
       .getClient()
       .from('parts_lines')
@@ -180,6 +223,40 @@ export class PartsLinesService {
       .eq('tenant_id', tenantId);
 
     if (error) throw error;
+
+    // Return stock if part exists
+    if (line?.part_number) {
+      const { data: part } = await this.supabase
+        .getClient()
+        .from('parts')
+        .select('id, stock_qty')
+        .eq('tenant_id', tenantId)
+        .eq('part_number', line.part_number as string)
+        .limit(1)
+        .maybeSingle();
+
+      if (part) {
+        const qty = Number(line.quantity) || 0;
+        const newQty = Number(part.stock_qty) + qty;
+        await this.supabase.getClient()
+          .from('parts')
+          .update({ stock_qty: newQty })
+          .eq('id', part.id)
+          .eq('tenant_id', tenantId);
+
+        await this.supabase.getClient()
+          .from('inventory_adjustments')
+          .insert({
+            tenant_id: tenantId,
+            part_id: part.id,
+            quantity_change: qty,
+            quantity_before: part.stock_qty,
+            quantity_after: newQty,
+            reason: 'Returned from job card',
+            reference: jobCardId,
+          });
+      }
+    }
 
     await this.jobsService.recalculateTotals(tenantId, jobCardId);
 

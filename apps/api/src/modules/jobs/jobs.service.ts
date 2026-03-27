@@ -369,4 +369,38 @@ export class JobsService {
 
     if (error) throw error;
   }
+
+  /**
+   * Get last completed/invoiced job for a vehicle with its labour and parts lines.
+   * Used for "Repeat Last Service" feature.
+   */
+  async getLastService(tenantId: string, vehicleId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: job } = await client
+      .from('job_cards')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .in('status', ['completed', 'invoiced'])
+      .order('date_closed', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!job) return null;
+
+    // Get lines
+    const [{ data: labourLines }, { data: partsLines }] = await Promise.all([
+      client.from('labour_lines').select('description, hours, rate, subtotal')
+        .eq('job_card_id', job.id).eq('tenant_id', tenantId).order('sort_order'),
+      client.from('parts_lines').select('part_name, part_number, quantity, unit_cost, markup_pct, sell_price, subtotal')
+        .eq('job_card_id', job.id).eq('tenant_id', tenantId).order('sort_order'),
+    ]);
+
+    return {
+      ...job,
+      labour_lines: labourLines ?? [],
+      parts_lines: partsLines ?? [],
+    };
+  }
 }
