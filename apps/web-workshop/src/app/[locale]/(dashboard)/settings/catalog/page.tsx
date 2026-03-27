@@ -87,9 +87,27 @@ export default function CatalogPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Repair Catalog</h1>
-        <button onClick={() => setShowForm(true)} className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
-          + New Item
-        </button>
+        <div className="flex gap-2">
+          {catalogItems.length === 0 && (
+            <button
+              onClick={async () => {
+                try {
+                  await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/catalog/seed-defaults`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}`, 'Content-Type': 'application/json' },
+                  });
+                  window.location.reload();
+                } catch { /* ignore */ }
+              }}
+              className="rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
+            >
+              Seed Defaults (45+ items)
+            </button>
+          )}
+          <button onClick={() => setShowForm(true)} className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
+            + New Item
+          </button>
+        </div>
       </div>
 
       {/* Type filter */}

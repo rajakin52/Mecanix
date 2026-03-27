@@ -313,6 +313,107 @@ export class EstimatesService {
     return data;
   }
 
+  // ── DVI-to-Estimate Auto-Conversion ────────────────────────
+
+  /**
+   * Auto-create job card lines from red DVI items by matching against repair catalog.
+   * Yellow items are deferred for follow-up.
+   */
+  async autoConvertDviToLines(
+    tenantId: string,
+    jobCardId: string,
+    inspectionId: string,
+  ) {
+    const client = this.supabase.getClient();
+
+    // Get DVI items
+    const { data: dviItems } = await client
+      .from('inspection_items')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', tenantId)
+      .order('sort_order');
+
+    if (!dviItems || dviItems.length === 0) return { converted: 0, deferred: 0 };
+
+    const redItems = dviItems.filter((i) => i.status === 'red');
+    const yellowItems = dviItems.filter((i) => i.status === 'yellow');
+
+    // Get repair catalog for matching
+    const { data: catalogItems } = await client
+      .from('repair_catalog')
+      .select('*, labour_items:repair_catalog_labour_items(*), parts_items:repair_catalog_parts_items(*)')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    const catalog = catalogItems ?? [];
+
+    let convertedCount = 0;
+
+    for (const item of redItems) {
+      const itemName = (item.name as string).toLowerCase();
+      const itemCategory = (item.category as string).toLowerCase();
+
+      // Try to match against catalog by name or category
+      const match = catalog.find((c) => {
+        const cName = (c.name as string).toLowerCase();
+        const cCategory = ((c.category as string) ?? '').toLowerCase();
+        return cName.includes(itemName) || itemName.includes(cName) ||
+               (cCategory && cCategory === itemCategory);
+      });
+
+      if (match) {
+        // Apply catalog item's labour lines
+        const labourItems = (match.labour_items ?? []) as Array<Record<string, unknown>>;
+        for (const li of labourItems) {
+          await client.from('labour_lines').insert({
+            tenant_id: tenantId,
+            job_card_id: jobCardId,
+            description: `${li.description} (DVI: ${item.name})`,
+            hours: Number(li.hours) || 1,
+            rate: Number(li.rate) || 0,
+            subtotal: Math.round((Number(li.hours) || 1) * (Number(li.rate) || 0) * 100) / 100,
+          });
+        }
+
+        // Apply catalog item's parts lines
+        const partsItems = (match.parts_items ?? []) as Array<Record<string, unknown>>;
+        for (const pi of partsItems) {
+          const qty = Number(pi.quantity) || 1;
+          const cost = Number(pi.unit_cost) || 0;
+          const markup = Number(pi.markup_pct) || 0;
+          const sellPrice = Math.round(cost * (1 + markup / 100) * 100) / 100;
+          await client.from('parts_lines').insert({
+            tenant_id: tenantId,
+            job_card_id: jobCardId,
+            part_name: pi.part_name,
+            part_number: pi.part_number || null,
+            quantity: qty,
+            unit_cost: cost,
+            markup_pct: markup,
+            sell_price: sellPrice,
+            subtotal: Math.round(qty * sellPrice * 100) / 100,
+          });
+        }
+
+        convertedCount++;
+      } else {
+        // No catalog match — create a generic labour line
+        await client.from('labour_lines').insert({
+          tenant_id: tenantId,
+          job_card_id: jobCardId,
+          description: `${item.name}${item.recommendation ? ` — ${item.recommendation}` : ''}`,
+          hours: 1,
+          rate: 0,
+          subtotal: 0,
+        });
+        convertedCount++;
+      }
+    }
+
+    return { converted: convertedCount, deferred: yellowItems.length, redCount: redItems.length };
+  }
+
   // ── Public Token-Based Access ─────────────────────────────
 
   private readonly TOKEN_SECRET = process.env['SUPABASE_SERVICE_ROLE_KEY']?.slice(0, 32) ?? 'mecanix-estimate-token-secret-key';

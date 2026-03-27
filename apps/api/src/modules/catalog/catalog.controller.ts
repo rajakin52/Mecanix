@@ -81,4 +81,12 @@ export class CatalogController {
   ) {
     return this.catalogService.applyToJob(tenantId, user.id, jobId, id);
   }
+
+  @Post('seed-defaults')
+  async seedDefaults(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.catalogService.seedDefaults(tenantId, user.id);
+  }
 }

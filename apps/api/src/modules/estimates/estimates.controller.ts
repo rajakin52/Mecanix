@@ -100,6 +100,15 @@ export class EstimatesController {
     return this.estimatesService.approve(tenantId, id, body);
   }
 
+  @Post('jobs/:jobId/auto-convert-dvi')
+  async autoConvertDvi(
+    @TenantId() tenantId: string,
+    @Param('jobId') jobId: string,
+    @Body() body: { inspectionId: string },
+  ) {
+    return this.estimatesService.autoConvertDviToLines(tenantId, jobId, body.inspectionId);
+  }
+
   @Get('estimates/:id/public-link')
   async getPublicLink(@Param('id') id: string) {
     const token = this.estimatesService.generatePublicToken(id);

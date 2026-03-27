@@ -268,4 +268,190 @@ export class CatalogService {
 
     return { applied: true, labourLines: labourItems.length, partsLines: partsItems.length };
   }
+
+  /**
+   * Seed default repair catalog with standard mechanical + body items.
+   * Includes industry-standard timing estimates.
+   */
+  async seedDefaults(tenantId: string, userId: string) {
+    const defaults = [
+      // ── MAINTENANCE PACKAGES ──
+      { type: 'maintenance_package', code: 'SVC-5K', name: '5,000km Service', category: 'Service', estimatedHours: 1.0,
+        labour: [{ description: 'Oil & filter change + fluid check', hours: 1.0, rate: 0 }],
+        parts: [{ partName: 'Engine Oil 5W-30 (4L)', quantity: 1 }, { partName: 'Oil Filter', quantity: 1 }] },
+      { type: 'maintenance_package', code: 'SVC-10K', name: '10,000km Service', category: 'Service', estimatedHours: 1.5,
+        labour: [{ description: 'Oil change + air filter + brake check + fluid top-up', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Engine Oil 5W-30 (4L)', quantity: 1 }, { partName: 'Oil Filter', quantity: 1 }, { partName: 'Air Filter', quantity: 1 }] },
+      { type: 'maintenance_package', code: 'SVC-20K', name: '20,000km Service', category: 'Service', estimatedHours: 2.5,
+        labour: [{ description: 'Full service: oil, filters, spark plugs, coolant, brake inspection', hours: 2.5, rate: 0 }],
+        parts: [{ partName: 'Engine Oil (4L)', quantity: 1 }, { partName: 'Oil Filter', quantity: 1 }, { partName: 'Air Filter', quantity: 1 }, { partName: 'Spark Plugs (set)', quantity: 1 }, { partName: 'Cabin Filter', quantity: 1 }] },
+      { type: 'maintenance_package', code: 'SVC-MAJOR', name: 'Major Service', category: 'Service', estimatedHours: 5.0,
+        labour: [{ description: 'Comprehensive 50-point service with timing belt inspection', hours: 5.0, rate: 0 }],
+        parts: [] },
+      { type: 'maintenance_package', code: 'SVC-AC', name: 'A/C Service', category: 'HVAC', estimatedHours: 1.5,
+        labour: [{ description: 'A/C regas + leak check + cabin filter', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Refrigerant R134a', quantity: 1 }, { partName: 'Cabin Filter', quantity: 1 }] },
+
+      // ── BRAKES ──
+      { type: 'standard_repair', code: 'REP-BRAKE-PAD-F', name: 'Brake Pads - Front', category: 'Brakes', estimatedHours: 1.0,
+        labour: [{ description: 'Replace front brake pads', hours: 1.0, rate: 0 }],
+        parts: [{ partName: 'Front Brake Pads (set)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-BRAKE-PAD-R', name: 'Brake Pads - Rear', category: 'Brakes', estimatedHours: 1.0,
+        labour: [{ description: 'Replace rear brake pads', hours: 1.0, rate: 0 }],
+        parts: [{ partName: 'Rear Brake Pads (set)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-BRAKE-DISC-F', name: 'Brake Discs + Pads - Front', category: 'Brakes', estimatedHours: 2.0,
+        labour: [{ description: 'Replace front brake discs and pads', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Front Brake Discs (pair)', quantity: 1 }, { partName: 'Front Brake Pads (set)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-BRAKE-DISC-R', name: 'Brake Discs + Pads - Rear', category: 'Brakes', estimatedHours: 2.0,
+        labour: [{ description: 'Replace rear brake discs and pads', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Rear Brake Discs (pair)', quantity: 1 }, { partName: 'Rear Brake Pads (set)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-BRAKE-FLUID', name: 'Brake Fluid Change', category: 'Brakes', estimatedHours: 0.5,
+        labour: [{ description: 'Brake fluid flush and bleed', hours: 0.5, rate: 0 }],
+        parts: [{ partName: 'Brake Fluid DOT4 (1L)', quantity: 1 }] },
+
+      // ── ENGINE ──
+      { type: 'standard_repair', code: 'REP-TIMING-BELT', name: 'Timing Belt Replacement', category: 'Engine', estimatedHours: 4.0,
+        labour: [{ description: 'Remove and replace timing belt + tensioner', hours: 4.0, rate: 0 }],
+        parts: [{ partName: 'Timing Belt Kit', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-TIMING-CHAIN', name: 'Timing Chain Replacement', category: 'Engine', estimatedHours: 6.0,
+        labour: [{ description: 'Remove and replace timing chain + guides', hours: 6.0, rate: 0 }],
+        parts: [{ partName: 'Timing Chain Kit', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-WATERPUMP', name: 'Water Pump Replacement', category: 'Engine', estimatedHours: 3.0,
+        labour: [{ description: 'Replace water pump + coolant', hours: 3.0, rate: 0 }],
+        parts: [{ partName: 'Water Pump', quantity: 1 }, { partName: 'Coolant (5L)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-THERMOSTAT', name: 'Thermostat Replacement', category: 'Engine', estimatedHours: 1.5,
+        labour: [{ description: 'Replace thermostat + coolant top-up', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Thermostat', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-INJECT-CLEAN', name: 'Injector Cleaning', category: 'Engine', estimatedHours: 2.0,
+        labour: [{ description: 'Remove, clean, and test fuel injectors', hours: 2.0, rate: 0 }],
+        parts: [] },
+      { type: 'standard_repair', code: 'REP-HEAD-GASKET', name: 'Head Gasket Replacement', category: 'Engine', estimatedHours: 8.0,
+        labour: [{ description: 'Remove cylinder head, replace gasket, reassemble', hours: 8.0, rate: 0 }],
+        parts: [{ partName: 'Head Gasket Set', quantity: 1 }] },
+
+      // ── CLUTCH & DRIVETRAIN ──
+      { type: 'standard_repair', code: 'REP-CLUTCH', name: 'Clutch Replacement', category: 'Drivetrain', estimatedHours: 6.0,
+        labour: [{ description: 'Remove gearbox, replace clutch kit, reassemble', hours: 6.0, rate: 0 }],
+        parts: [{ partName: 'Clutch Kit (disc + pressure plate + bearing)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-CV-BOOT', name: 'CV Boot Replacement', category: 'Drivetrain', estimatedHours: 1.5,
+        labour: [{ description: 'Replace CV boot + repack grease', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'CV Boot Kit', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-DRIVESHAFT', name: 'Driveshaft Replacement', category: 'Drivetrain', estimatedHours: 2.0,
+        labour: [{ description: 'Replace driveshaft assembly', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Driveshaft Assembly', quantity: 1 }] },
+
+      // ── ELECTRICAL ──
+      { type: 'standard_repair', code: 'REP-BATTERY', name: 'Battery Replacement', category: 'Electrical', estimatedHours: 0.5,
+        labour: [{ description: 'Replace battery + terminal clean', hours: 0.5, rate: 0 }],
+        parts: [{ partName: 'Battery', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-ALTERNATOR', name: 'Alternator Replacement', category: 'Electrical', estimatedHours: 2.0,
+        labour: [{ description: 'Remove and replace alternator', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Alternator', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-STARTER', name: 'Starter Motor Replacement', category: 'Electrical', estimatedHours: 1.5,
+        labour: [{ description: 'Remove and replace starter motor', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Starter Motor', quantity: 1 }] },
+
+      // ── SUSPENSION ──
+      { type: 'standard_repair', code: 'REP-SHOCK-F', name: 'Shock Absorbers - Front (pair)', category: 'Suspension', estimatedHours: 2.0,
+        labour: [{ description: 'Replace front shock absorbers', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Front Shock Absorbers (pair)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-SHOCK-R', name: 'Shock Absorbers - Rear (pair)', category: 'Suspension', estimatedHours: 1.5,
+        labour: [{ description: 'Replace rear shock absorbers', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Rear Shock Absorbers (pair)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-BALLJOINT', name: 'Ball Joint Replacement', category: 'Suspension', estimatedHours: 1.5,
+        labour: [{ description: 'Replace ball joint + alignment check', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Ball Joint', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-TIEROD', name: 'Tie Rod End Replacement', category: 'Suspension', estimatedHours: 1.0,
+        labour: [{ description: 'Replace tie rod end + alignment', hours: 1.0, rate: 0 }],
+        parts: [{ partName: 'Tie Rod End', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-WHEEL-ALIGN', name: 'Wheel Alignment', category: 'Suspension', estimatedHours: 1.0,
+        labour: [{ description: 'Four-wheel alignment', hours: 1.0, rate: 0 }],
+        parts: [] },
+      { type: 'standard_repair', code: 'REP-WHEEL-BALANCE', name: 'Wheel Balancing (4 wheels)', category: 'Tires', estimatedHours: 0.5,
+        labour: [{ description: 'Balance all four wheels', hours: 0.5, rate: 0 }],
+        parts: [] },
+
+      // ── EXHAUST ──
+      { type: 'standard_repair', code: 'REP-EXHAUST-MUFFLER', name: 'Muffler/Silencer Replacement', category: 'Exhaust', estimatedHours: 1.5,
+        labour: [{ description: 'Replace exhaust muffler/silencer', hours: 1.5, rate: 0 }],
+        parts: [{ partName: 'Exhaust Muffler', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-CATALYTIC', name: 'Catalytic Converter Replacement', category: 'Exhaust', estimatedHours: 2.0,
+        labour: [{ description: 'Replace catalytic converter', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Catalytic Converter', quantity: 1 }] },
+
+      // ── BODY ──
+      { type: 'standard_repair', code: 'REP-WIPER', name: 'Wiper Blades Replacement', category: 'Body', estimatedHours: 0.3,
+        labour: [{ description: 'Replace wiper blades', hours: 0.3, rate: 0 }],
+        parts: [{ partName: 'Wiper Blades (set)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-HEADLIGHT', name: 'Headlight Bulb Replacement', category: 'Body', estimatedHours: 0.5,
+        labour: [{ description: 'Replace headlight bulb', hours: 0.5, rate: 0 }],
+        parts: [{ partName: 'Headlight Bulb', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-WINDSCREEN', name: 'Windscreen Replacement', category: 'Body', estimatedHours: 2.0,
+        labour: [{ description: 'Remove and replace windscreen', hours: 2.0, rate: 0 }],
+        parts: [{ partName: 'Windscreen', quantity: 1 }] },
+      { type: 'standard_repair', code: 'REP-MIRROR', name: 'Side Mirror Replacement', category: 'Body', estimatedHours: 0.5,
+        labour: [{ description: 'Replace side mirror', hours: 0.5, rate: 0 }],
+        parts: [{ partName: 'Side Mirror', quantity: 1 }] },
+
+      // ── BODY REPAIR (Collision/Paint) ──
+      { type: 'standard_repair', code: 'BODY-DENT-S', name: 'Dent Repair - Small', category: 'Body Repair', estimatedHours: 2.0,
+        labour: [{ description: 'Small dent removal + touch-up paint', hours: 2.0, rate: 0 }],
+        parts: [] },
+      { type: 'standard_repair', code: 'BODY-DENT-L', name: 'Dent Repair - Large', category: 'Body Repair', estimatedHours: 4.0,
+        labour: [{ description: 'Large dent repair with filler + repaint', hours: 4.0, rate: 0 }],
+        parts: [{ partName: 'Body Filler', quantity: 1 }, { partName: 'Paint (matched)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'BODY-SCRATCH', name: 'Scratch Repair', category: 'Body Repair', estimatedHours: 1.5,
+        labour: [{ description: 'Scratch polish + touch-up', hours: 1.5, rate: 0 }],
+        parts: [] },
+      { type: 'standard_repair', code: 'BODY-BUMPER-F', name: 'Front Bumper Repair', category: 'Body Repair', estimatedHours: 3.0,
+        labour: [{ description: 'Repair + respray front bumper', hours: 3.0, rate: 0 }],
+        parts: [{ partName: 'Paint (matched)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'BODY-BUMPER-R', name: 'Rear Bumper Repair', category: 'Body Repair', estimatedHours: 3.0,
+        labour: [{ description: 'Repair + respray rear bumper', hours: 3.0, rate: 0 }],
+        parts: [{ partName: 'Paint (matched)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'BODY-FENDER', name: 'Fender Repair', category: 'Body Repair', estimatedHours: 4.0,
+        labour: [{ description: 'Fender repair + repaint', hours: 4.0, rate: 0 }],
+        parts: [{ partName: 'Body Filler', quantity: 1 }, { partName: 'Paint (matched)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'BODY-DOOR', name: 'Door Panel Repair', category: 'Body Repair', estimatedHours: 5.0,
+        labour: [{ description: 'Door panel repair + repaint', hours: 5.0, rate: 0 }],
+        parts: [{ partName: 'Paint (matched)', quantity: 1 }] },
+      { type: 'standard_repair', code: 'BODY-FULL-REPAINT', name: 'Full Vehicle Respray', category: 'Body Repair', estimatedHours: 40.0,
+        labour: [{ description: 'Full vehicle strip, prep, prime, and repaint', hours: 40.0, rate: 0 }],
+        parts: [{ partName: 'Primer (5L)', quantity: 2 }, { partName: 'Base Coat Paint (5L)', quantity: 3 }, { partName: 'Clear Coat (5L)', quantity: 2 }] },
+
+      // ── COOLING ──
+      { type: 'standard_repair', code: 'REP-RADIATOR', name: 'Radiator Replacement', category: 'Engine', estimatedHours: 2.5,
+        labour: [{ description: 'Drain coolant, replace radiator, refill', hours: 2.5, rate: 0 }],
+        parts: [{ partName: 'Radiator', quantity: 1 }, { partName: 'Coolant (5L)', quantity: 1 }] },
+
+      // ── DIAGNOSTICS ──
+      { type: 'standard_repair', code: 'DIAG-GENERAL', name: 'General Diagnostic', category: 'Diagnostics', estimatedHours: 1.0,
+        labour: [{ description: 'OBD scan + visual inspection + test drive', hours: 1.0, rate: 0 }],
+        parts: [] },
+      { type: 'standard_repair', code: 'DIAG-ELECTRICAL', name: 'Electrical Diagnostic', category: 'Diagnostics', estimatedHours: 1.5,
+        labour: [{ description: 'Electrical system diagnostic + wiring check', hours: 1.5, rate: 0 }],
+        parts: [] },
+    ];
+
+    let created = 0;
+    for (const item of defaults) {
+      try {
+        await this.create(tenantId, userId, {
+          type: item.type as 'maintenance_package' | 'standard_repair',
+          code: item.code,
+          name: item.name,
+          category: item.category,
+          estimatedHours: item.estimatedHours,
+          quickAccess: false,
+          labourItems: item.labour.map((l) => ({ description: l.description, hours: l.hours, rate: l.rate })),
+          partsItems: item.parts.map((p) => ({ partName: p.partName, quantity: p.quantity, unitCost: 0, markupPct: 0 })),
+        });
+        created++;
+      } catch {
+        // Skip duplicates
+      }
+    }
+
+    return { seeded: created, total: defaults.length };
+  }
 }
