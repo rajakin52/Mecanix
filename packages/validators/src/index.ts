@@ -21,3 +21,4 @@ export * from './marketing';
 export * from './upsell';
 export * from './cash-register';
 export * from './pricing';
+export * from './catalog';

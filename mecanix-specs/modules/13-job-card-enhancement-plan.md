@@ -189,6 +189,14 @@ Common repair operations with estimated time and standard parts:
 5. Confirms — lines are created on the job card
 6. Can apply multiple catalog items to one job
 
+### Quick Access Menu
+
+Workshop admin flags which catalog items appear in the "Quick Access" section on the job card via a `quick_access` boolean toggle in catalog settings. These items show as **checkboxes** for one-tap selection when adding services to a job. All other items are available via a searchable dropdown grouped by category.
+
+```sql
+ALTER TABLE repair_catalog ADD COLUMN quick_access boolean NOT NULL DEFAULT false;
+```
+
 ### Vehicle-Specific Considerations
 
 - Optional `vehicle_types` filter on catalog items (e.g. "only for diesel vehicles")

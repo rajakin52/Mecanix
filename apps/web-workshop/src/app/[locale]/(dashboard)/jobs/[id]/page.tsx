@@ -17,6 +17,7 @@ import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
+import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
 
 const STATUS_COLORS: Record<string, string> = {
   received: 'bg-gray-100 text-gray-700',
@@ -554,6 +555,40 @@ export default function JobDetailPage() {
   const [gpError, setGpError] = useState<string | null>(null);
 
   // Labour lines
+  // Catalog / Service picker
+  const { data: quickAccessItems } = useCatalogItems(undefined, undefined, true);
+  const { data: allCatalogItems } = useCatalogItems();
+  const applyCatalog = useApplyCatalogToJob();
+  const [showServicePicker, setShowServicePicker] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [applyingServices, setApplyingServices] = useState(false);
+
+  const quickItems = Array.isArray(quickAccessItems) ? quickAccessItems : [];
+  const allItems = Array.isArray(allCatalogItems) ? allCatalogItems : [];
+  const browseItems = allItems.filter((i) => !i.quick_access && (!catalogSearch || i.name.toLowerCase().includes(catalogSearch.toLowerCase())));
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleApplyServices = async () => {
+    if (selectedServices.size === 0) return;
+    setApplyingServices(true);
+    try {
+      for (const catalogId of selectedServices) {
+        await applyCatalog.mutateAsync({ catalogId, jobId: id });
+      }
+      setSelectedServices(new Set());
+      setShowServicePicker(false);
+    } catch { /* handled */ }
+    setApplyingServices(false);
+  };
+
   const { data: labourLines } = useLabourLines(id);
   const createLabour = useCreateLabourLine();
   const [showLabourForm, setShowLabourForm] = useState(false);
@@ -787,6 +822,98 @@ export default function JobDetailPage() {
         jobCardId={id}
         vehicleId={(typedJob.vehicle_id as string) ?? ''}
       />
+
+      {/* ── Add Services from Catalog ── */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Add Services</h2>
+          <button
+            onClick={() => setShowServicePicker(!showServicePicker)}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {showServicePicker ? 'Close' : 'Browse Catalog'}
+          </button>
+        </div>
+
+        {/* Quick Access Checkboxes */}
+        {quickItems.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">Quick Access</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {quickItems.map((item) => (
+                <label key={item.id} className={`flex items-center gap-3 rounded-md border px-3 py-2.5 cursor-pointer transition-colors ${
+                  selectedServices.has(item.id) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedServices.has(item.id)}
+                    onChange={() => toggleService(item.id)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                    {item.estimated_hours && <span className="ms-1 text-xs text-gray-400">{item.estimated_hours}h</span>}
+                  </div>
+                  <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${
+                    item.type === 'maintenance_package' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                  }`}>
+                    {item.type === 'maintenance_package' ? 'Pkg' : 'Repair'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Browse all — expanded */}
+        {showServicePicker && (
+          <div className="border-t border-gray-100 pt-4">
+            <input
+              value={catalogSearch}
+              onChange={(e) => setCatalogSearch(e.target.value)}
+              placeholder="Search all services..."
+              className="mb-3 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <div className="max-h-60 overflow-y-auto space-y-1">
+              {browseItems.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No additional items found</p>
+              ) : (
+                browseItems.map((item) => (
+                  <label key={item.id} className={`flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer transition-colors ${
+                    selectedServices.has(item.id) ? 'border-primary-500 bg-primary-50' : 'border-gray-100 hover:border-gray-200'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={selectedServices.has(item.id)}
+                      onChange={() => toggleService(item.id)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                      {item.category && <span className="ms-2 text-xs text-gray-400">{item.category}</span>}
+                    </div>
+                    <span className="text-xs text-gray-400">{item.labour_items?.length ?? 0}L / {item.parts_items?.length ?? 0}P</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Apply button */}
+        {selectedServices.size > 0 && (
+          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+            <span className="text-sm text-gray-600">{selectedServices.size} service{selectedServices.size > 1 ? 's' : ''} selected</span>
+            <button
+              onClick={handleApplyServices}
+              disabled={applyingServices}
+              className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {applyingServices ? tc('loading') : `Apply to Job Card`}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Labour Lines */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

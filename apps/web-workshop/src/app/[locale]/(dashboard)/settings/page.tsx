@@ -149,6 +149,20 @@ export default function SettingsPage() {
       <h1 className="text-3xl font-bold text-gray-900">{t('settings')}</h1>
 
       <div className="mt-8 max-w-2xl space-y-8">
+        {/* Repair Catalog Link */}
+        <Link
+          href="/settings/catalog"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Repair Catalog</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Maintenance packages, standard repairs, and quick access items
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">&rarr;</span>
+        </Link>
+
         {/* Pricing Link */}
         <Link
           href="/settings/pricing"
