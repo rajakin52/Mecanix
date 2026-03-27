@@ -98,15 +98,49 @@ export default function JobDetailScreen() {
 
   useEffect(() => { fetchJob(); }, [fetchJob]);
 
+  // Selective approval state
+  const [selectedLines, setSelectedLines] = useState<Set<number>>(new Set());
+  const [selectAll, setSelectAll] = useState(true);
+
+  const toggleLine = (index: number) => {
+    setSelectedLines((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+    setSelectAll(false);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedLines(new Set());
+      setSelectAll(false);
+    } else {
+      const totalLines = (job?.labour_lines?.length ?? 0) + (job?.parts_lines?.length ?? 0);
+      setSelectedLines(new Set(Array.from({ length: totalLines }, (_, i) => i)));
+      setSelectAll(true);
+    }
+  };
+
   const handleApprove = () => {
-    Alert.alert(t('jobDetail.approveQuote'), t('jobDetail.approveConfirm'), [
+    const totalLines = (job?.labour_lines?.length ?? 0) + (job?.parts_lines?.length ?? 0);
+    const approvedCount = selectAll ? totalLines : selectedLines.size;
+    const msg = approvedCount === totalLines
+      ? t('jobDetail.approveConfirm')
+      : `Approve ${approvedCount} of ${totalLines} items?`;
+
+    Alert.alert(t('jobDetail.approveQuote'), msg, [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
         onPress: async () => {
           setActionLoading(true);
           try {
-            await apiPost(`/jobs/${params.jobId}/status`, { status: 'in_progress', notes: 'Approved by customer' });
+            const notes = selectAll
+              ? 'Approved all items by customer'
+              : `Approved ${approvedCount}/${totalLines} items by customer`;
+            await apiPost(`/jobs/${params.jobId}/status`, { status: 'in_progress', notes });
             await fetchJob();
             Alert.alert(t('common.success'), t('jobDetail.approveSuccess'));
           } catch {
@@ -172,18 +206,70 @@ export default function JobDetailScreen() {
         {/* Animated Repair Tracker */}
         <RepairTracker currentStatus={job.status} />
 
-        {/* Tiered Quote Approval */}
+        {/* Estimate Approval — Selective Line Items */}
         {isAwaitingApproval && (
-          <TieredQuote
-            labourLines={job.labour_lines}
-            partsLines={job.parts_lines}
-            labourTotal={job.labour_total}
-            partsTotal={job.parts_total}
-            taxAmount={job.tax_amount}
-            grandTotal={job.grand_total}
-            onSelectTier={(_tier) => handleApprove()}
-            actionLoading={actionLoading}
-          />
+          <View style={styles.approvalCard}>
+            <Text style={styles.approvalTitle}>{t('jobDetail.approveQuote')}</Text>
+
+            {/* Select all toggle */}
+            <TouchableOpacity style={styles.selectAllRow} onPress={handleSelectAll}>
+              <View style={[styles.checkbox, selectAll && styles.checkboxChecked]}>
+                {selectAll && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+              </View>
+              <Text style={styles.selectAllText}>Select All</Text>
+            </TouchableOpacity>
+
+            {/* Labour lines */}
+            {job.labour_lines?.map((line: Record<string, unknown>, idx: number) => (
+              <TouchableOpacity key={`l-${idx}`} style={styles.lineItem} onPress={() => toggleLine(idx)}>
+                <View style={[styles.checkbox, (selectAll || selectedLines.has(idx)) && styles.checkboxChecked]}>
+                  {(selectAll || selectedLines.has(idx)) && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lineDesc}>{line.description as string}</Text>
+                  <Text style={styles.lineMeta}>{Number(line.hours)}h</Text>
+                </View>
+                <Text style={styles.lineAmount}>{Number(line.subtotal).toFixed(2)}</Text>
+              </TouchableOpacity>
+            ))}
+
+            {/* Parts lines */}
+            {job.parts_lines?.map((line: Record<string, unknown>, idx: number) => {
+              const lineIdx = (job.labour_lines?.length ?? 0) + idx;
+              return (
+                <TouchableOpacity key={`p-${idx}`} style={styles.lineItem} onPress={() => toggleLine(lineIdx)}>
+                  <View style={[styles.checkbox, (selectAll || selectedLines.has(lineIdx)) && styles.checkboxChecked]}>
+                    {(selectAll || selectedLines.has(lineIdx)) && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lineDesc}>{line.part_name as string}</Text>
+                    <Text style={styles.lineMeta}>x{Number(line.quantity)}</Text>
+                  </View>
+                  <Text style={styles.lineAmount}>{Number(line.subtotal).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Total */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>TOTAL</Text>
+              <Text style={styles.totalAmount}>{Number(job.grand_total).toFixed(2)}</Text>
+            </View>
+
+            {/* Action buttons */}
+            <TouchableOpacity
+              style={[styles.approveBtn, actionLoading && { opacity: 0.5 }]}
+              onPress={handleApprove}
+              disabled={actionLoading || (!selectAll && selectedLines.size === 0)}
+            >
+              <Text style={styles.approveBtnText}>
+                {actionLoading ? t('common.loading') : t('jobDetail.approveQuote')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} disabled={actionLoading}>
+              <Text style={styles.rejectBtnText}>{t('jobDetail.rejectQuote')}</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Vehicle */}
@@ -321,4 +407,22 @@ const styles = StyleSheet.create({
   grandTotalRow: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E5EA' },
   grandTotalLabel: { fontSize: 16, fontWeight: '700', color: '#1C1C1E' },
   grandTotalValue: { fontSize: 18, fontWeight: '800', color: '#1C1C1E' },
+
+  // Approval
+  approvalCard: { backgroundColor: '#FFF8E1', borderRadius: 16, padding: 20, margin: 16, marginTop: 0 },
+  approvalTitle: { fontSize: 18, fontWeight: '800', color: '#E65100', marginBottom: 12 },
+  selectAllRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#FFE0B2' },
+  selectAllText: { fontSize: 15, fontWeight: '600', color: '#E65100' },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#FFB74D', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  checkboxChecked: { backgroundColor: '#FF9800', borderColor: '#FF9800' },
+  checkmark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  lineItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#FFE0B2' },
+  lineDesc: { fontSize: 14, fontWeight: '500', color: '#1C1C1E' },
+  lineMeta: { fontSize: 12, color: '#8E8E93' },
+  lineAmount: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  totalAmount: { fontSize: 20, fontWeight: '900', color: '#E65100' },
+  approveBtn: { backgroundColor: '#4CAF50', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
+  approveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  rejectBtn: { borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#E5E5EA' },
+  rejectBtnText: { color: '#D32F2F', fontSize: 15, fontWeight: '600' },
 });

@@ -118,6 +118,43 @@ export default function InspectionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
 
+  // DVI Traffic Light Items
+  const [dviItems, setDviItems] = useState([
+    { name: 'Brake Pads - Front', category: 'brakes', status: 'not_inspected', notes: '' },
+    { name: 'Brake Pads - Rear', category: 'brakes', status: 'not_inspected', notes: '' },
+    { name: 'Brake Discs', category: 'brakes', status: 'not_inspected', notes: '' },
+    { name: 'Brake Fluid', category: 'brakes', status: 'not_inspected', notes: '' },
+    { name: 'Engine Oil', category: 'engine', status: 'not_inspected', notes: '' },
+    { name: 'Coolant', category: 'engine', status: 'not_inspected', notes: '' },
+    { name: 'Drive Belts', category: 'engine', status: 'not_inspected', notes: '' },
+    { name: 'Air Filter', category: 'engine', status: 'not_inspected', notes: '' },
+    { name: 'Battery', category: 'electrical', status: 'not_inspected', notes: '' },
+    { name: 'Shocks - Front', category: 'suspension', status: 'not_inspected', notes: '' },
+    { name: 'Shocks - Rear', category: 'suspension', status: 'not_inspected', notes: '' },
+    { name: 'Steering', category: 'suspension', status: 'not_inspected', notes: '' },
+    { name: 'Tires - FL', category: 'tires', status: 'not_inspected', notes: '' },
+    { name: 'Tires - FR', category: 'tires', status: 'not_inspected', notes: '' },
+    { name: 'Tires - RL', category: 'tires', status: 'not_inspected', notes: '' },
+    { name: 'Tires - RR', category: 'tires', status: 'not_inspected', notes: '' },
+    { name: 'Headlights', category: 'lights', status: 'not_inspected', notes: '' },
+    { name: 'Tail/Brake Lights', category: 'lights', status: 'not_inspected', notes: '' },
+    { name: 'Wipers', category: 'body', status: 'not_inspected', notes: '' },
+    { name: 'A/C System', category: 'hvac', status: 'not_inspected', notes: '' },
+    { name: 'Exhaust', category: 'exhaust', status: 'not_inspected', notes: '' },
+  ]);
+
+  const setDviStatus = (index: number, status: string) => {
+    setDviItems((prev) => prev.map((item, i) =>
+      i === index ? { ...item, status: item.status === status ? 'not_inspected' : status } : item,
+    ));
+  };
+
+  const setDviNotes = (index: number, notes: string) => {
+    setDviItems((prev) => prev.map((item, i) =>
+      i === index ? { ...item, notes } : item,
+    ));
+  };
+
   const capturePhoto = async (angle: PhotoAngle) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -230,6 +267,10 @@ export default function InspectionScreen() {
       if (personalItems.trim()) body.personalItems = personalItems.trim();
       if (notes.trim()) body.notes = notes.trim();
       if (signatureData) body.customerSignature = signatureData;
+
+      // DVI items
+      const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
+      if (inspectedDvi.length > 0) body.dviItems = inspectedDvi;
 
       // Note: photos array is stored separately in the DB photos column
       // The backend inspection service would need a minor update to accept photos
@@ -368,6 +409,99 @@ export default function InspectionScreen() {
         <View style={{ paddingHorizontal: 16 }}>
           <CarDamageDiagram damages={damages} onDamagesChange={setDamages} />
         </View>
+        </CollapsibleSection>
+
+        {/* ─── DVI TRAFFIC LIGHT INSPECTION ─── */}
+        <CollapsibleSection
+          title="Vehicle Inspection (DVI)"
+          defaultOpen={true}
+          badge={`${dviItems.filter((i) => i.status !== 'not_inspected').length}/${dviItems.length}`}
+        >
+          <View style={{ paddingHorizontal: 16 }}>
+            {/* Legend */}
+            <View style={{ flexDirection: 'row', gap: 16, marginBottom: 12, justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#4CAF50' }} />
+                <Text style={{ fontSize: 11, color: '#636366' }}>Good</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF9800' }} />
+                <Text style={{ fontSize: 11, color: '#636366' }}>Monitor</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#F44336' }} />
+                <Text style={{ fontSize: 11, color: '#636366' }}>Urgent</Text>
+              </View>
+            </View>
+
+            {/* Items grouped by category */}
+            {[...new Set(dviItems.map((i) => i.category))].map((cat) => (
+              <View key={cat} style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                  {cat}
+                </Text>
+                {dviItems.map((item, idx) => {
+                  if (item.category !== cat) return null;
+                  const bgColor = item.status === 'green' ? '#E8F5E9' : item.status === 'yellow' ? '#FFF3E0' : item.status === 'red' ? '#FFEBEE' : '#F5F5F7';
+                  const textColor = item.status === 'green' ? '#2E7D32' : item.status === 'yellow' ? '#E65100' : item.status === 'red' ? '#C62828' : '#636366';
+                  return (
+                    <View key={idx} style={{ backgroundColor: bgColor, borderRadius: 8, padding: 10, marginBottom: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: textColor, flex: 1 }}>{item.name}</Text>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {(['green', 'yellow', 'red'] as const).map((s) => (
+                            <TouchableOpacity
+                              key={s}
+                              onPress={() => setDviStatus(idx, s)}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: s === 'green' ? '#4CAF50' : s === 'yellow' ? '#FF9800' : '#F44336',
+                                opacity: item.status === s ? 1 : 0.25,
+                                borderWidth: item.status === s ? 3 : 0,
+                                borderColor: '#fff',
+                              }}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      {(item.status === 'yellow' || item.status === 'red') && (
+                        <TextInput
+                          value={item.notes}
+                          onChangeText={(text) => setDviNotes(idx, text)}
+                          placeholder="Notes..."
+                          placeholderTextColor="#8E8E93"
+                          style={{
+                            marginTop: 6,
+                            backgroundColor: '#fff',
+                            borderRadius: 6,
+                            padding: 8,
+                            fontSize: 13,
+                            borderWidth: 1,
+                            borderColor: '#E5E5EA',
+                          }}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+
+            {/* Summary */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#4CAF50' }}>
+                {dviItems.filter((i) => i.status === 'green').length} Good
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF9800' }}>
+                {dviItems.filter((i) => i.status === 'yellow').length} Monitor
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#F44336' }}>
+                {dviItems.filter((i) => i.status === 'red').length} Urgent
+              </Text>
+            </View>
+          </View>
         </CollapsibleSection>
 
         {/* ─── SECTION 3: VEHICLE DETAILS ─── */}
