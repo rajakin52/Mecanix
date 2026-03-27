@@ -110,12 +110,11 @@ export default function JobsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
-        <button
-          onClick={() => setShowModal(true)}
+        <Link href="/jobs/new"
           className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
         >
           {t('newJob')}
-        </button>
+        </Link>
       </div>
 
       {successMsg && (
