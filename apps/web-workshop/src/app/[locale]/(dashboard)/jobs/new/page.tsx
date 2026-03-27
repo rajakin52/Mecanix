@@ -578,13 +578,35 @@ export default function NewJobWizard() {
         )}
 
         {/* ── STEP: Repair Items ── */}
-        {step === 'repairs' && (
+        {step === 'repairs' && (() => {
+          const BODY_CATEGORIES = ['Body Repair'];
+          const isMech = (cat: string | null) => !cat || !BODY_CATEGORIES.includes(cat);
+          const isBody = (cat: string | null) => cat ? BODY_CATEGORIES.includes(cat) : false;
+
+          return (
           <div className="space-y-6">
-            {quickCatalog.length > 0 && (
+            {/* Mechanical / Body toggle */}
+            <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+              <button onClick={() => setPlateSearch('mechanical')}
+                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+                  plateSearch !== 'body' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                Mechanical
+              </button>
+              <button onClick={() => setPlateSearch('body')}
+                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+                  plateSearch === 'body' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                Body Shop
+              </button>
+            </div>
+
+            {/* Quick Access */}
+            {quickCatalog.filter((i) => plateSearch === 'body' ? isBody(i.category) : isMech(i.category)).length > 0 && (
               <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-3">Quick Access</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {quickCatalog.map((item) => (
+                  {quickCatalog.filter((i) => plateSearch === 'body' ? isBody(i.category) : isMech(i.category)).map((item) => (
                     <label key={item.id} className={`flex items-center gap-3 rounded-lg border-2 px-4 py-3 cursor-pointer transition-colors ${
                       selectedCatalogIds.has(item.id) ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
                     }`}>
@@ -600,19 +622,32 @@ export default function NewJobWizard() {
               </div>
             )}
 
+            {/* All Services (filtered) */}
             <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900 mb-3">All Services</h3>
-              <div className="max-h-60 overflow-y-auto space-y-1">
-                {allCatalog.filter((i) => !i.quick_access).map((item) => (
-                  <label key={item.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer ${
+              <h3 className="text-lg font-bold text-gray-900 mb-3">
+                {plateSearch === 'body' ? 'Body Shop Services' : 'Mechanical Services'}
+              </h3>
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {allCatalog
+                  .filter((i) => !i.quick_access)
+                  .filter((i) => plateSearch === 'body' ? isBody(i.category) : isMech(i.category))
+                  .map((item) => (
+                  <label key={item.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
                     selectedCatalogIds.has(item.id) ? 'border-primary-400 bg-primary-50' : 'border-gray-100 hover:border-gray-200'
                   }`}>
                     <input type="checkbox" checked={selectedCatalogIds.has(item.id)} onChange={() => toggleCatalog(item.id)}
                       className="rounded border-gray-300 text-primary-600" />
-                    <span className="text-sm text-gray-900">{item.name}</span>
-                    {item.category && <span className="text-xs text-gray-400 ms-auto">{item.category}</span>}
+                    <span className="text-sm text-gray-900 flex-1">{item.name}</span>
+                    {item.estimated_hours && <span className="text-xs text-gray-400">{item.estimated_hours}h</span>}
+                    {item.category && <span className="text-xs text-gray-300 ms-1">{item.category}</span>}
                   </label>
                 ))}
+                {allCatalog
+                  .filter((i) => !i.quick_access)
+                  .filter((i) => plateSearch === 'body' ? isBody(i.category) : isMech(i.category))
+                  .length === 0 && (
+                  <p className="text-sm text-gray-500 py-4 text-center">No items in this category</p>
+                )}
               </div>
             </div>
 
@@ -622,7 +657,8 @@ export default function NewJobWizard() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── STEP: Review ── */}
         {step === 'review' && (
