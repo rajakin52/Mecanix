@@ -130,6 +130,21 @@ export class JobsService {
   async create(tenantId: string, userId: string, input: CreateJobCardInput) {
     const client = this.supabase.getClient();
 
+    // Validate: only one active job card per vehicle
+    const { data: existingJobs } = await client
+      .from('job_cards')
+      .select('id, job_number, status')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', input.vehicleId)
+      .not('status', 'in', '("invoiced","cancelled")')
+      .limit(1);
+
+    if (existingJobs && existingJobs.length > 0) {
+      throw new BadRequestException(
+        `Vehicle already has an active job card: ${existingJobs[0]!.job_number} (status: ${existingJobs[0]!.status}). Only one active job card per vehicle is allowed.`,
+      );
+    }
+
     // Generate job number via RPC
     const { data: jobNumber, error: rpcError } = await client.rpc(
       'generate_job_number',
@@ -204,6 +219,23 @@ export class JobsService {
     }
 
     const client = this.supabase.getClient();
+
+    // Block progression from 'received' unless inspection exists
+    if (currentStatus === 'received' && newStatus !== 'received') {
+      const { data: inspection } = await client
+        .from('vehicle_inspections')
+        .select('id')
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId)
+        .limit(1)
+        .maybeSingle();
+
+      if (!inspection) {
+        throw new BadRequestException(
+          'Vehicle inspection is required before the job can progress. Complete the inspection first.',
+        );
+      }
+    }
 
     const updateData: Record<string, unknown> = {
       status: newStatus,

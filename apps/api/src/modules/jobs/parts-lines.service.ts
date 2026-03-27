@@ -120,24 +120,38 @@ export class PartsLinesService {
         .limit(1)
         .maybeSingle();
 
-      if (part && Number(part.stock_qty) >= input.quantity) {
-        const newQty = Number(part.stock_qty) - input.quantity;
+      if (part) {
+        const currentQty = Number(part.stock_qty);
+        const newQty = Math.max(0, currentQty - input.quantity);
         await this.supabase.getClient()
           .from('parts')
           .update({ stock_qty: newQty })
           .eq('id', part.id)
           .eq('tenant_id', tenantId);
 
-        // Record inventory adjustment
+        // Get vehicle plate for reclassification reference
+        const { data: job } = await this.supabase.getClient()
+          .from('job_cards')
+          .select('vehicle:vehicles(plate)')
+          .eq('id', jobCardId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        const vehicleData = job?.vehicle as unknown;
+        const plate = (vehicleData && typeof vehicleData === 'object' && 'plate' in (vehicleData as Record<string, unknown>))
+          ? String((vehicleData as Record<string, unknown>).plate)
+          : '';
+
+        // Record inventory adjustment — reclassification: Garage Stock → Vehicle
         await this.supabase.getClient()
           .from('inventory_adjustments')
           .insert({
             tenant_id: tenantId,
             part_id: part.id,
             quantity_change: -input.quantity,
-            quantity_before: part.stock_qty,
+            quantity_before: currentQty,
             quantity_after: newQty,
-            reason: 'Issued to job card',
+            reason: `Reclassification: Garage Stock → ${plate}`,
             reference: jobCardId,
           });
       }
