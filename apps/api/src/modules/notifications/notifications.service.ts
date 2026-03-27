@@ -171,6 +171,137 @@ export class NotificationsService {
     return this.whatsapp.sendText(phone, message);
   }
 
+  // ── Estimate Notifications ────────────────────────────────
+
+  /**
+   * Send estimate for approval via selected channels.
+   */
+  async sendEstimate(
+    tenantId: string,
+    estimateId: string,
+    channels: string[],
+  ) {
+    const client = this.supabase.getClient();
+
+    // Get estimate with job + customer details
+    const { data: estimate } = await client
+      .from('estimates')
+      .select('*, job_card:job_cards(*, customer:customers(*), vehicle:vehicles(*))')
+      .eq('id', estimateId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!estimate) return { sent: false, error: 'Estimate not found' };
+
+    const job = estimate.job_card as Record<string, unknown>;
+    const customer = job?.customer as Record<string, unknown>;
+    const vehicle = job?.vehicle as Record<string, unknown>;
+
+    if (!customer) return { sent: false, error: 'No customer on job card' };
+
+    const results: Array<{ channel: string; success: boolean; messageId?: string }> = [];
+
+    // WhatsApp
+    if (channels.includes('whatsapp') && customer.phone) {
+      const phone = customer.phone as string;
+      const vehicleName = vehicle ? `${vehicle.plate} ${vehicle.make} ${vehicle.model}` : '';
+      const total = Number(estimate.grand_total).toFixed(2);
+
+      const bodyText = [
+        `Estimate ${estimate.estimate_number}`,
+        vehicleName ? `Vehicle: ${vehicleName}` : '',
+        '',
+        `Total: ${total} Kz`,
+        estimate.valid_until ? `Valid until: ${new Date(estimate.valid_until as string).toLocaleDateString()}` : '',
+        '',
+        estimate.is_revision && estimate.change_summary ? `Note: ${estimate.change_summary}` : '',
+      ].filter(Boolean).join('\n');
+
+      try {
+        const result = await this.whatsapp.sendInteractiveButtons(
+          phone,
+          bodyText,
+          [
+            { id: `approve_${estimateId}`, title: 'Aprovar' },
+            { id: `reject_${estimateId}`, title: 'Rejeitar' },
+          ],
+          'MECANIX',
+          'Respond to approve or reject this estimate',
+        );
+
+        results.push({
+          channel: 'whatsapp',
+          success: result?.success ?? false,
+          messageId: result?.messageId,
+        });
+
+        // Log delivery
+        await client.from('estimate_delivery_log').insert({
+          tenant_id: tenantId,
+          estimate_id: estimateId,
+          channel: 'whatsapp',
+          recipient: phone,
+          status: result?.success ? 'sent' : 'failed',
+          message_id: result?.messageId ?? null,
+          sent_at: new Date().toISOString(),
+          error_message: result?.success ? null : JSON.stringify(result?.error),
+        });
+      } catch (e) {
+        results.push({ channel: 'whatsapp', success: false });
+        this.logger.warn(`WhatsApp estimate send failed: ${e}`);
+      }
+    }
+
+    // Push notification
+    if (channels.includes('push')) {
+      try {
+        await this.push.sendToCustomer(tenantId, customer.id as string, {
+          title: 'New Estimate Ready',
+          body: `Estimate ${estimate.estimate_number} — ${Number(estimate.grand_total).toFixed(2)} Kz`,
+          data: { type: 'estimate', estimateId, jobId: job.id as string },
+        });
+        results.push({ channel: 'push', success: true });
+
+        await client.from('estimate_delivery_log').insert({
+          tenant_id: tenantId,
+          estimate_id: estimateId,
+          channel: 'push',
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        results.push({ channel: 'push', success: false });
+        this.logger.warn(`Push estimate send failed: ${e}`);
+      }
+    }
+
+    // Print (just log it)
+    if (channels.includes('print')) {
+      results.push({ channel: 'print', success: true });
+      await client.from('estimate_delivery_log').insert({
+        tenant_id: tenantId,
+        estimate_id: estimateId,
+        channel: 'print',
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+      });
+    }
+
+    // Update estimate status to sent
+    await client
+      .from('estimates')
+      .update({
+        status: 'sent',
+        approval_channels: channels,
+        sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', estimateId)
+      .eq('tenant_id', tenantId);
+
+    return { sent: true, results };
+  }
+
   /** Get notification history for a job */
   async getHistory(_tenantId: string, _jobCardId: string) {
     // For MVP, we don't persist notification history in DB

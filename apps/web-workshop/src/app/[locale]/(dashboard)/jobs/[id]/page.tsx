@@ -1094,6 +1094,13 @@ export default function JobDetailPage() {
                       {est.status === 'draft' && (
                         <>
                           <button
+                            onClick={() => sendEstimate.mutate({ id: est.id, channels: ['whatsapp', 'push'] })}
+                            className="rounded-md bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700"
+                            title="Send via WhatsApp + Push"
+                          >
+                            Send WhatsApp
+                          </button>
+                          <button
                             onClick={() => sendEstimate.mutate({ id: est.id, channels: ['print'] })}
                             className="rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700"
                           >

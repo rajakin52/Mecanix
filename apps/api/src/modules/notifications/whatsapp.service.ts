@@ -63,6 +63,68 @@ export class WhatsAppService {
     }
   }
 
+  /**
+   * Send interactive button message (for estimate approval).
+   */
+  async sendInteractiveButtons(
+    to: string,
+    bodyText: string,
+    buttons: Array<{ id: string; title: string }>,
+    headerText?: string,
+    footerText?: string,
+  ) {
+    if (!this.phoneNumberId || !this.accessToken) {
+      console.warn('WhatsApp not configured, skipping message');
+      return null;
+    }
+
+    const cleanPhone = to.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
+
+    const body: Record<string, unknown> = {
+      messaging_product: 'whatsapp',
+      to: cleanPhone,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        ...(headerText ? { header: { type: 'text', text: headerText } } : {}),
+        body: { text: bodyText },
+        ...(footerText ? { footer: { text: footerText } } : {}),
+        action: {
+          buttons: buttons.slice(0, 3).map((btn) => ({
+            type: 'reply',
+            reply: { id: btn.id, title: btn.title.slice(0, 20) },
+          })),
+        },
+      },
+    };
+
+    try {
+      const response = await fetch(
+        `${this.apiUrl}/${this.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('WhatsApp interactive API error:', data);
+        return { success: false, error: data };
+      }
+
+      return { success: true, messageId: data.messages?.[0]?.id };
+    } catch (error) {
+      console.error('WhatsApp interactive send failed:', error);
+      return { success: false, error };
+    }
+  }
+
   async sendText(to: string, text: string) {
     if (!this.phoneNumberId || !this.accessToken) {
       console.warn('WhatsApp not configured, skipping message');

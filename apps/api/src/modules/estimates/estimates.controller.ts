@@ -7,6 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { EstimatesService } from './estimates.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
@@ -14,7 +15,10 @@ import type { RequestUser } from '../../common/guards/tenant.guard';
 @Controller()
 @UseGuards(TenantGuard)
 export class EstimatesController {
-  constructor(private readonly estimatesService: EstimatesService) {}
+  constructor(
+    private readonly estimatesService: EstimatesService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   @Get('jobs/:jobId/estimates')
   async listByJob(
@@ -48,7 +52,9 @@ export class EstimatesController {
     @Param('id') id: string,
     @Body() body: { channels: string[] },
   ) {
-    return this.estimatesService.markSent(tenantId, id, body.channels ?? ['print']);
+    const channels = body.channels ?? ['print'];
+    // Send via notification service (WhatsApp, push, etc.)
+    return this.notificationsService.sendEstimate(tenantId, id, channels);
   }
 
   @Post('estimates/:id/approve')
