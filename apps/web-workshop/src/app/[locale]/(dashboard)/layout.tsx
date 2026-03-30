@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { TenantProvider } from '@/lib/tenant-context';
 import { ToastProvider } from '@mecanix/ui-web';
-import Image from 'next/image';
+// Using <img> instead of next/image for static assets compatibility
 import {
   LayoutDashboard,
   Calendar,
@@ -141,7 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo area */}
         <div className={`flex items-center border-b border-secondary-700 ${collapsed ? 'justify-center px-2 py-4' : 'gap-3 px-4 py-4'}`}>
-          <Image
+          <img
             src="/logo-small.png"
             alt="MECANIX"
             width={32}
@@ -248,7 +248,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Image src="/logo-small.png" alt="MECANIX" width={24} height={24} className="rounded" />
+          <img src="/logo-small.png" alt="MECANIX" width={24} height={24} className="rounded" />
           <span className="text-sm font-bold text-secondary-800">MECANIX</span>
         </header>
 

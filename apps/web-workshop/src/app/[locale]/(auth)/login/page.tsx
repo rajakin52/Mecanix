@@ -8,7 +8,6 @@ import type { LoginInput } from '@mecanix/validators';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import Image from 'next/image';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -44,13 +43,13 @@ export default function LoginPage() {
       {/* Left panel — brand */}
       <div className="hidden w-1/2 flex-col items-center justify-center bg-secondary-800 lg:flex">
         <div className="flex flex-col items-center gap-6">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/logo-full.png"
             alt="MECANIX"
             width={320}
             height={96}
             className="brightness-0 invert"
-            priority
           />
           <p className="max-w-sm text-center text-sm text-secondary-400">
             {t('brandTagline')}
@@ -73,12 +72,12 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="mb-8 flex flex-col items-center lg:hidden">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/logo-full.png"
               alt="MECANIX"
               width={200}
               height={60}
-              priority
             />
           </div>
 
