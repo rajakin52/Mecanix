@@ -37,6 +37,7 @@ import { PricingModule } from './modules/pricing/pricing.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { AgtModule } from './modules/agt/agt.module';
 import { EstimatesModule } from './modules/estimates/estimates.module';
+import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -79,6 +80,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     CatalogModule,
     AgtModule,
     EstimatesModule,
+    WarehouseModule,
   ],
   providers: [
     {

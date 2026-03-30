@@ -26,6 +26,18 @@ const STATUS_STYLES: Record<string, string> = {
   rejected:   'bg-red-100 text-red-700',
   superseded: 'bg-gray-100 text-gray-400',
 
+  // Stock transfer statuses
+  in_transit:  'bg-blue-100 text-blue-700',
+  completed:   'bg-green-100 text-green-700',
+
+  // Warehouse types
+  main:        'bg-blue-100 text-blue-700',
+  new_stock:   'bg-green-100 text-green-700',
+  scrap:       'bg-orange-100 text-orange-700',
+  dead_stock:  'bg-red-100 text-red-700',
+  returns:     'bg-yellow-100 text-yellow-700',
+  consignment: 'bg-purple-100 text-purple-700',
+
   // Generic
   active:   'bg-green-100 text-green-700',
   inactive: 'bg-gray-100 text-gray-500',
