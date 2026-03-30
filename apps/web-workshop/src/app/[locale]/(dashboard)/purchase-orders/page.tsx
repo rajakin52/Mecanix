@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { usePurchaseOrders, useCreatePurchaseOrder, useVendors } from '@/hooks/use-purchases';
 import { useParts } from '@/hooks/use-parts';
+import { InventoryTabs } from '../parts/inventory-tabs';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'complete'] as const;
 
@@ -93,6 +94,7 @@ export default function PurchaseOrdersPage() {
 
   return (
     <div>
+      <InventoryTabs />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('poTitle')}</h1>
         <button

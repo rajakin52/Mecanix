@@ -23,6 +23,7 @@ import {
 } from '@/hooks/use-warehouse';
 import { useParts } from '@/hooks/use-parts';
 import { useDebounce } from '@/hooks/use-debounce';
+import { InventoryTabs } from '../parts/inventory-tabs';
 import {
   SkeletonTable,
   SkeletonCard,
@@ -76,6 +77,7 @@ export default function WarehousePage() {
 
   return (
     <div>
+      <InventoryTabs />
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">{tc('warehouse')}</h1>
       </div>

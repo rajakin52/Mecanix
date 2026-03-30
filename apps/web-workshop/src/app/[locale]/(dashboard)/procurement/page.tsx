@@ -28,6 +28,7 @@ import {
 import { useJobs } from '@/hooks/use-jobs';
 import { useParts } from '@/hooks/use-parts';
 import { useDebounce } from '@/hooks/use-debounce';
+import { InventoryTabs } from '../parts/inventory-tabs';
 import {
   SkeletonTable,
   StatusBadge,
@@ -69,6 +70,7 @@ export default function ProcurementPage() {
 
   return (
     <div>
+      <InventoryTabs />
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Procurement</h1>
       </div>

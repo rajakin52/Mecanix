@@ -6,6 +6,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
+import { InventoryTabs } from './inventory-tabs';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -109,6 +110,7 @@ export default function PartsPage() {
 
   return (
     <div>
+      <InventoryTabs />
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
