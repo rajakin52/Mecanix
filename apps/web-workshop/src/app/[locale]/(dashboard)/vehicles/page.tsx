@@ -11,7 +11,7 @@ import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import { SkeletonTable, useToast, EmptyState } from '@mecanix/ui-web';
+import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -20,6 +20,13 @@ export default function VehiclesPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const { data, isLoading } = useVehicles(page, debouncedSearch);
   const createMutation = useCreateVehicle();
@@ -99,16 +106,19 @@ export default function VehiclesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('plate')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('make')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('model')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('year')}</th>
+                  <SortableHeader label={t('plate')} field="plate" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('make')} field="make" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('model')} field="model" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('year')} field="year" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('customer')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((vehicle: Record<string, unknown>) => (
+                {(() => {
+                  const vehicles = data?.data ?? [];
+                  const sorted = sortData(vehicles as Record<string, unknown>[], sortField, sortDir);
+                  return sorted.length > 0 ? (
+                  sorted.map((vehicle: Record<string, unknown>) => (
                     <tr key={vehicle.id as string} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-mono font-medium">
                         <Link href={`/vehicles/${vehicle.id as string}`} className="text-primary-600 hover:text-primary-700 hover:underline">
@@ -129,7 +139,8 @@ export default function VehiclesPage() {
                       <EmptyState icon="vehicles" title="No vehicles found" description="Register a vehicle to track service history" />
                     </td>
                   </tr>
-                )}
+                );
+                })()}
               </tbody>
             </table>
           </div>

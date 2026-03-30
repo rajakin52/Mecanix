@@ -871,10 +871,10 @@ export default function JobDetailPage() {
       <div className="border-b border-gray-200">
         <nav className="flex gap-1" aria-label="Job detail tabs">
           {([
-            { key: 'overview', label: 'Overview' },
-            { key: 'work', label: 'Work' },
-            { key: 'estimates', label: `Estimates (${estimateList.length})` },
-            { key: 'history', label: 'History' },
+            { key: 'overview', label: t('tabOverview') },
+            { key: 'work', label: t('tabWork') },
+            { key: 'estimates', label: `${t('tabEstimates')} (${estimateList.length})` },
+            { key: 'history', label: t('tabHistory') },
           ] as const).map((tab) => (
             <button
               key={tab.key}
@@ -976,7 +976,7 @@ export default function JobDetailPage() {
       {/* ── Add Services from Catalog ── */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Add Services</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('addServices')}</h2>
           <button
             onClick={() => setShowServicePicker(!showServicePicker)}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
@@ -1074,7 +1074,7 @@ export default function JobDetailPage() {
       {/* ── Estimates ── */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Estimates</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{t('estimatesHeading')}</h2>
           <button
             onClick={async () => {
               try { await createEstimate.mutateAsync({ jobId: id }); } catch { /* handled */ }

@@ -15,7 +15,9 @@
     "ownerName": "Owner name",
     "loading": "Loading...",
     "loginFailed": "Failed to sign in",
-    "signupFailed": "Failed to create account"
+    "signupFailed": "Failed to create account",
+    "loginSubtitle": "Enter your credentials to access the workshop",
+    "brandTagline": "Professional workshop management for modern auto repair businesses"
   },
   "common": {
     "dashboard": "Dashboard",
@@ -57,7 +59,17 @@
     "crm": "CRM",
     "pettyCash": "Petty Cash",
     "amc": "AMC",
-    "marketing": "Marketing"
+    "marketing": "Marketing",
+    "estimates": "Estimates",
+    "technicians": "Technicians",
+    "logout": "Logout",
+    "logoutConfirm": "Are you sure you want to log out?",
+    "navWorkshop": "Workshop",
+    "navPeopleAssets": "People & Assets",
+    "navInventory": "Inventory",
+    "navFinancial": "Financial",
+    "tryAgain": "Try again",
+    "workshopManagement": "workshop management"
   },
   "jobs": {
     "title": "Job Cards",
@@ -100,7 +112,13 @@
     "authorization": "Requires authorization",
     "searchPlaceholder": "Search by job number...",
     "created": "Job card created",
-    "statusChanged": "Status changed"
+    "statusChanged": "Status changed",
+    "tabOverview": "Overview",
+    "tabWork": "Work",
+    "tabEstimates": "Estimates",
+    "tabHistory": "History",
+    "addServices": "Add Services",
+    "estimatesHeading": "Estimates"
   },
   "customers": {
     "title": "Customers",

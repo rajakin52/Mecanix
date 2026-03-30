@@ -68,24 +68,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ],
     },
     {
-      title: 'Workshop',
+      title: t('navWorkshop'),
       items: [
         { href: '/jobs', label: t('jobs'), icon: Wrench },
-        { href: '/estimates', label: 'Estimates', icon: FileText },
+        { href: '/estimates', label: t('estimates'), icon: FileText },
         { href: '/floor', label: t('floor'), icon: Layers },
         { href: '/timesheets', label: t('timesheets'), icon: Clock },
       ],
     },
     {
-      title: 'People & Assets',
+      title: t('navPeopleAssets'),
       items: [
         { href: '/customers', label: t('customers'), icon: Users },
         { href: '/vehicles', label: t('vehicles'), icon: Car },
-        { href: '/technicians', label: 'Technicians', icon: HardHat },
+        { href: '/technicians', label: t('technicians'), icon: HardHat },
       ],
     },
     {
-      title: 'Inventory',
+      title: t('navInventory'),
       items: [
         { href: '/parts', label: t('parts'), icon: Package },
         { href: '/vendors', label: t('vendors'), icon: Truck },
@@ -93,7 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ],
     },
     {
-      title: 'Financial',
+      title: t('navFinancial'),
       items: [
         { href: '/invoices', label: t('invoices'), icon: Receipt },
         { href: '/bills', label: t('bills'), icon: CreditCard },
@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const handleLogout = () => {
-    if (!window.confirm(t('logoutConfirm') ?? 'Are you sure you want to log out?')) return;
+    if (!window.confirm(t('logoutConfirm'))) return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     router.push('/login');
@@ -117,6 +117,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[200] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-700 focus:shadow-lg">
+        Skip to content
+      </a>
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -147,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-wide text-white">MECANIX</span>
-              <span className="text-[10px] text-brand-gold">workshop management</span>
+              <span className="text-[10px] text-brand-gold">{t('workshopManagement')}</span>
             </div>
           )}
           {/* Collapse toggle — desktop only */}
@@ -168,7 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <nav className="flex-1 overflow-y-auto px-2 py-3" role="navigation" aria-label="Main navigation">
           {navGroups.map((group, gi) => (
             <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
               {group.title && !collapsed && (
@@ -187,6 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       href={item.href}
                       onClick={() => setSidebarOpen(false)}
                       title={collapsed ? item.label : undefined}
+                      aria-current={active ? 'page' : undefined}
                       className={`
                         group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
                         ${active
@@ -228,7 +232,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className={`group mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-secondary-400 transition-colors hover:bg-red-500/10 hover:text-red-400 ${collapsed ? 'justify-center px-2' : ''}`}
           >
             <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-            {!collapsed && <span>Logout</span>}
+            {!collapsed && <span>{t('logout')}</span>}
           </button>
         </div>
       </aside>
@@ -247,7 +251,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="text-sm font-bold text-secondary-800">MECANIX</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main id="main-content" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <TenantProvider>
             <ToastProvider>{children}</ToastProvider>
           </TenantProvider>

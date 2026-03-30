@@ -18,7 +18,7 @@ export default function DashboardError({
 
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-md rounded-lg bg-white p-8 shadow-md text-center">
+      <div role="alert" className="max-w-md rounded-lg bg-white p-8 shadow-md text-center">
         <div className="mb-4 text-4xl">&#9888;</div>
         <h2 className="mb-2 text-xl font-bold text-gray-900">
           {t('error')}

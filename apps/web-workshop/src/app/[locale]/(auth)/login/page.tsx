@@ -53,7 +53,7 @@ export default function LoginPage() {
             priority
           />
           <p className="max-w-sm text-center text-sm text-secondary-400">
-            Professional workshop management for modern auto repair businesses
+            {t('brandTagline')}
           </p>
         </div>
 
@@ -83,13 +83,14 @@ export default function LoginPage() {
           </div>
 
           <h2 className="mb-1 text-2xl font-bold text-secondary-800">{t('loginTitle')}</h2>
-          <p className="mb-8 text-sm text-gray-500">Enter your credentials to access the workshop</p>
+          <p className="mb-8 text-sm text-gray-500">{t('loginSubtitle')}</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">{t('email')}</label>
+              <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-gray-700">{t('email')}</label>
               <input
                 {...register('email')}
+                id="login-email"
                 type="email"
                 autoComplete="email"
                 className="block w-full rounded-md border border-gray-300 bg-gray-50 px-3.5 py-2.5 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
@@ -99,10 +100,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">{t('password')}</label>
+              <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-gray-700">{t('password')}</label>
               <div className="relative">
                 <input
                   {...register('password')}
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   className="block w-full rounded-md border border-gray-300 bg-gray-50 px-3.5 py-2.5 pr-10 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"

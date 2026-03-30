@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -25,6 +25,13 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const { data, isLoading } = useInvoices(page, activeStatus);
   const { data: summaryData } = useFinancialSummary();
@@ -122,19 +129,22 @@ export default function InvoicesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('invoiceNumber')}</th>
+                  <SortableHeader label={t('invoiceNumber')} field="invoice_number" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('customer')}</th>
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{t('grandTotal')}</th>
+                  <SortableHeader label={t('grandTotal')} field="grand_total" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
                   <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{t('paid')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{t('balanceDue')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('status')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('date')}</th>
+                  <SortableHeader label={t('balanceDue')} field="balance_due" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
+                  <SortableHeader label={t('status')} field="status" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('date')} field="invoice_date" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((inv: Record<string, unknown>) => (
+                {(() => {
+                  const invoices = data?.data ?? [];
+                  const sorted = sortData(invoices as Record<string, unknown>[], sortField, sortDir);
+                  return sorted.length > 0 ? (
+                  sorted.map((inv: Record<string, unknown>) => (
                     <tr key={inv.id as string} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
                         <Link href={`/invoices/${inv.id as string}`}>
@@ -170,7 +180,8 @@ export default function InvoicesPage() {
                       <EmptyState icon="invoices" title="No invoices found" description="Generate an invoice from a completed job" />
                     </td>
                   </tr>
-                )}
+                );
+                })()}
               </tbody>
             </table>
           </div>

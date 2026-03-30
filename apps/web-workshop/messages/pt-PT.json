@@ -15,7 +15,9 @@
     "ownerName": "Nome do proprietário",
     "loading": "A carregar...",
     "loginFailed": "Falha ao entrar",
-    "signupFailed": "Falha ao criar conta"
+    "signupFailed": "Falha ao criar conta",
+    "loginSubtitle": "Introduza as suas credenciais para aceder à oficina",
+    "brandTagline": "Gestão profissional de oficina para empresas modernas de reparação automóvel"
   },
   "common": {
     "dashboard": "Painel",
@@ -55,7 +57,17 @@
     "reports": "Relatórios",
     "appointments": "Agendamentos",
     "crm": "CRM",
-    "pettyCash": "Caixa Pequena"
+    "pettyCash": "Caixa Pequena",
+    "estimates": "Orçamentos",
+    "technicians": "Técnicos",
+    "logout": "Sair",
+    "logoutConfirm": "Tem certeza que deseja sair?",
+    "navWorkshop": "Oficina",
+    "navPeopleAssets": "Pessoas e Activos",
+    "navInventory": "Inventário",
+    "navFinancial": "Financeiro",
+    "tryAgain": "Tentar novamente",
+    "workshopManagement": "gestão de oficina"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -98,7 +110,13 @@
     "authorization": "Requer autorização",
     "searchPlaceholder": "Pesquisar por número de ficha...",
     "created": "Ficha criada",
-    "statusChanged": "Estado alterado"
+    "statusChanged": "Estado alterado",
+    "tabOverview": "Resumo",
+    "tabWork": "Trabalho",
+    "tabEstimates": "Orçamentos",
+    "tabHistory": "Histórico",
+    "addServices": "Adicionar Serviços",
+    "estimatesHeading": "Orçamentos"
   },
   "customers": {
     "title": "Clientes",

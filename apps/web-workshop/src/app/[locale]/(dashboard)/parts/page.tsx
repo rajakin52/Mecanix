@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
-import { SkeletonTable, useToast, EmptyState } from '@mecanix/ui-web';
+import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -20,6 +20,13 @@ export default function PartsPage() {
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [showTecDoc, setShowTecDoc] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const { data, isLoading } = useParts(page, debouncedSearch, category || undefined);
   const { data: lowStockData } = useLowStock();
@@ -156,33 +163,36 @@ export default function PartsPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('partNumber')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('description')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('stock')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('costPrice')}</th>
+                  <SortableHeader label={t('description')} field="description" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('stock')} field="stock_qty" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('costPrice')} field="unit_cost" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('sellPrice')}</th>
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('category')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((part) => (
-                    <tr key={part.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{part.description}</td>
+                {(() => {
+                  const parts = data?.data ?? [];
+                  const sorted = sortData(parts as Record<string, unknown>[], sortField, sortDir);
+                  return sorted.length > 0 ? (
+                  sorted.map((part: Record<string, unknown>) => (
+                    <tr key={part.id as string} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number as string}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{part.description as string}</td>
                       <td className="px-4 py-3 text-sm">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            (part.stock_qty ?? 0) <= (part.reorder_point ?? 0)
+                            ((part.stock_qty as number) ?? 0) <= ((part.reorder_point as number) ?? 0)
                               ? 'bg-red-100 text-red-700'
                               : 'bg-green-100 text-green-700'
                           }`}
                         >
-                          {part.stock_qty ?? 0}
+                          {(part.stock_qty as number) ?? 0}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{(part.unit_cost ?? 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{(part.sell_price ?? 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{part.category}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{((part.unit_cost as number) ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{((part.sell_price as number) ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{part.category as string}</td>
                     </tr>
                   ))
                 ) : (
@@ -191,7 +201,8 @@ export default function PartsPage() {
                       <EmptyState icon="parts" title="No parts in inventory" description="Add parts manually or search TecDoc" />
                     </td>
                   </tr>
-                )}
+                );
+                })()}
               </tbody>
             </table>
           </div>

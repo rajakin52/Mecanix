@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useVendors, useCreateVendor } from '@/hooks/use-purchases';
 import { api } from '@/lib/api';
-import { useToast, EmptyState } from '@mecanix/ui-web';
+import { useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 export default function VendorsPage() {
   const t = useTranslations('purchases');
@@ -15,6 +15,13 @@ export default function VendorsPage() {
   const [showModal, setShowModal] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const { data, isLoading } = useVendors(debouncedSearch || undefined);
   const createMutation = useCreateVendor();
@@ -95,65 +102,67 @@ export default function VendorsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('name')}</th>
+                <SortableHeader label={tc('name')} field="name" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('contactPerson')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('phone')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('email')}</th>
+                <SortableHeader label={tc('phone')} field="phone" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                <SortableHeader label={tc('email')} field="email" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('leadTime')}</th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('paymentTerms')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {vendors.length > 0 ? (
-                vendors.map((vendor) => (
+              {(() => {
+                const sorted = sortData(vendors as Record<string, unknown>[], sortField, sortDir);
+                return sorted.length > 0 ? (
+                sorted.map((vendor: Record<string, unknown>) => (
                   <>
                     <tr
-                      key={vendor.id}
+                      key={vendor.id as string}
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => setExpandedId(expandedId === vendor.id ? null : vendor.id)}
+                      onClick={() => setExpandedId(expandedId === (vendor.id as string) ? null : vendor.id as string)}
                     >
-                      <td className="px-4 py-3 text-sm font-medium text-primary-600">{vendor.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.contact_name ?? '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.phone ?? '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.email ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-primary-600">{vendor.name as string}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(vendor.contact_name as string) ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(vendor.phone as string) ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(vendor.email as string) ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {vendor.lead_time_days ? `${vendor.lead_time_days} ${t('days')}` : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{vendor.payment_terms ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(vendor.payment_terms as string) ?? '-'}</td>
                     </tr>
-                    {expandedId === vendor.id && (
-                      <tr key={`${vendor.id}-detail`}>
+                    {expandedId === (vendor.id as string) && (
+                      <tr key={`${vendor.id as string}-detail`}>
                         <td colSpan={6} className="border-b border-gray-200 bg-gray-50 px-6 py-4">
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
                                 <p className="font-medium text-gray-500">{tc('address')}</p>
-                                <p className="mt-0.5 text-gray-900">{vendor.address || '-'}</p>
+                                <p className="mt-0.5 text-gray-900">{(vendor.address as string) || '-'}</p>
                               </div>
                               <div>
                                 <p className="font-medium text-gray-500">NIF</p>
-                                <p className="mt-0.5 text-gray-900">{vendor.tax_id || '-'}</p>
+                                <p className="mt-0.5 text-gray-900">{(vendor.tax_id as string) || '-'}</p>
                               </div>
                             </div>
                             <div className="text-sm">
                               <p className="font-medium text-gray-500">{tc('notes')}</p>
-                              <p className="mt-0.5 text-gray-900">{vendor.notes || '-'}</p>
+                              <p className="mt-0.5 text-gray-900">{(vendor.notes as string) || '-'}</p>
                             </div>
                             <div className="flex justify-end border-t border-gray-200 pt-3">
                               <button
                                 onClick={() => {
                                   setForm({
-                                    name: vendor.name || '',
-                                    contactName: vendor.contact_name || '',
-                                    phone: vendor.phone || '',
-                                    email: vendor.email || '',
-                                    address: vendor.address || '',
-                                    taxId: vendor.tax_id || '',
-                                    leadTimeDays: vendor.lead_time_days?.toString() || '',
-                                    paymentTerms: vendor.payment_terms || '',
-                                    notes: vendor.notes || '',
+                                    name: (vendor.name as string) || '',
+                                    contactName: (vendor.contact_name as string) || '',
+                                    phone: (vendor.phone as string) || '',
+                                    email: (vendor.email as string) || '',
+                                    address: (vendor.address as string) || '',
+                                    taxId: (vendor.tax_id as string) || '',
+                                    leadTimeDays: (vendor.lead_time_days as number)?.toString() || '',
+                                    paymentTerms: (vendor.payment_terms as string) || '',
+                                    notes: (vendor.notes as string) || '',
                                   });
-                                  setEditingId(vendor.id);
+                                  setEditingId(vendor.id as string);
                                   setShowModal(true);
                                 }}
                                 className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
@@ -173,7 +182,8 @@ export default function VendorsPage() {
                     <EmptyState icon="vendors" title="No vendors yet" description="Add a vendor to manage purchase orders" action={{ label: t('newVendor'), onClick: () => { setEditingId(null); setShowModal(true); } }} />
                   </td>
                 </tr>
-              )}
+              );
+              })()}
             </tbody>
           </table>
         </div>
