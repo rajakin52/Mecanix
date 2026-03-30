@@ -57,6 +57,11 @@ export default function SettingsPage() {
   const [savingTaxRate, setSavingTaxRate] = useState(false);
   const [taxRateMessage, setTaxRateMessage] = useState('');
 
+  // Cost method state
+  const [costMethod, setCostMethod] = useState<string>('last_cost');
+  const [savingCostMethod, setSavingCostMethod] = useState(false);
+  const [costMethodMessage, setCostMethodMessage] = useState('');
+
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
       .then((data) => {
@@ -76,6 +81,13 @@ export default function SettingsPage() {
     api.get<{ key: string; value: string | null }>('/tenants/me/settings/tax_rate')
       .then((data) => {
         if (data.value) setTaxRate(data.value);
+      })
+      .catch(() => {});
+
+    // Fetch cost method setting
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/default_cost_method')
+      .then((data) => {
+        if (data.value) setCostMethod(data.value);
       })
       .catch(() => {});
   }, []);
@@ -103,6 +115,19 @@ export default function SettingsPage() {
       setTaxRateMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSavingTaxRate(false);
+    }
+  };
+
+  const handleSaveCostMethod = async () => {
+    setSavingCostMethod(true);
+    setCostMethodMessage('');
+    try {
+      await api.put('/tenants/me/settings/default_cost_method', { value: costMethod });
+      setCostMethodMessage('Cost method saved');
+    } catch (err) {
+      setCostMethodMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingCostMethod(false);
     }
   };
 
@@ -269,6 +294,40 @@ export default function SettingsPage() {
                   {taxRateMessage}
                 </p>
               )}
+            </div>
+
+            {/* Cost Valuation Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Inventory Cost Method</label>
+              <p className="text-xs text-gray-500 mb-1">How the cost price of parts is calculated when receiving goods</p>
+              <div className="mt-1 flex items-center gap-2">
+                <select
+                  value={costMethod}
+                  onChange={(e) => setCostMethod(e.target.value)}
+                  className="block w-64 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value="last_cost">Last Purchase Cost</option>
+                  <option value="weighted_average">Weighted Average Cost (WAC)</option>
+                  <option value="fifo">First In, First Out (FIFO)</option>
+                </select>
+                <button
+                  onClick={handleSaveCostMethod}
+                  disabled={savingCostMethod}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingCostMethod ? t('loading') : t('save')}
+                </button>
+              </div>
+              {costMethodMessage && (
+                <p className={`mt-1 text-sm ${costMethodMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {costMethodMessage}
+                </p>
+              )}
+              <div className="mt-2 rounded-md bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
+                <p><strong>Last Purchase Cost:</strong> Uses the most recent purchase price. Simple, common for small workshops.</p>
+                <p><strong>Weighted Average (WAC):</strong> Blends old and new costs proportionally. Best for stable pricing.</p>
+                <p><strong>FIFO:</strong> Uses the oldest batch cost first. Required by some ERP/accounting standards.</p>
+              </div>
             </div>
 
             {/* Read-only fields */}
