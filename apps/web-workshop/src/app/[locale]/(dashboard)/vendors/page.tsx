@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useVendors, useCreateVendor } from '@/hooks/use-purchases';
 import { api } from '@/lib/api';
-import { useToast } from '@mecanix/ui-web';
+import { useToast, EmptyState } from '@mecanix/ui-web';
 
 export default function VendorsPage() {
   const t = useTranslations('purchases');
@@ -169,8 +169,8 @@ export default function VendorsPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                    {t('noVendors')}
+                  <td colSpan={6}>
+                    <EmptyState icon="vendors" title="No vendors yet" description="Add a vendor to manage purchase orders" action={{ label: t('newVendor'), onClick: () => { setEditingId(null); setShowModal(true); } }} />
                   </td>
                 </tr>
               )}

@@ -11,7 +11,7 @@ import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { Building2 } from 'lucide-react';
 import { usePriceGroups } from '@/hooks/use-pricing';
-import { SkeletonTable, useToast } from '@mecanix/ui-web';
+import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -31,6 +31,8 @@ export default function CustomersPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const toast = useToast();
 
@@ -39,6 +41,11 @@ export default function CustomersPage() {
   const deleteMutation = useDeleteCustomer();
   const { data: priceGroups } = usePriceGroups();
   const pgList = Array.isArray(priceGroups) ? priceGroups : [];
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const [isCorporate, setIsCorporate] = useState(false);
 
@@ -91,15 +98,18 @@ export default function CustomersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('fullName')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('phone')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('email')}</th>
+                  <SortableHeader label={t('fullName')} field="full_name" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('phone')} field="phone" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('email')} field="email" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((customer: Record<string, unknown>) => (
+                {(() => {
+                  const customers = (data?.data ?? []) as Record<string, unknown>[];
+                  const sortedCustomers = sortData(customers, sortField, sortDir);
+                  return sortedCustomers.length > 0 ? (
+                  sortedCustomers.map((customer) => (
                     <tr key={customer.id as string} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
                         <Link href={`/customers/${customer.id as string}`} className="inline-flex items-center gap-1.5">
@@ -126,11 +136,12 @@ export default function CustomersPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noCustomers')}
+                    <td colSpan={4}>
+                      <EmptyState icon="customers" title="No customers yet" description="Add your first customer to begin" action={{ label: t('newCustomer'), onClick: () => setShowModal(true) }} />
                     </td>
                   </tr>
-                )}
+                );
+                })()}
               </tbody>
             </table>
           </div>

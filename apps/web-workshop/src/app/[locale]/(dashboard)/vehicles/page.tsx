@@ -11,7 +11,7 @@ import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import { SkeletonTable, useToast } from '@mecanix/ui-web';
+import { SkeletonTable, useToast, EmptyState } from '@mecanix/ui-web';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -125,8 +125,8 @@ export default function VehiclesPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noVehicles')}
+                    <td colSpan={5}>
+                      <EmptyState icon="vehicles" title="No vehicles found" description="Register a vehicle to track service history" />
                     </td>
                   </tr>
                 )}

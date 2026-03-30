@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
-import { SkeletonTable, useToast } from '@mecanix/ui-web';
+import { SkeletonTable, useToast, EmptyState } from '@mecanix/ui-web';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -187,8 +187,8 @@ export default function PartsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noParts')}
+                    <td colSpan={6}>
+                      <EmptyState icon="parts" title="No parts in inventory" description="Add parts manually or search TecDoc" />
                     </td>
                   </tr>
                 )}

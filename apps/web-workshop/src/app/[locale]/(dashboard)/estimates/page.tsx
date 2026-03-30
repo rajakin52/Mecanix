@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable, StatusBadge } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
 
 interface Estimate {
   id: string;
@@ -86,8 +86,8 @@ export default function EstimatesPage() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                  No estimates yet. Create estimates from the job card detail page.
+                <td colSpan={6}>
+                  <EmptyState icon="estimates" title="No estimates yet" description="Estimates are created from job cards" />
                 </td>
               </tr>
             )}

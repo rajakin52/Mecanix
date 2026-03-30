@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable, StatusBadge } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -166,8 +166,8 @@ export default function InvoicesPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noInvoices')}
+                    <td colSpan={8}>
+                      <EmptyState icon="invoices" title="No invoices found" description="Generate an invoice from a completed job" />
                     </td>
                   </tr>
                 )}

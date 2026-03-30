@@ -7,7 +7,7 @@ import { useJobs, useCreateJob, useTechnicians } from '@/hooks/use-jobs';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable, StatusBadge, useToast } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 
 const STATUSES = [
   { key: undefined, label: 'All' },
@@ -29,6 +29,13 @@ export default function JobsPage() {
   const [page, setPage] = useState(1);
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [showModal, setShowModal] = useState(false);
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
+
+  const handleSort = (field: string, dir: SortDirection) => {
+    setSortField(dir ? field : null);
+    setSortDir(dir);
+  };
 
   const { data, isLoading } = useJobs(page, debouncedSearch, activeStatus);
   const createMutation = useCreateJob();
@@ -136,18 +143,31 @@ export default function JobsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('jobNumber')}</th>
+                  <SortableHeader label={t('jobNumber')} field="job_number" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('vehicles')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('customers')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('status')}</th>
+                  <SortableHeader label={tc('customers')} field="customer_name" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <SortableHeader label={t('status')} field="status" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{t('total')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('dateOpened')}</th>
+                  <SortableHeader label={t('total')} field="grand_total" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
+                  <SortableHeader label={t('dateOpened')} field="date_opened" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {data?.data && data.data.length > 0 ? (
-                  data.data.map((job: Record<string, unknown>) => (
+                {(() => {
+                  const jobs = data?.data ?? [];
+                  const sortedJobs = sortData(
+                    jobs as Record<string, unknown>[],
+                    sortField,
+                    sortDir,
+                    (item, field) => {
+                      if (field === 'customer_name') {
+                        return ((item as Record<string, unknown>).customer ?? (item as Record<string, unknown>).customers as Record<string, string> | undefined)?.full_name;
+                      }
+                      return (item as Record<string, unknown>)[field];
+                    },
+                  );
+                  return sortedJobs.length > 0 ? (
+                  sortedJobs.map((job: Record<string, unknown>) => (
                     <tr key={job.id as string} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
                         <Link href={`/jobs/${job.id as string}`}>
@@ -176,11 +196,12 @@ export default function JobsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noJobs')}
+                    <td colSpan={7}>
+                      <EmptyState icon="jobs" title="No jobs found" description="Create a new job card to get started" />
                     </td>
                   </tr>
-                )}
+                );
+                })()}
               </tbody>
             </table>
           </div>

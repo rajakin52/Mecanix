@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useExpenses, useCreateExpense, useDeleteExpense, useExpenseSummary } from '@/hooks/use-expenses';
-import { useToast } from '@mecanix/ui-web';
+import { useToast, EmptyState } from '@mecanix/ui-web';
 
 const EXPENSE_CATEGORIES = ['Rent', 'Utilities', 'Tools', 'Consumables', 'Transport', 'Other'];
 
@@ -181,8 +181,8 @@ export default function ExpensesPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
-                      {t('noExpenses')}
+                    <td colSpan={6}>
+                      <EmptyState icon="expenses" title="No expenses recorded" description="Track workshop expenses here" />
                     </td>
                   </tr>
                 )}
