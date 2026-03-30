@@ -49,7 +49,7 @@ function TechnicianEntries({
   // Filter entries for the selected date and report them
   const filtered = useMemo(() => {
     if (!data) return [];
-    return (data as TimeEntry[]).filter((e) => {
+    return (data as unknown as TimeEntry[]).filter((e) => {
       if (!e.started_at) return false;
       return e.started_at.slice(0, 10) === date;
     });

@@ -116,20 +116,20 @@ export default function VehiclesPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {(() => {
                   const vehicles = data?.data ?? [];
-                  const sorted = sortData(vehicles as Record<string, unknown>[], sortField, sortDir);
+                  const sorted = sortData(vehicles as unknown as Record<string, unknown>[], sortField, sortDir) as unknown as typeof vehicles;
                   return sorted.length > 0 ? (
-                  sorted.map((vehicle: Record<string, unknown>) => (
-                    <tr key={vehicle.id as string} className="hover:bg-gray-50">
+                  sorted.map((vehicle) => (
+                    <tr key={vehicle.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-mono font-medium">
-                        <Link href={`/vehicles/${vehicle.id as string}`} className="text-primary-600 hover:text-primary-700 hover:underline">
-                          {vehicle.plate as string}
+                        <Link href={`/vehicles/${vehicle.id}`} className="text-primary-600 hover:text-primary-700 hover:underline">
+                          {vehicle.plate}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.make as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.model as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{(vehicle.year as number) ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.make}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.model}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.year ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {(vehicle.customers as Record<string, string> | null)?.full_name ?? '-'}
+                        {vehicle.customers?.full_name ?? '-'}
                       </td>
                     </tr>
                   ))
@@ -183,9 +183,9 @@ export default function VehiclesPage() {
                 <label className="block text-sm font-medium text-gray-700">{t('customer')}</label>
                 <select {...register('customerId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2">
                   <option value="">{tc('select')}...</option>
-                  {(customersData?.data as Array<Record<string, unknown>> | undefined)?.map((c) => (
-                    <option key={c.id as string} value={c.id as string}>
-                      {c.full_name as string}
+                  {customersData?.data?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name}
                     </option>
                   ))}
                 </select>

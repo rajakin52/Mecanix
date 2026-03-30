@@ -251,17 +251,17 @@ export default function CatalogPage() {
                   <div key={idx} className="flex items-end gap-2 mb-2">
                     <div className="flex-1">
                       <input value={li.description} placeholder="Description"
-                        onChange={(e) => { const items = [...form.labourItems]; items[idx] = { ...items[idx], description: e.target.value }; setForm({ ...form, labourItems: items }); }}
+                        onChange={(e) => { const items = [...form.labourItems]; const cur = items[idx] ?? { description: '', hours: '1', rate: '' }; items[idx] = { ...cur, description: e.target.value }; setForm({ ...form, labourItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     <div className="w-20">
                       <input type="number" step="0.5" value={li.hours} placeholder="Hours"
-                        onChange={(e) => { const items = [...form.labourItems]; items[idx] = { ...items[idx], hours: e.target.value }; setForm({ ...form, labourItems: items }); }}
+                        onChange={(e) => { const items = [...form.labourItems]; const cur = items[idx] ?? { description: '', hours: '1', rate: '' }; items[idx] = { ...cur, hours: e.target.value }; setForm({ ...form, labourItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     <div className="w-24">
                       <input type="number" step="0.01" value={li.rate} placeholder="Rate"
-                        onChange={(e) => { const items = [...form.labourItems]; items[idx] = { ...items[idx], rate: e.target.value }; setForm({ ...form, labourItems: items }); }}
+                        onChange={(e) => { const items = [...form.labourItems]; const cur = items[idx] ?? { description: '', hours: '1', rate: '' }; items[idx] = { ...cur, rate: e.target.value }; setForm({ ...form, labourItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     {form.labourItems.length > 1 && (
@@ -283,22 +283,22 @@ export default function CatalogPage() {
                   <div key={idx} className="flex items-end gap-2 mb-2">
                     <div className="flex-1">
                       <input value={pi.partName} placeholder="Part name"
-                        onChange={(e) => { const items = [...form.partsItems]; items[idx] = { ...items[idx], partName: e.target.value }; setForm({ ...form, partsItems: items }); }}
+                        onChange={(e) => { const items = [...form.partsItems]; const cur = items[idx] ?? { partName: '', partNumber: '', quantity: '1', unitCost: '' }; items[idx] = { ...cur, partName: e.target.value }; setForm({ ...form, partsItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     <div className="w-24">
                       <input value={pi.partNumber} placeholder="Part #"
-                        onChange={(e) => { const items = [...form.partsItems]; items[idx] = { ...items[idx], partNumber: e.target.value }; setForm({ ...form, partsItems: items }); }}
+                        onChange={(e) => { const items = [...form.partsItems]; const cur = items[idx] ?? { partName: '', partNumber: '', quantity: '1', unitCost: '' }; items[idx] = { ...cur, partNumber: e.target.value }; setForm({ ...form, partsItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     <div className="w-16">
                       <input type="number" min="1" value={pi.quantity} placeholder="Qty"
-                        onChange={(e) => { const items = [...form.partsItems]; items[idx] = { ...items[idx], quantity: e.target.value }; setForm({ ...form, partsItems: items }); }}
+                        onChange={(e) => { const items = [...form.partsItems]; const cur = items[idx] ?? { partName: '', partNumber: '', quantity: '1', unitCost: '' }; items[idx] = { ...cur, quantity: e.target.value }; setForm({ ...form, partsItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     <div className="w-24">
                       <input type="number" step="0.01" value={pi.unitCost} placeholder="Cost"
-                        onChange={(e) => { const items = [...form.partsItems]; items[idx] = { ...items[idx], unitCost: e.target.value }; setForm({ ...form, partsItems: items }); }}
+                        onChange={(e) => { const items = [...form.partsItems]; const cur = items[idx] ?? { partName: '', partNumber: '', quantity: '1', unitCost: '' }; items[idx] = { ...cur, unitCost: e.target.value }; setForm({ ...form, partsItems: items }); }}
                         className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
                     </div>
                     {form.partsItems.length > 1 && (

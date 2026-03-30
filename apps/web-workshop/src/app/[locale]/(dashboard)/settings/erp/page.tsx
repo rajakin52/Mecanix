@@ -168,7 +168,7 @@ export default function ErpConfigPage() {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await api.post<{ connected: boolean; error?: string }>('/erp/test-connection');
+      const result = await api.post<{ connected: boolean; error?: string }>('/erp/test-connection', {});
       setTestResult(result);
     } catch (err) {
       setTestResult({ connected: false, error: err instanceof Error ? err.message : 'Test failed' });
@@ -179,7 +179,7 @@ export default function ErpConfigPage() {
 
   const handleRetry = async (id: string) => {
     try {
-      await api.post(`/erp/retry/${id}`);
+      await api.post(`/erp/retry/${id}`, {});
       showMessage('Export retried', 'success');
       // Refresh log
       const data = await api.get<ExportLogEntry[]>('/erp/export-log');

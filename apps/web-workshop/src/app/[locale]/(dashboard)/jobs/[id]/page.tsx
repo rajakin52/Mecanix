@@ -213,18 +213,18 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('title')}</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          {insp.mileage_in && (
+          {insp.mileage_in ? (
             <div>
               <span className="font-medium text-gray-500">{t('mileageIn')}:</span>{' '}
               <span className="text-gray-900">{String(insp.mileage_in)} km</span>
             </div>
-          )}
-          {insp.fuel_level && (
+          ) : null}
+          {insp.fuel_level ? (
             <div>
               <span className="font-medium text-gray-500">{t('fuelLevel')}:</span>{' '}
-              <span className="text-gray-900">{fuelLabels[insp.fuel_level as string] ?? insp.fuel_level}</span>
+              <span className="text-gray-900">{fuelLabels[insp.fuel_level as string] ?? String(insp.fuel_level)}</span>
             </div>
-          )}
+          ) : null}
         </div>
         <div className="mt-4">
           <span className="text-sm font-medium text-gray-500">{t('checklist')}:</span>
@@ -259,37 +259,37 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
             </div>
           </div>
         )}
-        {insp.personal_items && (
+        {insp.personal_items ? (
           <div className="mt-4 text-sm">
             <span className="font-medium text-gray-500">{t('personalItems')}:</span>
             <p className="mt-1 text-gray-900">{String(insp.personal_items)}</p>
           </div>
-        )}
+        ) : null}
         {/* DVI items read-only */}
-        {Array.isArray((insp as Record<string, unknown>).dvi_items) && ((insp as Record<string, unknown>).dvi_items as Array<Record<string, unknown>>).length > 0 && (
+        {Array.isArray(insp.dvi_items) && (insp.dvi_items as Array<Record<string, unknown>>).length > 0 ? (
           <div className="mt-4">
             <span className="text-sm font-medium text-gray-500">DVI Inspection:</span>
             <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {((insp as Record<string, unknown>).dvi_items as Array<Record<string, unknown>>).map((item, i) => {
+              {(insp.dvi_items as Array<Record<string, unknown>>).map((item, i) => {
                 const s = item.status as string;
                 const bgColor = s === 'green' ? 'bg-green-50 text-green-700' : s === 'yellow' ? 'bg-yellow-50 text-yellow-700' : s === 'red' ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-400';
                 return (
                   <div key={i} className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs ${bgColor}`}>
                     <span className={`inline-block h-2 w-2 rounded-full ${s === 'green' ? 'bg-green-500' : s === 'yellow' ? 'bg-yellow-500' : s === 'red' ? 'bg-red-500' : 'bg-gray-300'}`} />
                     <span className="font-medium">{item.name as string}</span>
-                    {item.notes && <span className="text-gray-400 truncate max-w-[80px]">— {item.notes as string}</span>}
+                    {item.notes ? <span className="text-gray-400 truncate max-w-[80px]">— {String(item.notes)}</span> : null}
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
-        {insp.notes && (
+        ) : null}
+        {insp.notes ? (
           <div className="mt-4 text-sm">
             <span className="font-medium text-gray-500">{tc('notes')}:</span>
             <p className="mt-1 text-gray-900">{String(insp.notes)}</p>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -565,7 +565,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
                 <div className="space-y-1">
                   {dviItems.map((item, idx) => {
                     if (item.category !== cat) return null;
-                    const sc = statusColors[item.status] ?? statusColors.not_inspected;
+                    const sc = statusColors[item.status] ?? statusColors['not_inspected'] ?? { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: 'N/A' };
                     return (
                       <div key={idx} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${sc.bg} ${sc.border}`}>
                         <span className={`text-sm font-medium flex-1 ${sc.text}`}>{item.name}</span>
@@ -810,14 +810,15 @@ export default function JobDetailPage() {
     return <p className="text-gray-500">{t('noJobs')}</p>;
   }
 
-  const typedJob = job as Record<string, unknown>;
-  const vehicle = (typedJob.vehicle ?? typedJob.vehicles) as Record<string, string> | undefined;
-  const customer = (typedJob.customer ?? typedJob.customers) as Record<string, string> | undefined;
-  const technician = (typedJob.primary_technician ?? typedJob.technicians) as Record<string, string> | null | undefined;
-  const currentStatus = typedJob.status as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedJob = job as Record<string, any>;
+  const vehicle = (typedJob.vehicle ?? typedJob.vehicles) as { plate: string; make: string; model: string; year?: number } | undefined;
+  const customer = (typedJob.customer ?? typedJob.customers) as { full_name: string; phone: string; email?: string; tax_id?: string } | undefined;
+  const technician = (typedJob.primary_technician ?? typedJob.technicians) as { full_name: string } | null | undefined;
+  const currentStatus = String(typedJob.status ?? '');
   const nextStatuses = STATUS_TRANSITIONS[currentStatus] ?? [];
   const labels = (typedJob.labels as string[]) ?? [];
-  const statusHistory = (typedJob.status_history as Array<Record<string, unknown>>) ?? [];
+  const statusHistory = (typedJob.status_history as Array<{ status: string; changed_at: string; changed_by_name?: string; notes?: string }>) ?? [];
 
   return (
     <div className="space-y-6">
@@ -1547,7 +1548,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Gate Pass List */}
-        {gatePasses && (gatePasses as Array<Record<string, unknown>>).length > 0 ? (
+        {gatePasses && gatePasses.length > 0 ? (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -1559,17 +1560,17 @@ export default function JobDetailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {(gatePasses as Array<Record<string, unknown>>).map((gp) => (
-                <tr key={gp.id as string}>
-                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{gp.pass_number as string}</td>
+              {gatePasses.map((gp) => (
+                <tr key={gp.id}>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{gp.pass_number}</td>
                   <td className="px-4 py-2 text-sm">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                       gp.pass_type === 'exit' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                     }`}>
-                      {tg(`passType_${gp.pass_type as string}`)}
+                      {tg(`passType_${gp.pass_type}`)}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-sm text-gray-600">{new Date(gp.issued_at as string).toLocaleString()}</td>
+                  <td className="px-4 py-2 text-sm text-gray-600">{new Date(gp.issued_at).toLocaleString()}</td>
                   <td className="px-4 py-2 text-end text-sm text-gray-600">{gp.mileage != null ? `${gp.mileage} km` : '-'}</td>
                   <td className="px-4 py-2 text-sm text-gray-600">
                     {(gp.authorizer as Record<string, string> | null)?.full_name ?? '-'}

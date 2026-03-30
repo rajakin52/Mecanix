@@ -393,9 +393,9 @@ export default function ClaimDetailPage() {
                   <p className="text-sm font-medium text-gray-900">
                     {(action.action ?? action.description ?? action.type) as string}
                   </p>
-                  {action.notes && (
-                    <p className="mt-1 text-sm text-gray-500">{action.notes as string}</p>
-                  )}
+                  {action.notes ? (
+                    <p className="mt-1 text-sm text-gray-500">{String(action.notes)}</p>
+                  ) : null}
                   <p className="mt-1 text-xs text-gray-400">
                     {action.created_at ? new Date(action.created_at as string).toLocaleString(locale) : ''}
                   </p>

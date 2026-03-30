@@ -63,15 +63,15 @@ export default function PurchaseOrderDetailPage() {
   }
 
   // Safe access — handle any shape the API might return
-  const poData = po as Record<string, unknown>;
-  const vendorName = (poData.vendor as Record<string, unknown>)?.name ?? poData.vendor_name ?? '-';
+  const poData = po;
+  const vendorName = poData.vendor?.name ?? poData.vendor_name ?? '-';
   const total = safe(poData.total_amount ?? poData.total);
-  const lines = (Array.isArray(poData.lines) ? poData.lines : []) as Array<Record<string, unknown>>;
-  const status = (poData.status as string) ?? 'draft';
-  const poNumber = (poData.po_number as string) ?? '-';
-  const orderDate = poData.order_date ? new Date(poData.order_date as string).toLocaleDateString() : '-';
-  const expectedDate = poData.expected_date ? new Date(poData.expected_date as string).toLocaleDateString() : '-';
-  const notes = (poData.notes as string) ?? '';
+  const lines = (Array.isArray(poData.lines) ? poData.lines : []) as unknown as Array<Record<string, unknown>>;
+  const status = poData.status ?? 'draft';
+  const poNumber = poData.po_number ?? '-';
+  const orderDate = poData.order_date ? new Date(poData.order_date).toLocaleDateString() : '-';
+  const expectedDate = poData.expected_date ? new Date(poData.expected_date).toLocaleDateString() : '-';
+  const notes = poData.notes ?? '';
 
   return (
     <div>

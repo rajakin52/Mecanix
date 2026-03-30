@@ -11,9 +11,9 @@ export interface Tenant {
   phone?: string;
   email?: string;
   address?: string;
-  taxId?: string;
-  logoUrl?: string;
+  tax_id?: string;
+  logo_url?: string;
   settings: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }

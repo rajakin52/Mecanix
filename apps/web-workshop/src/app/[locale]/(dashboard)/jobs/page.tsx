@@ -156,41 +156,42 @@ export default function JobsPage() {
                 {(() => {
                   const jobs = data?.data ?? [];
                   const sortedJobs = sortData(
-                    jobs as Record<string, unknown>[],
+                    jobs as unknown as Record<string, unknown>[],
                     sortField,
                     sortDir,
                     (item, field) => {
+                      const job = item as Record<string, unknown>;
                       if (field === 'customer_name') {
-                        return ((item as Record<string, unknown>).customer ?? (item as Record<string, unknown>).customers as Record<string, string> | undefined)?.full_name;
+                        return (job.customers as { full_name: string } | undefined)?.full_name;
                       }
-                      return (item as Record<string, unknown>)[field];
+                      return job[field];
                     },
-                  );
+                  ) as unknown as typeof jobs;
                   return sortedJobs.length > 0 ? (
-                  sortedJobs.map((job: Record<string, unknown>) => (
-                    <tr key={job.id as string} className="hover:bg-gray-50">
+                  sortedJobs.map((job) => (
+                    <tr key={job.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/jobs/${job.id as string}`}>
-                          {job.job_number as string}
+                        <Link href={`/jobs/${job.id}`}>
+                          {job.job_number}
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {((job.vehicle ?? job.vehicles) as Record<string, string> | undefined)?.plate ?? '-'}
+                        {job.vehicles?.plate ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {((job.customer ?? job.customers) as Record<string, string> | undefined)?.full_name ?? '-'}
+                        {job.customers?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <StatusBadge status={job.status as string} />
+                        <StatusBadge status={job.status} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {((job.primary_technician ?? job.technicians) as Record<string, string> | null | undefined)?.full_name ?? '-'}
+                        {job.technicians?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
-                        {formatCurrency(job.grand_total as number)}
+                        {formatCurrency(job.grand_total)}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {new Date(job.date_opened as string).toLocaleDateString()}
+                        {new Date(job.date_opened).toLocaleDateString()}
                       </td>
                     </tr>
                   ))
@@ -253,9 +254,9 @@ export default function JobsPage() {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 >
                   <option value="">{t('selectCustomer')}</option>
-                  {(customersData?.data as Array<Record<string, unknown>> | undefined)?.map((c) => (
-                    <option key={c.id as string} value={c.id as string}>
-                      {c.full_name as string}
+                  {customersData?.data?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name}
                     </option>
                   ))}
                 </select>
@@ -271,9 +272,9 @@ export default function JobsPage() {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 disabled:opacity-50"
                 >
                   <option value="">{t('selectVehicle')}</option>
-                  {(vehiclesData?.data as Array<Record<string, unknown>> | undefined)?.map((v) => (
-                    <option key={v.id as string} value={v.id as string}>
-                      {v.plate as string} - {v.make as string} {v.model as string}
+                  {vehiclesData?.data?.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.plate} - {v.make} {v.model}
                     </option>
                   ))}
                 </select>
@@ -299,9 +300,9 @@ export default function JobsPage() {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 >
                   <option value="">{t('selectTechnician')}</option>
-                  {(techData as Array<Record<string, unknown>> | undefined)?.map((tech) => (
-                    <option key={tech.id as string} value={tech.id as string}>
-                      {tech.full_name as string}
+                  {(techData as Array<{ id: string; full_name: string }> | undefined)?.map((tech) => (
+                    <option key={tech.id} value={tech.id}>
+                      {tech.full_name}
                     </option>
                   ))}
                 </select>

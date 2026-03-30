@@ -173,24 +173,24 @@ export default function PartsPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {(() => {
                   const parts = data?.data ?? [];
-                  const sorted = sortData(parts as Record<string, unknown>[], sortField, sortDir);
+                  const sorted = sortData(parts, sortField, sortDir);
                   return sorted.length > 0 ? (
-                  sorted.map((part: Record<string, unknown>) => (
-                    <tr key={part.id as string} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{part.description as string}</td>
+                  sorted.map((part) => (
+                    <tr key={part.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{part.description}</td>
                       <td className="px-4 py-3 text-sm">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            ((part.stock_qty as number) ?? 0) <= ((part.reorder_point as number) ?? 0)
+                            (part.stock_on_hand ?? 0) <= (part.reorder_point ?? 0)
                               ? 'bg-red-100 text-red-700'
                               : 'bg-green-100 text-green-700'
                           }`}
                         >
-                          {(part.stock_qty as number) ?? 0}
+                          {part.stock_on_hand ?? 0}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{((part.unit_cost as number) ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{(part.cost_price ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{((part.sell_price as number) ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{part.category as string}</td>
                     </tr>

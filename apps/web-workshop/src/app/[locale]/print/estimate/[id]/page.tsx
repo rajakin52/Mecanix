@@ -66,11 +66,11 @@ export default function PrintEstimatePage() {
       {/* Header */}
       <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">{tenant.name as string}</h1>
-          {tenant.address && <p className="text-gray-600 mt-1">{tenant.address as string}</p>}
-          {tenant.phone && <p className="text-gray-600">Tel: {tenant.phone as string}</p>}
-          {tenant.email && <p className="text-gray-600">{tenant.email as string}</p>}
-          {tenant.tax_id && <p className="text-gray-600">NIF: {tenant.tax_id as string}</p>}
+          <h1 className="text-2xl font-black text-gray-900">{String(tenant.name)}</h1>
+          {tenant.address ? <p className="text-gray-600 mt-1">{String(tenant.address)}</p> : null}
+          {tenant.phone ? <p className="text-gray-600">Tel: {String(tenant.phone)}</p> : null}
+          {tenant.email ? <p className="text-gray-600">{String(tenant.email)}</p> : null}
+          {tenant.tax_id ? <p className="text-gray-600">NIF: {String(tenant.tax_id)}</p> : null}
         </div>
         <div className="text-end">
           <p className="text-2xl font-black text-gray-900">{estimate.estimate_number}</p>

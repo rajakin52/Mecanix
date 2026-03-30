@@ -62,21 +62,21 @@ export default function CustomerDetailPage() {
 
   useEffect(() => {
     if (customer) {
-      const corp = !!(customer as Record<string, unknown>).is_corporate;
+      const corp = !!customer.is_corporate;
       setEditIsCorporate(corp);
       reset({
-        fullName: (customer as Record<string, unknown>).full_name as string ?? '',
-        phone: (customer as Record<string, unknown>).phone as string ?? '',
-        email: (customer as Record<string, unknown>).email as string ?? '',
-        taxId: (customer as Record<string, unknown>).tax_id as string ?? '',
-        address: (customer as Record<string, unknown>).address as string ?? '',
-        paymentTerms: (customer as Record<string, unknown>).payment_terms as string ?? '',
-        notes: (customer as Record<string, unknown>).notes as string ?? '',
+        fullName: customer.full_name ?? '',
+        phone: customer.phone ?? '',
+        email: customer.email ?? '',
+        taxId: customer.tax_id ?? '',
+        address: customer.address ?? '',
+        paymentTerms: customer.payment_terms ?? '',
+        notes: customer.notes ?? '',
         isCorporate: corp,
-        companyName: (customer as Record<string, unknown>).company_name as string ?? '',
-        billingContact: (customer as Record<string, unknown>).billing_contact as string ?? '',
-        creditLimit: (customer as Record<string, unknown>).credit_limit as number ?? undefined,
-        priceGroupId: (customer as Record<string, unknown>).price_group_id as string ?? '',
+        companyName: customer.company_name ?? '',
+        billingContact: customer.billing_contact ?? '',
+        creditLimit: customer.credit_limit ?? undefined,
+        priceGroupId: customer.price_group_id ?? '',
       });
     }
   }, [customer, reset]);
@@ -106,8 +106,6 @@ export default function CustomerDetailPage() {
     );
   }
 
-  const c = customer as Record<string, unknown>;
-
   return (
     <div>
       {/* Back button */}
@@ -124,8 +122,8 @@ export default function CustomerDetailPage() {
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">{c.full_name as string}</h1>
-            {c.is_corporate && (
+            <h1 className="text-2xl font-bold text-gray-900">{customer.full_name}</h1>
+            {customer.is_corporate && (
               <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
                 <Building2 className="h-3.5 w-3.5" />
                 {tc('corporate')}
@@ -151,52 +149,52 @@ export default function CustomerDetailPage() {
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('phone')}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{(c.phone as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{customer.phone || '-'}</dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('email')}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{(c.email as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{customer.email || '-'}</dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('taxId')}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{(c.tax_id as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{customer.tax_id || '-'}</dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('paymentTerms')}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{(c.payment_terms as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{customer.payment_terms || '-'}</dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">Price Group</dt>
             <dd className="mt-1 text-sm text-gray-900">
-              {pgList.find((pg) => pg.id === (c.price_group_id as string))?.name || 'Default'}
+              {pgList.find((pg) => pg.id === customer.price_group_id)?.name || 'Default'}
             </dd>
           </div>
           <div>
             <dt className="text-sm font-medium text-gray-500">{tc('address')}</dt>
-            <dd className="mt-1 text-sm text-gray-900">{(c.address as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900">{customer.address || '-'}</dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-sm font-medium text-gray-500">{tc('notes')}</dt>
-            <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{(c.notes as string) || '-'}</dd>
+            <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{customer.notes || '-'}</dd>
           </div>
 
-          {c.is_corporate && (
+          {customer.is_corporate && (
             <>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{tc('companyName')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{(c.company_name as string) || '-'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{customer.company_name || '-'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{tc('billingContact')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{(c.billing_contact as string) || '-'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{customer.billing_contact || '-'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{tc('creditLimit')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{c.credit_limit != null ? Number(c.credit_limit).toFixed(2) : '-'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{customer.credit_limit != null ? customer.credit_limit.toFixed(2) : '-'}</dd>
               </div>
               <div>
                 <dt className="text-sm font-medium text-gray-500">{tc('currentBalance')}</dt>
-                <dd className="mt-1 text-sm text-gray-900">{c.current_balance != null ? Number(c.current_balance).toFixed(2) : '0.00'}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{customer.current_balance != null ? customer.current_balance.toFixed(2) : '0.00'}</dd>
               </div>
             </>
           )}
@@ -222,16 +220,16 @@ export default function CustomerDetailPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {vehiclesData?.data && vehiclesData.data.length > 0 ? (
-                  vehiclesData.data.map((vehicle: Record<string, unknown>) => (
-                    <tr key={vehicle.id as string} className="hover:bg-gray-50">
+                  vehiclesData.data.map((vehicle) => (
+                    <tr key={vehicle.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/vehicles/${vehicle.id as string}`}>
-                          {vehicle.plate as string}
+                        <Link href={`/vehicles/${vehicle.id}`}>
+                          {vehicle.plate}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.make as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.model as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.year as number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.make}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.model}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{vehicle.year}</td>
                     </tr>
                   ))
                 ) : (
@@ -512,7 +510,7 @@ export default function CustomerDetailPage() {
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">{t('confirmDelete')}</h2>
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{c.full_name as string}</strong>? This action cannot be undone.
+              Are you sure you want to delete <strong>{customer.full_name}</strong>? This action cannot be undone.
             </p>
             <div className="flex justify-end gap-2">
               <button

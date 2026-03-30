@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
 import type { UpdateVehicleInput } from '@mecanix/validators';
+import type { UpdateVehicleDto } from '@mecanix/types';
 import { Link } from '@/i18n/navigation';
 
 export default function VehicleDetailPage() {
@@ -83,30 +84,30 @@ export default function VehicleDetailPage() {
   useEffect(() => {
     if (vehicle) {
       reset({
-        plate: (vehicle as Record<string, unknown>).plate as string,
-        make: (vehicle as Record<string, unknown>).make as string,
-        model: (vehicle as Record<string, unknown>).model as string,
-        year: (vehicle as Record<string, unknown>).year as number | undefined,
-        color: (vehicle as Record<string, unknown>).color as string | undefined,
-        vin: (vehicle as Record<string, unknown>).vin as string | undefined,
-        fuelType: (vehicle as Record<string, unknown>).fuel_type as 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg' | undefined,
-        engineSize: (vehicle as Record<string, unknown>).engine_size as string | undefined,
-        mileage: (vehicle as Record<string, unknown>).mileage as number | undefined,
-        notes: (vehicle as Record<string, unknown>).notes as string | undefined,
+        plate: vehicle.plate,
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        color: vehicle.color,
+        vin: vehicle.vin,
+        fuelType: vehicle.fuel_type as 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'lpg' | undefined,
+        engineSize: vehicle.engine_size,
+        mileage: vehicle.mileage,
+        notes: vehicle.notes,
       });
     }
   }, [vehicle, reset]);
 
   const onSubmit = async (formData: UpdateVehicleInput) => {
-    await updateMutation.mutateAsync({ id, ...formData });
+    await updateMutation.mutateAsync({ id, ...formData } as unknown as UpdateVehicleDto & { id: string });
     setShowEditModal(false);
   };
 
   const handleCreateDocReminder = async () => {
-    const v2 = vehicle as Record<string, unknown>;
+    if (!vehicle) return;
     await createDocReminder.mutateAsync({
       vehicleId: id,
-      customerId: v2.customer_id as string | undefined,
+      customerId: vehicle.customer_id,
       documentType: docForm.documentType,
       documentName: docForm.documentName,
       expiryDate: docForm.expiryDate,
@@ -118,10 +119,10 @@ export default function VehicleDetailPage() {
   };
 
   const handleCreateReminder = async () => {
-    const v2 = vehicle as Record<string, unknown>;
+    if (!vehicle) return;
     await createReminder.mutateAsync({
       vehicleId: id,
-      customerId: v2.customer_id as string,
+      customerId: vehicle.customer_id,
       reminderType: reminderType,
       serviceName: reminderForm.serviceName,
       ...(reminderType !== 'mileage' && reminderForm.nextDate ? { nextDate: reminderForm.nextDate } : {}),
@@ -154,9 +155,8 @@ export default function VehicleDetailPage() {
     );
   }
 
-  const v = vehicle as Record<string, unknown>;
-  const customer = v.customers as Record<string, string> | null;
-  const photos = v.photos as string[] | null;
+  const customer = vehicle.customers;
+  const photos = vehicle.photos;
 
   return (
     <div>
@@ -170,9 +170,9 @@ export default function VehicleDetailPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 font-mono">{v.plate as string}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 font-mono">{vehicle.plate}</h1>
           <p className="mt-1 text-gray-500">
-            {[v.make, v.model, v.year].filter(Boolean).join(' ')}
+            {[vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')}
           </p>
         </div>
         <button
@@ -190,47 +190,47 @@ export default function VehicleDetailPage() {
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('plate')}</dt>
-              <dd className="mt-1 text-sm font-mono font-medium text-gray-900">{v.plate as string}</dd>
+              <dd className="mt-1 text-sm font-mono font-medium text-gray-900">{vehicle.plate}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('vin')}</dt>
-              <dd className="mt-1 text-sm font-mono text-gray-900">{(v.vin as string) || '-'}</dd>
+              <dd className="mt-1 text-sm font-mono text-gray-900">{vehicle.vin || '-'}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('make')}</dt>
-              <dd className="mt-1 text-sm text-gray-900">{v.make as string}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{vehicle.make}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('model')}</dt>
-              <dd className="mt-1 text-sm text-gray-900">{v.model as string}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{vehicle.model}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('year')}</dt>
-              <dd className="mt-1 text-sm text-gray-900">{(v.year as number) ?? '-'}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{vehicle.year ?? '-'}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('color')}</dt>
-              <dd className="mt-1 text-sm text-gray-900">{(v.color as string) || '-'}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{vehicle.color || '-'}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('fuelType')}</dt>
-              <dd className="mt-1 text-sm text-gray-900 capitalize">{(v.fuel_type as string) || '-'}</dd>
+              <dd className="mt-1 text-sm text-gray-900 capitalize">{vehicle.fuel_type || '-'}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('engineSize')}</dt>
-              <dd className="mt-1 text-sm text-gray-900">{(v.engine_size as string) || '-'}</dd>
+              <dd className="mt-1 text-sm text-gray-900">{vehicle.engine_size || '-'}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('mileage')}</dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {(v.mileage as number) != null ? `${(v.mileage as number).toLocaleString()} km` : '-'}
+                {vehicle.mileage != null ? `${vehicle.mileage.toLocaleString()} km` : '-'}
               </dd>
             </div>
           </dl>
-          {(v.notes as string) && (
+          {vehicle.notes && (
             <div className="mt-4 border-t border-gray-100 pt-4">
               <dt className="text-xs font-semibold uppercase text-gray-500">{tv('notes')}</dt>
-              <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{v.notes as string}</dd>
+              <dd className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{vehicle.notes}</dd>
             </div>
           )}
         </div>
@@ -241,7 +241,7 @@ export default function VehicleDetailPage() {
           {customer ? (
             <div>
               <Link
-                href={`/customers/${v.customer_id as string}`}
+                href={`/customers/${vehicle.customer_id}`}
                 className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
               >
                 {customer.full_name}
@@ -265,7 +265,7 @@ export default function VehicleDetailPage() {
               <div key={index} className="aspect-square overflow-hidden rounded-md border border-gray-200">
                 <img
                   src={url}
-                  alt={`${v.plate as string} photo ${index + 1}`}
+                  alt={`${vehicle.plate} photo ${index + 1}`}
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -440,7 +440,7 @@ export default function VehicleDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(reminders as Array<Record<string, unknown>>).map((rem) => {
+                {reminders.map((rem) => {
                   const statusColors: Record<string, string> = {
                     active: 'bg-blue-100 text-blue-800',
                     sent: 'bg-yellow-100 text-yellow-800',
@@ -448,24 +448,24 @@ export default function VehicleDetailPage() {
                     cancelled: 'bg-gray-100 text-gray-600',
                   };
                   return (
-                    <tr key={rem.id as string}>
-                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.service_name as string}</td>
-                      <td className="py-3 pe-4 text-gray-600 capitalize">{rem.reminder_type as string}</td>
+                    <tr key={rem.id}>
+                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.service_name}</td>
+                      <td className="py-3 pe-4 text-gray-600 capitalize">{rem.reminder_type}</td>
                       <td className="py-3 pe-4 text-gray-600">
-                        {rem.next_date && <span>{rem.next_date as string}</span>}
+                        {rem.next_date && <span>{rem.next_date}</span>}
                         {rem.next_date && rem.next_mileage && <span> / </span>}
-                        {rem.next_mileage && <span>{(rem.next_mileage as number).toLocaleString()} km</span>}
+                        {rem.next_mileage && <span>{rem.next_mileage.toLocaleString()} km</span>}
                       </td>
                       <td className="py-3 pe-4">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status as string] ?? 'bg-gray-100'}`}>
-                          {tr(`status_${rem.status as string}`)}
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status] ?? 'bg-gray-100'}`}>
+                          {tr(`status_${rem.status}`)}
                         </span>
                       </td>
                       <td className="py-3">
                         <div className="flex gap-2">
                           {(rem.status === 'active') && (
                             <button
-                              onClick={() => markSent.mutate(rem.id as string)}
+                              onClick={() => markSent.mutate(rem.id)}
                               className="text-xs text-amber-600 hover:underline"
                             >
                               {tr('markSent')}
@@ -473,7 +473,7 @@ export default function VehicleDetailPage() {
                           )}
                           {(rem.status === 'active' || rem.status === 'sent') && (
                             <button
-                              onClick={() => completeReminder.mutate(rem.id as string)}
+                              onClick={() => completeReminder.mutate(rem.id)}
                               className="text-xs text-green-600 hover:underline"
                             >
                               {tr('markCompleted')}
@@ -590,7 +590,7 @@ export default function VehicleDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(docReminders as Array<Record<string, unknown>>).map((rem) => {
+                {docReminders.map((rem) => {
                   const statusColors: Record<string, string> = {
                     active: 'bg-blue-100 text-blue-800',
                     reminded: 'bg-yellow-100 text-yellow-800',
@@ -598,19 +598,19 @@ export default function VehicleDetailPage() {
                     expired: 'bg-red-100 text-red-800',
                   };
                   return (
-                    <tr key={rem.id as string}>
-                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.document_name as string}</td>
-                      <td className="py-3 pe-4 text-gray-600">{td(`type_${rem.document_type as string}`)}</td>
-                      <td className="py-3 pe-4 text-gray-600">{rem.expiry_date as string}</td>
+                    <tr key={rem.id}>
+                      <td className="py-3 pe-4 font-medium text-gray-900">{rem.document_name}</td>
+                      <td className="py-3 pe-4 text-gray-600">{td(`type_${rem.document_type}`)}</td>
+                      <td className="py-3 pe-4 text-gray-600">{rem.expiry_date}</td>
                       <td className="py-3 pe-4">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status as string] ?? 'bg-gray-100'}`}>
-                          {td(`status_${rem.status as string}`)}
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[rem.status] ?? 'bg-gray-100'}`}>
+                          {td(`status_${rem.status}`)}
                         </span>
                       </td>
                       <td className="py-3">
                         {(rem.status === 'active' || rem.status === 'reminded') && (
                           <button
-                            onClick={() => renewDocReminder.mutate(rem.id as string)}
+                            onClick={() => renewDocReminder.mutate(rem.id)}
                             className="text-xs text-green-600 hover:underline"
                           >
                             {td('markRenewed')}

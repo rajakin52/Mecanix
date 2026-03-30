@@ -32,22 +32,20 @@ export default function DashboardPage() {
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
   const vehicleCount = vehiclesData?.meta?.total ?? 0;
-  const jobCount = (jobsData as Record<string, unknown> | undefined)?.meta
-    ? ((jobsData as Record<string, unknown>).meta as Record<string, number>).total ?? 0
-    : 0;
+  const jobCount = jobsData?.meta?.total ?? 0;
   const recentCustomers = customersData?.data?.slice(0, 5) ?? [];
   const recentVehicles = vehiclesData?.data?.slice(0, 5) ?? [];
 
   // Low stock items
-  const lowStockItems = (lowStockData as Record<string, unknown> | undefined)?.data as Array<Record<string, unknown>> | undefined;
-  const lowStockCount = (lowStockData as Record<string, unknown> | undefined)?.count as number | undefined;
+  const lowStockItems = lowStockData?.data;
+  const lowStockCount = lowStockData?.count;
 
   // Job status counts
-  const jobsList = (jobsData as Record<string, unknown> | undefined)?.data as Array<Record<string, unknown>> | undefined;
+  const jobsList = jobsData?.data;
   const statusCounts: Record<string, number> = {};
   if (jobsList) {
     for (const job of jobsList) {
-      const st = String(job.status ?? 'unknown');
+      const st = job.status ?? 'unknown';
       statusCounts[st] = (statusCounts[st] ?? 0) + 1;
     }
   }
@@ -184,39 +182,39 @@ export default function DashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             {trem('dueReminders')}
-            {dueRemindersData && (dueRemindersData as Array<Record<string, unknown>>).length > 0 && (
+            {dueRemindersData && dueRemindersData.length > 0 && (
               <span className="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                {(dueRemindersData as Array<Record<string, unknown>>).length}
+                {dueRemindersData.length}
               </span>
             )}
           </h2>
         </div>
         {loadingReminders ? (
           <p className="text-sm text-gray-500">{t('loading')}</p>
-        ) : !dueRemindersData || (dueRemindersData as Array<Record<string, unknown>>).length === 0 ? (
+        ) : !dueRemindersData || dueRemindersData.length === 0 ? (
           <p className="text-sm text-gray-400">{trem('noDueReminders')}</p>
         ) : (
           <ul className="divide-y divide-gray-100">
-            {(dueRemindersData as Array<Record<string, unknown>>).slice(0, 5).map((rem) => {
-              const vehicle = rem.vehicles as Record<string, unknown> | null;
+            {dueRemindersData.slice(0, 5).map((rem) => {
+              const vehicle = rem.vehicles;
               return (
-                <li key={String(rem.id)} className="flex items-center justify-between py-3">
+                <li key={rem.id} className="flex items-center justify-between py-3">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {rem.service_name as string}
+                      {rem.service_name}
                     </p>
                     <p className="text-xs text-gray-500">
-                      <span className="font-mono">{vehicle?.plate as string}</span>
+                      <span className="font-mono">{vehicle?.plate}</span>
                       {' - '}
-                      {vehicle?.make as string} {vehicle?.model as string}
+                      {vehicle?.make} {vehicle?.model}
                     </p>
                   </div>
                   <div className="text-end">
                     {rem.next_date && (
-                      <span className="block text-xs text-amber-700">{rem.next_date as string}</span>
+                      <span className="block text-xs text-amber-700">{rem.next_date}</span>
                     )}
                     {rem.next_mileage && (
-                      <span className="block text-xs text-amber-700">{(rem.next_mileage as number).toLocaleString()} km</span>
+                      <span className="block text-xs text-amber-700">{rem.next_mileage.toLocaleString()} km</span>
                     )}
                   </div>
                 </li>
@@ -242,14 +240,14 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400">{tc('noCustomers')}</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {recentCustomers.map((c: Record<string, unknown>) => (
-                <li key={c.id as string} className="flex items-center justify-between py-3">
+              {recentCustomers.map((c) => (
+                <li key={c.id} className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{c.full_name as string}</p>
-                    <p className="text-xs text-gray-500">{c.phone as string}</p>
+                    <p className="text-sm font-medium text-gray-900">{c.full_name}</p>
+                    <p className="text-xs text-gray-500">{c.phone}</p>
                   </div>
                   {c.email && (
-                    <p className="text-xs text-gray-400">{c.email as string}</p>
+                    <p className="text-xs text-gray-400">{c.email}</p>
                   )}
                 </li>
               ))}
@@ -271,14 +269,14 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400">{tv('noVehicles')}</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {recentVehicles.map((v: Record<string, unknown>) => (
-                <li key={v.id as string} className="flex items-center justify-between py-3">
+              {recentVehicles.map((v) => (
+                <li key={v.id} className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-mono font-medium text-gray-900">{v.plate as string}</p>
-                    <p className="text-xs text-gray-500">{v.make as string} {v.model as string} {v.year ? `(${v.year})` : ''}</p>
+                    <p className="text-sm font-mono font-medium text-gray-900">{v.plate}</p>
+                    <p className="text-xs text-gray-500">{v.make} {v.model} {v.year ? `(${v.year})` : ''}</p>
                   </div>
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                    {v.fuel_type as string ?? '-'}
+                    {v.fuel_type ?? '-'}
                   </span>
                 </li>
               ))}
@@ -288,24 +286,24 @@ export default function DashboardPage() {
       </div>
 
       {/* Deferred Services Widget */}
-      {deferredData && (deferredData as Record<string, number>).totalPending > 0 && (
+      {deferredData && deferredData.totalPending > 0 && (
         <div className="rounded-lg border border-orange-200 bg-orange-50 p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-orange-900">Deferred Services</h2>
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
-              <p className="text-2xl font-bold text-orange-800">{(deferredData as Record<string, number>).totalPending}</p>
+              <p className="text-2xl font-bold text-orange-800">{deferredData.totalPending}</p>
               <p className="text-xs text-orange-600">Pending</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-600">{(deferredData as Record<string, number>).redCount}</p>
+              <p className="text-2xl font-bold text-red-600">{deferredData.redCount}</p>
               <p className="text-xs text-red-500">Urgent</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-yellow-600">{(deferredData as Record<string, number>).yellowCount}</p>
+              <p className="text-2xl font-bold text-yellow-600">{deferredData.yellowCount}</p>
               <p className="text-xs text-yellow-500">Monitor</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-700">{money((deferredData as Record<string, number>).potentialRevenue)}</p>
+              <p className="text-2xl font-bold text-green-700">{money(deferredData.potentialRevenue)}</p>
               <p className="text-xs text-green-600">Revenue Opportunity</p>
             </div>
           </div>

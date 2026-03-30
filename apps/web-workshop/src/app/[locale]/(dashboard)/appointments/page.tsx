@@ -48,7 +48,7 @@ function formatTime(time: string) {
 }
 
 function timeToMinutes(time: string) {
-  const [h, m] = time.split(':').map(Number);
+  const [h = 0, m = 0] = time.split(':').map(Number);
   return h * 60 + m;
 }
 
@@ -62,7 +62,7 @@ export default function AppointmentsPage() {
   const t = useTranslations('appointments');
   const tc = useTranslations('common');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0] ?? '';
   const [selectedDate, setSelectedDate] = useState(today);
   const [viewMode, setViewMode] = useState<'day' | 'list'>('day');
   const [showModal, setShowModal] = useState(false);

@@ -257,13 +257,14 @@ export default function PurchaseOrdersPage() {
                           value={line.partId}
                           onChange={(e) => {
                             const partId = e.target.value;
-                            const p = parts.find((pt: Record<string, unknown>) => pt.id === partId);
+                            const p = parts.find((pt) => pt.id === partId);
                             const lines = [...form.lines];
+                            const current = lines[idx] ?? { partId: '', description: '', quantity: 1, unitCost: 0 };
                             lines[idx] = {
-                              ...lines[idx],
+                              ...current,
                               partId,
-                              description: p ? (p.description as string) : lines[idx].description,
-                              unitCost: p ? (p.unit_cost as number) : lines[idx].unitCost,
+                              description: p ? p.description : current.description,
+                              unitCost: p ? p.cost_price : current.unitCost,
                             };
                             setForm({ ...form, lines });
                           }}

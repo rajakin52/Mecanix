@@ -122,15 +122,15 @@ export default function MarketingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {(campaigns as Array<Record<string, unknown>>).map((camp) => (
-                <tr key={camp.id as string}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{camp.name as string}</td>
+              {campaigns.map((camp) => (
+                <tr key={camp.id}>
+                  <td className="px-4 py-3 text-sm text-gray-900">{camp.name}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {t(`target_${camp.target_type as string}`)}
+                    {t(`target_${camp.target_type}`)}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[camp.status as string] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {t(`status_${camp.status as string}`)}
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[camp.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {t(`status_${camp.status}`)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-end text-sm text-gray-700">

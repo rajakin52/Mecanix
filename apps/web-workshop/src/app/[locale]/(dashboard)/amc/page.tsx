@@ -55,8 +55,8 @@ export default function AmcPage() {
   const createSub = useCreateAmcSubscription();
   const recordVisit = useRecordAmcVisit();
 
-  const customers = (customersData as { data?: Array<Record<string, unknown>> })?.data ?? [];
-  const vehicles = (vehiclesData as { data?: Array<Record<string, unknown>> })?.data ?? [];
+  const customers = customersData?.data ?? [];
+  const vehicles = vehiclesData?.data ?? [];
 
   const resetPkgForm = () => {
     setPkgName('');
@@ -69,13 +69,13 @@ export default function AmcPage() {
     setFormError(null);
   };
 
-  const openEditPkg = (pkg: Record<string, unknown>) => {
-    setEditPkgId(pkg.id as string);
-    setPkgName(pkg.name as string);
-    setPkgDesc((pkg.description as string) ?? '');
+  const openEditPkg = (pkg: { id: string; name: string; description: string | null; duration_months: number; price: number; services: string[]; max_visits: number | null }) => {
+    setEditPkgId(pkg.id);
+    setPkgName(pkg.name);
+    setPkgDesc(pkg.description ?? '');
     setPkgDuration(String(pkg.duration_months));
     setPkgPrice(String(pkg.price));
-    setPkgServices(((pkg.services as string[]) ?? []).join(', '));
+    setPkgServices((pkg.services ?? []).join(', '));
     setPkgMaxVisits(pkg.max_visits ? String(pkg.max_visits) : '');
     setShowPkgModal(true);
     setFormError(null);
@@ -174,13 +174,13 @@ export default function AmcPage() {
             <p className="text-center text-gray-400 py-12">{t('noPackages')}</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(packages as Array<Record<string, unknown>>).map((pkg) => (
-                <div key={pkg.id as string} className="rounded-lg border border-gray-200 bg-white p-6">
+              {packages.map((pkg) => (
+                <div key={pkg.id} className="rounded-lg border border-gray-200 bg-white p-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{pkg.name as string}</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">{pkg.name}</h3>
                       {pkg.description && (
-                        <p className="mt-1 text-sm text-gray-500">{pkg.description as string}</p>
+                        <p className="mt-1 text-sm text-gray-500">{pkg.description}</p>
                       )}
                     </div>
                     <button
@@ -193,24 +193,24 @@ export default function AmcPage() {
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('price')}</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(pkg.price as number)}</span>
+                      <span className="font-semibold text-gray-900">{formatCurrency(pkg.price)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">{t('duration')}</span>
-                      <span className="text-gray-700">{pkg.duration_months as number} {t('months')}</span>
+                      <span className="text-gray-700">{pkg.duration_months} {t('months')}</span>
                     </div>
                     {pkg.max_visits && (
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">{t('maxVisits')}</span>
-                        <span className="text-gray-700">{pkg.max_visits as number}</span>
+                        <span className="text-gray-700">{pkg.max_visits}</span>
                       </div>
                     )}
                   </div>
-                  {(pkg.services as string[])?.length > 0 && (
+                  {pkg.services?.length > 0 && (
                     <div className="mt-3">
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">{t('includedServices')}</p>
                       <div className="flex flex-wrap gap-1">
-                        {(pkg.services as string[]).map((svc, i) => (
+                        {pkg.services.map((svc, i) => (
                           <span key={i} className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
                             {svc}
                           </span>
@@ -256,33 +256,33 @@ export default function AmcPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {(subscriptions as Array<Record<string, unknown>>).map((sub) => {
-                    const pkg = sub.package as Record<string, unknown> | null;
-                    const cust = sub.customer as Record<string, unknown> | null;
-                    const veh = sub.vehicle as Record<string, unknown> | null;
-                    const maxVisits = pkg?.max_visits as number | null;
+                  {subscriptions.map((sub) => {
+                    const pkg = sub.package;
+                    const cust = sub.customer;
+                    const veh = sub.vehicle;
+                    const maxVisits = pkg?.max_visits;
                     return (
-                      <tr key={sub.id as string}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{cust?.full_name as string ?? '-'}</td>
+                      <tr key={sub.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{cust?.full_name ?? '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {veh ? `${veh.plate} ${veh.make} ${veh.model}` : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{pkg?.name as string ?? '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{pkg?.name ?? '-'}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">
-                          {new Date(sub.start_date as string).toLocaleDateString()} — {new Date(sub.end_date as string).toLocaleDateString()}
+                          {new Date(sub.start_date).toLocaleDateString()} — {new Date(sub.end_date).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3 text-end text-sm text-gray-700">
-                          {sub.visits_used as number}{maxVisits ? `/${maxVisits}` : ''}
+                          {sub.visits_used}{maxVisits ? `/${maxVisits}` : ''}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[sub.status as string] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {t(`status_${sub.status as string}`)}
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[sub.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {t(`status_${sub.status}`)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-end">
                           {sub.status === 'active' && (
                             <button
-                              onClick={() => recordVisit.mutate(sub.id as string)}
+                              onClick={() => recordVisit.mutate(sub.id)}
                               disabled={recordVisit.isPending}
                               className="text-sm text-primary-600 hover:underline disabled:opacity-50"
                             >

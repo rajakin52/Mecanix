@@ -41,8 +41,8 @@ export default function InvoicesPage() {
   const { data: readyJobsData } = useJobs(1, '', 'ready');
   const { data: qcJobsData } = useJobs(1, '', 'quality_check');
   const eligibleJobs = [
-    ...((readyJobsData?.data as Array<Record<string, unknown>> | undefined) ?? []),
-    ...((qcJobsData?.data as Array<Record<string, unknown>> | undefined) ?? []),
+    ...(readyJobsData?.data ?? []),
+    ...(qcJobsData?.data ?? []),
   ];
 
   const [genJobCardId, setGenJobCardId] = useState('');
@@ -142,35 +142,35 @@ export default function InvoicesPage() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {(() => {
                   const invoices = data?.data ?? [];
-                  const sorted = sortData(invoices as Record<string, unknown>[], sortField, sortDir);
+                  const sorted = sortData(invoices as unknown as Record<string, unknown>[], sortField, sortDir) as unknown as typeof invoices;
                   return sorted.length > 0 ? (
-                  sorted.map((inv: Record<string, unknown>) => (
-                    <tr key={inv.id as string} className="hover:bg-gray-50">
+                  sorted.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/invoices/${inv.id as string}`}>
-                          {inv.invoice_number as string}
+                        <Link href={`/invoices/${inv.id}`}>
+                          {inv.invoice_number}
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {(inv.customers as Record<string, string> | undefined)?.full_name ?? '-'}
+                        {inv.customers?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {(inv.job_cards as Record<string, string> | undefined)?.job_number ?? '-'}
+                        {inv.job_cards?.job_number ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
-                        {formatCurrency(inv.grand_total as number)}
+                        {formatCurrency(inv.grand_total)}
                       </td>
                       <td className="px-4 py-3 text-end text-sm text-gray-700">
-                        {formatCurrency(inv.paid_amount as number)}
+                        {formatCurrency(inv.paid_amount)}
                       </td>
                       <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
-                        {formatCurrency(inv.balance_due as number)}
+                        {formatCurrency(inv.balance_due)}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <StatusBadge status={inv.status as string} />
+                        <StatusBadge status={inv.status} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {new Date(inv.invoice_date as string).toLocaleDateString(locale)}
+                        {new Date(inv.invoice_date).toLocaleDateString(locale)}
                       </td>
                     </tr>
                   ))
@@ -233,8 +233,8 @@ export default function InvoicesPage() {
                 >
                   <option value="">{t('selectJobCard')}</option>
                   {eligibleJobs.map((job) => (
-                    <option key={job.id as string} value={job.id as string}>
-                      {job.job_number as string} - {(job.customers as Record<string, string> | undefined)?.full_name ?? ''}
+                    <option key={job.id} value={job.id}>
+                      {job.job_number} - {job.customers?.full_name ?? ''}
                     </option>
                   ))}
                 </select>

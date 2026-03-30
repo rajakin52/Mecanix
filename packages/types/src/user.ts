@@ -2,16 +2,16 @@ import { UserRole } from './enums';
 
 export interface User {
   id: string;
-  tenantId: string;
-  authId: string;
+  tenant_id: string;
+  auth_id: string;
   email: string;
-  fullName: string;
+  full_name: string;
   role: UserRole;
   phone?: string;
-  avatarUrl?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdBy?: string;
-  updatedBy?: string;
+  avatar_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
 }

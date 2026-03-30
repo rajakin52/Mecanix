@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createCustomerSchema } from '@mecanix/validators';
 import type { CreateCustomerInput } from '@mecanix/validators';
+import type { CreateCustomerDto } from '@mecanix/types';
 import { Link } from '@/i18n/navigation';
 import { Building2 } from 'lucide-react';
 import { usePriceGroups } from '@/hooks/use-pricing';
@@ -54,7 +55,7 @@ export default function CustomersPage() {
   });
 
   const onSubmit = async (formData: CreateCustomerInput) => {
-    await createMutation.mutateAsync(formData);
+    await createMutation.mutateAsync(formData as unknown as CreateCustomerDto);
     setShowModal(false);
     reset();
     setIsCorporate(false);
@@ -106,14 +107,14 @@ export default function CustomersPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {(() => {
-                  const customers = (data?.data ?? []) as Record<string, unknown>[];
-                  const sortedCustomers = sortData(customers, sortField, sortDir);
+                  const customers = data?.data ?? [];
+                  const sortedCustomers = sortData(customers as unknown as Record<string, unknown>[], sortField, sortDir) as unknown as typeof customers;
                   return sortedCustomers.length > 0 ? (
                   sortedCustomers.map((customer) => (
-                    <tr key={customer.id as string} className="hover:bg-gray-50">
+                    <tr key={customer.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/customers/${customer.id as string}`} className="inline-flex items-center gap-1.5">
-                          {customer.full_name as string}
+                        <Link href={`/customers/${customer.id}`} className="inline-flex items-center gap-1.5">
+                          {customer.full_name}
                           {customer.is_corporate && (
                             <span className="inline-flex items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
                               <Building2 className="h-3 w-3" />
@@ -122,11 +123,11 @@ export default function CustomersPage() {
                           )}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{customer.phone as string}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{(customer.email as string) ?? '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{customer.phone}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{customer.email ?? '-'}</td>
                       <td className="px-4 py-3 text-sm">
                         <button
-                          onClick={() => setDeleteConfirm({ id: customer.id as string, name: customer.full_name as string })}
+                          onClick={() => setDeleteConfirm({ id: customer.id, name: customer.full_name })}
                           className="text-red-600 hover:text-red-800"
                         >
                           {tc('delete')}

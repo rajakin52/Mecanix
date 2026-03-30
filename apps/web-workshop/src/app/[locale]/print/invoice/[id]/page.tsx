@@ -13,7 +13,7 @@ export default function PrintInvoicePage() {
   const { data: invoice, isLoading } = useInvoice(id);
   const { data: tenant } = useTenant();
 
-  const jobCardId = (invoice as Record<string, unknown>)?.job_card_id as string;
+  const jobCardId = invoice?.job_card_id ?? '';
   const { data: labourLines } = useLabourLines(jobCardId || '');
   const { data: partsLines } = usePartsLines(jobCardId || '');
 
@@ -28,9 +28,10 @@ export default function PrintInvoicePage() {
     return <div className="p-8 text-center">Loading invoice...</div>;
   }
 
-  const inv = invoice as Record<string, unknown>;
-  const customer = (inv.customer ?? inv.customers) as Record<string, string> | undefined;
-  const jobCard = (inv.job_card ?? inv.job_cards) as Record<string, string> | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inv = invoice as Record<string, any>;
+  const customer = (inv.customer ?? inv.customers) as { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string } | undefined;
+  const jobCard = (inv.job_card ?? inv.job_cards) as { job_number: string } | undefined;
   const tenantData = tenant as Record<string, unknown> | undefined;
 
   const formatCurrency = (val: number | string | null | undefined) => {
@@ -68,7 +69,7 @@ export default function PrintInvoicePage() {
       <div className="mt-6 flex items-center justify-between border-t pt-4">
         <div>
           <QRCodeSVG
-            value={`INV:${inv.invoice_number}|NIF:${inv.customer_tax_id ?? ''}|DATE:${inv.created_at?.slice(0, 10)}|TOTAL:${Number(inv.grand_total).toFixed(2)}|HASH:${inv.short_hash ?? ''}`}
+            value={`INV:${inv.invoice_number}|NIF:${customer?.tax_id ?? ''}|DATE:${inv.created_at.slice(0, 10)}|TOTAL:${Number(inv.grand_total).toFixed(2)}|HASH:${inv.short_hash ?? ''}`}
             size={80}
           />
           <p className="text-[8px] text-gray-400 mt-1">{String(inv.short_hash ?? '')}</p>

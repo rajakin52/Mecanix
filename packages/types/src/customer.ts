@@ -1,18 +1,26 @@
 export interface Customer {
   id: string;
-  tenantId: string;
-  fullName: string;
+  tenant_id: string;
+  full_name: string;
   phone: string;
   email?: string;
-  taxId?: string;
+  tax_id?: string;
   address?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy?: string;
-  updatedBy?: string;
+  payment_terms?: string;
+  price_group_id?: string;
+  is_corporate?: boolean;
+  company_name?: string;
+  billing_contact?: string;
+  credit_limit?: number;
+  current_balance?: number;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
+// DTOs use camelCase to match Zod validator schemas
 export interface CreateCustomerDto {
   fullName: string;
   phone: string;
@@ -20,6 +28,13 @@ export interface CreateCustomerDto {
   taxId?: string;
   address?: string;
   notes?: string;
+  isCorporate?: boolean;
+  companyName?: string;
+  billingContact?: string;
+  creditLimit?: number;
+  paymentTerms?: string;
+  priceGroupId?: string;
+  preferredChannel?: 'email' | 'sms' | 'whatsapp' | 'phone';
 }
 
 export interface UpdateCustomerDto {

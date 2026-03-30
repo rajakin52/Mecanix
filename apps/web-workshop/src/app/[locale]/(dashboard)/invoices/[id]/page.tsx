@@ -37,7 +37,7 @@ export default function InvoiceDetailPage() {
   const mpesaPayMutation = useMpesaPay();
 
   // Fetch labour and parts lines from the job card
-  const jobCardId = (invoice as Record<string, unknown> | undefined)?.job_card_id as string | undefined;
+  const jobCardId = invoice?.job_card_id;
   const { data: labourLines } = useLabourLines(jobCardId ?? '');
   const { data: partsLines } = usePartsLines(jobCardId ?? '');
 
@@ -109,10 +109,9 @@ export default function InvoiceDetailPage() {
     return <p className="text-gray-500">{t('noInvoices')}</p>;
   }
 
-  const inv = invoice as Record<string, unknown>;
-  const status = inv.status as string;
-  const payments = (inv.payments as Array<Record<string, unknown>>) ?? [];
-  const creditNotes = (inv.credit_notes as Array<Record<string, unknown>>) ?? [];
+  const status = invoice.status;
+  const payments = invoice.payments ?? [];
+  const creditNotes = invoice.credit_notes ?? [];
 
   return (
     <div>
@@ -126,7 +125,7 @@ export default function InvoiceDetailPage() {
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">{inv.invoice_number as string}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{invoice.invoice_number}</h1>
           <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}>
             {status.replace(/_/g, ' ')}
           </span>
@@ -155,13 +154,13 @@ export default function InvoiceDetailPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">{t('customer')}</p>
           <p className="mt-1 text-sm font-medium text-gray-900">
-            {((inv.customer ?? inv.customers) as Record<string, string> | undefined)?.full_name ?? '-'}
+            {(invoice.customers)?.full_name ?? '-'}
           </p>
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</p>
-          <Link href={`/jobs/${inv.job_card_id as string}`} className="mt-1 block text-sm font-medium text-primary-600 hover:underline">
-            {((inv.job_card ?? inv.job_cards) as Record<string, string> | undefined)?.job_number ?? '-'}
+          <Link href={`/jobs/${invoice.job_card_id}`} className="mt-1 block text-sm font-medium text-primary-600 hover:underline">
+            {(invoice.job_cards)?.job_number ?? '-'}
           </Link>
         </div>
       </div>
@@ -238,50 +237,50 @@ export default function InvoiceDetailPage() {
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{t('labourTotal')}</span>
-            <span className="text-gray-900">{formatCurrency(inv.labour_total as number)}</span>
+            <span className="text-gray-900">{formatCurrency(invoice.labour_total)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{t('partsTotal')}</span>
-            <span className="text-gray-900">{formatCurrency(inv.parts_total as number)}</span>
+            <span className="text-gray-900">{formatCurrency(invoice.parts_total)}</span>
           </div>
           <div className="flex justify-between border-t border-gray-100 pt-2 text-sm">
             <span className="text-gray-500">{t('subtotal')}</span>
-            <span className="text-gray-900">{formatCurrency(inv.subtotal as number)}</span>
+            <span className="text-gray-900">{formatCurrency(invoice.subtotal)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('taxRate')} ({inv.tax_rate as number}%)</span>
-            <span className="text-gray-900">{formatCurrency(inv.tax_amount as number)}</span>
+            <span className="text-gray-500">{t('taxRate')} ({invoice.tax_rate}%)</span>
+            <span className="text-gray-900">{formatCurrency(invoice.tax_amount)}</span>
           </div>
           <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold">
             <span className="text-gray-900">{t('grandTotal')}</span>
-            <span className="text-gray-900">{formatCurrency(inv.grand_total as number)}</span>
+            <span className="text-gray-900">{formatCurrency(invoice.grand_total)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{t('paid')}</span>
-            <span className="text-green-600">{formatCurrency(inv.paid_amount as number)}</span>
+            <span className="text-green-600">{formatCurrency(invoice.paid_amount)}</span>
           </div>
           <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold">
             <span className="text-gray-900">{t('balanceDue')}</span>
-            <span className={(inv.balance_due as number) > 0 ? 'text-red-600' : 'text-gray-900'}>
-              {formatCurrency(inv.balance_due as number)}
+            <span className={invoice.balance_due > 0 ? 'text-red-600' : 'text-gray-900'}>
+              {formatCurrency(invoice.balance_due)}
             </span>
           </div>
         </div>
 
         {/* Insurance Split */}
-        {(inv.is_insurance as boolean) && (
+        {invoice.is_insurance && (
           <div className="mt-4 rounded-md border border-purple-200 bg-purple-50 p-4">
             <p className="mb-2 text-sm font-semibold text-purple-700">{t('insuranceSplit')}</p>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">{t('customerPortion')}</span>
               <span className="font-medium text-gray-900">
-                {inv.customer_portion != null ? formatCurrency(inv.customer_portion as number) : '-'}
+                {invoice.customer_portion != null ? formatCurrency(invoice.customer_portion) : '-'}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">{t('insurancePortion')}</span>
               <span className="font-medium text-gray-900">
-                {inv.insurance_portion != null ? formatCurrency(inv.insurance_portion as number) : '-'}
+                {invoice.insurance_portion != null ? formatCurrency(invoice.insurance_portion) : '-'}
               </span>
             </div>
           </div>
@@ -293,21 +292,21 @@ export default function InvoiceDetailPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">{t('date')}</p>
           <p className="mt-1 text-sm text-gray-900">
-            {new Date(inv.invoice_date as string).toLocaleDateString(locale)}
+            {new Date(invoice.invoice_date).toLocaleDateString(locale)}
           </p>
         </div>
-        {inv.due_date && (
+        {invoice.due_date && (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase text-gray-500">{t('dueDate')}</p>
             <p className="mt-1 text-sm text-gray-900">
-              {new Date(inv.due_date as string).toLocaleDateString(locale)}
+              {new Date(invoice.due_date).toLocaleDateString(locale)}
             </p>
           </div>
         )}
-        {inv.notes && (
+        {invoice.notes && (
           <div className="rounded-lg border border-gray-200 bg-white p-4">
             <p className="text-xs font-semibold uppercase text-gray-500">{tc('notes')}</p>
-            <p className="mt-1 text-sm text-gray-700">{inv.notes as string}</p>
+            <p className="mt-1 text-sm text-gray-700">{invoice.notes}</p>
           </div>
         )}
       </div>
@@ -319,7 +318,7 @@ export default function InvoiceDetailPage() {
           {status !== 'paid' && status !== 'cancelled' && (
             <button
               onClick={() => {
-                setPayAmount(String(inv.balance_due as number));
+                setPayAmount(String(invoice.balance_due));
                 setShowPayModal(true);
               }}
               className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700"
