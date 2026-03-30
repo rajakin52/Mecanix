@@ -7,11 +7,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Technician {
   id: string;
-  first_name: string;
-  last_name: string;
-  email: string | null;
+  full_name: string;
   phone: string | null;
-  specialization: string | null;
+  specializations: string[];
   hourly_rate: number | null;
   is_active: boolean;
   created_at: string;
@@ -43,40 +41,43 @@ export default function TechniciansPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', specialization: '', hourlyRate: '' });
+  const [form, setForm] = useState({ fullName: '', phone: '', specializations: '', hourlyRate: '' });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const resetForm = () => {
-    setForm({ firstName: '', lastName: '', email: '', phone: '', specialization: '', hourlyRate: '' });
+    setForm({ fullName: '', phone: '', specializations: '', hourlyRate: '' });
     setEditId(null);
+    setFormError(null);
   };
 
   const handleSave = async () => {
-    if (!form.firstName.trim()) return;
+    if (!form.fullName.trim()) return;
+    setFormError(null);
     const body = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email || undefined,
+      fullName: form.fullName.trim(),
       phone: form.phone || undefined,
-      specialization: form.specialization || undefined,
+      specializations: form.specializations ? form.specializations.split(',').map((s) => s.trim()).filter(Boolean) : [],
       hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
     };
 
-    if (editId) {
-      await updateMutation.mutateAsync({ id: editId, ...body });
-    } else {
-      await createMutation.mutateAsync(body);
+    try {
+      if (editId) {
+        await updateMutation.mutateAsync({ id: editId, ...body });
+      } else {
+        await createMutation.mutateAsync(body);
+      }
+      setShowForm(false);
+      resetForm();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save technician');
     }
-    setShowForm(false);
-    resetForm();
   };
 
   const startEdit = (tech: Technician) => {
     setForm({
-      firstName: tech.first_name ?? '',
-      lastName: tech.last_name ?? '',
-      email: tech.email ?? '',
+      fullName: tech.full_name ?? '',
       phone: tech.phone ?? '',
-      specialization: tech.specialization ?? '',
+      specializations: (tech.specializations ?? []).join(', '),
       hourlyRate: tech.hourly_rate ? String(tech.hourly_rate) : '',
     });
     setEditId(tech.id);
@@ -102,9 +103,8 @@ export default function TechniciansPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Name</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Email</th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Phone</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Specialization</th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Specializations</th>
               <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Rate/hr</th>
               <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Actions</th>
             </tr>
@@ -112,10 +112,9 @@ export default function TechniciansPage() {
           <tbody className="divide-y divide-gray-200 bg-white">
             {techs.length > 0 ? techs.map((tech) => (
               <tr key={tech.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{tech.first_name} {tech.last_name}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{tech.email ?? '-'}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">{tech.full_name}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{tech.phone ?? '-'}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{tech.specialization ?? '-'}</td>
+                <td className="px-4 py-3 text-sm text-gray-500">{tech.specializations?.join(', ') || '-'}</td>
                 <td className="px-4 py-3 text-end text-sm text-gray-700">{tech.hourly_rate ? Number(tech.hourly_rate).toFixed(2) : '-'}</td>
                 <td className="px-4 py-3 text-end">
                   <button onClick={() => startEdit(tech)} className="text-xs text-primary-600 hover:text-primary-700 me-3">Edit</button>
@@ -124,7 +123,7 @@ export default function TechniciansPage() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">No technicians yet.</td>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">No technicians yet.</td>
               </tr>
             )}
           </tbody>
@@ -140,34 +139,28 @@ export default function TechniciansPage() {
               <button onClick={() => { setShowForm(false); resetForm(); }} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">First Name *</label>
-                  <input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                  <input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                </div>
-              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                <label className="block text-sm font-medium text-gray-700">Full Name *</label>
+                <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="e.g. John Doe" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Specialization</label>
-                  <input value={form.specialization} onChange={(e) => setForm({ ...form, specialization: e.target.value })} placeholder="e.g. Engine, Electrical" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  <label className="block text-sm font-medium text-gray-700">Specializations</label>
+                  <input value={form.specializations} onChange={(e) => setForm({ ...form, specializations: e.target.value })} placeholder="Engine, Electrical, Brakes" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
+                  <p className="mt-1 text-xs text-gray-400">Comma-separated</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Hourly Rate</label>
-                  <input type="number" step="0.01" value={form.hourlyRate} onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                  <input type="number" step="0.01" value={form.hourlyRate} onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
                 </div>
               </div>
+              {formError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => { setShowForm(false); resetForm(); }} className="rounded-md border px-4 py-2 text-sm text-gray-600">{tc('cancel')}</button>
                 <button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending}
