@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge } from '@mecanix/ui-web';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -16,15 +16,6 @@ const STATUS_TABS = [
   { key: 'overdue', label: 'Overdue' },
   { key: 'cancelled', label: 'Cancelled' },
 ] as const;
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  sent: 'bg-blue-100 text-blue-700',
-  partial: 'bg-yellow-100 text-yellow-700',
-  paid: 'bg-green-100 text-green-700',
-  overdue: 'bg-red-100 text-red-700',
-  cancelled: 'bg-gray-100 text-gray-400',
-};
 
 export default function InvoicesPage() {
   const t = useTranslations('invoices');
@@ -166,9 +157,7 @@ export default function InvoicesPage() {
                         {formatCurrency(inv.balance_due as number)}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[inv.status as string] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {(inv.status as string).replace(/_/g, ' ')}
-                        </span>
+                        <StatusBadge status={inv.status as string} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {new Date(inv.invoice_date as string).toLocaleDateString(locale)}

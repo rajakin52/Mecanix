@@ -11,7 +11,7 @@ import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { Building2 } from 'lucide-react';
 import { usePriceGroups } from '@/hooks/use-pricing';
-import { SkeletonTable } from '@mecanix/ui-web';
+import { SkeletonTable, useToast } from '@mecanix/ui-web';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -31,8 +31,8 @@ export default function CustomersPage() {
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const toast = useToast();
 
   const { data, isLoading } = useCustomers(page, debouncedSearch);
   const createMutation = useCreateCustomer();
@@ -51,16 +51,14 @@ export default function CustomersPage() {
     setShowModal(false);
     reset();
     setIsCorporate(false);
-    setSuccessMsg(t('createdSuccess'));
-    setTimeout(() => setSuccessMsg(null), 3000);
+    toast.success(t('createdSuccess'));
   };
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     await deleteMutation.mutateAsync(deleteConfirm.id);
     setDeleteConfirm(null);
-    setSuccessMsg(t('deletedSuccess'));
-    setTimeout(() => setSuccessMsg(null), 3000);
+    toast.success(t('deletedSuccess'));
   };
 
   return (
@@ -74,12 +72,6 @@ export default function CustomersPage() {
           {t('newCustomer')}
         </button>
       </div>
-
-      {successMsg && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
 
       <div className="mb-4">
         <input

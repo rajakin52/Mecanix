@@ -7,6 +7,7 @@ import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote } from
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
 import { Link } from '@/i18n/navigation';
+import { useToast } from '@mecanix/ui-web';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -64,7 +65,7 @@ export default function InvoiceDetailPage() {
   };
 
   const [payError, setPayError] = useState<string | null>(null);
-  const [paySuccess, setPaySuccess] = useState<string | null>(null);
+  const toast = useToast();
 
   const handleRecordPayment = async () => {
     if (!payAmount || Number(payAmount) <= 0) return;
@@ -82,8 +83,7 @@ export default function InvoiceDetailPage() {
       setPayMethod('cash');
       setPayRef('');
       setPayNotes('');
-      setPaySuccess('Payment recorded successfully!');
-      setTimeout(() => setPaySuccess(null), 3000);
+      toast.success('Payment recorded successfully!');
     } catch (err) {
       setPayError(err instanceof Error ? err.message : 'Failed to record payment');
     }
@@ -116,12 +116,6 @@ export default function InvoiceDetailPage() {
 
   return (
     <div>
-      {paySuccess && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {paySuccess}
-        </div>
-      )}
-
       {/* Back link */}
       <div className="mb-4">
         <Link href="/invoices" className="text-sm text-primary-600 hover:underline">

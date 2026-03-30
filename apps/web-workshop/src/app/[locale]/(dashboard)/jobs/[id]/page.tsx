@@ -19,19 +19,7 @@ import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
 import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
-import { SkeletonPage } from '@mecanix/ui-web';
-
-const STATUS_COLORS: Record<string, string> = {
-  received: 'bg-gray-100 text-gray-700',
-  diagnosing: 'bg-blue-100 text-blue-700',
-  awaiting_approval: 'bg-yellow-100 text-yellow-800',
-  insurance_review: 'bg-purple-100 text-purple-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  awaiting_parts: 'bg-orange-100 text-orange-700',
-  quality_check: 'bg-indigo-100 text-indigo-700',
-  ready: 'bg-green-100 text-green-700',
-  invoiced: 'bg-gray-100 text-gray-500',
-};
+import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing'],
@@ -44,16 +32,6 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   ready: ['invoiced'],
   invoiced: [],
 };
-
-function StatusBadge({ status }: { status: string | undefined }) {
-  if (!status) return null;
-  const cls = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600';
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  );
-}
 
 const FUEL_LEVELS = ['empty', 'quarter', 'half', 'three_quarter', 'full'] as const;
 

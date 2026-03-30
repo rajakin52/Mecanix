@@ -11,7 +11,7 @@ import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import { SkeletonTable } from '@mecanix/ui-web';
+import { SkeletonTable, useToast } from '@mecanix/ui-web';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -25,7 +25,7 @@ export default function VehiclesPage() {
   const createMutation = useCreateVehicle();
   const { data: customersData } = useCustomers(1, '');
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   const [vinLoading, setVinLoading] = useState(false);
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateVehicleInput>({
@@ -63,8 +63,7 @@ export default function VehiclesPage() {
       await createMutation.mutateAsync(formData as Parameters<typeof createMutation.mutateAsync>[0]);
       setShowModal(false);
       reset();
-      setSuccessMsg('Saved successfully!');
-      setTimeout(() => setSuccessMsg(null), 3000);
+      toast.success('Saved successfully!');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vehicle');
     }
@@ -81,12 +80,6 @@ export default function VehiclesPage() {
           {t('newVehicle')}
         </button>
       </div>
-
-      {successMsg && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
 
       <div className="mb-4">
         <input

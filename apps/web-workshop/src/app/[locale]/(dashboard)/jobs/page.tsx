@@ -7,7 +7,7 @@ import { useJobs, useCreateJob, useTechnicians } from '@/hooks/use-jobs';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { Link } from '@/i18n/navigation';
-import { SkeletonTable } from '@mecanix/ui-web';
+import { SkeletonTable, StatusBadge, useToast } from '@mecanix/ui-web';
 
 const STATUSES = [
   { key: undefined, label: 'All' },
@@ -20,28 +20,6 @@ const STATUSES = [
   { key: 'ready', label: 'Ready' },
   { key: 'invoiced', label: 'Invoiced' },
 ] as const;
-
-const STATUS_COLORS: Record<string, string> = {
-  received: 'bg-gray-100 text-gray-700',
-  diagnosing: 'bg-blue-100 text-blue-700',
-  awaiting_approval: 'bg-yellow-100 text-yellow-800',
-  insurance_review: 'bg-purple-100 text-purple-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  awaiting_parts: 'bg-orange-100 text-orange-700',
-  quality_check: 'bg-indigo-100 text-indigo-700',
-  ready: 'bg-green-100 text-green-700',
-  invoiced: 'bg-gray-100 text-gray-500',
-};
-
-function StatusBadge({ status }: { status: string | undefined }) {
-  if (!status) return null;
-  const cls = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600';
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {status.replace(/_/g, ' ')}
-    </span>
-  );
-}
 
 export default function JobsPage() {
   const t = useTranslations('jobs');
@@ -80,7 +58,7 @@ export default function JobsPage() {
   };
 
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   const handleCreate = async () => {
     if (!formCustomerId || !formVehicleId || !formProblem) return;
@@ -97,8 +75,7 @@ export default function JobsPage() {
       });
       setShowModal(false);
       resetForm();
-      setSuccessMsg('Saved successfully!');
-      setTimeout(() => setSuccessMsg(null), 3000);
+      toast.success('Saved successfully!');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create job');
     }
@@ -117,12 +94,6 @@ export default function JobsPage() {
           {t('newJob')}
         </Link>
       </div>
-
-      {successMsg && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
 
       {/* Status tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">

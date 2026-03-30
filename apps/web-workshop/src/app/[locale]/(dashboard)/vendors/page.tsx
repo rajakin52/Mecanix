@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useVendors, useCreateVendor } from '@/hooks/use-purchases';
 import { api } from '@/lib/api';
+import { useToast } from '@mecanix/ui-web';
 
 export default function VendorsPage() {
   const t = useTranslations('purchases');
@@ -19,7 +20,7 @@ export default function VendorsPage() {
   const createMutation = useCreateVendor();
 
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
   const [form, setForm] = useState({
     name: '',
     contactName: '',
@@ -56,8 +57,7 @@ export default function VendorsPage() {
       setShowModal(false);
       setEditingId(null);
       setForm({ name: '', contactName: '', phone: '', email: '', address: '', taxId: '', leadTimeDays: '', paymentTerms: '', notes: '' });
-      setSuccessMsg(editingId ? t('updatedSuccess') : t('createdSuccess'));
-      setTimeout(() => setSuccessMsg(null), 3000);
+      toast.success(editingId ? t('updatedSuccess') : t('createdSuccess'));
       window.location.reload();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create vendor');
@@ -77,12 +77,6 @@ export default function VendorsPage() {
           {t('newVendor')}
         </button>
       </div>
-
-      {successMsg && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
 
       <div className="mb-4">
         <input
@@ -299,8 +293,7 @@ export default function VendorsPage() {
                           .then(() => {
                             setShowModal(false);
                             setEditingId(null);
-                            setSuccessMsg(t('deletedSuccess'));
-                            setTimeout(() => setSuccessMsg(null), 3000);
+                            toast.success(t('deletedSuccess'));
                             setExpandedId(null);
                             window.location.reload();
                           })

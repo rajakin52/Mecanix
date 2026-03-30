@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
-import { SkeletonTable } from '@mecanix/ui-web';
+import { SkeletonTable, useToast } from '@mecanix/ui-web';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -26,7 +26,7 @@ export default function PartsPage() {
   const createMutation = useCreatePart();
 
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
   const [form, setForm] = useState({
     partNumber: '',
     description: '',
@@ -65,8 +65,7 @@ export default function PartsPage() {
       });
       setShowModal(false);
       setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '' });
-      setSuccessMsg('Saved successfully!');
-      setTimeout(() => setSuccessMsg(null), 3000);
+      toast.success('Saved successfully!');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create part');
     }
@@ -85,8 +84,7 @@ export default function PartsPage() {
         unitCost: avgPrice / 100,
         sellPrice: (avgPrice * 1.3) / 100,
       });
-      setSuccessMsg(tt('addedToCatalogue'));
-      setTimeout(() => setSuccessMsg(null), 3000);
+      toast.success(tt('addedToCatalogue'));
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add part');
     } finally {
@@ -128,12 +126,6 @@ export default function PartsPage() {
           </button>
         </div>
       </div>
-
-      {successMsg && (
-        <div className="mb-4 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-          {successMsg}
-        </div>
-      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
