@@ -237,4 +237,9 @@ export class ReportsController {
       endDate || defaults.endDate,
     );
   }
+
+  @Get('wip-inventory')
+  async wipInventory(@TenantId() tenantId: string) {
+    return this.reportsService.wipInventoryReport(tenantId);
+  }
 }

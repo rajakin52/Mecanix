@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateJobCardInput, UpdateJobCardInput, PaginationInput } from '@mecanix/validators';
 import { sanitizeSearch } from '../../common/utils/sanitize';
+import { PartsLinesService } from './parts-lines.service';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing', 'in_progress'],
@@ -25,7 +26,11 @@ interface JobFilters {
 
 @Injectable()
 export class JobsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => PartsLinesService))
+    private readonly partsLinesService: PartsLinesService,
+  ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: JobFilters) {
     const client = this.supabase.getClient();
@@ -265,6 +270,11 @@ export class JobsService {
       changed_by: userId,
       notes: notes || null,
     });
+
+    // Auto-issue reserved parts when job reaches quality_check or ready
+    if (newStatus === 'quality_check' || newStatus === 'ready') {
+      await this.partsLinesService.issueParts(tenantId, id);
+    }
 
     return data;
   }

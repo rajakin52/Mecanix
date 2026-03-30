@@ -11,6 +11,6 @@ import { PricingModule } from '../pricing/pricing.module';
   imports: [PricingModule],
   controllers: [JobsController, LabourLinesController, PartsLinesController],
   providers: [JobsService, LabourLinesService, PartsLinesService],
-  exports: [JobsService],
+  exports: [JobsService, PartsLinesService],
 })
 export class JobsModule {}

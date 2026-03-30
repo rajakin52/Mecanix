@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFormat } from '@/hooks/use-format';
 import {
@@ -19,6 +19,7 @@ import {
   useLowStockReport,
   usePurchaseRequestSummaryReport,
   useVendorPerformanceReport,
+  useWipInventoryReport,
 } from '@/hooks/use-reports';
 
 type ReportType =
@@ -37,7 +38,8 @@ type ReportType =
   | 'stockMovements'
   | 'lowStock'
   | 'purchaseRequestSummary'
-  | 'vendorPerformance';
+  | 'vendorPerformance'
+  | 'wipInventory';
 
 export default function ReportsPage() {
   const t = useTranslations('reports');
@@ -64,6 +66,7 @@ export default function ReportsPage() {
     { value: 'lowStock', label: t('lowStock') },
     { value: 'purchaseRequestSummary', label: t('purchaseRequestSummary') },
     { value: 'vendorPerformance', label: t('vendorPerformance') },
+    { value: 'wipInventory', label: t('wipInventory') },
   ];
 
   return (
@@ -163,6 +166,9 @@ export default function ReportsPage() {
         )}
         {selectedReport === 'vendorPerformance' && (
           <VendorPerformanceSection startDate={startDate} endDate={endDate} money={money} t={t} />
+        )}
+        {selectedReport === 'wipInventory' && (
+          <WipInventorySection money={money} t={t} />
         )}
       </div>
     </div>
@@ -787,6 +793,180 @@ function VendorPerformanceSection({ startDate, endDate, money, t }: { startDate:
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* ────────── WIP Inventory ────────── */
+
+function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
+  const { data, isLoading } = useWipInventoryReport();
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const d = data as Record<string, unknown> | undefined;
+  if (!d) return <NoData t={t} />;
+
+  const summary = (d.summary ?? {}) as Record<string, unknown>;
+  const aging = (summary.aging ?? {}) as Record<string, number>;
+  const byJobStatus = (summary.byJobStatus ?? []) as Array<Record<string, unknown>>;
+  const jobs = (d.jobs ?? []) as Array<Record<string, unknown>>;
+
+  const toggleJob = (jobId: string) => {
+    setExpandedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <Card label={t('wipTotalParts')} value={String(summary.totalLines ?? 0)} />
+        <Card label={t('wipTotalCostValue')} value={money(Number(summary.totalCostValue ?? 0))} />
+        <Card label={t('wipTotalSellValue')} value={money(Number(summary.totalSellValue ?? 0))} />
+        <Card label={t('wipAvgDaysOnJob')} value={String(summary.avgDaysOnJob ?? 0)} />
+      </div>
+
+      {/* Aging breakdown */}
+      <h3 className="text-lg font-semibold text-gray-800 mb-3">{t('wipAgingBreakdown')}</h3>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+          <p className="text-sm font-medium text-green-700">0-7 {t('wipDays')}</p>
+          <p className="mt-1 text-xl font-bold text-green-800">{aging.days0to7 ?? 0}</p>
+        </div>
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+          <p className="text-sm font-medium text-yellow-700">8-30 {t('wipDays')}</p>
+          <p className="mt-1 text-xl font-bold text-yellow-800">{aging.days8to30 ?? 0}</p>
+        </div>
+        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+          <p className="text-sm font-medium text-orange-700">31-60 {t('wipDays')}</p>
+          <p className="mt-1 text-xl font-bold text-orange-800">{aging.days31to60 ?? 0}</p>
+        </div>
+        <div className="rounded-lg border-2 border-red-300 bg-red-50 p-4">
+          <p className="text-sm font-medium text-red-700">60+ {t('wipDays')}</p>
+          <p className="mt-1 text-xl font-bold text-red-800">{aging.days60plus ?? 0}</p>
+        </div>
+      </div>
+
+      {/* By job status */}
+      {byJobStatus.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">{t('wipByJobStatus')}</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 mb-6">
+            {byJobStatus.map((s, i) => (
+              <div key={i} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                <p className="text-xs font-medium text-gray-500">{String(s.status ?? '-')}</p>
+                <p className="mt-1 text-lg font-bold text-gray-900">{String(s.count ?? 0)} {t('wipParts')}</p>
+                <p className="text-sm text-gray-500">{money(Number(s.costValue ?? 0))}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Detail table grouped by job card */}
+      {jobs.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">{t('wipJobDetails')}</h3>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500 w-8"></th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipJobNumber')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipCustomer')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipVehicle')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipDaysOpen')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipPartsCount')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipCostValue')}</th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">{t('wipSellValue')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {jobs.map((job) => {
+                  const jobId = job.jobId as string;
+                  const daysOpen = Number(job.daysOpen ?? 0);
+                  const isExpanded = expandedJobs.has(jobId);
+                  const parts = (job.parts ?? []) as Array<Record<string, unknown>>;
+                  const isStale = daysOpen > 60;
+
+                  return (
+                    <Fragment key={jobId}>
+                      <tr
+                        className={`cursor-pointer hover:bg-gray-50 ${isStale ? 'bg-red-50' : ''}`}
+                        onClick={() => toggleJob(jobId)}
+                      >
+                        <td className="px-4 py-3 text-gray-400">{isExpanded ? '\u25BC' : '\u25B6'}</td>
+                        <td className="px-4 py-3 font-medium">{String(job.jobNumber ?? '-')}</td>
+                        <td className="px-4 py-3">{String(job.customerName ?? '-')}</td>
+                        <td className="px-4 py-3">{String(job.vehiclePlate ?? '-')}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                            {String(job.status ?? '-')}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 font-medium ${isStale ? 'text-red-600' : daysOpen > 30 ? 'text-orange-600' : ''}`}>
+                          {daysOpen}
+                        </td>
+                        <td className="px-4 py-3">{String(job.partsCount ?? 0)}</td>
+                        <td className="px-4 py-3">{money(Number(job.costValue ?? 0))}</td>
+                        <td className="px-4 py-3">{money(Number(job.sellValue ?? 0))}</td>
+                      </tr>
+                      {isExpanded && parts.length > 0 && (
+                        <tr>
+                          <td colSpan={9} className="bg-gray-50 px-8 py-3">
+                            <table className="min-w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-400">
+                                  <th className="py-1 text-start font-medium">{t('wipPartName')}</th>
+                                  <th className="py-1 text-start font-medium">{t('wipPartNumber')}</th>
+                                  <th className="py-1 text-start font-medium">{t('wipQty')}</th>
+                                  <th className="py-1 text-start font-medium">{t('wipUnitCost')}</th>
+                                  <th className="py-1 text-start font-medium">{t('wipSellPrice')}</th>
+                                  <th className="py-1 text-start font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {parts.map((p, pi) => (
+                                  <tr key={pi} className="border-t border-gray-200">
+                                    <td className="py-1.5 font-medium text-gray-700">{String(p.partName ?? '-')}</td>
+                                    <td className="py-1.5 text-gray-500">{String(p.partNumber ?? '-')}</td>
+                                    <td className="py-1.5">{String(p.quantity ?? 0)}</td>
+                                    <td className="py-1.5">{money(Number(p.unitCost ?? 0))}</td>
+                                    <td className="py-1.5">{money(Number(p.sellPrice ?? 0))}</td>
+                                    <td className="py-1.5">
+                                      <span
+                                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                                          p.stockStatus === 'reserved'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : p.stockStatus === 'issued'
+                                              ? 'bg-green-100 text-green-700'
+                                              : 'bg-gray-100 text-gray-700'
+                                        }`}
+                                      >
+                                        {String(p.stockStatus ?? '-')}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1078,4 +1078,217 @@ export class ReportsService {
       totalItemsReceived: v.totalItemsReceived,
     }));
   }
+
+  /**
+   * WIP Inventory report — parts sitting on open job cards that haven't been invoiced yet.
+   * Point-in-time snapshot (no date params needed).
+   */
+  async wipInventoryReport(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    // Get all non-invoiced job cards with customer & vehicle info
+    const { data: jobs, error: jobsError } = await client
+      .from('job_cards')
+      .select('id, job_number, status, date_opened, customer:customers(full_name), vehicle:vehicles(plate)')
+      .eq('tenant_id', tenantId)
+      .neq('status', 'invoiced');
+
+    if (jobsError) throw jobsError;
+
+    const jobRows = jobs ?? [];
+    if (jobRows.length === 0) {
+      return {
+        summary: {
+          totalLines: 0,
+          totalCostValue: 0,
+          totalSellValue: 0,
+          reservedCount: 0,
+          issuedCount: 0,
+          avgDaysOnJob: 0,
+          aging: { days0to7: 0, days8to30: 0, days31to60: 0, days60plus: 0 },
+          byJobStatus: [],
+        },
+        jobs: [],
+      };
+    }
+
+    const jobIds = jobRows.map((j) => j.id as string);
+
+    // Build job lookup for quick access
+    const jobMap = new Map<
+      string,
+      {
+        jobNumber: string;
+        status: string;
+        dateOpened: string;
+        customerName: string;
+        vehiclePlate: string;
+      }
+    >();
+    for (const j of jobRows) {
+      jobMap.set(j.id as string, {
+        jobNumber: j.job_number as string,
+        status: j.status as string,
+        dateOpened: j.date_opened as string,
+        customerName:
+          (j.customer as unknown as { full_name: string } | null)?.full_name ?? 'Unknown',
+        vehiclePlate:
+          (j.vehicle as unknown as { plate: string } | null)?.plate ?? '-',
+      });
+    }
+
+    // Get all parts lines for these jobs
+    const { data: partsLines, error: plError } = await client
+      .from('parts_lines')
+      .select('id, job_card_id, part_name, part_number, quantity, unit_cost, sell_price, subtotal, stock_status')
+      .eq('tenant_id', tenantId)
+      .in('job_card_id', jobIds);
+
+    if (plError) throw plError;
+
+    const lines = partsLines ?? [];
+    const now = new Date();
+
+    // Per-job aggregation
+    const jobAgg = new Map<
+      string,
+      {
+        partsCount: number;
+        costValue: number;
+        sellValue: number;
+        parts: Array<{
+          partName: string;
+          partNumber: string | null;
+          quantity: number;
+          unitCost: number;
+          sellPrice: number;
+          subtotal: number;
+          stockStatus: string;
+        }>;
+      }
+    >();
+
+    let totalLines = 0;
+    let totalCostValue = 0;
+    let totalSellValue = 0;
+    let reservedCount = 0;
+    let issuedCount = 0;
+    let totalDaysOnJob = 0;
+
+    // Aging buckets (based on job date_opened)
+    let days0to7 = 0;
+    let days8to30 = 0;
+    let days31to60 = 0;
+    let days60plus = 0;
+
+    // By job status aggregation
+    const statusAgg = new Map<string, { count: number; costValue: number }>();
+
+    for (const line of lines) {
+      const jobId = line.job_card_id as string;
+      const job = jobMap.get(jobId);
+      if (!job) continue;
+
+      const qty = Number(line.quantity) || 0;
+      const unitCost = Number(line.unit_cost) || 0;
+      const sellPrice = Number(line.sell_price) || 0;
+      const subtotal = Number(line.subtotal) || 0;
+      const costValue = round2(qty * unitCost);
+      const stockStatus = (line.stock_status as string) || 'issued';
+
+      totalLines++;
+      totalCostValue += costValue;
+      totalSellValue += subtotal;
+
+      if (stockStatus === 'reserved') reservedCount++;
+      else if (stockStatus === 'issued') issuedCount++;
+
+      // Days on job
+      const dateOpened = new Date(job.dateOpened);
+      const daysOnJob = Math.max(
+        0,
+        Math.floor((now.getTime() - dateOpened.getTime()) / (1000 * 60 * 60 * 24)),
+      );
+      totalDaysOnJob += daysOnJob;
+
+      // Aging bucket (per line, based on job open date)
+      if (daysOnJob <= 7) days0to7++;
+      else if (daysOnJob <= 30) days8to30++;
+      else if (daysOnJob <= 60) days31to60++;
+      else days60plus++;
+
+      // Job status aggregation
+      if (!statusAgg.has(job.status)) {
+        statusAgg.set(job.status, { count: 0, costValue: 0 });
+      }
+      const sa = statusAgg.get(job.status)!;
+      sa.count++;
+      sa.costValue += costValue;
+
+      // Per-job parts list
+      if (!jobAgg.has(jobId)) {
+        jobAgg.set(jobId, { partsCount: 0, costValue: 0, sellValue: 0, parts: [] });
+      }
+      const ja = jobAgg.get(jobId)!;
+      ja.partsCount++;
+      ja.costValue += costValue;
+      ja.sellValue += subtotal;
+      ja.parts.push({
+        partName: (line.part_name as string) || 'Unknown',
+        partNumber: (line.part_number as string | null) ?? null,
+        quantity: qty,
+        unitCost,
+        sellPrice,
+        subtotal,
+        stockStatus,
+      });
+    }
+
+    const avgDaysOnJob = totalLines > 0 ? round2(totalDaysOnJob / totalLines) : 0;
+
+    const byJobStatus = Array.from(statusAgg.entries()).map(([status, data]) => ({
+      status,
+      count: data.count,
+      costValue: round2(data.costValue),
+    }));
+
+    // Build job-level detail, sorted by days open descending (oldest first)
+    const jobDetails = Array.from(jobAgg.entries())
+      .map(([jobId, agg]) => {
+        const job = jobMap.get(jobId)!;
+        const dateOpened = new Date(job.dateOpened);
+        const daysOpen = Math.max(
+          0,
+          Math.floor((now.getTime() - dateOpened.getTime()) / (1000 * 60 * 60 * 24)),
+        );
+        return {
+          jobId,
+          jobNumber: job.jobNumber,
+          customerName: job.customerName,
+          vehiclePlate: job.vehiclePlate,
+          status: job.status,
+          dateOpened: job.dateOpened,
+          daysOpen,
+          partsCount: agg.partsCount,
+          costValue: round2(agg.costValue),
+          sellValue: round2(agg.sellValue),
+          parts: agg.parts,
+        };
+      })
+      .sort((a, b) => b.daysOpen - a.daysOpen);
+
+    return {
+      summary: {
+        totalLines,
+        totalCostValue: round2(totalCostValue),
+        totalSellValue: round2(totalSellValue),
+        reservedCount,
+        issuedCount,
+        avgDaysOnJob,
+        aging: { days0to7, days8to30, days31to60, days60plus },
+        byJobStatus,
+      },
+      jobs: jobDetails,
+    };
+  }
 }

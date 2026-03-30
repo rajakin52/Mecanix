@@ -127,3 +127,10 @@ export function useVendorPerformanceReport(startDate?: string, endDate?: string)
     queryFn: () => api.get<Array<Record<string, unknown>>>(`/reports/vendor-performance${buildParams(startDate, endDate)}`),
   });
 }
+
+export function useWipInventoryReport() {
+  return useQuery({
+    queryKey: ['report-wip-inventory'],
+    queryFn: () => api.get<Record<string, unknown>>('/reports/wip-inventory'),
+  });
+}
