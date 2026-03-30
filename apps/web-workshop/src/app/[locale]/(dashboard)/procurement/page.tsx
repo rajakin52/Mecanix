@@ -534,7 +534,8 @@ function NewPartsRequestModal({ onClose }: { onClose: () => void }) {
 
   const updateQty = (idx: number, qty: number) => {
     const next = [...items];
-    next[idx].quantity = Math.max(1, qty);
+    const item = next[idx];
+    if (item) item.quantity = Math.max(1, qty);
     setItems(next);
   };
 
