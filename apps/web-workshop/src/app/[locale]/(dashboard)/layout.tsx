@@ -4,6 +4,7 @@ import { useRouter, Link, usePathname } from '@/i18n/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { TenantProvider } from '@/lib/tenant-context';
+import { ToastProvider } from '@mecanix/ui-web';
 import Image from 'next/image';
 import {
   LayoutDashboard,
@@ -247,7 +248,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <TenantProvider>{children}</TenantProvider>
+          <TenantProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </TenantProvider>
         </main>
       </div>
     </div>

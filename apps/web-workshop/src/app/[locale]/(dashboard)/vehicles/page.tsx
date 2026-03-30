@@ -11,6 +11,7 @@ import { createVehicleSchema } from '@mecanix/validators';
 import type { CreateVehicleInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 export default function VehiclesPage() {
   const t = useTranslations('vehicles');
@@ -98,7 +99,7 @@ export default function VehiclesPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">{tc('loading')}</p>
+        <SkeletonTable rows={6} cols={5} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

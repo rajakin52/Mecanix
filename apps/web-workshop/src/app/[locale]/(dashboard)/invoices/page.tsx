@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -123,7 +124,7 @@ export default function InvoicesPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">{tc('loading')}</p>
+        <SkeletonTable rows={6} cols={8} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

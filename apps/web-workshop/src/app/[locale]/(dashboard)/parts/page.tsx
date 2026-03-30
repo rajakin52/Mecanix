@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -155,7 +156,7 @@ export default function PartsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">{tc('loading')}</p>
+        <SkeletonTable rows={6} cols={6} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

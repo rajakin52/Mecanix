@@ -11,6 +11,7 @@ import type { CreateCustomerInput } from '@mecanix/validators';
 import { Link } from '@/i18n/navigation';
 import { Building2 } from 'lucide-react';
 import { usePriceGroups } from '@/hooks/use-pricing';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 const PAYMENT_TERMS_OPTIONS = [
   { value: '', label: '— Select —' },
@@ -91,7 +92,7 @@ export default function CustomersPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">{tc('loading')}</p>
+        <SkeletonTable rows={8} cols={4} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

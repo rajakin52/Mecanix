@@ -7,6 +7,7 @@ import { useJobs, useCreateJob, useTechnicians } from '@/hooks/use-jobs';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { Link } from '@/i18n/navigation';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 const STATUSES = [
   { key: undefined, label: 'All' },
@@ -157,7 +158,7 @@ export default function JobsPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-500">{tc('loading')}</p>
+        <SkeletonTable rows={8} cols={7} />
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

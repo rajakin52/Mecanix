@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@/i18n/navigation';
+import { SkeletonTable } from '@mecanix/ui-web';
 
 interface Estimate {
   id: string;
@@ -53,7 +54,7 @@ export default function EstimatesPage() {
   const [newDesc, setNewDesc] = useState('');
   const [newTotal, setNewTotal] = useState('');
 
-  if (isLoading) return <p className="text-gray-500">{tc('loading')}</p>;
+  if (isLoading) return <SkeletonTable rows={6} cols={6} />;
 
   return (
     <div>
