@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class EstimatesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly logger = new Logger('EstimatesService');
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async listByJob(tenantId: string, jobCardId: string) {
     const { data, error } = await this.supabase
@@ -416,7 +422,15 @@ export class EstimatesService {
 
   // ── Public Token-Based Access ─────────────────────────────
 
-  private readonly TOKEN_SECRET = process.env['SUPABASE_SERVICE_ROLE_KEY']?.slice(0, 32) ?? 'mecanix-estimate-token-secret-key';
+  private get TOKEN_SECRET(): string {
+    const secret = this.configService.get<string>('ESTIMATE_TOKEN_SECRET')
+      ?? this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY')?.slice(0, 32);
+    if (!secret) {
+      this.logger.error('ESTIMATE_TOKEN_SECRET or SUPABASE_SERVICE_ROLE_KEY must be set');
+      throw new Error('Token signing secret is not configured');
+    }
+    return secret;
+  }
 
   /**
    * Generate a signed token for public estimate access (7 days validity).

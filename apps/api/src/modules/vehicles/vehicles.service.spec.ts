@@ -63,6 +63,7 @@ describe('VehiclesService', () => {
       const result = await service.create('t1', 'u1', {
         customerId: 'c1',
         plate: 'LD-12-34-AB',
+        vin: 'JTFDE5260500001',
         make: 'Toyota',
         model: 'Hilux',
       });

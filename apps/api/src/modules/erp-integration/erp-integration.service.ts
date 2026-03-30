@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import type { ErpProvider, ErpConnectionConfig, ErpInvoiceData, ErpPaymentData } from './erp-provider.interface';
 import { PrimaveraV10Provider } from './providers/primavera-v10.provider';
 import { SaftExportProvider } from './providers/saft-export.provider';
+import { encrypt, decrypt, isEncrypted } from '../../common/utils/encryption';
 
 @Injectable()
 export class ErpIntegrationService {
@@ -27,12 +28,23 @@ export class ErpIntegrationService {
 
     if (!data) return null;
 
+    // Decrypt password if it was stored encrypted
+    let password = data.password as string | null;
+    if (password && isEncrypted(password)) {
+      try {
+        password = decrypt(password);
+      } catch (err) {
+        this.logger.error('Failed to decrypt ERP password — it may need to be re-saved');
+        password = null;
+      }
+    }
+
     return {
       provider: data.provider,
       baseUrl: data.base_url,
       companyCode: data.company_code,
       username: data.username,
-      password: data.password,
+      password: password ?? undefined,
       instanceName: data.instance_name,
       invoiceSeries: data.invoice_series ?? 'MEC',
       creditNoteSeries: data.credit_note_series ?? 'MEC',
@@ -56,6 +68,10 @@ export class ErpIntegrationService {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
+    // Encrypt the password before storing
+    const rawPassword = config.password as string | null | undefined;
+    const encryptedPassword = rawPassword ? encrypt(rawPassword) : null;
+
     const dbData: Record<string, unknown> = {
       tenant_id: tenantId,
       provider: config.provider ?? 'primavera_v10',
@@ -63,7 +79,7 @@ export class ErpIntegrationService {
       base_url: config.baseUrl ?? null,
       company_code: config.companyCode ?? null,
       username: config.username ?? null,
-      password: config.password ?? null,
+      password: encryptedPassword,
       instance_name: config.instanceName ?? 'Default',
       invoice_series: config.invoiceSeries ?? 'MEC',
       credit_note_series: config.creditNoteSeries ?? 'MEC',

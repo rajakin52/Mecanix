@@ -71,11 +71,11 @@ export default function PrintInvoicePage() {
             value={`INV:${inv.invoice_number}|NIF:${inv.customer_tax_id ?? ''}|DATE:${inv.created_at?.slice(0, 10)}|TOTAL:${Number(inv.grand_total).toFixed(2)}|HASH:${inv.short_hash ?? ''}`}
             size={80}
           />
-          <p className="text-[8px] text-gray-400 mt-1">{inv.short_hash ?? ''}</p>
+          <p className="text-[8px] text-gray-400 mt-1">{String(inv.short_hash ?? '')}</p>
         </div>
         <div className="text-end text-xs text-gray-400">
           <p>MECANIX Workshop Management</p>
-          {inv.saft_document_number && <p className="font-mono">{inv.saft_document_number}</p>}
+          {inv.saft_document_number && <p className="font-mono">{String(inv.saft_document_number)}</p>}
         </div>
       </div>
 
@@ -99,17 +99,17 @@ export default function PrintInvoicePage() {
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-gray-800 pb-6 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{tenantData?.name as string ?? 'MECANIX'}</h1>
-            {tenantData?.address && <p className="mt-1 text-sm text-gray-600">{tenantData.address as string}</p>}
-            {tenantData?.phone && <p className="text-sm text-gray-600">Tel: {tenantData.phone as string}</p>}
-            {tenantData?.email && <p className="text-sm text-gray-600">{tenantData.email as string}</p>}
-            {tenantData?.tax_id && <p className="text-sm text-gray-600">NIF: {tenantData.tax_id as string}</p>}
+            <h1 className="text-3xl font-bold text-gray-900">{String(tenantData?.name ?? 'MECANIX')}</h1>
+            {tenantData?.address ? <p className="mt-1 text-sm text-gray-600">{String(tenantData.address)}</p> : null}
+            {tenantData?.phone ? <p className="text-sm text-gray-600">Tel: {String(tenantData.phone)}</p> : null}
+            {tenantData?.email ? <p className="text-sm text-gray-600">{String(tenantData.email)}</p> : null}
+            {tenantData?.tax_id ? <p className="text-sm text-gray-600">NIF: {String(tenantData.tax_id)}</p> : null}
           </div>
           <div className="text-right">
             <h2 className="text-2xl font-bold text-gray-700">FACTURA</h2>
-            <p className="mt-2 text-lg font-semibold">{inv.invoice_number as string}</p>
+            <p className="mt-2 text-lg font-semibold">{String(inv.invoice_number)}</p>
             <p className="text-sm text-gray-600">Data: {formatDate(inv.invoice_date as string)}</p>
-            {inv.due_date && <p className="text-sm text-gray-600">Vencimento: {formatDate(inv.due_date as string)}</p>}
+            {inv.due_date ? <p className="text-sm text-gray-600">Vencimento: {formatDate(inv.due_date as string)}</p> : null}
             {jobCard && <p className="text-sm text-gray-600">Ref: {jobCard.job_number}</p>}
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function PrintInvoicePage() {
             <span>{formatCurrency(inv.subtotal as number)}</span>
           </div>
           <div className="flex justify-between py-1 text-sm">
-            <span>IVA ({inv.tax_rate}%):</span>
+            <span>IVA ({String(inv.tax_rate)}%):</span>
             <span>{formatCurrency(inv.tax_amount as number)}</span>
           </div>
           <div className="flex justify-between py-2 text-lg font-bold border-t-2 border-gray-800 mt-1">
@@ -233,13 +233,13 @@ export default function PrintInvoicePage() {
         {inv.notes && (
           <div className="mt-6 text-sm text-gray-600">
             <p className="font-semibold">Notas:</p>
-            <p>{inv.notes as string}</p>
+            <p>{String(inv.notes)}</p>
           </div>
         )}
 
         {/* Footer */}
         <div className="mt-12 border-t border-gray-300 pt-4 text-center text-xs text-gray-400">
-          <p>{tenantData?.name as string ?? 'MECANIX'} — Documento gerado automaticamente</p>
+          <p>{String(tenantData?.name ?? 'MECANIX')} — Documento gerado automaticamente</p>
         </div>
       </div>
     </>

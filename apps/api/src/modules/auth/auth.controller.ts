@@ -8,30 +8,36 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { RateLimitGuard, RateLimit } from '../../common/guards/rate-limit.guard';
 
 @Controller('auth')
+@UseGuards(RateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   @UsePipes(new ZodValidationPipe(signUpSchema))
+  @RateLimit(5, 60)
   async signUp(@Body() body: SignUpInput) {
     return this.authService.signUp(body);
   }
 
   @Post('login')
   @UsePipes(new ZodValidationPipe(loginSchema))
+  @RateLimit(10, 60)
   async login(@Body() body: LoginInput) {
     return this.authService.login(body);
   }
 
   @Post('customer-signup')
   @UsePipes(new ZodValidationPipe(customerSignUpSchema))
+  @RateLimit(5, 60)
   async customerSignUp(@Body() body: CustomerSignUpInput) {
     return this.authService.customerSignUp(body);
   }
 
   @Post('refresh')
+  @RateLimit(20, 60)
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
   }
