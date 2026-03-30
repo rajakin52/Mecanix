@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
@@ -46,24 +46,125 @@ const CHECKLIST_KEYS = [
   'hasDocuments',
 ] as const;
 
-function FuelGaugeIcon({ level, active }: { level: string; active: boolean }) {
-  const fills: Record<string, number> = {
-    empty: 0, quarter: 25, half: 50, three_quarter: 75, full: 100,
+const FUEL_LABELS: Record<string, string> = {
+  empty: 'Empty', quarter: '1/4 Tank', half: 'Half Tank',
+  three_quarter: '3/4 Tank', full: 'Full Tank',
+};
+
+function fuelPctToLevel(pct: number): string {
+  if (pct <= 5) return 'empty';
+  if (pct <= 30) return 'quarter';
+  if (pct <= 60) return 'half';
+  if (pct <= 85) return 'three_quarter';
+  return 'full';
+}
+
+function fuelLevelToPct(level: string): number {
+  const map: Record<string, number> = { empty: 0, quarter: 25, half: 50, three_quarter: 75, full: 100 };
+  return map[level] ?? 0;
+}
+
+function fuelColor(pct: number): string {
+  if (pct <= 15) return '#EF4444'; // red
+  if (pct <= 35) return '#F59E0B'; // amber
+  if (pct <= 60) return '#EAB308'; // yellow
+  return '#22C55E'; // green
+}
+
+function FuelSlider({ value, onChange }: { value: number; onChange: (pct: number) => void }) {
+  const trackRef = React.useRef<HTMLDivElement>(null);
+
+  const handleInteraction = (clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    onChange(Math.round(pct));
   };
-  const pct = fills[level] ?? 0;
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    handleInteraction(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.buttons === 0) return;
+    handleInteraction(e.clientX);
+  };
+
+  const color = fuelColor(value);
+  const level = fuelPctToLevel(value);
+
   return (
-    <svg viewBox="0 0 24 32" className={`h-8 w-6 ${active ? 'text-primary-600' : 'text-gray-300'}`} fill="none">
-      <rect x="2" y="2" width="20" height="28" rx="3" stroke="currentColor" strokeWidth="2" />
-      <rect
-        x="4"
-        y={String(28 - (pct / 100) * 24)}
-        width="16"
-        height={String((pct / 100) * 24)}
-        rx="1"
-        fill="currentColor"
-        opacity={active ? 1 : 0.3}
-      />
-    </svg>
+    <div className="select-none">
+      <div className="flex items-center gap-3">
+        {/* E label */}
+        <span className="text-xs font-bold text-red-500 w-4">E</span>
+
+        {/* Track */}
+        <div
+          ref={trackRef}
+          className="relative flex-1 h-8 rounded-full bg-gray-100 cursor-pointer overflow-hidden border border-gray-200"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          role="slider"
+          aria-label="Fuel level"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={value}
+          tabIndex={0}
+        >
+          {/* Fill gradient */}
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-100 ease-out"
+            style={{
+              width: `${value}%`,
+              background: `linear-gradient(90deg, #EF4444 0%, #F59E0B 25%, #EAB308 50%, #22C55E 75%)`,
+              backgroundSize: '400% 100%',
+              backgroundPosition: `${100 - value}% 0`,
+            }}
+          />
+
+          {/* Thumb */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-6 w-6 rounded-full bg-white border-2 shadow-md transition-all duration-100 ease-out z-10"
+            style={{ left: `${value}%`, borderColor: color }}
+          >
+            <div
+              className="absolute inset-1 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          </div>
+
+          {/* Tick marks */}
+          {[25, 50, 75].map((tick) => (
+            <div
+              key={tick}
+              className="absolute top-0 bottom-0 w-px bg-gray-300/50"
+              style={{ left: `${tick}%` }}
+            />
+          ))}
+        </div>
+
+        {/* F label */}
+        <span className="text-xs font-bold text-green-500 w-4">F</span>
+
+        {/* Fuel pump icon */}
+        <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 22V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17" />
+          <path d="M15 10h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 4" />
+          <path d="M3 22h12" />
+          <path d="M7 9h4" />
+        </svg>
+      </div>
+
+      {/* Label */}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-sm font-medium" style={{ color }}>{FUEL_LABELS[level] ?? `${value}%`}</span>
+        <span className="text-xs text-gray-400">{value}%</span>
+      </div>
+    </div>
   );
 }
 
@@ -117,6 +218,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
   const [showForm, setShowForm] = useState(false);
   const [mileageIn, setMileageIn] = useState('');
   const [fuelLevel, setFuelLevel] = useState<string>('');
+  const [fuelPct, setFuelPct] = useState<number>(0);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
     hasSpareTire: false, hasJack: false, hasTools: false, hasRadio: false,
     hasMats: false, hasHubcaps: false, hasAntenna: false, hasDocuments: false,
@@ -190,7 +292,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
       setFormError(null);
       const payload: Record<string, unknown> = { jobCardId, vehicleId, ...checklist };
       if (mileageIn) payload.mileageIn = Number(mileageIn);
-      if (fuelLevel) payload.fuelLevel = fuelLevel;
+      if (fuelPct > 0) payload.fuelLevel = fuelPctToLevel(fuelPct);
       if (damages.length > 0) payload.exteriorDamage = damages;
       // DVI items
       const inspectedItems = dviItems.filter((i) => i.status !== 'not_inspected');
@@ -222,7 +324,16 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
           {insp.fuel_level ? (
             <div>
               <span className="font-medium text-gray-500">{t('fuelLevel')}:</span>{' '}
-              <span className="text-gray-900">{fuelLabels[insp.fuel_level as string] ?? String(insp.fuel_level)}</span>
+              <span className="text-gray-900">{FUEL_LABELS[insp.fuel_level as string] ?? String(insp.fuel_level)}</span>
+              <div className="mt-1.5 h-3 w-32 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${fuelLevelToPct(insp.fuel_level as string)}%`,
+                    backgroundColor: fuelColor(fuelLevelToPct(insp.fuel_level as string)),
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </div>
@@ -329,24 +440,11 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
           />
         </div>
 
-        {/* Fuel level */}
+        {/* Fuel level — slider gauge */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{t('fuelLevel')}</label>
-          <div className="flex gap-3">
-            {FUEL_LEVELS.map((level) => (
-              <button
-                key={level} type="button"
-                onClick={() => setFuelLevel(level)}
-                className={`flex flex-col items-center gap-1 rounded-md border px-3 py-2 text-xs transition-colors ${
-                  fuelLevel === level
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
-                }`}
-              >
-                <FuelGaugeIcon level={level} active={fuelLevel === level} />
-                {fuelLabels[level]}
-              </button>
-            ))}
+          <label className="block text-sm font-medium text-gray-700 mb-3">{t('fuelLevel')}</label>
+          <div className="max-w-md">
+            <FuelSlider value={fuelPct} onChange={setFuelPct} />
           </div>
         </div>
 
