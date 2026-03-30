@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MECANIX — Warehouse & Procurement Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F1F5F9; color: #1E293B; }
+
+  .nav { display: flex; gap: 8px; padding: 16px 24px; background: #fff; border-bottom: 1px solid #E2E8F0; flex-wrap: wrap; justify-content: center; }
+  .nav button { padding: 10px 18px; border-radius: 10px; border: 1px solid #E2E8F0; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: #64748B; transition: all 0.2s; }
+  .nav button.active { background: #1F4E79; color: #fff; border-color: #1F4E79; }
+  .nav button:hover:not(.active) { background: #F8FAFC; }
+
+  .screen { display: none; max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+  .screen.active { display: block; }
+
+  .mobile-screen { display: none; max-width: 400px; margin: 24px auto; }
+  .mobile-screen.active { display: block; }
+
+  .card { background: #fff; border-radius: 16px; padding: 20px; border: 1px solid #E2E8F0; margin-bottom: 16px; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .card-header h3 { font-size: 16px; font-weight: 700; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .badge-urgent { background: #FEE2E2; color: #EF4444; }
+  .badge-normal { background: #E0F2FE; color: #2E75B6; }
+  .badge-picking { background: #FEF3C7; color: #D97706; }
+  .badge-ready { background: #DCFCE7; color: #16A34A; }
+  .badge-issued { background: #F3F4F6; color: #6B7280; }
+  .badge-pending { background: #FEF3C7; color: #D97706; }
+  .badge-approved { background: #DCFCE7; color: #16A34A; }
+  .badge-ordered { background: #E0F2FE; color: #2E75B6; }
+
+  .btn { padding: 12px 20px; border-radius: 10px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: #1F4E79; color: #fff; }
+  .btn-success { background: #22C55E; color: #fff; }
+  .btn-warning { background: #F59E0B; color: #fff; }
+  .btn-danger-outline { background: #fff; color: #EF4444; border: 2px solid #EF4444; }
+  .btn-outline { background: #fff; color: #1F4E79; border: 1px solid #E2E8F0; }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .request-card { border-left: 4px solid #E2E8F0; padding: 16px; margin-bottom: 12px; background: #fff; border-radius: 0 12px 12px 0; border-top: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+  .request-card.urgent { border-left-color: #EF4444; }
+  .request-card.picking { border-left-color: #F59E0B; }
+  .request-card.ready { border-left-color: #22C55E; }
+
+  .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F1F5F9; }
+  .item-row:last-child { border-bottom: none; }
+
+  .photo-placeholder { width: 60px; height: 60px; background: #F1F5F9; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 1px dashed #CBD5E1; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; border: 1px solid #E2E8F0; }
+  .stat-value { font-size: 28px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #94A3B8; margin-top: 4px; }
+
+  .check-item { display: flex; align-items: center; gap: 12px; padding: 14px; background: #F8FAFC; border-radius: 10px; margin-bottom: 8px; }
+  .check-circle { width: 28px; height: 28px; border-radius: 14px; border: 2px solid #E2E8F0; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
+  .check-circle.checked { background: #22C55E; border-color: #22C55E; color: #fff; }
+
+  .mobile-frame { width: 375px; min-height: 700px; background: #F8FAFC; border-radius: 24px; border: 2px solid #E2E8F0; overflow: hidden; display: flex; flex-direction: column; margin: 0 auto; }
+  .mobile-header { background: linear-gradient(135deg, #1F4E79, #2E75B6); padding: 16px 20px; color: #fff; }
+  .mobile-header h2 { font-size: 18px; font-weight: 700; }
+  .mobile-header .sub { font-size: 12px; opacity: 0.7; }
+  .mobile-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+  .tab-bar { display: flex; border-top: 1px solid #E2E8F0; background: #fff; }
+  .tab-item { flex: 1; padding: 10px 0; text-align: center; cursor: pointer; color: #94A3B8; font-size: 10px; }
+  .tab-item.active { color: #1F4E79; }
+  .tab-item .icon { font-size: 18px; }
+
+  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-bar input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #E2E8F0; font-size: 14px; }
+  .search-bar button { padding: 12px 16px; border-radius: 10px; border: 1px solid #E2E8F0; background: #fff; font-size: 16px; cursor: pointer; }
+
+  .cart-item { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center; }
+  .qty-control { display: flex; align-items: center; gap: 8px; }
+  .qty-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #E2E8F0; background: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  .timeline-item { display: flex; gap: 12px; margin-bottom: 0; }
+  .timeline-dot { display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 6px; }
+  .dot.green { background: #22C55E; }
+  .dot.yellow { background: #F59E0B; }
+  .dot.gray { background: #E2E8F0; }
+  .timeline-line { width: 2px; height: 20px; background: #E2E8F0; }
+  .timeline-line.green { background: #22C55E; }
+
+  .header-bar { background: linear-gradient(135deg, #1F4E79, #2E75B6); padding: 20px 24px; color: #fff; text-align: center; }
+  .header-bar h1 { font-size: 20px; font-weight: 700; }
+  .header-bar p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+  .section-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #1E293B; }
+
+  @media (max-width: 768px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <h1>MECANIX — Warehouse & Procurement</h1>
+  <p>Wireframe: Delivery-style parts request workflow</p>
+</div>
+
+<nav class="nav">
+  <button class="active" onclick="show('warehouse-queue')">Stock Keeper Queue</button>
+  <button onclick="show('picking-mode')">Picking Mode</button>
+  <button onclick="show('warehouse-dashboard')">Warehouse Dashboard</button>
+  <button onclick="show('tech-request')">Technician: Request Parts</button>
+  <button onclick="show('tech-tracking')">Technician: Track Request</button>
+  <button onclick="show('procurement')">Buyer: Procurement</button>
+  <button onclick="show('whatsapp-approval')">WhatsApp Approval</button>
+  <button onclick="show('putaway')">Stock Keeper: Put-Away</button>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 1: STOCK KEEPER — INCOMING REQUESTS QUEUE              -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="warehouse-queue" class="screen active">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" style="color:#EF4444">3</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#F59E0B">1</div><div class="stat-label">Picking</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#22C55E">2</div><div class="stat-label">Ready</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#94A3B8">8</div><div class="stat-label">Issued Today</div></div>
+  </div>
+
+  <div class="section-title">Incoming Requests</div>
+
+  <div class="request-card urgent">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PR-042</span>
+        <span class="badge badge-urgent" style="margin-left:8px">URGENT</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">2 min ago</span>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:10px">
+      <div class="photo-placeholder">📷</div>
+      <div>
+        <div style="font-weight:600;font-size:14px">JC-002 | CD-56-78 (Nissan NP300)</div>
+        <div style="font-size:13px;color:#94A3B8">Transmission repair | Bay 3</div>
+        <div style="font-size:13px;color:#94A3B8">Technician: Carlos Mendes</div>
+      </div>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:#64748B">REQUESTED ITEMS</div>
+    <div class="item-row">
+      <div>
+        <div style="font-size:14px">Transmission fluid 5L</div>
+        <div style="font-size:11px;color:#94A3B8">SKU: TF-5000 | Aisle B, Shelf 3</div>
+      </div>
+      <span style="font-weight:700">x 2</span>
+    </div>
+    <div class="item-row">
+      <div>
+        <div style="font-size:14px">Gasket set (NP300)</div>
+        <div style="font-size:11px;color:#94A3B8">SKU: GS-NP300 | Aisle C, Shelf 1</div>
+      </div>
+      <span style="font-weight:700">x 1</span>
+    </div>
+    <div style="margin-top:4px;padding:8px;background:#FEF3C7;border-radius:8px;font-size:12px">
+      Note: "Gasket is cracked, leaking from left side"
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:2">Start Picking</button>
+      <button class="btn btn-danger-outline" style="flex:1">Not Available</button>
+    </div>
+  </div>
+
+  <div class="request-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PR-043</span>
+        <span class="badge badge-normal" style="margin-left:8px">NORMAL</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">8 min ago</span>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:10px">
+      <div class="photo-placeholder">📷</div>
+      <div>
+        <div style="font-weight:600;font-size:14px">JC-008 | EF-90-12 (Honda Civic)</div>
+        <div style="font-size:13px;color:#94A3B8">Full service 60k | Bay 1</div>
+        <div style="font-size:13px;color:#94A3B8">Technician: Miguel Ferreira</div>
+      </div>
+    </div>
+    <div class="item-row">
+      <div><div style="font-size:14px">Oil filter (Honda)</div><div style="font-size:11px;color:#94A3B8">SKU: OF-HND01 | Aisle A, Shelf 2</div></div>
+      <span style="font-weight:700">x 1</span>
+    </div>
+    <div class="item-row">
+      <div><div style="font-size:14px">Engine oil 5W-30 4L</div><div style="font-size:11px;color:#94A3B8">SKU: EO-5W30 | Aisle A, Shelf 4</div></div>
+      <span style="font-weight:700">x 1</span>
+    </div>
+    <div class="item-row">
+      <div><div style="font-size:14px">Air filter (Honda Civic)</div><div style="font-size:11px;color:#94A3B8">SKU: AF-CVC01 | Aisle A, Shelf 6</div></div>
+      <span style="font-weight:700">x 1</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:2">Start Picking</button>
+      <button class="btn btn-danger-outline" style="flex:1">Not Available</button>
+    </div>
+  </div>
+
+  <div class="request-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PR-044</span>
+        <span class="badge badge-normal" style="margin-left:8px">NORMAL</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">15 min ago</span>
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="photo-placeholder">📷</div>
+      <div>
+        <div style="font-weight:600;font-size:14px">JC-012 | MN-45-67 (Ford Ranger)</div>
+        <div style="font-size:13px;color:#94A3B8">Brake pads + discs | Bay 5</div>
+        <div style="font-size:13px;color:#94A3B8">Technician: Paulo Neto</div>
+      </div>
+    </div>
+    <div style="margin-top:10px" class="item-row">
+      <div><div style="font-size:14px">Front brake pads (Ranger)</div></div>
+      <span style="font-weight:700">x 1</span>
+    </div>
+    <div class="item-row">
+      <div><div style="font-size:14px">Front brake discs (Ranger)</div></div>
+      <span style="font-weight:700">x 2</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:2">Start Picking</button>
+      <button class="btn btn-danger-outline" style="flex:1">Not Available</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 2: STOCK KEEPER — PICKING MODE                         -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="picking-mode" class="screen">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Picking: PR-042</h3>
+        <div style="font-size:13px;color:#94A3B8;margin-top:2px">JC-002 | CD-56-78 (Nissan NP300) | Bay 3</div>
+      </div>
+      <span class="badge badge-picking">PICKING</span>
+    </div>
+
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#64748B">PICK LIST (2 items)</div>
+
+    <div class="check-item" onclick="toggleCheck(this)">
+      <div class="check-circle checked">✓</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">Transmission fluid 5L</div>
+        <div style="font-size:12px;color:#94A3B8">SKU: TF-5000 | Barcode: 7891234567890</div>
+        <div style="font-size:12px;color:#2E75B6;font-weight:600">Location: Aisle B, Shelf 3</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700">x 2</div>
+        <div style="font-size:11px;color:#22C55E">Scanned</div>
+      </div>
+    </div>
+
+    <div class="check-item" onclick="toggleCheck(this)">
+      <div class="check-circle"></div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">Gasket set (NP300)</div>
+        <div style="font-size:12px;color:#94A3B8">SKU: GS-NP300 | Barcode: 7891234567891</div>
+        <div style="font-size:12px;color:#2E75B6;font-weight:600">Location: Aisle C, Shelf 1</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700">x 1</div>
+        <div style="font-size:11px;color:#94A3B8">Pending scan</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding:12px;background:#F0F9FF;border-radius:10px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:24px">📷</span>
+      <div>
+        <div style="font-weight:600;font-size:14px">Scan next item barcode</div>
+        <div style="font-size:12px;color:#94A3B8">Point camera at barcode on Gasket set</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn btn-outline" style="flex:1">Item Not Found</button>
+      <button class="btn btn-success" style="flex:2;opacity:0.5">Mark Ready for Collection</button>
+    </div>
+
+    <div style="margin-top:16px;padding:12px;background:#F8FAFC;border-radius:10px">
+      <div style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:6px">OLD PART PHOTO (from technician)</div>
+      <div style="display:flex;gap:8px">
+        <div style="width:80px;height:80px;background:#E2E8F0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94A3B8;text-align:center;padding:4px">Cracked gasket photo</div>
+      </div>
+      <div style="font-size:12px;color:#94A3B8;margin-top:6px">Note: "Gasket is cracked, leaking from left side"</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 3: WAREHOUSE DASHBOARD                                  -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="warehouse-dashboard" class="screen">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" style="color:#1F4E79">14</div><div class="stat-label">Requests Today</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#22C55E">11 min</div><div class="stat-label">Avg Fulfil Time</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#EF4444">12%</div><div class="stat-label">Stock-out Rate</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#F59E0B">3</div><div class="stat-label">Pending PRs</div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px">Top Requested Parts (This Week)</h3>
+    <div class="item-row">
+      <div><div style="font-weight:600">Engine oil 5W-30 4L</div><div style="font-size:12px;color:#94A3B8">SKU: EO-5W30</div></div>
+      <div style="text-align:right"><div style="font-weight:700">24 units</div><div style="font-size:11px;color:#22C55E">In stock: 18</div></div>
+    </div>
+    <div class="item-row">
+      <div><div style="font-weight:600">Oil filter (assorted)</div><div style="font-size:12px;color:#94A3B8">Various SKUs</div></div>
+      <div style="text-align:right"><div style="font-weight:700">19 units</div><div style="font-size:11px;color:#22C55E">In stock: 32</div></div>
+    </div>
+    <div class="item-row">
+      <div><div style="font-weight:600">Brake pads (front)</div><div style="font-size:12px;color:#94A3B8">Various SKUs</div></div>
+      <div style="text-align:right"><div style="font-weight:700">12 units</div><div style="font-size:11px;color:#F59E0B">In stock: 4</div></div>
+    </div>
+    <div class="item-row">
+      <div><div style="font-weight:600">Transmission fluid 5L</div><div style="font-size:12px;color:#94A3B8">SKU: TF-5000</div></div>
+      <div style="text-align:right"><div style="font-weight:700">8 units</div><div style="font-size:11px;color:#EF4444">In stock: 1</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:16px">Fulfilment Performance</h3>
+    <div style="display:flex;gap:16px;margin-bottom:16px">
+      <div style="flex:1;text-align:center;padding:12px;background:#DCFCE7;border-radius:10px">
+        <div style="font-size:24px;font-weight:800;color:#16A34A">78%</div>
+        <div style="font-size:11px;color:#16A34A">Fulfilled under 15 min</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:12px;background:#FEF3C7;border-radius:10px">
+        <div style="font-size:24px;font-weight:800;color:#D97706">15%</div>
+        <div style="font-size:11px;color:#D97706">15-30 min</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:12px;background:#FEE2E2;border-radius:10px">
+        <div style="font-size:24px;font-weight:800;color:#EF4444">7%</div>
+        <div style="font-size:11px;color:#EF4444">Over 30 min</div>
+      </div>
+    </div>
+    <div style="height:120px;display:flex;align-items:flex-end;gap:4px;padding:0 8px">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%;height:80px;background:#DCFCE7;border-radius:4px 4px 0 0"></div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px">Mon</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%;height:95px;background:#DCFCE7;border-radius:4px 4px 0 0"></div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px">Tue</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%;height:70px;background:#DCFCE7;border-radius:4px 4px 0 0"></div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px">Wed</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%;height:110px;background:#DCFCE7;border-radius:4px 4px 0 0"></div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px">Thu</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%;height:65px;background:#1F4E79;border-radius:4px 4px 0 0"></div>
+        <div style="font-size:9px;color:#94A3B8;margin-top:4px">Fri</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:8px">Requests per day this week</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 4: TECHNICIAN — REQUEST PARTS (Mobile)                  -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="tech-request" class="mobile-screen">
+  <div class="mobile-frame">
+    <div class="mobile-header">
+      <div style="font-size:13px;opacity:0.7">< Back to JC-002</div>
+      <h2>Request Parts</h2>
+      <div class="sub">Nissan NP300 | Transmission repair</div>
+    </div>
+    <div class="mobile-body">
+      <div class="search-bar">
+        <input type="text" placeholder="Search parts..." />
+        <button>📷</button>
+      </div>
+
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#64748B">RECENTLY USED</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+        <span style="padding:6px 12px;background:#F0F9FF;border-radius:8px;font-size:12px;color:#2E75B6;cursor:pointer">Engine oil 5W-30</span>
+        <span style="padding:6px 12px;background:#F0F9FF;border-radius:8px;font-size:12px;color:#2E75B6;cursor:pointer">Oil filter (NP300)</span>
+        <span style="padding:6px 12px;background:#F0F9FF;border-radius:8px;font-size:12px;color:#2E75B6;cursor:pointer">Brake fluid</span>
+      </div>
+
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">CART (2 items)</div>
+      <div class="cart-item">
+        <div>
+          <div style="font-weight:600;font-size:14px">Transmission fluid 5L</div>
+          <div style="font-size:11px;color:#94A3B8">SKU: TF-5000</div>
+        </div>
+        <div class="qty-control">
+          <div class="qty-btn">-</div>
+          <span style="font-weight:700;min-width:20px;text-align:center">2</span>
+          <div class="qty-btn">+</div>
+        </div>
+      </div>
+      <div class="cart-item">
+        <div>
+          <div style="font-weight:600;font-size:14px">Gasket set (NP300)</div>
+          <div style="font-size:11px;color:#94A3B8">SKU: GS-NP300</div>
+        </div>
+        <div class="qty-control">
+          <div class="qty-btn">-</div>
+          <span style="font-weight:700;min-width:20px;text-align:center">1</span>
+          <div class="qty-btn">+</div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;font-size:13px;font-weight:600;margin-bottom:8px">OLD PART PHOTO (required)</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="width:80px;height:80px;background:#E2E8F0;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#94A3B8;text-align:center;border:2px dashed #CBD5E1">Gasket photo</div>
+        <div style="width:80px;height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px dashed #CBD5E1;cursor:pointer;color:#94A3B8">+</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;color:#94A3B8;margin-bottom:4px">Note (optional)</div>
+        <textarea style="width:100%;padding:10px;border-radius:10px;border:1px solid #E2E8F0;font-size:13px;resize:none;height:50px;box-sizing:border-box" placeholder="Gasket is cracked, leaking from..."></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" /> Mark as URGENT
+        </label>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:16px;font-size:16px">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 5: TECHNICIAN — TRACK REQUEST (Mobile)                  -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="tech-tracking" class="mobile-screen">
+  <div class="mobile-frame">
+    <div class="mobile-header">
+      <h2>Parts Requests</h2>
+      <div class="sub">JC-002 | Nissan NP300</div>
+    </div>
+    <div class="mobile-body">
+
+      <!-- Live tracking card -->
+      <div style="background:#DCFCE7;border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;font-size:15px;color:#16A34A">PR-042</span>
+          <span class="badge badge-ready">READY</span>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#16A34A;margin-bottom:8px">Your parts are ready!</div>
+        <div style="font-size:13px;color:#166534;margin-bottom:12px">Collect at Parts Window A</div>
+
+        <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:12px">
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="dot green"></div><div class="timeline-line green"></div></div>
+            <div style="padding-bottom:8px"><div style="font-size:13px;font-weight:600">Requested</div><div style="font-size:11px;color:#94A3B8">10:23 AM</div></div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="dot green"></div><div class="timeline-line green"></div></div>
+            <div style="padding-bottom:8px"><div style="font-size:13px;font-weight:600">Carlos is picking your parts</div><div style="font-size:11px;color:#94A3B8">10:25 AM - 2 of 2 items picked</div></div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot"><div class="dot green"></div></div>
+            <div><div style="font-size:13px;font-weight:600;color:#16A34A">Ready for collection</div><div style="font-size:11px;color:#94A3B8">10:34 AM - Window A</div></div>
+          </div>
+        </div>
+
+        <button class="btn btn-success" style="width:100%;font-size:15px">Confirm Received</button>
+      </div>
+
+      <!-- Second request - pending -->
+      <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid #E2E8F0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:700;font-size:15px">PR-045</span>
+          <span class="badge badge-pending">ORDERING</span>
+        </div>
+        <div style="font-size:14px;margin-bottom:4px">Torque converter assembly</div>
+        <div style="font-size:12px;color:#94A3B8;margin-bottom:8px">Not in stock - purchase order created</div>
+        <div style="background:#FEF3C7;border-radius:8px;padding:10px">
+          <div style="font-size:12px;font-weight:600;color:#D97706">Estimated delivery: 2 April 2026</div>
+          <div style="font-size:11px;color:#92400E;margin-top:2px">Ordered from: AutoParts Angola Lda</div>
+        </div>
+      </div>
+
+      <!-- Completed request -->
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:#64748B">COMPLETED</div>
+      <div style="background:#fff;border-radius:12px;padding:12px;border:1px solid #E2E8F0;opacity:0.7">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;font-size:14px">PR-038</div>
+            <div style="font-size:12px;color:#94A3B8">Diagnostic cable + fuses</div>
+          </div>
+          <span class="badge badge-issued">ISSUED</span>
+        </div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:4px">Issued yesterday at 14:20</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab-item"><div class="icon">🏠</div>My Jobs</div>
+      <div class="tab-item"><div class="icon">⏱️</div>Timer</div>
+      <div class="tab-item active"><div class="icon">🔧</div>Parts</div>
+      <div class="tab-item"><div class="icon">📊</div>Stats</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 6: BUYER — PROCUREMENT DASHBOARD                        -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="procurement" class="screen">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" style="color:#F59E0B">5</div><div class="stat-label">Approved PRs</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#2E75B6">3</div><div class="stat-label">Open POs</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#22C55E">$2,340</div><div class="stat-label">This Week</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#EF4444">2</div><div class="stat-label">Overdue</div></div>
+  </div>
+
+  <div class="section-title">Approved Purchase Requests — Ready to Order</div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PR-045</span>
+        <span class="badge badge-approved" style="margin-left:8px">APPROVED</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">Approved 30 min ago via WhatsApp</span>
+    </div>
+    <div style="font-size:14px;margin-bottom:4px"><strong>Job:</strong> JC-002 | CD-56-78 (Nissan NP300)</div>
+    <div style="font-size:13px;color:#94A3B8;margin-bottom:12px">Requested by: Carlos Mendes</div>
+    <div class="item-row">
+      <div>
+        <div style="font-weight:600">Torque converter assembly (NP300)</div>
+        <div style="font-size:12px;color:#94A3B8">x 1</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700">$450.00</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:10px;background:#F0F9FF;border-radius:8px;font-size:13px">
+      <strong>Suggested vendor:</strong> AutoParts Angola Lda — $450 | 2-day delivery | 98% reliability
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:2">Create Purchase Order</button>
+      <button class="btn btn-outline" style="flex:1">Compare Vendors</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PR-046</span>
+        <span class="badge badge-approved" style="margin-left:8px">APPROVED</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">Auto-approved (under threshold)</span>
+    </div>
+    <div style="font-size:14px;margin-bottom:4px"><strong>Job:</strong> JC-012 | MN-45-67 (Ford Ranger)</div>
+    <div class="item-row">
+      <div><div style="font-weight:600">Front brake discs (Ranger)</div><div style="font-size:12px;color:#94A3B8">x 2</div></div>
+      <div style="font-weight:700">$180.00</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:2">Create Purchase Order</button>
+      <button class="btn btn-outline" style="flex:1">Compare Vendors</button>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:20px">Open Purchase Orders</div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><span style="font-weight:700">PO-0089</span> <span class="badge badge-ordered" style="margin-left:8px">ORDERED</span></div>
+      <span style="font-size:12px;color:#94A3B8">Ordered 28 Mar</span>
+    </div>
+    <div style="font-size:13px">AutoParts Angola Lda | 4 items | $1,230.00</div>
+    <div style="font-size:12px;color:#2E75B6;margin-top:4px">Expected: 1 April 2026</div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn btn-success" style="flex:1;font-size:13px;padding:10px">Log Receipt</button>
+      <button class="btn btn-outline" style="flex:1;font-size:13px;padding:10px">View Details</button>
+    </div>
+  </div>
+
+  <div class="card" style="border-left:4px solid #EF4444">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><span style="font-weight:700">PO-0085</span> <span class="badge badge-urgent" style="margin-left:8px">OVERDUE</span></div>
+      <span style="font-size:12px;color:#EF4444">Expected 26 Mar</span>
+    </div>
+    <div style="font-size:13px">MecaParts Moz | 2 items | $340.00</div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <button class="btn btn-warning" style="flex:1;font-size:13px;padding:10px">Contact Vendor</button>
+      <button class="btn btn-outline" style="flex:1;font-size:13px;padding:10px">View Details</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 7: WHATSAPP APPROVAL MOCKUP                             -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="whatsapp-approval" class="mobile-screen">
+  <div class="mobile-frame" style="background:#ECE5DD">
+    <div style="background:#075E54;padding:16px 20px;color:#fff;display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:18px;background:#1F4E79;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff">M</div>
+      <div>
+        <div style="font-weight:700;font-size:16px">MECANIX Workshop</div>
+        <div style="font-size:11px;opacity:0.7">Business account</div>
+      </div>
+    </div>
+    <div style="flex:1;padding:16px;overflow-y:auto">
+      <!-- System message -->
+      <div style="max-width:300px;background:#fff;border-radius:0 12px 12px 12px;padding:14px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,0.1)">
+        <div style="font-size:14px;line-height:1.5">
+          <div style="font-size:12px;color:#075E54;font-weight:700;margin-bottom:8px">MECANIX - Purchase Approval</div>
+          <div style="border-left:3px solid #F59E0B;padding-left:10px;margin-bottom:10px">
+            <div style="font-weight:700">Purchase Request #PR-045</div>
+          </div>
+          <div style="margin-bottom:6px"><strong>Job:</strong> JC-002 (CD-56-78)</div>
+          <div style="margin-bottom:6px"><strong>Vehicle:</strong> Nissan NP300</div>
+          <div style="margin-bottom:6px"><strong>Repair:</strong> Transmission repair</div>
+          <div style="margin-bottom:6px"><strong>Technician:</strong> Carlos Mendes</div>
+          <div style="margin-bottom:10px;padding-top:8px;border-top:1px solid #E2E8F0">
+            <strong>Items:</strong><br>
+            Torque converter assembly x 1 — $450.00
+          </div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:10px">Total: $450.00</div>
+          <div style="font-size:12px;color:#94A3B8;margin-bottom:10px">Threshold: $200.00</div>
+          <div style="font-size:12px;padding:8px;background:#FEF3C7;border-radius:6px;margin-bottom:8px">
+            Old part photo attached below
+          </div>
+          <div style="margin-top:8px;font-size:13px">
+            Reply:<br>
+            <span style="color:#22C55E;font-weight:700">APPROVE</span> or <span style="color:#EF4444;font-weight:700">REJECT</span>
+          </div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#94A3B8;margin-top:6px">10:45 AM</div>
+      </div>
+
+      <!-- Photo message -->
+      <div style="max-width:200px;background:#fff;border-radius:0 12px 12px 12px;padding:6px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,0.1)">
+        <div style="width:100%;height:140px;background:#E2E8F0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#94A3B8;text-align:center;padding:8px">
+          [Old part photo]<br>Cracked torque converter
+        </div>
+        <div style="text-align:right;font-size:11px;color:#94A3B8;margin-top:4px;padding:0 6px">10:45 AM</div>
+      </div>
+
+      <!-- Manager reply -->
+      <div style="max-width:200px;background:#DCF8C6;border-radius:12px 0 12px 12px;padding:12px;margin-left:auto;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,0.1)">
+        <div style="font-size:15px;font-weight:700">APPROVE</div>
+        <div style="text-align:right;font-size:11px;color:#94A3B8;margin-top:4px">10:52 AM ✓✓</div>
+      </div>
+
+      <!-- Confirmation -->
+      <div style="max-width:300px;background:#fff;border-radius:0 12px 12px 12px;padding:14px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,0.1)">
+        <div style="font-size:14px;line-height:1.5">
+          <span style="font-size:18px">✅</span> <strong>PR-045 approved.</strong><br><br>
+          Purchase order will be created and sent to AutoParts Angola Lda.<br><br>
+          <span style="font-size:12px;color:#94A3B8">Estimated delivery: 2 April 2026</span>
+        </div>
+        <div style="text-align:right;font-size:11px;color:#94A3B8;margin-top:6px">10:52 AM</div>
+      </div>
+    </div>
+
+    <!-- WhatsApp input bar -->
+    <div style="padding:8px 12px;background:#F0F0F0;display:flex;align-items:center;gap:8px">
+      <div style="flex:1;background:#fff;border-radius:20px;padding:10px 16px;font-size:14px;color:#94A3B8">Type a message</div>
+      <div style="width:40px;height:40px;border-radius:20px;background:#075E54;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px">🎤</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ -->
+<!-- SCREEN 8: STOCK KEEPER — PUT-AWAY (Stock Replenishment)        -->
+<!-- ════════════════════════════════════════════════════════════════ -->
+<div id="putaway" class="screen">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-value" style="color:#F59E0B">2</div><div class="stat-label">Pending Put-Away</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#2E75B6">1</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#22C55E">5</div><div class="stat-label">Completed Today</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#EF4444">1</div><div class="stat-label">Overdue SLA</div></div>
+  </div>
+
+  <div class="section-title">Put-Away Tasks — Received Goods</div>
+
+  <!-- TASK 1: Has reserved items for a job card -->
+  <div class="card" style="border-left:4px solid #EF4444">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PUT-017</span>
+        <span class="badge badge-urgent" style="margin-left:8px">RESERVED ITEMS</span>
+        <span class="badge" style="margin-left:4px;background:#FEE2E2;color:#EF4444">SLA: 45min left</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">Received 1h 15min ago</span>
+    </div>
+    <div style="font-size:14px;margin-bottom:4px"><strong>PO-0089</strong> from AutoParts Angola Lda</div>
+    <div style="font-size:13px;color:#94A3B8;margin-bottom:14px">4 items received by Buyer Ana Santos</div>
+
+    <!-- Reserved items section -->
+    <div style="background:#FEF3C7;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:8px">RESERVED FOR JOB CARDS (priority)</div>
+      <div class="item-row">
+        <div>
+          <div style="font-weight:600;font-size:14px">Torque converter assembly (NP300)</div>
+          <div style="font-size:12px;color:#D97706;font-weight:600">RESERVED: JC-002 | CD-56-78 (Nissan NP300)</div>
+          <div style="font-size:11px;color:#94A3B8">Tech: Carlos Mendes | Bay 3</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700">x 1</div>
+          <div style="font-size:11px;color:#D97706">Direct to Window A</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- General stock items -->
+    <div style="font-size:12px;font-weight:700;color:#64748B;margin-bottom:8px">GENERAL STOCK</div>
+    <div class="check-item" onclick="toggleCheck(this)">
+      <div class="check-circle"></div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">Transmission fluid 5L</div>
+        <div style="font-size:12px;color:#94A3B8">SKU: TF-5000 | Barcode: 7891234567890</div>
+        <div style="font-size:12px;color:#2E75B6;font-weight:600">Shelf: Aisle B, Shelf 3</div>
+      </div>
+      <div style="text-align:right"><div style="font-weight:700">x 6</div><div style="font-size:11px;color:#94A3B8">Place on shelf</div></div>
+    </div>
+    <div class="check-item" onclick="toggleCheck(this)">
+      <div class="check-circle"></div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">Gasket set (NP300)</div>
+        <div style="font-size:12px;color:#94A3B8">SKU: GS-NP300 | Barcode: 7891234567891</div>
+        <div style="font-size:12px;color:#2E75B6;font-weight:600">Shelf: Aisle C, Shelf 1</div>
+      </div>
+      <div style="text-align:right"><div style="font-weight:700">x 4</div><div style="font-size:11px;color:#94A3B8">Place on shelf</div></div>
+    </div>
+    <div class="check-item" onclick="toggleCheck(this)">
+      <div class="check-circle"></div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">Oil filter (Nissan NP300)</div>
+        <div style="font-size:12px;color:#94A3B8">SKU: OF-NP300 | Barcode: 7891234567892</div>
+        <div style="font-size:12px;color:#2E75B6;font-weight:600">Shelf: Aisle A, Shelf 2</div>
+      </div>
+      <div style="text-align:right"><div style="font-weight:700">x 10</div><div style="font-size:11px;color:#94A3B8">Place on shelf</div></div>
+    </div>
+
+    <div style="margin-top:16px;padding:12px;background:#F0F9FF;border-radius:10px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:24px">📷</span>
+      <div>
+        <div style="font-weight:600;font-size:14px">Scan shelf barcode to confirm placement</div>
+        <div style="font-size:12px;color:#94A3B8">Or tap item to manually confirm location</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-success" style="flex:1">Place Reserved Item at Window A</button>
+      <button class="btn btn-primary" style="flex:1;opacity:0.5">Complete Put-Away (0/3 placed)</button>
+    </div>
+  </div>
+
+  <!-- TASK 2: General replenishment only -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div>
+        <span style="font-weight:700;font-size:15px">PUT-018</span>
+        <span class="badge badge-normal" style="margin-left:8px">GENERAL STOCK</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">Received 20 min ago</span>
+    </div>
+    <div style="font-size:14px;margin-bottom:4px"><strong>PO-0091</strong> from BrakeParts Moz</div>
+    <div style="font-size:13px;color:#94A3B8;margin-bottom:10px">2 items | No reserved items</div>
+    <div class="item-row">
+      <div>
+        <div style="font-weight:600">Front brake pads (Ford Ranger)</div>
+        <div style="font-size:11px;color:#2E75B6">Shelf: Aisle D, Shelf 2</div>
+      </div>
+      <span style="font-weight:700">x 8</span>
+    </div>
+    <div class="item-row">
+      <div>
+        <div style="font-weight:600">Front brake discs (Ford Ranger)</div>
+        <div style="font-size:11px;color:#2E75B6">Shelf: Aisle D, Shelf 3</div>
+      </div>
+      <span style="font-weight:700">x 4</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-primary" style="flex:1">Start Put-Away</button>
+    </div>
+  </div>
+
+  <!-- Completed task -->
+  <div class="section-title" style="margin-top:20px">Recently Completed</div>
+  <div class="card" style="opacity:0.6">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <span style="font-weight:700">PUT-016</span>
+        <span class="badge badge-issued" style="margin-left:8px">COMPLETED</span>
+      </div>
+      <span style="font-size:12px;color:#94A3B8">Completed 2h ago | 38 min</span>
+    </div>
+    <div style="font-size:13px;color:#94A3B8;margin-top:4px">PO-0088 | LuandaAutoSupply | 6 items placed</div>
+  </div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.screen, .mobile-screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(function(b) { b.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+
+function toggleCheck(el) {
+  var circle = el.querySelector('.check-circle');
+  if (circle.classList.contains('checked')) {
+    circle.classList.remove('checked');
+    circle.innerHTML = '';
+  } else {
+    circle.classList.add('checked');
+    circle.innerHTML = '✓';
+  }
+}
+</script>
+</body>
+</html>

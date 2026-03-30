@@ -27,7 +27,7 @@ MECANIX is a cloud-based, mobile-first workshop management platform for independ
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## The Four Applications
+## The Five Applications
 
 ### 1. Workshop Management App
 The core platform used by workshop owners, service managers, receptionists, and parts managers. Handles vehicle check-in, job card lifecycle, parts inventory, invoicing, reporting, and customer communication via WhatsApp.
@@ -48,6 +48,11 @@ A purpose-built mobile interface optimized for mechanics. Features one-tap timer
 A web portal for insurance assessors and admins. Manages the claim-to-payment lifecycle: damage documentation, estimate review (line-by-line), approval/rejection workflows, repair monitoring, fraud detection, and payment processing.
 
 **Spec:** [modules/07-insurance-system.md](modules/07-insurance-system.md)
+
+### 5. Warehouse & Parts Procurement Module
+A delivery-app-style workflow connecting technicians (who request parts) with stock keepers (who pick and issue them). Technicians browse a parts catalogue, add items to a cart, photograph the old/damaged part, and submit a request. Stock Keepers receive requests in real-time, scan barcodes, pick items, and mark them ready. If a part is unavailable, the system auto-generates a purchase request with configurable approval thresholds (WhatsApp approval for managers). Buyers manage vendor purchase orders and goods receipt.
+
+**Spec:** [modules/15-warehouse-procurement.md](modules/15-warehouse-procurement.md)
 
 ## Technology Stack (Optimised — see TECH_STACK_ANALYSIS.md for rationale)
 
@@ -107,6 +112,8 @@ The main entities and their relationships:
 - `expenses` → workshop operating costs with receipt uploads
 - `insurance_claims` → has many `claim_estimates`, `claim_photos`, `assessor_actions`
 - `customer_app_users` → links to `customers`, has `quote_approvals`, `app_payments`
+- `parts_requests` → technician-to-warehouse requests, has many `parts_request_items`
+- `purchase_requests` → triggered when parts unavailable, has many `purchase_request_items`, linked to `vendors`
 
 Full schema in: [modules/08-technical-architecture.md](modules/08-technical-architecture.md)
 
@@ -124,6 +131,8 @@ All endpoints under `/api/v1/`:
 | `/purchases` | Vendors, bills, payments made, vendor credits |
 | `/expenses` | Expense tracking, categorisation, receipts |
 | `/parts` | Inventory management, purchase orders, service groups, adjustments |
+| `/parts-requests` | Technician parts requests, picking workflow, issue confirmation |
+| `/purchase-requests` | Purchase request lifecycle, approvals, vendor POs, goods receipt |
 | `/insurance/claims` | Claim lifecycle, estimate submission/review |
 | `/insurance/portal` | Assessor dashboard, rate cards, analytics |
 | `/customer-app` | Job tracking, quote approval, payments, ratings |
@@ -165,6 +174,7 @@ All endpoints under `/api/v1/`:
 | [modules/10-localisation-compliance.md](modules/10-localisation-compliance.md) | Languages, currencies, tax, data protection, insurance regulation |
 | [modules/11-risks-mitigations.md](modules/11-risks-mitigations.md) | Risk register with mitigations |
 | [modules/12-success-metrics.md](modules/12-success-metrics.md) | Launch criteria, KPIs, competitor comparison |
+| [modules/15-warehouse-procurement.md](modules/15-warehouse-procurement.md) | Warehouse & Parts Procurement — delivery-app-style parts request/issue workflow |
 
 ## Coding Conventions (To Be Defined)
 
