@@ -17,6 +17,8 @@ import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
+import { usePhotoUpload } from '@/hooks/use-photo-upload';
+import { Camera, ImagePlus, X as XIcon, Loader2 } from 'lucide-react';
 import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
 import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
@@ -174,6 +176,22 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Photos
+  const [photos, setPhotos] = useState<string[]>([]);
+  const { uploadMultiple, uploading: photosUploading } = usePhotoUpload();
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const urls = await uploadMultiple(files, `inspections/${jobCardId}`);
+    setPhotos((prev) => [...prev, ...urls]);
+    e.target.value = '';
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const checklistLabels: Record<string, string> = {
     hasSpareTire: t('spareTire'), hasJack: t('jack'), hasTools: t('tools'),
     hasRadio: t('radio'), hasMats: t('floorMats'), hasHubcaps: t('hubcaps'),
@@ -195,6 +213,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
       // DVI items
       const inspectedItems = dviItems.filter((i) => i.status !== 'not_inspected');
       if (inspectedItems.length > 0) payload.dviItems = inspectedItems;
+      if (photos.length > 0) payload.photos = photos;
       if (personalItems) payload.personalItems = personalItems;
       if (notes) payload.notes = notes;
       await createMutation.mutateAsync(payload);
@@ -226,6 +245,20 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
             </div>
           )}
         </div>
+        {/* Photos */}
+        {Array.isArray(insp.photos) && (insp.photos as string[]).length > 0 && (
+          <div className="mt-4">
+            <span className="text-sm font-medium text-gray-500">Photos:</span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(insp.photos as string[]).map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block h-20 w-20 overflow-hidden rounded-lg border border-gray-200 hover:ring-2 hover:ring-primary-400">
+                  <img src={url} alt={`Inspection photo ${i + 1}`} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4">
           <span className="text-sm font-medium text-gray-500">{t('checklist')}:</span>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -348,6 +381,48 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Vehicle Photos */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Photos</label>
+          <div className="flex flex-wrap gap-3">
+            {photos.map((url, i) => (
+              <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200">
+                <img src={url} alt={`Vehicle photo ${i + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+
+            {/* Upload button */}
+            <label className={`flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed transition-colors ${photosUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'}`}>
+              {photosUploading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+              ) : (
+                <>
+                  <ImagePlus className="h-5 w-5 text-gray-400" />
+                  <span className="text-[10px] text-gray-500">Add Photo</span>
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotoSelect}
+                disabled={photosUploading}
+                className="hidden"
+              />
+            </label>
+          </div>
+          {photos.length > 0 && (
+            <p className="mt-1.5 text-xs text-gray-500">{photos.length} photo{photos.length !== 1 ? 's' : ''} attached</p>
+          )}
         </div>
 
         {/* Checklist */}
