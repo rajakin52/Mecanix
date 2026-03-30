@@ -1,13 +1,15 @@
 'use client';
 
 import { usePathname, Link } from '@/i18n/navigation';
-import { Package, Warehouse, ClipboardList, ShoppingCart } from 'lucide-react';
+import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen } from 'lucide-react';
 
 const TABS = [
   { href: '/parts', label: 'Catalogue', icon: Package },
   { href: '/warehouse', label: 'Warehouses', icon: Warehouse },
   { href: '/procurement', label: 'Procurement', icon: ClipboardList },
   { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+  { href: '/settings/pricing', label: 'Pricing', icon: Tags },
+  { href: '/settings/catalog', label: 'Repair Catalog', icon: BookOpen },
 ] as const;
 
 export function InventoryTabs() {

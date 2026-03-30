@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { InventoryTabs } from '../../parts/inventory-tabs';
 import {
   useCatalogItems,
   useCreateCatalogItem,
@@ -81,9 +82,7 @@ export default function CatalogPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <Link href="/settings" className="text-sm text-primary-600 hover:text-primary-700">&larr; {tc('back')}</Link>
-      </div>
+      <InventoryTabs />
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Repair Catalog</h1>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { InventoryTabs } from '../../parts/inventory-tabs';
 import {
   usePricingSettings,
   useUpdatePricingSettings,
@@ -106,11 +107,7 @@ export default function PricingSettingsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <Link href="/settings" className="text-sm text-primary-600 hover:text-primary-700">
-          &larr; {tc('back')}
-        </Link>
-      </div>
+      <InventoryTabs />
 
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Pricing &amp; Markup</h1>
 
