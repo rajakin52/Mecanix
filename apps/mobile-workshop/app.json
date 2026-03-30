@@ -11,7 +11,7 @@
     ],
     "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#0087FF"
+      "backgroundColor": "#2B2D33"
     },
     "ios": {
       "bundleIdentifier": "com.mecanix.workshop",
@@ -23,7 +23,7 @@
     "android": {
       "package": "com.mecanix.workshop",
       "adaptiveIcon": {
-        "backgroundColor": "#0087FF"
+        "backgroundColor": "#2B2D33"
       },
       "permissions": [
         "android.permission.CAMERA",

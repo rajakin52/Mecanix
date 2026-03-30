@@ -11,7 +11,7 @@
     ],
     "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#0087FF"
+      "backgroundColor": "#2B2D33"
     },
     "ios": {
       "bundleIdentifier": "com.mecanix.customer",
@@ -23,7 +23,7 @@
     "android": {
       "package": "com.mecanix.customer",
       "adaptiveIcon": {
-        "backgroundColor": "#0087FF"
+        "backgroundColor": "#2B2D33"
       },
       "permissions": [
         "CAMERA",
@@ -38,7 +38,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#0087FF"
+          "color": "#D4992A"
         }
       ]
     ],

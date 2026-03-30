@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet } from 'react-native';
 import OfflineBanner from '../../src/components/OfflineBanner';
 
-const PRIMARY = '#0087FF';
+const PRIMARY = '#D4992A';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {

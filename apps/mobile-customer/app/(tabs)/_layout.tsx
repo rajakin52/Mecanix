@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const PRIMARY = '#0087FF';
+const PRIMARY = '#D4992A';
 
 function TabIcon({ label, color }: { label: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{label}</Text>;
