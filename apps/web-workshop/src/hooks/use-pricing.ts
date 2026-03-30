@@ -26,6 +26,8 @@ interface PricingSettings {
   pricingMode: string;
   defaultMarkupPct: number;
   allowManualOverride: boolean;
+  defaultCostMethod: string;
+  minimumMarginPct: number;
 }
 
 interface ResolvedMarkup {
@@ -122,8 +124,39 @@ export function usePricingSettings() {
 export function useUpdatePricingSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { pricingMode?: string; defaultMarkupPct?: number; allowManualOverride?: boolean }) =>
+    mutationFn: (data: { pricingMode?: string; defaultMarkupPct?: number; allowManualOverride?: boolean; defaultCostMethod?: string; minimumMarginPct?: number }) =>
       api.patch<PricingSettings>('/pricing/settings', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pricing-settings'] }),
+  });
+}
+
+// --- Copy Rules Between Groups ---
+
+export function useCopyGroupRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) =>
+      api.post(`/pricing/groups/${sourceId}/copy-to/${targetId}`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['price-groups'] }),
+  });
+}
+
+// --- Bulk Operations ---
+
+export function useBulkUpdateCategoryMarkup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { partCategory: string; markupPct: number }) =>
+      api.post('/pricing/bulk-update-category', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['price-groups'] }),
+  });
+}
+
+export function useBulkRecalculateSellPrices() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { category?: string }) =>
+      api.post('/pricing/bulk-recalculate-sell-prices', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['parts'] }),
   });
 }

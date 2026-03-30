@@ -18,12 +18,18 @@ import {
   updatePriceGroupSchema,
   createPriceGroupRuleSchema,
   updatePricingSettingsSchema,
+  bulkUpdateCategoryMarkupSchema,
+  bulkRecalculateSellPricesSchema,
+  checkMarginSchema,
 } from '@mecanix/validators';
 import type {
   CreatePriceGroupInput,
   UpdatePriceGroupInput,
   CreatePriceGroupRuleInput,
   UpdatePricingSettingsInput,
+  BulkUpdateCategoryMarkupInput,
+  BulkRecalculateSellPricesInput,
+  CheckMarginInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -107,5 +113,43 @@ export class PricingController {
     @Body(new ZodValidationPipe(updatePricingSettingsSchema)) body: UpdatePricingSettingsInput,
   ) {
     return this.pricingService.updatePricingSettings(tenantId, body);
+  }
+
+  // ── Copy Rules Between Groups ───────────────────────────────
+
+  @Post('groups/:sourceId/copy-to/:targetId')
+  async copyGroupRules(
+    @TenantId() tenantId: string,
+    @Param('sourceId') sourceId: string,
+    @Param('targetId') targetId: string,
+  ) {
+    return this.pricingService.copyGroupRules(tenantId, sourceId, targetId);
+  }
+
+  // ── Bulk Operations ─────────────────────────────────────────
+
+  @Post('bulk-update-category')
+  async bulkUpdateCategoryMarkup(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(bulkUpdateCategoryMarkupSchema)) body: BulkUpdateCategoryMarkupInput,
+  ) {
+    return this.pricingService.bulkUpdateCategoryMarkup(tenantId, body.partCategory, body.markupPct);
+  }
+
+  @Post('bulk-recalculate-sell-prices')
+  async bulkRecalculateSellPrices(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(bulkRecalculateSellPricesSchema)) body: BulkRecalculateSellPricesInput,
+  ) {
+    return this.pricingService.bulkRecalculateSellPrices(tenantId, body.category);
+  }
+
+  @Post('check-margin')
+  async checkMargin(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(checkMarginSchema)) body: CheckMarginInput,
+  ) {
+    const settings = await this.pricingService.getPricingSettings(tenantId);
+    return this.pricingService.checkMargin(body.unitCost, body.sellPrice, settings.minimumMarginPct);
   }
 }

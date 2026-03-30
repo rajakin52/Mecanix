@@ -30,6 +30,30 @@ export const updatePricingSettingsSchema = z.object({
   pricingMode: z.enum(['automatic', 'manual']).optional(),
   defaultMarkupPct: z.coerce.number().min(0).max(999).optional(),
   allowManualOverride: z.boolean().optional(),
+  defaultCostMethod: z.enum(['last_cost', 'average_cost', 'fixed_cost']).optional(),
+  minimumMarginPct: z.coerce.number().min(0).max(100).optional(),
 });
 
 export type UpdatePricingSettingsInput = z.infer<typeof updatePricingSettingsSchema>;
+
+// --- Bulk Operations ---
+
+export const bulkUpdateCategoryMarkupSchema = z.object({
+  partCategory: z.string().min(1).max(100),
+  markupPct: z.coerce.number().min(0).max(999),
+});
+
+export type BulkUpdateCategoryMarkupInput = z.infer<typeof bulkUpdateCategoryMarkupSchema>;
+
+export const bulkRecalculateSellPricesSchema = z.object({
+  category: z.string().min(1).max(100).optional(),
+});
+
+export type BulkRecalculateSellPricesInput = z.infer<typeof bulkRecalculateSellPricesSchema>;
+
+export const checkMarginSchema = z.object({
+  unitCost: z.coerce.number().min(0),
+  sellPrice: z.coerce.number().min(0),
+});
+
+export type CheckMarginInput = z.infer<typeof checkMarginSchema>;
