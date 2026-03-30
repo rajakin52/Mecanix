@@ -702,7 +702,8 @@ function TransferModal({ onClose }: { onClose: () => void }) {
 
   const updateLineQty = (idx: number, qty: number) => {
     const updated = [...lines];
-    updated[idx] = { ...updated[idx], quantity: Math.max(1, qty) };
+    const item = updated[idx];
+    if (item) updated[idx] = { ...item, quantity: Math.max(1, qty) };
     setLines(updated);
   };
 
