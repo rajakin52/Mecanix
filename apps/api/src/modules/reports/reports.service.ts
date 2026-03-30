@@ -707,4 +707,375 @@ export class ReportsService {
 
     return { comparisons, summary: { avgVariance, totalJobs: comparisons.length } };
   }
+
+  /**
+   * Inventory valuation report — current stock value by category and warehouse.
+   */
+  async inventoryValuationReport(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: parts, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, stock_qty, unit_cost')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    const rows = parts ?? [];
+
+    let totalSkus = 0;
+    let totalUnits = 0;
+    let totalValue = 0;
+    const byCategory: Record<string, { skus: number; units: number; value: number }> = {};
+
+    for (const row of rows) {
+      const qty = (row.stock_qty as number) || 0;
+      const cost = Number(row.unit_cost) || 0;
+      const lineValue = round2(qty * cost);
+      const category = (row.category as string) || 'Uncategorized';
+
+      totalSkus++;
+      totalUnits += qty;
+      totalValue += lineValue;
+
+      if (!byCategory[category]) {
+        byCategory[category] = { skus: 0, units: 0, value: 0 };
+      }
+      byCategory[category]!.skus++;
+      byCategory[category]!.units += qty;
+      byCategory[category]!.value += lineValue;
+    }
+
+    // Round category values
+    for (const cat of Object.values(byCategory)) {
+      cat.value = round2(cat.value);
+    }
+
+    // Warehouse breakdown
+    const { data: warehouseStock, error: wsError } = await client
+      .from('warehouse_stock')
+      .select('warehouse_id, quantity, part_id, warehouse:warehouses(name)')
+      .eq('tenant_id', tenantId);
+
+    if (wsError) throw wsError;
+
+    // Build a map of part_id → unit_cost
+    const costMap = new Map<string, number>();
+    for (const row of rows) {
+      costMap.set(row.id as string, Number(row.unit_cost) || 0);
+    }
+
+    const byWarehouse: Record<string, { warehouseName: string; units: number; value: number }> = {};
+    for (const ws of warehouseStock ?? []) {
+      const whId = ws.warehouse_id as string;
+      const whName = (ws.warehouse as unknown as { name: string } | null)?.name ?? 'Unknown';
+      const qty = (ws.quantity as number) || 0;
+      const cost = costMap.get(ws.part_id as string) ?? 0;
+
+      if (!byWarehouse[whId]) {
+        byWarehouse[whId] = { warehouseName: whName, units: 0, value: 0 };
+      }
+      byWarehouse[whId]!.units += qty;
+      byWarehouse[whId]!.value += round2(qty * cost);
+    }
+
+    for (const wh of Object.values(byWarehouse)) {
+      wh.value = round2(wh.value);
+    }
+
+    return {
+      summary: { totalSkus, totalUnits, totalValue: round2(totalValue) },
+      byCategory,
+      byWarehouse,
+    };
+  }
+
+  /**
+   * Stock movements report — inventory adjustments within date range.
+   */
+  async stockMovementsReport(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    const { data: adjustments, error } = await client
+      .from('inventory_adjustments')
+      .select('id, part_id, quantity_change, reason, reference, adjusted_by, warehouse_id, created_at, part:parts(description), adjuster:users!inventory_adjustments_adjusted_by_fkey(full_name), warehouse:warehouses(name)')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const rows = adjustments ?? [];
+    let totalIn = 0;
+    let totalOut = 0;
+
+    const movements = rows.map((row) => {
+      const qtyChange = (row.quantity_change as number) || 0;
+      if (qtyChange > 0) totalIn += qtyChange;
+      else totalOut += Math.abs(qtyChange);
+
+      return {
+        partDescription: (row.part as unknown as { description: string } | null)?.description ?? 'Unknown',
+        quantityChange: qtyChange,
+        reason: row.reason as string,
+        reference: row.reference as string | null,
+        adjustedBy: (row.adjuster as unknown as { full_name: string } | null)?.full_name ?? 'Unknown',
+        warehouse: (row.warehouse as unknown as { name: string } | null)?.name ?? null,
+        createdAt: row.created_at as string,
+      };
+    });
+
+    return {
+      summary: { totalIn, totalOut, netChange: totalIn - totalOut },
+      movements,
+    };
+  }
+
+  /**
+   * Low stock report — parts at or below reorder point.
+   */
+  async lowStockReport(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: parts, error } = await client
+      .from('parts')
+      .select('id, part_number, description, stock_qty, reorder_point, supplier_id, vendor:vendors(name)')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    // Filter to low-stock items (stock_qty <= reorder_point)
+    const lowStockParts = (parts ?? []).filter(
+      (p) => (p.stock_qty as number) <= (p.reorder_point as number) && (p.reorder_point as number) > 0,
+    );
+
+    // For each part, get last PO date
+    const partIds = lowStockParts.map((p) => p.id as string);
+    let lastOrderMap = new Map<string, string>();
+
+    if (partIds.length > 0) {
+      const { data: poLines } = await client
+        .from('po_lines')
+        .select('part_id, created_at')
+        .eq('tenant_id', tenantId)
+        .in('part_id', partIds)
+        .order('created_at', { ascending: false });
+
+      for (const line of poLines ?? []) {
+        const pid = line.part_id as string;
+        if (!lastOrderMap.has(pid)) {
+          lastOrderMap.set(pid, line.created_at as string);
+        }
+      }
+    }
+
+    const items = lowStockParts.map((p) => {
+      const stockQty = (p.stock_qty as number) || 0;
+      const reorderPoint = (p.reorder_point as number) || 0;
+      return {
+        partNumber: p.part_number as string | null,
+        description: p.description as string,
+        stockQty,
+        reorderPoint,
+        deficit: reorderPoint - stockQty,
+        supplierName: (p.vendor as unknown as { name: string } | null)?.name ?? null,
+        lastOrderDate: lastOrderMap.get(p.id as string) ?? null,
+      };
+    });
+
+    // Sort by deficit descending (most critical first)
+    items.sort((a, b) => b.deficit - a.deficit);
+
+    return items;
+  }
+
+  /**
+   * Purchase request summary report.
+   */
+  async purchaseRequestSummaryReport(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    const { data: prs, error } = await client
+      .from('purchase_requests')
+      .select('id, pr_number, status, estimated_cost, created_at, approved_at, job_card_id')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
+
+    if (error) throw error;
+
+    const rows = prs ?? [];
+    const totalPrs = rows.length;
+
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let rejectedCount = 0;
+    let orderedCount = 0;
+    let receivedCount = 0;
+    let totalEstimatedCost = 0;
+    let approvalTimeSum = 0;
+    let approvalTimeCount = 0;
+
+    for (const row of rows) {
+      const status = row.status as string;
+      if (status === 'pending_approval' || status === 'draft') pendingCount++;
+      else if (status === 'approved') approvedCount++;
+      else if (status === 'rejected') rejectedCount++;
+      else if (status === 'ordered') orderedCount++;
+      else if (status === 'received' || status === 'partial_received') receivedCount++;
+
+      totalEstimatedCost += Number(row.estimated_cost) || 0;
+
+      const createdAt = row.created_at as string;
+      const approvedAt = row.approved_at as string | null;
+      if (createdAt && approvedAt) {
+        const days =
+          (new Date(approvedAt).getTime() - new Date(createdAt).getTime()) /
+          (1000 * 60 * 60 * 24);
+        approvalTimeSum += days;
+        approvalTimeCount++;
+      }
+    }
+
+    const avgApprovalTime =
+      approvalTimeCount > 0 ? round2(approvalTimeSum / approvalTimeCount) : 0;
+
+    // Top 10 by cost
+    const topByCost = [...rows]
+      .sort((a, b) => (Number(b.estimated_cost) || 0) - (Number(a.estimated_cost) || 0))
+      .slice(0, 10)
+      .map((r) => ({
+        prNumber: r.pr_number as string,
+        status: r.status as string,
+        estimatedCost: round2(Number(r.estimated_cost) || 0),
+        createdAt: r.created_at as string,
+      }));
+
+    return {
+      summary: {
+        totalPrs,
+        pendingCount,
+        approvedCount,
+        rejectedCount,
+        orderedCount,
+        receivedCount,
+        totalEstimatedCost: round2(totalEstimatedCost),
+        avgApprovalTime,
+      },
+      topByCost,
+    };
+  }
+
+  /**
+   * Vendor performance report — PO analysis per vendor.
+   */
+  async vendorPerformanceReport(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    // Get POs in date range with vendor info
+    const { data: pos, error } = await client
+      .from('purchase_orders')
+      .select('id, vendor_id, status, order_date, total_amount, created_at, updated_at, vendor:vendors(name)')
+      .eq('tenant_id', tenantId)
+      .gte('order_date', startDate)
+      .lte('order_date', endDate);
+
+    if (error) throw error;
+
+    const rows = pos ?? [];
+    if (rows.length === 0) return [];
+
+    // Get PO lines for quantities
+    const poIds = rows.map((r) => r.id as string);
+    const { data: poLines, error: plError } = await client
+      .from('po_lines')
+      .select('purchase_order_id, quantity, received_qty')
+      .eq('tenant_id', tenantId)
+      .in('purchase_order_id', poIds);
+
+    if (plError) throw plError;
+
+    // Build per-PO line aggregates
+    const poLineAgg = new Map<string, { ordered: number; received: number }>();
+    for (const line of poLines ?? []) {
+      const poId = line.purchase_order_id as string;
+      if (!poLineAgg.has(poId)) {
+        poLineAgg.set(poId, { ordered: 0, received: 0 });
+      }
+      const entry = poLineAgg.get(poId)!;
+      entry.ordered += (line.quantity as number) || 0;
+      entry.received += (line.received_qty as number) || 0;
+    }
+
+    // Aggregate per vendor
+    const vendorMap = new Map<
+      string,
+      {
+        vendorName: string;
+        totalPOs: number;
+        totalAmount: number;
+        deliveryDaysSum: number;
+        deliveredCount: number;
+        onTimeCount: number;
+        totalItemsOrdered: number;
+        totalItemsReceived: number;
+      }
+    >();
+
+    for (const po of rows) {
+      const vendorId = po.vendor_id as string;
+      const vendorName =
+        (po.vendor as unknown as { name: string } | null)?.name ?? 'Unknown';
+
+      if (!vendorMap.has(vendorId)) {
+        vendorMap.set(vendorId, {
+          vendorName,
+          totalPOs: 0,
+          totalAmount: 0,
+          deliveryDaysSum: 0,
+          deliveredCount: 0,
+          onTimeCount: 0,
+          totalItemsOrdered: 0,
+          totalItemsReceived: 0,
+        });
+      }
+
+      const entry = vendorMap.get(vendorId)!;
+      entry.totalPOs++;
+      entry.totalAmount += Number(po.total_amount) || 0;
+
+      // If PO is complete, calculate delivery time from order_date to updated_at
+      if (po.status === 'complete') {
+        const orderDate = new Date(po.order_date as string);
+        const completedDate = new Date(po.updated_at as string);
+        const days = Math.max(
+          0,
+          (completedDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        entry.deliveryDaysSum += days;
+        entry.deliveredCount++;
+      }
+
+      const lineAgg = poLineAgg.get(po.id as string);
+      if (lineAgg) {
+        entry.totalItemsOrdered += lineAgg.ordered;
+        entry.totalItemsReceived += lineAgg.received;
+      }
+    }
+
+    return Array.from(vendorMap.values()).map((v) => ({
+      vendorName: v.vendorName,
+      totalPOs: v.totalPOs,
+      totalAmount: round2(v.totalAmount),
+      avgDeliveryDays:
+        v.deliveredCount > 0 ? round2(v.deliveryDaysSum / v.deliveredCount) : null,
+      onTimePct:
+        v.deliveredCount > 0 ? round2((v.onTimeCount / v.deliveredCount) * 100) : null,
+      totalItemsOrdered: v.totalItemsOrdered,
+      totalItemsReceived: v.totalItemsReceived,
+    }));
+  }
 }

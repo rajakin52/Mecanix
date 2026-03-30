@@ -302,6 +302,111 @@ export class NotificationsService {
     return { sent: true, results };
   }
 
+  // ── Purchase Request Approval Notifications ──────────────
+
+  /**
+   * Send purchase request for approval via WhatsApp to workshop manager.
+   */
+  async sendPurchaseRequestApproval(tenantId: string, purchaseRequestId: string) {
+    const client = this.supabase.getClient();
+
+    // Get PR with items, job card, requester info
+    const { data: pr } = await client
+      .from('purchase_requests')
+      .select(`
+        *,
+        job_card:job_cards(id, job_number, vehicle:vehicles(plate, make, model)),
+        requester:users!purchase_requests_requested_by_fkey(id, full_name),
+        items:purchase_request_items(id, part_name, part_number, quantity, estimated_unit_cost)
+      `)
+      .eq('id', purchaseRequestId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!pr) {
+      this.logger.warn(`PR ${purchaseRequestId} not found for WhatsApp notification`);
+      return { sent: false, error: 'Purchase request not found' };
+    }
+
+    // Find workshop manager/owner to send approval to
+    const { data: managers } = await client
+      .from('users')
+      .select('id, full_name, phone')
+      .eq('tenant_id', tenantId)
+      .in('role', ['owner', 'manager'])
+      .not('phone', 'is', null);
+
+    if (!managers || managers.length === 0) {
+      this.logger.warn(`No managers with phone found for tenant ${tenantId}`);
+      return { sent: false, error: 'No managers with phone number found' };
+    }
+
+    const job = pr.job_card as Record<string, unknown> | null;
+    const vehicle = job?.vehicle as Record<string, unknown> | null;
+    const requester = pr.requester as Record<string, unknown> | null;
+    const items = pr.items as Array<Record<string, unknown>> ?? [];
+
+    const vehicleDesc = vehicle
+      ? `${vehicle.make ?? ''} ${vehicle.model ?? ''}`
+      : '';
+    const jobDesc = job
+      ? `${job.job_number}${vehicleDesc ? ` (${(vehicle?.plate as string) ?? ''} ${vehicleDesc.trim()})` : ''}`
+      : 'N/A';
+
+    const itemLines = items.map((item) => {
+      const cost = Number(item.estimated_unit_cost ?? 0);
+      const qty = Number(item.quantity ?? 1);
+      const lineTotal = (cost * qty).toFixed(2);
+      return `  • ${item.part_name ?? item.part_number ?? 'Unknown'} × ${qty} — $${lineTotal}`;
+    });
+
+    const total = Number(pr.estimated_cost ?? 0).toFixed(2);
+    const threshold = Number(pr.approval_threshold ?? 0).toFixed(2);
+
+    const bodyText = [
+      `🔧 Purchase Request ${pr.pr_number}`,
+      `Job: ${jobDesc}`,
+      requester ? `Requested by: ${requester.full_name}` : '',
+      '',
+      'Items:',
+      ...itemLines,
+      '',
+      `Total: $${total}`,
+      `Threshold: $${threshold}`,
+    ].filter((line) => line !== undefined).join('\n');
+
+    const results: Array<{ phone: string; success: boolean; messageId?: string }> = [];
+
+    for (const manager of managers) {
+      const phone = manager.phone as string;
+      try {
+        const result = await this.whatsapp.sendInteractiveButtons(
+          phone,
+          bodyText,
+          [
+            { id: `approve_pr_${purchaseRequestId}`, title: 'Approve' },
+            { id: `reject_pr_${purchaseRequestId}`, title: 'Reject' },
+          ],
+          'MECANIX',
+          'Respond to approve or reject this purchase request',
+        );
+
+        results.push({
+          phone,
+          success: result?.success ?? false,
+          messageId: result?.messageId,
+        });
+
+        this.logger.log(`PR approval WhatsApp sent to ${manager.full_name} (${phone})`);
+      } catch (e) {
+        results.push({ phone, success: false });
+        this.logger.warn(`WhatsApp PR approval send failed for ${phone}: ${e}`);
+      }
+    }
+
+    return { sent: results.some((r) => r.success), results };
+  }
+
   /** Get notification history for a job */
   async getHistory(_tenantId: string, _jobCardId: string) {
     // For MVP, we don't persist notification history in DB

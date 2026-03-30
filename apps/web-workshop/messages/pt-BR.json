@@ -351,7 +351,11 @@
     "paymentsReceived": "Pagamentos Recebidos",
     "netProfit": "Lucro Líquido",
     "noData": "Sem dados para este período",
-    "lowStock": "Alertas de Estoque Baixo"
+    "lowStock": "Alertas de Estoque Baixo",
+    "inventoryValuation": "Valorização de Estoque",
+    "stockMovements": "Movimentos de Estoque",
+    "purchaseRequestSummary": "Resumo de Solicitações de Compra",
+    "vendorPerformance": "Desempenho de Fornecedores"
   },
   "inspection": {
     "title": "Inspe\u00e7\u00e3o do Ve\u00edculo",

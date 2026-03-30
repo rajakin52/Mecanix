@@ -353,7 +353,11 @@
     "paymentsReceived": "Payments Received",
     "netProfit": "Net Profit",
     "noData": "No data for this period",
-    "lowStock": "Low Stock Alerts"
+    "lowStock": "Low Stock Alerts",
+    "inventoryValuation": "Inventory Valuation",
+    "stockMovements": "Stock Movements",
+    "purchaseRequestSummary": "Purchase Request Summary",
+    "vendorPerformance": "Vendor Performance"
   },
   "inspection": {
     "title": "Vehicle Inspection",

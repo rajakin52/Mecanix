@@ -92,3 +92,38 @@ export function useEstimateVsActualReport(startDate?: string, endDate?: string) 
     queryFn: () => api.get<Record<string, unknown>>(`/reports/estimate-vs-actual${buildParams(startDate, endDate)}`),
   });
 }
+
+export function useInventoryValuationReport() {
+  return useQuery({
+    queryKey: ['report-inventory-valuation'],
+    queryFn: () => api.get<Record<string, unknown>>('/reports/inventory-valuation'),
+  });
+}
+
+export function useStockMovementsReport(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-stock-movements', startDate, endDate],
+    queryFn: () => api.get<Record<string, unknown>>(`/reports/stock-movements${buildParams(startDate, endDate)}`),
+  });
+}
+
+export function useLowStockReport() {
+  return useQuery({
+    queryKey: ['report-low-stock'],
+    queryFn: () => api.get<Array<Record<string, unknown>>>('/reports/low-stock'),
+  });
+}
+
+export function usePurchaseRequestSummaryReport(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-purchase-request-summary', startDate, endDate],
+    queryFn: () => api.get<Record<string, unknown>>(`/reports/purchase-request-summary${buildParams(startDate, endDate)}`),
+  });
+}
+
+export function useVendorPerformanceReport(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-vendor-performance', startDate, endDate],
+    queryFn: () => api.get<Array<Record<string, unknown>>>(`/reports/vendor-performance${buildParams(startDate, endDate)}`),
+  });
+}

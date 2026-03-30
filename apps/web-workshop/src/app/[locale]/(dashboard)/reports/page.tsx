@@ -14,6 +14,11 @@ import {
   useIncomeExpenseReport,
   useInsuranceReport,
   useCustomerRetentionReport,
+  useInventoryValuationReport,
+  useStockMovementsReport,
+  useLowStockReport,
+  usePurchaseRequestSummaryReport,
+  useVendorPerformanceReport,
 } from '@/hooks/use-reports';
 
 type ReportType =
@@ -27,7 +32,12 @@ type ReportType =
   | 'incomeVsExpense'
   | 'insuranceClaims'
   | 'customerRetention'
-  | 'creditNotes';
+  | 'creditNotes'
+  | 'inventoryValuation'
+  | 'stockMovements'
+  | 'lowStock'
+  | 'purchaseRequestSummary'
+  | 'vendorPerformance';
 
 export default function ReportsPage() {
   const t = useTranslations('reports');
@@ -49,6 +59,11 @@ export default function ReportsPage() {
     { value: 'insuranceClaims', label: t('insuranceClaims') },
     { value: 'customerRetention', label: t('customerRetention') },
     { value: 'creditNotes', label: t('creditNotes') },
+    { value: 'inventoryValuation', label: t('inventoryValuation') },
+    { value: 'stockMovements', label: t('stockMovements') },
+    { value: 'lowStock', label: t('lowStock') },
+    { value: 'purchaseRequestSummary', label: t('purchaseRequestSummary') },
+    { value: 'vendorPerformance', label: t('vendorPerformance') },
   ];
 
   return (
@@ -133,6 +148,21 @@ export default function ReportsPage() {
         )}
         {selectedReport === 'creditNotes' && (
           <CreditNotesSection startDate={startDate} endDate={endDate} money={money} t={t} />
+        )}
+        {selectedReport === 'inventoryValuation' && (
+          <InventoryValuationSection money={money} t={t} />
+        )}
+        {selectedReport === 'stockMovements' && (
+          <StockMovementsSection startDate={startDate} endDate={endDate} t={t} />
+        )}
+        {selectedReport === 'lowStock' && (
+          <LowStockSection t={t} />
+        )}
+        {selectedReport === 'purchaseRequestSummary' && (
+          <PurchaseRequestSummarySection startDate={startDate} endDate={endDate} money={money} t={t} />
+        )}
+        {selectedReport === 'vendorPerformance' && (
+          <VendorPerformanceSection startDate={startDate} endDate={endDate} money={money} t={t} />
         )}
       </div>
     </div>
@@ -474,6 +504,289 @@ function CreditNotesSection({ startDate, endDate, money, t }: { startDate: strin
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 max-w-lg">
       <Card label="Count" value={String(d.credit_notes_count ?? 0)} />
       <Card label="Total" value={money(Number(d.credit_notes_total ?? 0))} />
+    </div>
+  );
+}
+
+/* ────────── Inventory Valuation ────────── */
+
+function InventoryValuationSection({ money, t }: { money: MoneyFn; t: TFn }) {
+  const { data, isLoading } = useInventoryValuationReport();
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const d = data as Record<string, unknown> | undefined;
+  if (!d) return <NoData t={t} />;
+
+  const summary = (d.summary ?? {}) as Record<string, number>;
+  const byCategory = (d.byCategory ?? {}) as Record<string, Record<string, number>>;
+  const byWarehouse = (d.byWarehouse ?? {}) as Record<string, Record<string, unknown>>;
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-6">
+        <Card label="Total SKUs" value={String(summary.totalSkus ?? 0)} />
+        <Card label="Total Units" value={String(summary.totalUnits ?? 0)} />
+        <Card label="Total Value" value={money(summary.totalValue ?? 0)} />
+      </div>
+
+      {Object.keys(byCategory).length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">By Category</h3>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm mb-6">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Category</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">SKUs</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Units</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {Object.entries(byCategory).map(([cat, data]) => (
+                  <tr key={cat}>
+                    <td className="px-6 py-3 font-medium">{cat}</td>
+                    <td className="px-6 py-3">{data.skus ?? 0}</td>
+                    <td className="px-6 py-3">{data.units ?? 0}</td>
+                    <td className="px-6 py-3">{money(data.value ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {Object.keys(byWarehouse).length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">By Warehouse</h3>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Warehouse</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Units</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {Object.entries(byWarehouse).map(([whId, data]) => (
+                  <tr key={whId}>
+                    <td className="px-6 py-3 font-medium">{String(data.warehouseName ?? '-')}</td>
+                    <td className="px-6 py-3">{String(data.units ?? 0)}</td>
+                    <td className="px-6 py-3">{money(Number(data.value ?? 0))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ────────── Stock Movements ────────── */
+
+function StockMovementsSection({ startDate, endDate, t }: { startDate: string; endDate: string; t: TFn }) {
+  const { data, isLoading } = useStockMovementsReport(startDate || undefined, endDate || undefined);
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const d = data as Record<string, unknown> | undefined;
+  if (!d) return <NoData t={t} />;
+
+  const summary = (d.summary ?? {}) as Record<string, number>;
+  const movements = (d.movements ?? []) as Array<Record<string, unknown>>;
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-6">
+        <Card label="Total In" value={String(summary.totalIn ?? 0)} className="border-green-200 bg-green-50" />
+        <Card label="Total Out" value={String(summary.totalOut ?? 0)} className="border-red-200 bg-red-50" />
+        <Card label="Net Change" value={String(summary.netChange ?? 0)} />
+      </div>
+
+      {movements.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Part</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Qty Change</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Reason</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Reference</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Adjusted By</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Warehouse</th>
+                <th className="px-6 py-3 text-start font-medium text-gray-500">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {movements.map((m, i) => {
+                const qty = Number(m.quantityChange ?? 0);
+                return (
+                  <tr key={i}>
+                    <td className="px-6 py-3 font-medium">{String(m.partDescription ?? '-')}</td>
+                    <td className={`px-6 py-3 font-medium ${qty > 0 ? 'text-green-600' : qty < 0 ? 'text-red-600' : ''}`}>
+                      {qty > 0 ? `+${qty}` : String(qty)}
+                    </td>
+                    <td className="px-6 py-3">{String(m.reason ?? '-')}</td>
+                    <td className="px-6 py-3">{String(m.reference ?? '-')}</td>
+                    <td className="px-6 py-3">{String(m.adjustedBy ?? '-')}</td>
+                    <td className="px-6 py-3">{String(m.warehouse ?? '-')}</td>
+                    <td className="px-6 py-3">{m.createdAt ? new Date(m.createdAt as string).toLocaleDateString() : '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ────────── Low Stock ────────── */
+
+function LowStockSection({ t }: { t: TFn }) {
+  const { data, isLoading } = useLowStockReport();
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  if (rows.length === 0) return <NoData t={t} />;
+
+  return (
+    <div>
+      <Card label="Items Below Reorder Point" value={rows.length} className="mb-6 max-w-xs" />
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Part #</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Description</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Stock</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Reorder Point</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Deficit</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Supplier</th>
+              <th className="px-6 py-3 text-start font-medium text-gray-500">Last Ordered</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r, i) => {
+              const deficit = Number(r.deficit ?? 0);
+              const isCritical = (Number(r.stockQty ?? 0)) === 0;
+              return (
+                <tr key={i} className={isCritical ? 'bg-red-50' : ''}>
+                  <td className="px-6 py-3 font-medium">{String(r.partNumber ?? '-')}</td>
+                  <td className="px-6 py-3">{String(r.description ?? '-')}</td>
+                  <td className={`px-6 py-3 font-medium ${isCritical ? 'text-red-600' : 'text-amber-600'}`}>
+                    {String(r.stockQty ?? 0)}
+                  </td>
+                  <td className="px-6 py-3">{String(r.reorderPoint ?? 0)}</td>
+                  <td className="px-6 py-3 font-medium text-red-600">{deficit}</td>
+                  <td className="px-6 py-3">{String(r.supplierName ?? '-')}</td>
+                  <td className="px-6 py-3">{r.lastOrderDate ? new Date(r.lastOrderDate as string).toLocaleDateString() : '-'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ────────── Purchase Request Summary ────────── */
+
+function PurchaseRequestSummarySection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
+  const { data, isLoading } = usePurchaseRequestSummaryReport(startDate || undefined, endDate || undefined);
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const d = data as Record<string, unknown> | undefined;
+  if (!d) return <NoData t={t} />;
+
+  const summary = (d.summary ?? {}) as Record<string, number>;
+  const topByCost = (d.topByCost ?? []) as Array<Record<string, unknown>>;
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 mb-6">
+        <Card label="Total PRs" value={String(summary.totalPrs ?? 0)} />
+        <Card label="Pending" value={String(summary.pendingCount ?? 0)} />
+        <Card label="Approved" value={String(summary.approvedCount ?? 0)} />
+        <Card label="Rejected" value={String(summary.rejectedCount ?? 0)} />
+        <Card label="Ordered" value={String(summary.orderedCount ?? 0)} />
+        <Card label="Received" value={String(summary.receivedCount ?? 0)} />
+        <Card label="Total Est. Cost" value={money(summary.totalEstimatedCost ?? 0)} />
+        <Card label="Avg Approval (days)" value={String(summary.avgApprovalTime ?? 0)} />
+      </div>
+
+      {topByCost.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">Top 10 by Estimated Cost</h3>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">PR #</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Status</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Est. Cost</th>
+                  <th className="px-6 py-3 text-start font-medium text-gray-500">Created</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {topByCost.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-3 font-medium">{String(r.prNumber ?? '-')}</td>
+                    <td className="px-6 py-3">
+                      <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                        {String(r.status ?? '-')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3">{money(Number(r.estimatedCost ?? 0))}</td>
+                    <td className="px-6 py-3">{r.createdAt ? new Date(r.createdAt as string).toLocaleDateString() : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ────────── Vendor Performance ────────── */
+
+function VendorPerformanceSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
+  const { data, isLoading } = useVendorPerformanceReport(startDate || undefined, endDate || undefined);
+  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  if (rows.length === 0) return <NoData t={t} />;
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">Vendor</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">POs</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">Total Spent</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">Avg Delivery (days)</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">On-Time %</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">Items Ordered</th>
+            <th className="px-6 py-3 text-start font-medium text-gray-500">Items Received</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td className="px-6 py-3 font-medium">{String(r.vendorName ?? '-')}</td>
+              <td className="px-6 py-3">{String(r.totalPOs ?? 0)}</td>
+              <td className="px-6 py-3">{money(Number(r.totalAmount ?? 0))}</td>
+              <td className="px-6 py-3">{r.avgDeliveryDays != null ? String(r.avgDeliveryDays) : '-'}</td>
+              <td className="px-6 py-3">{r.onTimePct != null ? `${r.onTimePct}%` : '-'}</td>
+              <td className="px-6 py-3">{String(r.totalItemsOrdered ?? 0)}</td>
+              <td className="px-6 py-3">{String(r.totalItemsReceived ?? 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

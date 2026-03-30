@@ -185,4 +185,56 @@ export class ReportsController {
       endDate || defaults.endDate,
     );
   }
+
+  @Get('inventory-valuation')
+  async inventoryValuation(@TenantId() tenantId: string) {
+    return this.reportsService.inventoryValuationReport(tenantId);
+  }
+
+  @Get('stock-movements')
+  async stockMovements(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.stockMovementsReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('low-stock')
+  async lowStock(@TenantId() tenantId: string) {
+    return this.reportsService.lowStockReport(tenantId);
+  }
+
+  @Get('purchase-request-summary')
+  async purchaseRequestSummary(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.purchaseRequestSummaryReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('vendor-performance')
+  async vendorPerformance(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.vendorPerformanceReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
 }

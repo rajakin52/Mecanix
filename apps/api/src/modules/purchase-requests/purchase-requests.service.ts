@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface CreatePurchaseRequestInput {
   jobCardId: string;
@@ -14,7 +15,13 @@ interface CreatePurchaseRequestInput {
 
 @Injectable()
 export class PurchaseRequestsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  private readonly logger = new Logger(PurchaseRequestsService.name);
+
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(tenantId: string, status?: string) {
     const client = this.supabase.getClient();
@@ -164,6 +171,15 @@ export class PurchaseRequestsService {
       .insert(itemRows);
 
     if (itemsErr) throw itemsErr;
+
+    // Send WhatsApp approval request to manager if over threshold
+    if (!autoApprove) {
+      try {
+        await this.notifications.sendPurchaseRequestApproval(tenantId, pr.id as string);
+      } catch (e) {
+        this.logger.warn(`Failed to send PR approval WhatsApp: ${e}`);
+      }
+    }
 
     return this.getById(tenantId, pr.id as string);
   }

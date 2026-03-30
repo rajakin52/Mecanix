@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Query, Body, Res, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, Res, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
+import { PurchaseRequestsService } from '../purchase-requests/purchase-requests.service';
 import type { FastifyReply } from 'fastify';
 
 @Controller('webhook/whatsapp')
@@ -11,6 +12,8 @@ export class WebhookController {
   constructor(
     private readonly config: ConfigService,
     private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => PurchaseRequestsService))
+    private readonly purchaseRequests: PurchaseRequestsService,
   ) {
     this.verifyToken = this.config.get<string>('WHATSAPP_VERIFY_TOKEN', 'mecanix-webhook-2026');
   }
@@ -57,8 +60,14 @@ export class WebhookController {
 
           this.logger.log(`Interactive button reply: ${buttonId}`);
 
-          // Parse button ID: approve_{estimateId} or reject_{estimateId}
-          if (buttonId.startsWith('approve_')) {
+          // Parse button ID: approve_pr_{id}, reject_pr_{id}, approve_{estimateId}, reject_{estimateId}
+          if (buttonId.startsWith('approve_pr_')) {
+            const prId = buttonId.replace('approve_pr_', '');
+            await this.handlePurchaseRequestApproval(prId);
+          } else if (buttonId.startsWith('reject_pr_')) {
+            const prId = buttonId.replace('reject_pr_', '');
+            await this.handlePurchaseRequestRejection(prId);
+          } else if (buttonId.startsWith('approve_')) {
             const estimateId = buttonId.replace('approve_', '');
             await this.handleEstimateApproval(estimateId, 'whatsapp_reply');
           } else if (buttonId.startsWith('reject_')) {
@@ -144,6 +153,84 @@ export class WebhookController {
       this.logger.log(`Estimate ${estimateId} rejected via WhatsApp`);
     } catch (err) {
       this.logger.error(`Estimate rejection failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
+
+  private async handlePurchaseRequestApproval(prId: string) {
+    const client = this.supabase.getClient();
+
+    try {
+      // Get the PR to find tenant_id and a manager user for approved_by
+      const { data: pr } = await client
+        .from('purchase_requests')
+        .select('id, status, tenant_id')
+        .eq('id', prId)
+        .single();
+
+      if (!pr || pr.status !== 'pending_approval') {
+        this.logger.warn(`PR ${prId} not in approvable state: ${pr?.status}`);
+        return;
+      }
+
+      // Find an owner/manager user for the approved_by field
+      const { data: manager } = await client
+        .from('users')
+        .select('id')
+        .eq('tenant_id', pr.tenant_id)
+        .in('role', ['owner', 'manager'])
+        .limit(1)
+        .single();
+
+      const userId = manager?.id as string ?? pr.tenant_id;
+
+      await this.purchaseRequests.approve(
+        pr.tenant_id as string,
+        prId,
+        userId,
+        'whatsapp',
+      );
+
+      this.logger.log(`Purchase request ${prId} approved via WhatsApp`);
+    } catch (err) {
+      this.logger.error(`PR approval failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
+
+  private async handlePurchaseRequestRejection(prId: string) {
+    const client = this.supabase.getClient();
+
+    try {
+      const { data: pr } = await client
+        .from('purchase_requests')
+        .select('id, status, tenant_id')
+        .eq('id', prId)
+        .single();
+
+      if (!pr || pr.status !== 'pending_approval') {
+        this.logger.warn(`PR ${prId} not in rejectable state: ${pr?.status}`);
+        return;
+      }
+
+      const { data: manager } = await client
+        .from('users')
+        .select('id')
+        .eq('tenant_id', pr.tenant_id)
+        .in('role', ['owner', 'manager'])
+        .limit(1)
+        .single();
+
+      const userId = manager?.id as string ?? pr.tenant_id;
+
+      await this.purchaseRequests.reject(
+        pr.tenant_id as string,
+        prId,
+        userId,
+        'Rejected via WhatsApp',
+      );
+
+      this.logger.log(`Purchase request ${prId} rejected via WhatsApp`);
+    } catch (err) {
+      this.logger.error(`PR rejection failed: ${err instanceof Error ? err.message : 'unknown'}`);
     }
   }
 }
