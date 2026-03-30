@@ -216,6 +216,7 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
   const createMutation = useCreateInspection();
 
   const [showForm, setShowForm] = useState(false);
+  const [inspectionStep, setInspectionStep] = useState<1 | 2>(1);
   const [mileageIn, setMileageIn] = useState('');
   const [fuelLevel, setFuelLevel] = useState<string>('');
   const [fuelPct, setFuelPct] = useState<number>(0);
@@ -405,14 +406,19 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
     );
   }
 
-  // Start button — inspection is mandatory, show prominent warning
-  if (!showForm) {
+  // Auto-open form for new jobs without inspection
+  if (!showForm && !inspection) {
     return (
-      <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 p-6 text-center">
-        <h3 className="mb-2 text-lg font-semibold text-orange-800">{t('title')} — Required</h3>
-        <p className="mb-4 text-sm text-orange-600">Vehicle inspection must be completed before the job can proceed.</p>
+      <div className="rounded-lg border-2 border-orange-300 bg-orange-50 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-8 w-8 rounded-full bg-orange-200 flex items-center justify-center text-orange-700 font-bold text-sm">1</div>
+          <div>
+            <h3 className="text-lg font-semibold text-orange-800">{t('title')} — Required</h3>
+            <p className="text-sm text-orange-600">Complete vehicle check-in to proceed with this job</p>
+          </div>
+        </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => { setShowForm(true); setInspectionStep(1); }}
           className="rounded-md bg-orange-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 shadow-sm"
         >
           {t('startCheckIn')}
@@ -421,33 +427,98 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
     );
   }
 
-  // Inline form
+  if (!showForm) return null;
+
+  // ── STEP 1: Odometer + Fuel ──
+  if (inspectionStep === 1) {
+    return (
+      <div className="rounded-lg border-2 border-primary-200 bg-white p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm">1</div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Vehicle Check-In</h3>
+            <p className="text-sm text-gray-500">Record odometer reading and fuel level</p>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+            <span className="h-2 w-8 rounded-full bg-primary-500" />
+            <span className="h-2 w-8 rounded-full bg-gray-200" />
+            Step 1 of 2
+          </div>
+        </div>
+        <div className="space-y-5">
+          {/* Mileage */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{t('mileageIn')}</label>
+            <input
+              type="number" min={0} value={mileageIn}
+              onChange={(e) => setMileageIn(e.target.value)}
+              placeholder="km"
+              className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              autoFocus
+            />
+          </div>
+
+          {/* Fuel level — slider gauge */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">{t('fuelLevel')}</label>
+            <div className="max-w-md">
+              <FuelSlider value={fuelPct} onChange={setFuelPct} />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => setInspectionStep(2)}
+              disabled={!mileageIn}
+              className="rounded-md bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-40 shadow-sm"
+            >
+              Continue to Inspection →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── STEP 2: Full Inspection (checklist, damage, DVI) ──
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <h3 className="mb-4 text-lg font-semibold text-gray-900">{t('title')}</h3>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="h-8 w-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm">2</div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{t('title')}</h3>
+          <p className="text-sm text-gray-500">Checklist, damage inspection, and DVI assessment</p>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+          <span className="h-2 w-8 rounded-full bg-primary-500" />
+          <span className="h-2 w-8 rounded-full bg-primary-500" />
+          Step 2 of 2
+        </div>
+        <button
+          onClick={() => setInspectionStep(1)}
+          className="text-xs text-primary-600 hover:text-primary-700"
+        >
+          ← Back
+        </button>
+      </div>
+      {/* Summary of Step 1 */}
+      <div className="mb-5 rounded-md bg-gray-50 px-4 py-3 flex items-center gap-6 text-sm">
+        <div>
+          <span className="text-gray-500">Odometer:</span>{' '}
+          <span className="font-medium text-gray-900">{mileageIn} km</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">Fuel:</span>
+          <div className="h-2.5 w-16 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${fuelPct}%`, backgroundColor: fuelColor(fuelPct) }} />
+          </div>
+          <span className="font-medium text-gray-900">{FUEL_LABELS[fuelPctToLevel(fuelPct)]}</span>
+        </div>
+      </div>
       {formError && (
         <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">{formError}</div>
       )}
       <div className="space-y-5">
-        {/* Mileage */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">{t('mileageIn')}</label>
-          <input
-            type="number" min={0} value={mileageIn}
-            onChange={(e) => setMileageIn(e.target.value)}
-            placeholder="km"
-            className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-        </div>
-
-        {/* Fuel level — slider gauge */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">{t('fuelLevel')}</label>
-          <div className="max-w-md">
-            <FuelSlider value={fuelPct} onChange={setFuelPct} />
-          </div>
-        </div>
-
         {/* Checklist */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">{t('checklist')}</label>
