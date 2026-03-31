@@ -40,35 +40,29 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left panel — brand */}
+      {/* Left panel — brand on orange with logo-style layout */}
       <div className="hidden w-1/2 flex-col items-center justify-center lg:flex" style={{ background: 'linear-gradient(135deg, #D4992A 0%, #E5A82E 50%, #D4992A 100%)' }}>
-        <div className="flex flex-col items-center gap-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-full.png"
-            alt="MECANIX"
-            width={340}
-            height={102}
-            className="rounded-xl shadow-lg"
-            style={{ background: 'white', padding: '16px 24px' }}
-          />
-          <p className="max-w-sm text-center text-sm font-medium text-secondary-800/70">
-            {t('brandTagline')}
-          </p>
+        {/* Logo: hexagons left + text right (matching brand logo) */}
+        <div className="flex items-center gap-6">
+          {/* 3 overlapping hexagons — like the MECANIX logo */}
+          <svg width="120" height="140" viewBox="0 0 120 140" fill="none">
+            {/* Large hexagon */}
+            <polygon points="55,8 85,22 85,55 55,69 25,55 25,22" fill="none" stroke="#2B2D33" strokeWidth="5"/>
+            {/* Medium hexagon (overlapping) */}
+            <polygon points="72,38 98,50 98,78 72,90 46,78 46,50" fill="none" stroke="#2B2D33" strokeWidth="4.5"/>
+            {/* Small hexagon */}
+            <polygon points="22,75 34,82 34,95 22,102 10,95 10,82" fill="none" stroke="#2B2D33" strokeWidth="3.5"/>
+          </svg>
+          {/* Text */}
+          <div>
+            <h1 className="text-4xl font-black tracking-tight" style={{ color: '#2B2D33' }}>MECANIX</h1>
+            <p className="text-sm font-medium tracking-wide" style={{ color: '#2B2D33', opacity: 0.7 }}>workshop management</p>
+          </div>
         </div>
 
-        {/* Decorative hexagons */}
-        <div className="mt-16 flex gap-4 opacity-15">
-          <svg width="80" height="70" viewBox="0 0 60 52">
-            <polygon points="30,1 58,15 58,40 30,51 2,40 2,15" fill="none" stroke="#2B2D33" strokeWidth="2"/>
-          </svg>
-          <svg width="55" height="48" viewBox="0 0 40 35">
-            <polygon points="20,1 38,10 38,27 20,34 2,27 2,10" fill="none" stroke="#2B2D33" strokeWidth="2"/>
-          </svg>
-          <svg width="30" height="26" viewBox="0 0 30 26">
-            <polygon points="15,1 28,7 28,20 15,25 2,20 2,7" fill="none" stroke="#2B2D33" strokeWidth="2"/>
-          </svg>
-        </div>
+        <p className="mt-8 max-w-sm text-center text-sm font-medium" style={{ color: '#2B2D33', opacity: 0.6 }}>
+          {t('brandTagline')}
+        </p>
       </div>
 
       {/* Right panel — form */}
