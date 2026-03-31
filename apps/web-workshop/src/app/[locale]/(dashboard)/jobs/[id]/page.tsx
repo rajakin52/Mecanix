@@ -1601,15 +1601,8 @@ export default function JobDetailPage() {
                   </div>
                 )}
                 {partSearch.length >= 2 && partSearchResults.length === 0 && (
-                  <p className="mt-1 text-xs text-gray-400">No parts found. You can also type manually below.</p>
+                  <p className="mt-1 text-xs text-amber-600">No parts found. Add the part to inventory first under Parts → Catalogue.</p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => { setSelectedPartId('manual'); setPartStockInfo(null); }}
-                  className="mt-2 text-xs text-primary-600 hover:text-primary-700"
-                >
-                  Or enter manually (not in inventory)
-                </button>
               </div>
             ) : (
               <div>
@@ -1627,15 +1620,7 @@ export default function JobDetailPage() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">{t('partName')}</label>
-                    <input
-                      value={partName}
-                      onChange={(e) => setPartName(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('quantity')}</label>
                     <input
