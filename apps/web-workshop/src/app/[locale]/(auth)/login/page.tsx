@@ -40,29 +40,16 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left panel — brand on orange with logo-style layout */}
+      {/* Left panel — brand on orange with original logo */}
       <div className="hidden w-1/2 flex-col items-center justify-center lg:flex" style={{ background: 'linear-gradient(135deg, #D4992A 0%, #E5A82E 50%, #D4992A 100%)' }}>
-        {/* Logo: hexagons left + text right (matching brand logo) */}
-        <div className="flex items-center gap-6">
-          {/* 3 overlapping hexagons — like the MECANIX logo */}
-          <svg width="120" height="140" viewBox="0 0 120 140" fill="none">
-            {/* Large hexagon */}
-            <polygon points="55,8 85,22 85,55 55,69 25,55 25,22" fill="none" stroke="#2B2D33" strokeWidth="5"/>
-            {/* Medium hexagon (overlapping) */}
-            <polygon points="72,38 98,50 98,78 72,90 46,78 46,50" fill="none" stroke="#2B2D33" strokeWidth="4.5"/>
-            {/* Small hexagon */}
-            <polygon points="22,75 34,82 34,95 22,102 10,95 10,82" fill="none" stroke="#2B2D33" strokeWidth="3.5"/>
-          </svg>
-          {/* Text */}
-          <div>
-            <h1 className="text-4xl font-black tracking-tight" style={{ color: '#2B2D33' }}>MECANIX</h1>
-            <p className="text-sm font-medium tracking-wide" style={{ color: '#2B2D33', opacity: 0.7 }}>workshop management</p>
-          </div>
-        </div>
-
-        <p className="mt-8 max-w-sm text-center text-sm font-medium" style={{ color: '#2B2D33', opacity: 0.6 }}>
-          {t('brandTagline')}
-        </p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-full.png"
+          alt="MECANIX"
+          width={380}
+          height={134}
+          style={{ mixBlendMode: 'multiply' }}
+        />
       </div>
 
       {/* Right panel — form */}
