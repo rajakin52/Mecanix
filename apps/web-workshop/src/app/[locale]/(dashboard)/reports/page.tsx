@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFormat } from '@/hooks/use-format';
 import {
@@ -896,7 +896,7 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
                   const isStale = daysOpen > 60;
 
                   return (
-                    <Fragment key={jobId}>
+                    <React.Fragment key={jobId}>
                       <tr
                         className={`cursor-pointer hover:bg-gray-50 ${isStale ? 'bg-red-50' : ''}`}
                         onClick={() => toggleJob(jobId)}
@@ -959,7 +959,7 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
                           </td>
                         </tr>
                       )}
-                    </Fragment>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
