@@ -21,11 +21,7 @@ export const metadata: Metadata = {
   title: 'MECANIX - Workshop Management',
   description: 'Professional workshop management platform',
   icons: {
-    icon: [
-      { url: '/icon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-    ],
+    icon: '/icon-32.png',
     apple: '/apple-icon.png',
   },
 };

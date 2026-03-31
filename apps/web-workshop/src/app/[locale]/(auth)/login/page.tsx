@@ -41,28 +41,31 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left panel — brand */}
-      <div className="hidden w-1/2 flex-col items-center justify-center bg-secondary-800 lg:flex">
+      <div className="hidden w-1/2 flex-col items-center justify-center lg:flex" style={{ background: 'linear-gradient(135deg, #D4992A 0%, #E5A82E 50%, #D4992A 100%)' }}>
         <div className="flex flex-col items-center gap-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo-full.png"
             alt="MECANIX"
-            width={320}
-            height={96}
-            className="brightness-0 invert"
+            width={340}
+            height={102}
+            className="brightness-0 drop-shadow-lg"
           />
-          <p className="max-w-sm text-center text-sm text-secondary-400">
+          <p className="max-w-sm text-center text-sm font-medium text-secondary-800/70">
             {t('brandTagline')}
           </p>
         </div>
 
         {/* Decorative hexagons */}
-        <div className="mt-16 flex gap-4 opacity-10">
-          <svg width="60" height="52" viewBox="0 0 60 52">
-            <polygon points="30,1 58,15 58,40 30,51 2,40 2,15" fill="none" stroke="#D4992A" strokeWidth="2"/>
+        <div className="mt-16 flex gap-4 opacity-15">
+          <svg width="80" height="70" viewBox="0 0 60 52">
+            <polygon points="30,1 58,15 58,40 30,51 2,40 2,15" fill="none" stroke="#2B2D33" strokeWidth="2"/>
           </svg>
-          <svg width="40" height="35" viewBox="0 0 40 35">
-            <polygon points="20,1 38,10 38,27 20,34 2,27 2,10" fill="none" stroke="#D4992A" strokeWidth="2"/>
+          <svg width="55" height="48" viewBox="0 0 40 35">
+            <polygon points="20,1 38,10 38,27 20,34 2,27 2,10" fill="none" stroke="#2B2D33" strokeWidth="2"/>
+          </svg>
+          <svg width="30" height="26" viewBox="0 0 30 26">
+            <polygon points="15,1 28,7 28,20 15,25 2,20 2,7" fill="none" stroke="#2B2D33" strokeWidth="2"/>
           </svg>
         </div>
       </div>
