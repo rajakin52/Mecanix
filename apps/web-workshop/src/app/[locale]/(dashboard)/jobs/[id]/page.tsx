@@ -406,26 +406,13 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
     );
   }
 
-  // Auto-open form for new jobs without inspection
-  if (!showForm && !inspection) {
-    return (
-      <div className="rounded-lg border-2 border-orange-300 bg-orange-50 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-8 w-8 rounded-full bg-orange-200 flex items-center justify-center text-orange-700 font-bold text-sm">1</div>
-          <div>
-            <h3 className="text-lg font-semibold text-orange-800">{t('title')} — Required</h3>
-            <p className="text-sm text-orange-600">Complete vehicle check-in to proceed with this job</p>
-          </div>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setInspectionStep(1); }}
-          className="rounded-md bg-orange-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 shadow-sm"
-        >
-          {t('startCheckIn')}
-        </button>
-      </div>
-    );
-  }
+  // Auto-open inspection form when no inspection exists — mandatory, no button needed
+  React.useEffect(() => {
+    if (!inspection && !isLoading && !showForm) {
+      setShowForm(true);
+      setInspectionStep(1);
+    }
+  }, [inspection, isLoading, showForm]);
 
   if (!showForm) return null;
 
