@@ -49,7 +49,8 @@ export default function LoginPage() {
             alt="MECANIX"
             width={340}
             height={102}
-            className="brightness-0 drop-shadow-lg"
+            className="rounded-xl shadow-lg"
+            style={{ background: 'white', padding: '16px 24px' }}
           />
           <p className="max-w-sm text-center text-sm font-medium text-secondary-800/70">
             {t('brandTagline')}
