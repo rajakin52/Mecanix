@@ -890,14 +890,49 @@ export default function JobDetailPage() {
   const { data: partsLines } = usePartsLines(id);
   const createParts = useCreatePartsLine();
   const [showPartsForm, setShowPartsForm] = useState(false);
+  const [partSearch, setPartSearch] = useState('');
+  const [partSearchResults, setPartSearchResults] = useState<Array<{ id: string; part_number: string; description: string; unit_cost: number; sell_price: number; stock_on_hand: number; category: string }>>([]);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [partName, setPartName] = useState('');
   const [partNumber, setPartNumber] = useState('');
   const [partQty, setPartQty] = useState('1');
   const [partUnitCost, setPartUnitCost] = useState('');
+  const [partStockInfo, setPartStockInfo] = useState<string | null>(null);
   const [partMarkup, setPartMarkup] = useState('0');
   const [partSellPrice, setPartSellPrice] = useState('');
   const [partPriceMode, setPartPriceMode] = useState<'markup' | 'manual'>('markup');
   const [resolvedMarkupInfo, setResolvedMarkupInfo] = useState<string | null>(null);
+
+  // Parts inventory search
+  const handlePartSearch = async (query: string) => {
+    setPartSearch(query);
+    setSelectedPartId(null);
+    if (query.length < 2) { setPartSearchResults([]); return; }
+    try {
+      const res = await import('@/lib/api').then(m => m.api.get<{ data: typeof partSearchResults }>(`/parts?search=${encodeURIComponent(query)}&pageSize=8`));
+      setPartSearchResults(res.data ?? []);
+    } catch { setPartSearchResults([]); }
+  };
+
+  const selectPartFromInventory = (part: typeof partSearchResults[0]) => {
+    setSelectedPartId(part.id);
+    setPartName(part.description);
+    setPartNumber(part.part_number ?? '');
+    setPartUnitCost(String(part.unit_cost ?? 0));
+    setPartStockInfo(`${part.stock_on_hand ?? 0} in stock`);
+    setPartSearch('');
+    setPartSearchResults([]);
+  };
+
+  const clearPartSelection = () => {
+    setSelectedPartId(null);
+    setPartName('');
+    setPartNumber('');
+    setPartUnitCost('');
+    setPartStockInfo(null);
+    setPartSearch('');
+    setPartSearchResults([]);
+  };
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
@@ -956,10 +991,8 @@ export default function JobDetailPage() {
         markupPct: Math.max(0, finalMarkup),
       });
       setShowPartsForm(false);
-      setPartName('');
-      setPartNumber('');
+      clearPartSelection();
       setPartQty('1');
-      setPartUnitCost('');
       setPartMarkup('0');
       setPartSellPrice('');
       setPartPriceMode('markup');
@@ -1531,45 +1564,102 @@ export default function JobDetailPage() {
             {partsError && (
               <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{partsError}</div>
             )}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700">{t('partName')}</label>
+            {/* Part selection — search from inventory */}
+            {!selectedPartId ? (
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search Inventory</label>
                 <input
-                  value={partName}
-                  onChange={(e) => setPartName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={partSearch}
+                  onChange={(e) => handlePartSearch(e.target.value)}
+                  placeholder="Type part name or number..."
+                  autoFocus
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
                 />
+                {partSearchResults.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
+                    {partSearchResults.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => selectPartFromInventory(p)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-primary-50 text-left"
+                      >
+                        <div>
+                          <span className="font-medium text-gray-900">{p.description}</span>
+                          {p.part_number && <span className="ml-2 text-xs text-gray-400">{p.part_number}</span>}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-gray-500">{formatCurrency(p.unit_cost)}</span>
+                          <span className={`rounded-full px-2 py-0.5 font-medium ${
+                            p.stock_on_hand > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {p.stock_on_hand} in stock
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {partSearch.length >= 2 && partSearchResults.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-400">No parts found. You can also type manually below.</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPartId('manual'); setPartStockInfo(null); }}
+                  className="mt-2 text-xs text-primary-600 hover:text-primary-700"
+                >
+                  Or enter manually (not in inventory)
+                </button>
               </div>
+            ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700">{t('partNumber')}</label>
-                <input
-                  value={partNumber}
-                  onChange={(e) => setPartNumber(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                />
+                {/* Selected part display */}
+                <div className="mb-3 flex items-center gap-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2">
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-900">{partName}</span>
+                    {partNumber && <span className="ml-2 text-xs text-gray-500">{partNumber}</span>}
+                    {partStockInfo && (
+                      <span className="ml-2 text-xs text-green-600">{partStockInfo}</span>
+                    )}
+                  </div>
+                  <button type="button" onClick={clearPartSelection} className="text-xs text-gray-400 hover:text-red-500">
+                    Change
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">{t('partName')}</label>
+                    <input
+                      value={partName}
+                      onChange={(e) => setPartName(e.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('quantity')}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={partQty}
+                      onChange={(e) => setPartQty(e.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">{t('unitCost')}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={partUnitCost}
+                      onChange={(e) => setPartUnitCost(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('quantity')}</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={partQty}
-                  onChange={(e) => setPartQty(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('unitCost')}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={partUnitCost}
-                  onChange={(e) => setPartUnitCost(e.target.value)}
-                  placeholder="0.00"
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Pricing mode toggle */}
             <div className="mt-3 flex items-center gap-4">
