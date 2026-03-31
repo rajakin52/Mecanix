@@ -17,8 +17,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiGet, apiPost, apiPatch } from '../src/lib/api';
 import PhotoAnnotator from '../src/components/PhotoAnnotator';
 import VoiceTextInput from '../src/components/VoiceTextInput';
+import PartsRequestCard from '../src/components/PartsRequestCard';
 
 const PRIMARY = '#0087FF';
+const ACCENT = '#D4992A';
 
 const STATUS_COLORS: Record<string, string> = {
   received: '#2196F3',
@@ -84,10 +86,24 @@ export default function JobDetailScreen() {
   const [settingFlag, setSettingFlag] = useState(false);
   const [completing, setCompleting] = useState(false);
 
+  // Parts requests
+  const [partsRequests, setPartsRequests] = useState<any[]>([]);
+  const [issuingRequest, setIssuingRequest] = useState<string | null>(null);
+
   const fetchJob = useCallback(async () => {
     try {
       const data = await apiGet<JobData>(`/jobs/${params.jobId}`);
       setJob(data);
+      // Fetch parts requests for this job
+      try {
+        const requests = await apiGet<any[]>(
+          `/parts-requests?jobCardId=${params.jobId}`
+        );
+        setPartsRequests(requests);
+      } catch {
+        // Non-critical — ignore if parts-requests endpoint not available
+        setPartsRequests([]);
+      }
     } catch {
       Alert.alert(t('common.error'), t('jobDetail.fetchError'));
     } finally {
@@ -189,6 +205,19 @@ export default function JobDetailScreen() {
     ]);
   };
 
+  const handleCollectParts = async (requestId: string) => {
+    setIssuingRequest(requestId);
+    try {
+      await apiPost(`/parts-requests/${requestId}/issue`, {});
+      await fetchJob();
+      Alert.alert(t('common.success'), t('partsRequest.collectSuccess', 'Parts collected'));
+    } catch {
+      Alert.alert(t('common.error'), t('partsRequest.collectError', 'Failed to collect parts'));
+    } finally {
+      setIssuingRequest(null);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -211,6 +240,7 @@ export default function JobDetailScreen() {
   const hasPartsFlag = job.labels?.includes('parts_needed');
   const hasBlockedFlag = job.labels?.includes('blocked');
   const canComplete = ['in_progress'].includes(job.status);
+  const canRequestParts = ['received', 'diagnosing', 'in_progress', 'awaiting_parts'].includes(job.status);
 
   return (
     <View style={styles.container}>
@@ -313,6 +343,55 @@ export default function JobDetailScreen() {
             <Text style={styles.flagDesc}>{t('jobDetail.blockedDesc')}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ─── PARTS REQUESTS ─── */}
+        {canRequestParts && (
+          <>
+            <Text style={styles.sectionTitle}>🔧  {t('partsRequest.title')}</Text>
+            <TouchableOpacity
+              style={styles.requestPartsBtn}
+              onPress={() =>
+                router.push({
+                  pathname: '/parts-request',
+                  params: { jobId: params.jobId!, jobNumber: job.job_number },
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={styles.requestPartsIcon}>🔧</Text>
+              <Text style={styles.requestPartsBtnText}>{t('partsRequest.title')}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {partsRequests.length > 0 && (
+          <View style={styles.partsRequestsList}>
+            {partsRequests.map((req: any) => (
+              <View key={req.id}>
+                <PartsRequestCard request={req} />
+                {req.status === 'ready' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.collectPartsBtn,
+                      issuingRequest === req.id && { opacity: 0.5 },
+                    ]}
+                    onPress={() => handleCollectParts(req.id)}
+                    disabled={issuingRequest === req.id}
+                    activeOpacity={0.7}
+                  >
+                    {issuingRequest === req.id ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.collectPartsBtnText}>
+                        {t('partsRequest.collectParts')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* ─── NOTES ─── */}
         <Text style={styles.sectionTitle}>📝  {t('jobDetail.notes')}</Text>
@@ -573,4 +652,35 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   completeBtnText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+
+  // Parts requests
+  requestPartsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    backgroundColor: ACCENT + '18',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+    borderWidth: 2,
+    borderColor: ACCENT,
+    minHeight: 52,
+  },
+  requestPartsIcon: { fontSize: 20 },
+  requestPartsBtnText: { fontSize: 16, fontWeight: '700', color: ACCENT },
+  partsRequestsList: {
+    marginHorizontal: 16,
+    marginTop: 10,
+  },
+  collectPartsBtn: {
+    backgroundColor: '#00C853',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  collectPartsBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

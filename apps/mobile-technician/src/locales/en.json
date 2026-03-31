@@ -132,6 +132,26 @@
     "totalInstalled": "{{count}} installed across {{jobs}} job(s)",
     "fetchError": "Failed to load vehicle history"
   },
+  "partsRequest": {
+    "title": "Request Parts",
+    "searchParts": "Search parts...",
+    "cart": "Cart",
+    "submit": "Submit Request",
+    "priority": "Priority",
+    "normal": "Normal",
+    "urgent": "Urgent",
+    "notes": "Notes",
+    "notesPlaceholder": "Additional notes...",
+    "requested": "Requested",
+    "picking": "Picking",
+    "ready": "Ready",
+    "issued": "Issued",
+    "collectParts": "Collect Parts",
+    "emptyCart": "Add at least one part",
+    "submitSuccess": "Parts request submitted",
+    "collectSuccess": "Parts collected",
+    "collectError": "Failed to collect parts"
+  },
   "settings": {
     "title": "Settings",
     "language": "Language",

@@ -132,6 +132,26 @@
     "totalInstalled": "{{count}} instaladas em {{jobs}} trabalho(s)",
     "fetchError": "Erro ao carregar histórico do veículo"
   },
+  "partsRequest": {
+    "title": "Solicitar Peças",
+    "searchParts": "Procurar peças...",
+    "cart": "Carrinho",
+    "submit": "Enviar Pedido",
+    "priority": "Prioridade",
+    "normal": "Normal",
+    "urgent": "Urgente",
+    "notes": "Notas",
+    "notesPlaceholder": "Notas adicionais...",
+    "requested": "Solicitado",
+    "picking": "Em Separação",
+    "ready": "Pronto",
+    "issued": "Entregue",
+    "collectParts": "Recolher Peças",
+    "emptyCart": "Adicione pelo menos uma peça",
+    "submitSuccess": "Pedido de peças enviado",
+    "collectSuccess": "Peças recolhidas",
+    "collectError": "Erro ao recolher peças"
+  },
   "settings": {
     "title": "Definições",
     "language": "Idioma",

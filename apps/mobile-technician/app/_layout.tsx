@@ -50,6 +50,16 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="job-detail" options={darkHeader} />
       <Stack.Screen name="vehicle-history" options={darkHeader} />
+      <Stack.Screen
+        name="parts-request"
+        options={{
+          presentation: 'modal',
+          title: 'Request Parts',
+          headerStyle: { backgroundColor: '#1C1C1E' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700' as const },
+        }}
+      />
     </Stack>
   );
 }
