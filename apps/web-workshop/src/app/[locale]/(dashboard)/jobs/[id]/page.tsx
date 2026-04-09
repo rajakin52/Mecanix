@@ -1407,15 +1407,15 @@ export default function JobDetailPage() {
                 <h3 className="text-sm font-semibold text-amber-700 mb-2">Labour</h3>
                 <div className="space-y-1">
                   {plannedLabour.map((line) => (
-                    <div key={line.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
+                    <div key={String(line.id)} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
                       <div className="flex-1">
-                        <span className="text-sm font-medium text-gray-900">{line.description as string}</span>
-                        <span className="ms-2 text-xs text-gray-500">{line.hours as number}h @ {Number(line.rate).toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">{String(line.description)}</span>
+                        <span className="ms-2 text-xs text-gray-500">{Number(line.hours)}h @ {Number(line.rate).toFixed(2)}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-gray-700">{Number(line.subtotal).toFixed(2)}</span>
                         <button
-                          onClick={() => chargeLabour.mutate({ jobId: id, lineId: line.id as string })}
+                          onClick={() => chargeLabour.mutate({ jobId: id, lineId: String(line.id) })}
                           disabled={chargeLabour.isPending}
                           className="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                         >
@@ -1432,15 +1432,15 @@ export default function JobDetailPage() {
                 <h3 className="text-sm font-semibold text-amber-700 mb-2">Parts</h3>
                 <div className="space-y-1">
                   {plannedParts.map((line) => (
-                    <div key={line.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
+                    <div key={String(line.id)} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
                       <div className="flex-1">
-                        <span className="text-sm font-medium text-gray-900">{line.part_name as string}</span>
-                        <span className="ms-2 text-xs text-gray-500">x{line.quantity as number} @ {Number(line.sell_price).toFixed(2)}</span>
+                        <span className="text-sm font-medium text-gray-900">{String(line.part_name)}</span>
+                        <span className="ms-2 text-xs text-gray-500">x{Number(line.quantity)} @ {Number(line.sell_price).toFixed(2)}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-gray-700">{Number(line.subtotal).toFixed(2)}</span>
                         <button
-                          onClick={() => chargeParts.mutate({ jobId: id, lineId: line.id as string })}
+                          onClick={() => chargeParts.mutate({ jobId: id, lineId: String(line.id) })}
                           disabled={chargeParts.isPending}
                           className="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
                         >
