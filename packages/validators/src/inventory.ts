@@ -20,7 +20,7 @@ export type CreatePartInput = z.infer<typeof createPartSchema>;
 export type UpdatePartInput = z.infer<typeof updatePartSchema>;
 
 export const adjustStockSchema = z.object({
-  quantityChange: z.coerce.number().int(),
+  quantityChange: z.coerce.number().int().negative('Only negative adjustments (stock corrections) are allowed. Stock increases must come from supplier invoices.'),
   reason: z.string().min(1).max(500),
   reference: z.string().max(200).optional(),
 });
@@ -91,19 +91,31 @@ export type ReceiveGoodsInput = z.infer<typeof receiveGoodsSchema>;
 
 // ---------- Bills ----------
 
+export const billLineSchema = z.object({
+  partId: z.string().uuid().optional(),
+  partName: z.string().min(1).max(500),
+  partNumber: z.string().max(100).optional(),
+  quantity: z.coerce.number().int().min(1),
+  unitCost: z.coerce.number().min(0),
+});
+
 export const createBillSchema = z.object({
   vendorId: z.string().uuid(),
   billNumber: z.string().min(1).max(100),
-  amount: z.coerce.number().min(0),
   dueDate: z.string(),
   purchaseOrderId: z.string().uuid().optional(),
   notes: z.string().max(2000).optional(),
+  lines: z.array(billLineSchema).min(1, 'At least one line item is required'),
 });
 
 export const recordPaymentSchema = z.object({
   amount: z.coerce.number().min(0.01),
+  paymentMethod: z.string().optional(),
+  reference: z.string().max(200).optional(),
+  notes: z.string().max(2000).optional(),
 });
 
+export type BillLineInput = z.infer<typeof billLineSchema>;
 export type CreateBillInput = z.infer<typeof createBillSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
 

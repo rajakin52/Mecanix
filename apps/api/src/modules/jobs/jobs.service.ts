@@ -242,6 +242,31 @@ export class JobsService {
       }
     }
 
+    // Block transition to 'ready' or 'invoiced' if planned lines still exist
+    if (newStatus === 'ready' || newStatus === 'invoiced') {
+      const { data: plannedLabour } = await client
+        .from('labour_lines')
+        .select('id')
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId)
+        .eq('line_status', 'planned')
+        .limit(1);
+
+      const { data: plannedParts } = await client
+        .from('parts_lines')
+        .select('id')
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId)
+        .eq('line_status', 'planned')
+        .limit(1);
+
+      if ((plannedLabour && plannedLabour.length > 0) || (plannedParts && plannedParts.length > 0)) {
+        throw new BadRequestException(
+          'Cannot mark job as ready — there are planned work items that have not been charged or removed.',
+        );
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       status: newStatus,
       updated_by: userId,
@@ -345,24 +370,26 @@ export class JobsService {
   async recalculateTotals(tenantId: string, jobId: string) {
     const client = this.supabase.getClient();
 
-    // Sum labour lines
+    // Sum labour lines — only 'charged' lines count toward totals
     const { data: labourLines } = await client
       .from('labour_lines')
       .select('subtotal')
       .eq('job_card_id', jobId)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged');
 
     const labourTotal = (labourLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),
       0,
     );
 
-    // Sum parts lines
+    // Sum parts lines — only 'charged' lines count toward totals
     const { data: partsLines } = await client
       .from('parts_lines')
       .select('subtotal')
       .eq('job_card_id', jobId)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged');
 
     const partsTotal = (partsLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),

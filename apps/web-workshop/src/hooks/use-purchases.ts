@@ -119,17 +119,31 @@ export function useReceiveGoods() {
 
 // --- Bills ---
 
+interface BillLine {
+  id: string;
+  part_id: string | null;
+  part_name: string;
+  part_number: string | null;
+  quantity: number;
+  unit_cost: number;
+  total: number;
+}
+
 interface Bill {
   id: string;
   bill_number: string;
   vendor_id: string;
-  vendor_name: string;
+  vendor_name?: string;
+  vendor?: { id: string; name: string } | null;
   purchase_order_id: string | null;
   amount: number;
   paid_amount: number;
   status: string;
   due_date: string;
   notes: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  lines?: BillLine[];
   created_at: string;
 }
 
@@ -158,10 +172,21 @@ export function useCreateBill() {
   });
 }
 
+export function useApproveBill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/bills/${id}/approve`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bills'] });
+      qc.invalidateQueries({ queryKey: ['parts'] });
+    },
+  });
+}
+
 export function useRecordPayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; amount: number; method?: string; reference?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; amount: number; paymentMethod?: string; reference?: string; notes?: string }) =>
       api.post(`/bills/${id}/pay`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bills'] }),
   });

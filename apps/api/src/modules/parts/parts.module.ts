@@ -6,10 +6,12 @@ import { ServiceGroupsService } from './service-groups.service';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { CostingService } from './costing.service';
+import { StockUploadController } from './stock-upload.controller';
+import { StockUploadService } from './stock-upload.service';
 
 @Module({
-  controllers: [PartsController, ServiceGroupsController, InventoryController],
-  providers: [PartsService, ServiceGroupsService, InventoryService, CostingService],
+  controllers: [PartsController, ServiceGroupsController, InventoryController, StockUploadController],
+  providers: [PartsService, ServiceGroupsService, InventoryService, CostingService, StockUploadService],
   exports: [PartsService, InventoryService, CostingService],
 })
 export class PartsModule {}

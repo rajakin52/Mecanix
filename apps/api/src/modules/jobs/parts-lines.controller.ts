@@ -49,6 +49,16 @@ export class PartsLinesController {
     return this.partsLinesService.update(tenantId, id, user.id, body);
   }
 
+  @Post(':id/charge')
+  async charge(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('jobId') jobId: string,
+    @Param('id') id: string,
+  ) {
+    return this.partsLinesService.chargePlannedLine(tenantId, id, user.id);
+  }
+
   @Delete(':id')
   async delete(
     @TenantId() tenantId: string,

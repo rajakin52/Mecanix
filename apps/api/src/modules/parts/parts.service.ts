@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreatePartInput, UpdatePartInput, AdjustStockInput, PaginationInput } from '@mecanix/validators';
 
@@ -79,7 +79,7 @@ export class PartsService {
         description: input.description,
         unit_cost: input.unitCost,
         sell_price: input.sellPrice,
-        stock_qty: input.stockQty ?? 0,
+        stock_qty: 0, // Stock can only increase via supplier invoices or initial upload
         reorder_point: input.reorderPoint ?? 0,
         supplier_id: input.supplierId || null,
         category: input.category || null,
@@ -154,12 +154,19 @@ export class PartsService {
     userId: string,
     input: AdjustStockInput,
   ) {
+    // Manual stock increases are forbidden — stock can only increase via supplier invoices or initial upload
+    if (input.quantityChange > 0) {
+      throw new BadRequestException(
+        'Manual stock increases are not allowed. Stock can only be increased through supplier invoices.',
+      );
+    }
+
     const client = this.supabase.getClient();
     const part = await this.getById(tenantId, partId);
 
     const newQty = (part.stock_qty as number) + input.quantityChange;
     if (newQty < 0) {
-      throw new NotFoundException('Insufficient stock for this adjustment');
+      throw new BadRequestException('Insufficient stock for this adjustment');
     }
 
     // Update stock qty
@@ -189,6 +196,49 @@ export class PartsService {
       });
 
     if (adjError) throw adjError;
+
+    return data;
+  }
+
+  /**
+   * Internal method for stock increases — bypasses manual adjustment guard.
+   * Only called from supplier invoice approval and initial stock upload.
+   */
+  async increaseStockInternal(
+    tenantId: string,
+    partId: string,
+    userId: string,
+    quantityChange: number,
+    reason: string,
+    reference?: string,
+  ) {
+    if (quantityChange <= 0) {
+      throw new BadRequestException('Internal stock increase must be positive');
+    }
+
+    const client = this.supabase.getClient();
+    const part = await this.getById(tenantId, partId);
+
+    const newQty = (part.stock_qty as number) + quantityChange;
+
+    const { data, error } = await client
+      .from('parts')
+      .update({ stock_qty: newQty, updated_by: userId })
+      .eq('id', partId)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await client.from('inventory_adjustments').insert({
+      tenant_id: tenantId,
+      part_id: partId,
+      quantity_change: quantityChange,
+      reason,
+      reference: reference || null,
+      adjusted_by: userId,
+    });
 
     return data;
   }

@@ -49,6 +49,14 @@ export class LabourLinesController {
     return this.labourLinesService.update(tenantId, id, user.id, body);
   }
 
+  @Post(':id/charge')
+  async charge(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.labourLinesService.chargePlannedLine(tenantId, id);
+  }
+
   @Delete(':id')
   async delete(
     @TenantId() tenantId: string,

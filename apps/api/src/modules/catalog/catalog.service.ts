@@ -213,7 +213,7 @@ export class CatalogService {
       .eq('tenant_id', tenantId)
       .single();
 
-    // Create labour lines
+    // Create labour lines as 'planned' — not yet charged
     const labourItems = (item.labour_items ?? []) as Array<Record<string, unknown>>;
     for (const li of labourItems) {
       const hours = Number(li.hours) || 0;
@@ -225,10 +225,11 @@ export class CatalogService {
         hours,
         rate,
         subtotal: Math.round(hours * rate * 100) / 100,
+        line_status: 'planned',
       });
     }
 
-    // Create parts lines with pricing
+    // Create parts lines as 'planned' — no stock reservation yet
     const partsItems = (item.parts_items ?? []) as Array<Record<string, unknown>>;
     for (const pi of partsItems) {
       const qty = Number(pi.quantity) || 1;
@@ -260,13 +261,13 @@ export class CatalogService {
         markup_pct: markupPct,
         sell_price: sellPrice,
         subtotal,
+        line_status: 'planned',
       });
     }
 
-    // Recalculate job totals
-    await this.jobsService.recalculateTotals(tenantId, jobCardId);
+    // Do NOT recalculate totals — planned items don't affect job totals
 
-    return { applied: true, labourLines: labourItems.length, partsLines: partsItems.length };
+    return { applied: true, labourLines: labourItems.length, partsLines: partsItems.length, status: 'planned' };
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
 import type { GenerateInvoiceInput, PaginationInput } from '@mecanix/validators';
@@ -114,24 +114,41 @@ export class InvoicesService {
       throw new NotFoundException('Job card not found');
     }
 
-    // 2. Get labour lines
+    // Verify no planned lines remain
+    const { data: plannedLines } = await client
+      .from('parts_lines')
+      .select('id')
+      .eq('job_card_id', input.jobCardId)
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'planned')
+      .limit(1);
+
+    if (plannedLines && plannedLines.length > 0) {
+      throw new BadRequestException(
+        'Cannot generate invoice — there are planned work items that have not been charged or removed.',
+      );
+    }
+
+    // 2. Get labour lines — only charged lines are invoiced
     const { data: labourLines } = await client
       .from('labour_lines')
       .select('subtotal')
       .eq('job_card_id', input.jobCardId)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged');
 
     const labourTotal = (labourLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),
       0,
     );
 
-    // 3. Get parts lines
+    // 3. Get parts lines — only charged lines are invoiced
     const { data: partsLines } = await client
       .from('parts_lines')
       .select('subtotal')
       .eq('job_card_id', input.jobCardId)
-      .eq('tenant_id', tenantId);
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged');
 
     const partsTotal = (partsLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),

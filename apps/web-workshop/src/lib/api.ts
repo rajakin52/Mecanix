@@ -67,6 +67,24 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
   return json.data;
 }
 
+async function uploadApi<T>(path: string, formData: FormData): Promise<T> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  const json = await res.json();
+  if (!json.success) {
+    throw new Error(json.error?.message ?? 'Upload failed');
+  }
+  return json.data;
+}
+
 export const api = {
   get: <T>(path: string) => fetchApi<T>(path),
   post: <T>(path: string, body: unknown) =>
@@ -77,4 +95,5 @@ export const api = {
     fetchApi<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     fetchApi<T>(path, { method: 'DELETE' }),
+  upload: <T>(path: string, formData: FormData) => uploadApi<T>(path, formData),
 };

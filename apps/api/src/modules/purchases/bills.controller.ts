@@ -12,7 +12,7 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { createBillSchema, recordPaymentSchema, paginationSchema } from '@mecanix/validators';
-import type { CreateBillInput, PaginationInput } from '@mecanix/validators';
+import type { CreateBillInput, RecordPaymentInput, PaginationInput } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('bills')
@@ -47,13 +47,22 @@ export class BillsController {
     return this.billsService.create(tenantId, user.id, body);
   }
 
+  @Post(':id/approve')
+  async approve(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+  ) {
+    return this.billsService.approveBill(tenantId, id, user.id);
+  }
+
   @Post(':id/pay')
   async recordPayment(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(recordPaymentSchema)) body: { amount: number },
+    @Body(new ZodValidationPipe(recordPaymentSchema)) body: RecordPaymentInput,
   ) {
-    return this.billsService.recordPayment(tenantId, id, user.id, body.amount);
+    return this.billsService.recordPayment(tenantId, id, user.id, body);
   }
 }

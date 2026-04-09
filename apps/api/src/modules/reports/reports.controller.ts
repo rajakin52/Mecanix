@@ -1,5 +1,6 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
+import { StatementsService } from './statements.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -18,7 +19,30 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
 @UseGuards(TenantGuard, RolesGuard)
 @Roles('owner', 'manager')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly statementsService: StatementsService,
+  ) {}
+
+  @Get('statements/customer/:customerId')
+  async customerStatement(
+    @TenantId() tenantId: string,
+    @Param('customerId') customerId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.statementsService.customerStatement(tenantId, customerId, startDate, endDate);
+  }
+
+  @Get('statements/vendor/:vendorId')
+  async vendorStatement(
+    @TenantId() tenantId: string,
+    @Param('vendorId') vendorId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.statementsService.vendorStatement(tenantId, vendorId, startDate, endDate);
+  }
 
   @Get('revenue')
   async revenue(

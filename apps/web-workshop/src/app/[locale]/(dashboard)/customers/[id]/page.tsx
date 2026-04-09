@@ -25,6 +25,153 @@ const PAYMENT_TERMS_OPTIONS = [
   { value: 'COD', label: 'COD' },
 ];
 
+function CustomerStatement({ customerId }: { customerId: string }) {
+  const [showStatement, setShowStatement] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [statement, setStatement] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchStatement = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      const qs = params.toString();
+      const { api } = await import('@/lib/api');
+      const data = await api.get<Record<string, unknown>>(`/reports/statements/customer/${customerId}${qs ? `?${qs}` : ''}`);
+      setStatement(data);
+    } catch {
+      setStatement(null);
+    }
+    setLoading(false);
+  };
+
+  if (!showStatement) {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Statement of Account</h2>
+          <button
+            onClick={() => { setShowStatement(true); fetchStatement(); }}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            View Statement
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const transactions = (statement?.transactions ?? []) as Array<{
+    date: string; type: string; reference: string; description: string;
+    debit: number; credit: number; runningBalance: number;
+  }>;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-900">Statement of Account</h2>
+        <button
+          onClick={() => setShowStatement(false)}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          Hide
+        </button>
+      </div>
+
+      {/* Date filters */}
+      <div className="flex items-end gap-3 mb-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-500">From</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            className="mt-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500">To</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            className="mt-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+        </div>
+        <button onClick={fetchStatement} disabled={loading}
+          className="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
+      </div>
+
+      {/* Summary */}
+      {statement && (
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="rounded-md bg-gray-50 p-3 text-center">
+            <div className="text-xs text-gray-500">Opening Balance</div>
+            <div className="text-lg font-bold text-gray-900">{Number(statement.openingBalance).toFixed(2)}</div>
+          </div>
+          <div className="rounded-md bg-gray-50 p-3 text-center">
+            <div className="text-xs text-gray-500">Total Invoiced</div>
+            <div className="text-lg font-bold text-red-700">{Number(statement.totalDebits).toFixed(2)}</div>
+          </div>
+          <div className="rounded-md bg-gray-50 p-3 text-center">
+            <div className="text-xs text-gray-500">Total Paid</div>
+            <div className="text-lg font-bold text-green-700">{Number(statement.totalCredits).toFixed(2)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Closing balance */}
+      {statement && (
+        <div className="mb-4 rounded-md border-2 border-primary-200 bg-primary-50 p-3 text-center">
+          <div className="text-xs text-primary-600 font-medium">Outstanding Balance</div>
+          <div className="text-2xl font-bold text-primary-800">{Number(statement.closingBalance).toFixed(2)}</div>
+        </div>
+      )}
+
+      {/* Transactions table */}
+      {loading ? (
+        <p className="text-sm text-gray-500 text-center py-4">Loading statement...</p>
+      ) : transactions.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-4">No transactions found for this period.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Date</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Type</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Reference</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Description</th>
+                <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Debit</th>
+                <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Credit</th>
+                <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {transactions.map((tx, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-700">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      tx.type === 'invoice' ? 'bg-blue-100 text-blue-700' :
+                      tx.type === 'payment' ? 'bg-green-100 text-green-700' :
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      {tx.type.replace('_', ' ')}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 font-mono text-gray-900">{tx.reference}</td>
+                  <td className="px-3 py-2 text-gray-700">{tx.description}</td>
+                  <td className="px-3 py-2 text-end text-red-700">{tx.debit > 0 ? tx.debit.toFixed(2) : ''}</td>
+                  <td className="px-3 py-2 text-end text-green-700">{tx.credit > 0 ? tx.credit.toFixed(2) : ''}</td>
+                  <td className="px-3 py-2 text-end font-medium text-gray-900">{tx.runningBalance.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CustomerDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -329,6 +476,9 @@ export default function CustomerDetailPage() {
           </table>
         </div>
       </div>
+
+      {/* Statement of Account */}
+      <CustomerStatement customerId={id} />
 
       {/* Earn Points Modal */}
       {showEarnModal && (

@@ -11,6 +11,8 @@ import {
   useCreateLabourLine,
   usePartsLines,
   useCreatePartsLine,
+  useChargeLabourLine,
+  useChargePartsLine,
   useTechnicians,
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
@@ -209,10 +211,10 @@ function AiDiagnosisPanel({ reportedProblem, vehicleMake, vehicleModel, vehicleY
   );
 }
 
-function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: string }) {
+function InspectionSection({ jobCardId, vehicleId, inspection, isLoadingInspection }: { jobCardId: string; vehicleId: string; inspection: Record<string, unknown> | null | undefined; isLoadingInspection: boolean }) {
   const t = useTranslations('inspection');
   const tc = useTranslations('common');
-  const { data: inspection, isLoading } = useInspection(jobCardId);
+  const isLoading = isLoadingInspection;
   const createMutation = useCreateInspection();
 
   const [showForm, setShowForm] = useState(false);
@@ -784,11 +786,6 @@ function InspectionSection({ jobCardId, vehicleId }: { jobCardId: string; vehicl
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={() => setShowForm(false)}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            {tc('cancel')}
-          </button>
           <button onClick={handleSave} disabled={createMutation.isPending}
             className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
           >
@@ -817,6 +814,10 @@ export default function JobDetailPage() {
   const [gpNotes, setGpNotes] = useState('');
   const [gpType, setGpType] = useState<string>('exit');
   const [gpError, setGpError] = useState<string | null>(null);
+
+  // Vehicle inspection — must be at parent level to gate tabs
+  const { data: inspectionData, isLoading: inspectionLoading } = useInspection(id);
+  const hasInspection = !!inspectionData && !inspectionLoading;
 
   // Labour lines
   // Catalog / Service picker
@@ -862,6 +863,7 @@ export default function JobDetailPage() {
 
   const { data: labourLines } = useLabourLines(id);
   const createLabour = useCreateLabourLine();
+  const chargeLabour = useChargeLabourLine();
   const [showLabourForm, setShowLabourForm] = useState(false);
   const [labourDesc, setLabourDesc] = useState('');
   const [labourHours, setLabourHours] = useState('');
@@ -876,6 +878,7 @@ export default function JobDetailPage() {
   // Parts lines
   const { data: partsLines } = usePartsLines(id);
   const createParts = useCreatePartsLine();
+  const chargeParts = useChargePartsLine();
   const [showPartsForm, setShowPartsForm] = useState(false);
   const [partSearch, setPartSearch] = useState('');
   const [partSearchResults, setPartSearchResults] = useState<Array<{ id: string; part_number: string; description: string; unit_cost: number; sell_price: number; stock_on_hand: number; category: string }>>([]);
@@ -1022,17 +1025,23 @@ export default function JobDetailPage() {
         </div>
         {nextStatuses.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">{t('changeStatus')}:</span>
-            {nextStatuses.map((ns) => (
-              <button
-                key={ns}
-                onClick={() => handleStatusChange(ns)}
-                disabled={statusMutation.isPending}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {ns.replace(/_/g, ' ')}
-              </button>
-            ))}
+            {currentStatus === 'received' && !hasInspection ? (
+              <span className="text-sm text-amber-600 font-medium">Complete vehicle inspection to progress</span>
+            ) : (
+              <>
+                <span className="text-sm text-gray-500">{t('changeStatus')}:</span>
+                {nextStatuses.map((ns) => (
+                  <button
+                    key={ns}
+                    onClick={() => handleStatusChange(ns)}
+                    disabled={statusMutation.isPending}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {ns.replace(/_/g, ' ')}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1061,20 +1070,25 @@ export default function JobDetailPage() {
       <div className="border-b border-gray-200">
         <nav className="flex gap-1" aria-label="Job detail tabs">
           {([
-            { key: 'overview', label: t('tabOverview') },
-            { key: 'work', label: t('tabWork') },
-            { key: 'estimates', label: `${t('tabEstimates')} (${estimateList.length})` },
-            { key: 'history', label: t('tabHistory') },
+            { key: 'overview', label: t('tabOverview'), locked: false },
+            { key: 'work', label: t('tabWork'), locked: !hasInspection },
+            { key: 'estimates', label: `${t('tabEstimates')} (${estimateList.length})`, locked: !hasInspection },
+            { key: 'history', label: t('tabHistory'), locked: false },
           ] as const).map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => !tab.locked && setActiveTab(tab.key)}
+              disabled={tab.locked}
+              title={tab.locked ? 'Complete vehicle inspection first' : undefined}
               className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'border-b-2 border-primary-600 text-primary-700'
-                  : 'text-gray-500 hover:text-gray-700'
+                tab.locked
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : activeTab === tab.key
+                    ? 'border-b-2 border-primary-600 text-primary-700'
+                    : 'text-gray-500 hover:text-gray-700'
               }`}
             >
+              {tab.locked && <span className="me-1">&#128274;</span>}
               {tab.label}
             </button>
           ))}
@@ -1084,6 +1098,16 @@ export default function JobDetailPage() {
       {/* ═══ OVERVIEW TAB ═══ */}
       {activeTab === 'overview' && (
       <>
+      {/* Inspection Required Banner */}
+      {!hasInspection && !inspectionLoading && (
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4 flex items-center gap-3">
+          <span className="text-2xl">&#9888;&#65039;</span>
+          <div>
+            <h3 className="font-semibold text-amber-800">Vehicle Inspection Required</h3>
+            <p className="text-sm text-amber-700">Complete the vehicle inspection below before any work can begin. The Work and Estimates tabs are locked until inspection is saved.</p>
+          </div>
+        </div>
+      )}
       {/* Info Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -1155,6 +1179,8 @@ export default function JobDetailPage() {
       <InspectionSection
         jobCardId={id}
         vehicleId={(typedJob.vehicle_id as string) ?? ''}
+        inspection={inspectionData as Record<string, unknown> | null | undefined}
+        isLoadingInspection={inspectionLoading}
       />
 
       </>
@@ -1363,9 +1389,73 @@ export default function JobDetailPage() {
       </>
       )}
 
-      {/* ═══ WORK TAB (continued) — Labour & Parts ═══ */}
+      {/* ═══ WORK TAB (continued) — Planned Work + Labour & Parts ═══ */}
       {activeTab === 'work' && (
       <>
+
+      {/* ── Planned Work (from catalog, not yet charged) ── */}
+      {(() => {
+        const plannedLabour = (Array.isArray(labourLines) ? labourLines : []).filter((l) => l.line_status === 'planned');
+        const plannedParts = (Array.isArray(partsLines) ? partsLines : []).filter((l) => l.line_status === 'planned');
+        if (plannedLabour.length === 0 && plannedParts.length === 0) return null;
+        return (
+          <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-6">
+            <h2 className="text-lg font-semibold text-amber-800 mb-3">Planned Work</h2>
+            <p className="text-xs text-amber-600 mb-4">These items were added from the service catalog. Click &quot;Charge&quot; to confirm each item and add it to the job total.</p>
+            {plannedLabour.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-amber-700 mb-2">Labour</h3>
+                <div className="space-y-1">
+                  {plannedLabour.map((line) => (
+                    <div key={line.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-gray-900">{line.description as string}</span>
+                        <span className="ms-2 text-xs text-gray-500">{line.hours as number}h @ {Number(line.rate).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">{Number(line.subtotal).toFixed(2)}</span>
+                        <button
+                          onClick={() => chargeLabour.mutate({ jobId: id, lineId: line.id as string })}
+                          disabled={chargeLabour.isPending}
+                          className="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Charge
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {plannedParts.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-amber-700 mb-2">Parts</h3>
+                <div className="space-y-1">
+                  {plannedParts.map((line) => (
+                    <div key={line.id} className="flex items-center justify-between rounded-md border border-amber-200 bg-white px-3 py-2">
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-gray-900">{line.part_name as string}</span>
+                        <span className="ms-2 text-xs text-gray-500">x{line.quantity as number} @ {Number(line.sell_price).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">{Number(line.subtotal).toFixed(2)}</span>
+                        <button
+                          onClick={() => chargeParts.mutate({ jobId: id, lineId: line.id as string })}
+                          disabled={chargeParts.isPending}
+                          className="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Charge
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Labour Lines */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">

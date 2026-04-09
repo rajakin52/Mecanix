@@ -121,3 +121,27 @@ export function useCreatePartsLine() {
     },
   });
 }
+
+export function useChargeLabourLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, lineId }: { jobId: string; lineId: string }) =>
+      api.post(`/jobs/${jobId}/labour-lines/${lineId}/charge`, {}),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['labour-lines', v.jobId] });
+      qc.invalidateQueries({ queryKey: ['job', v.jobId] });
+    },
+  });
+}
+
+export function useChargePartsLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, lineId }: { jobId: string; lineId: string }) =>
+      api.post(`/jobs/${jobId}/parts-lines/${lineId}/charge`, {}),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['parts-lines', v.jobId] });
+      qc.invalidateQueries({ queryKey: ['job', v.jobId] });
+    },
+  });
+}

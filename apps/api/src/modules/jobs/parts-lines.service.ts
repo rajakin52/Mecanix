@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
 import { PricingService } from '../pricing/pricing.service';
@@ -32,6 +32,22 @@ export class PartsLinesService {
     userId: string,
     input: CreatePartsLineInput,
   ) {
+    // Require vehicle inspection before adding work items
+    const { data: inspection } = await this.supabase
+      .getClient()
+      .from('vehicle_inspections')
+      .select('id')
+      .eq('job_card_id', jobCardId)
+      .eq('tenant_id', tenantId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!inspection) {
+      throw new BadRequestException(
+        'Vehicle inspection must be completed before adding parts lines.',
+      );
+    }
+
     // Get pricing settings
     const pricingSettings = await this.pricingService.getPricingSettings(tenantId);
 
@@ -527,5 +543,71 @@ export class PartsLinesService {
     }
 
     return issuedCount;
+  }
+
+  async chargePlannedLine(tenantId: string, id: string, userId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: line, error: fetchError } = await client
+      .from('parts_lines')
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (fetchError || !line) throw new NotFoundException('Parts line not found');
+    if (line.line_status === 'charged') {
+      throw new BadRequestException('Line is already charged');
+    }
+
+    const partId = line.part_id as string | null;
+    const qty = line.quantity as number;
+
+    // Reserve stock if linked to inventory
+    if (partId) {
+      const { data: part } = await client
+        .from('parts')
+        .select('stock_qty, reserved_qty')
+        .eq('id', partId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (part) {
+        const available = (part.stock_qty as number) - (part.reserved_qty as number || 0);
+        if (available < qty) {
+          throw new BadRequestException(
+            `Insufficient stock for ${line.part_name}. Available: ${available}, Required: ${qty}`,
+          );
+        }
+
+        // Reserve the stock
+        await client
+          .from('parts')
+          .update({
+            reserved_qty: (part.reserved_qty as number || 0) + qty,
+            updated_by: userId,
+          })
+          .eq('id', partId)
+          .eq('tenant_id', tenantId);
+      }
+    }
+
+    // Update line status to charged + reserved
+    const { data, error } = await client
+      .from('parts_lines')
+      .update({
+        line_status: 'charged',
+        stock_status: partId ? 'reserved' : null,
+        reserved_at: partId ? new Date().toISOString() : null,
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await this.jobsService.recalculateTotals(tenantId, line.job_card_id);
+    return data;
   }
 }
