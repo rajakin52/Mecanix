@@ -38,7 +38,8 @@ export class StockUploadService {
     }
 
     // Parse header
-    const header = lines[0].toLowerCase().split(',').map((h) => h.trim());
+    const headerLine = lines[0] as string;
+    const header = headerLine.toLowerCase().split(',').map((h) => h.trim());
     const descIdx = header.indexOf('description');
     const qtyIdx = header.indexOf('quantity');
 
@@ -56,7 +57,8 @@ export class StockUploadService {
     const errors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map((c) => c.trim());
+      const rowLine = lines[i] as string;
+      const cols = rowLine.split(',').map((c) => c.trim());
       const desc = cols[descIdx] ?? '';
       const qtyRaw = cols[qtyIdx] ?? '';
 

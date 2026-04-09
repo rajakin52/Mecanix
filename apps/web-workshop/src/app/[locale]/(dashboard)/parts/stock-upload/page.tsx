@@ -82,9 +82,9 @@ export default function StockUploadPage() {
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.upload<UploadResult>('/parts/stock-upload', formData);
+      // Read file content as text and send as JSON
+      const csvContent = await file.text();
+      const res = await api.post<UploadResult>('/parts/stock-upload', { csvContent });
       setResult(res);
       toast.success(`Upload complete: ${res.created} created, ${res.updated} updated`);
     } catch (err) {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
-interface StatementTransaction {
+export interface StatementTransaction {
   date: string;
   type: 'invoice' | 'payment' | 'credit_note' | 'bill' | 'bill_payment';
   reference: string;
@@ -11,7 +11,7 @@ interface StatementTransaction {
   runningBalance: number;
 }
 
-interface Statement {
+export interface Statement {
   entity: Record<string, unknown>;
   openingBalance: number;
   transactions: StatementTransaction[];

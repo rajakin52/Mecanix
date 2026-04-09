@@ -14,7 +14,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/rate-limit": "^9.1.0",
     "@mecanix/types": "workspace:*",
     "@mecanix/validators": "workspace:*",
     "@nestjs/common": "^10.4.0",

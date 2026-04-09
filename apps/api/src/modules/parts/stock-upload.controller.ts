@@ -1,14 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
   Res,
   UseGuards,
-  UseInterceptors,
-  UploadedFile,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import type { Response } from 'express';
 import { StockUploadService } from './stock-upload.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
@@ -20,29 +17,24 @@ export class StockUploadController {
   constructor(private readonly stockUploadService: StockUploadService) {}
 
   @Get('template')
-  async downloadTemplate(@Res() res: Response) {
-    const buffer = this.stockUploadService.generateTemplate();
-    res.setHeader(
-      'Content-Type',
-      'text/csv',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=stock-upload-template.csv',
-    );
-    res.send(buffer);
+  async downloadTemplate() {
+    const csv = this.stockUploadService.generateTemplate();
+    return { template: csv };
   }
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
   async upload(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { csvContent: string },
   ) {
-    if (!file) {
-      return { error: 'No file uploaded' };
+    if (!body.csvContent) {
+      return { error: 'No CSV content provided' };
     }
-    return this.stockUploadService.processUpload(tenantId, user.id, file.buffer);
+    return this.stockUploadService.processUpload(
+      tenantId,
+      user.id,
+      Buffer.from(body.csvContent, 'utf-8'),
+    );
   }
 }
