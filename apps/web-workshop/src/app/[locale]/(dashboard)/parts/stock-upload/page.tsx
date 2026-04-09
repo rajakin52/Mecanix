@@ -151,7 +151,7 @@ export default function StockUploadPage() {
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {preview[0].map((h, i) => (
+                    {(preview[0] ?? []).map((h, i) => (
                       <th key={i} className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">
                         {h}
                       </th>
