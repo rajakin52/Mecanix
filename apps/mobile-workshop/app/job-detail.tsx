@@ -62,6 +62,7 @@ interface JobDetail {
     hours: number;
     rate: number;
     subtotal: number;
+    line_status?: string;
   }>;
   parts_lines?: Array<{
     id: string;
@@ -71,6 +72,7 @@ interface JobDetail {
     unit_cost: number;
     sell_price: number;
     subtotal: number;
+    line_status?: string;
   }>;
   labour_total?: number;
   parts_total?: number;
@@ -269,6 +271,22 @@ export default function JobDetailScreen() {
 
   const statusColor = STATUS_COLORS[job.status] ?? '#8E8E93';
   const allowedTransitions = VALID_TRANSITIONS[job.status] ?? [];
+  const hasInspection = !!inspection;
+
+  // Separate charged vs planned lines
+  const chargedLabour = (job.labour_lines ?? []).filter((l) => l.line_status !== 'planned');
+  const plannedLabour = (job.labour_lines ?? []).filter((l) => l.line_status === 'planned');
+  const chargedParts = (job.parts_lines ?? []).filter((l) => l.line_status !== 'planned');
+  const plannedParts = (job.parts_lines ?? []).filter((l) => l.line_status === 'planned');
+
+  const handleChargeLine = async (type: 'labour' | 'parts', lineId: string) => {
+    try {
+      await apiFetch(`/jobs/${job.id}/${type}-lines/${lineId}/charge`, { method: 'POST' });
+      await fetchData();
+    } catch (err) {
+      Alert.alert(t('common.error'), err instanceof Error ? err.message : 'Failed to charge line');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -301,44 +319,52 @@ export default function JobDetailScreen() {
         {/* Status transition buttons */}
         {allowedTransitions.length > 0 && (
           <View style={styles.transitionSection}>
-            <Text style={styles.transitionLabel}>{t('jobs.moveTo')}:</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.transitionRow}
-            >
-              {allowedTransitions.map((nextStatus) => (
-                <TouchableOpacity
-                  key={nextStatus}
-                  style={[
-                    styles.transitionButton,
-                    {
-                      borderColor:
-                        STATUS_COLORS[nextStatus] ?? '#8E8E93',
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedNextStatus(nextStatus);
-                    setStatusNotes('');
-                    setStatusModalVisible(true);
-                  }}
-                  activeOpacity={0.7}
+            {job.status === 'received' && !hasInspection ? (
+              <Text style={styles.inspectionRequiredText}>
+                ⚠️ Complete vehicle inspection to progress
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.transitionLabel}>{t('jobs.moveTo')}:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.transitionRow}
                 >
-                  <View
-                    style={[
-                      styles.transitionDot,
-                      {
-                        backgroundColor:
-                          STATUS_COLORS[nextStatus] ?? '#8E8E93',
-                      },
-                    ]}
-                  />
-                  <Text style={styles.transitionText}>
-                    {t(`jobs.status.${nextStatus}`, nextStatus)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  {allowedTransitions.map((nextStatus) => (
+                    <TouchableOpacity
+                      key={nextStatus}
+                      style={[
+                        styles.transitionButton,
+                        {
+                          borderColor:
+                            STATUS_COLORS[nextStatus] ?? '#8E8E93',
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedNextStatus(nextStatus);
+                        setStatusNotes('');
+                        setStatusModalVisible(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.transitionDot,
+                          {
+                            backgroundColor:
+                              STATUS_COLORS[nextStatus] ?? '#8E8E93',
+                          },
+                        ]}
+                      />
+                      <Text style={styles.transitionText}>
+                        {t(`jobs.status.${nextStatus}`, nextStatus)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
           </View>
         )}
 
@@ -480,24 +506,60 @@ export default function JobDetailScreen() {
           </View>
         )}
 
-        {/* ─── LABOUR LINES ─── */}
+        {/* ─── PLANNED WORK (from catalog) ─── */}
+        {(plannedLabour.length > 0 || plannedParts.length > 0) && (
+          <View style={styles.plannedSection}>
+            <Text style={styles.plannedTitle}>Planned Work</Text>
+            <Text style={styles.plannedSubtitle}>Tap "Charge" to confirm and add to job total</Text>
+            {plannedLabour.map((l) => (
+              <View key={l.id} style={styles.plannedItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lineDesc}>{l.description}</Text>
+                  <Text style={styles.plannedMeta}>{l.hours}h @ {l.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+                </View>
+                <Text style={styles.lineAmount}>{l.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+                <TouchableOpacity style={styles.chargeBtn} onPress={() => handleChargeLine('labour', l.id)}>
+                  <Text style={styles.chargeBtnText}>Charge</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            {plannedParts.map((p) => (
+              <View key={p.id} style={styles.plannedItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lineDesc}>{p.part_name} x{p.quantity}</Text>
+                  <Text style={styles.plannedMeta}>@ {p.sell_price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+                </View>
+                <Text style={styles.lineAmount}>{p.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+                <TouchableOpacity style={styles.chargeBtn} onPress={() => handleChargeLine('parts', p.id)}>
+                  <Text style={styles.chargeBtnText}>Charge</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ─── LABOUR LINES (charged only) ─── */}
         <View style={styles.linesSection}>
           <View style={styles.linesSectionHeader}>
             <Text style={styles.linesSectionTitle}>{t('labourParts.labourLines')}</Text>
-            <TouchableOpacity onPress={() => setShowAddLabour(!showAddLabour)}>
-              <Text style={styles.addLineBtn}>+ {t('labourParts.addLabour')}</Text>
-            </TouchableOpacity>
+            {hasInspection ? (
+              <TouchableOpacity onPress={() => setShowAddLabour(!showAddLabour)}>
+                <Text style={styles.addLineBtn}>+ {t('labourParts.addLabour')}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.lockedText}>🔒 Inspection required</Text>
+            )}
           </View>
-          {(job.labour_lines ?? []).map((l) => (
+          {chargedLabour.map((l) => (
             <View key={l.id} style={styles.lineItem}>
               <Text style={styles.lineDesc}>{l.description}</Text>
               <Text style={styles.lineAmount}>{l.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
             </View>
           ))}
-          {(job.labour_lines ?? []).length === 0 && !showAddLabour && (
+          {chargedLabour.length === 0 && !showAddLabour && (
             <Text style={styles.noLines}>—</Text>
           )}
-          {showAddLabour && (
+          {showAddLabour && hasInspection && (
             <View style={styles.addLineForm}>
               <TextInput style={styles.lineInput} placeholder={t('labourParts.description')} placeholderTextColor="#8E8E93" value={labourDesc} onChangeText={setLabourDesc} />
               <View style={styles.lineInputRow}>
@@ -511,24 +573,28 @@ export default function JobDetailScreen() {
           )}
         </View>
 
-        {/* ─── PARTS LINES ─── */}
+        {/* ─── PARTS LINES (charged only) ─── */}
         <View style={styles.linesSection}>
           <View style={styles.linesSectionHeader}>
             <Text style={styles.linesSectionTitle}>{t('labourParts.partsLines')}</Text>
-            <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
-              <Text style={styles.addLineBtn}>+ {t('labourParts.addPart')}</Text>
-            </TouchableOpacity>
+            {hasInspection ? (
+              <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
+                <Text style={styles.addLineBtn}>+ {t('labourParts.addPart')}</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.lockedText}>🔒 Inspection required</Text>
+            )}
           </View>
-          {(job.parts_lines ?? []).map((p) => (
+          {chargedParts.map((p) => (
             <View key={p.id} style={styles.lineItem}>
               <Text style={styles.lineDesc}>{p.part_name} x{p.quantity}</Text>
               <Text style={styles.lineAmount}>{p.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
             </View>
           ))}
-          {(job.parts_lines ?? []).length === 0 && !showAddPart && (
+          {chargedParts.length === 0 && !showAddPart && (
             <Text style={styles.noLines}>—</Text>
           )}
-          {showAddPart && (
+          {showAddPart && hasInspection && (
             <View style={styles.addLineForm}>
               <TextInput style={styles.lineInput} placeholder={t('labourParts.partName')} placeholderTextColor="#8E8E93" value={partName} onChangeText={setPartName} />
               <TextInput style={styles.lineInput} placeholder={t('labourParts.partNumber')} placeholderTextColor="#8E8E93" value={partNumber} onChangeText={setPartNumber} />
@@ -883,6 +949,65 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modalConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  // Inspection required text
+  inspectionRequiredText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F57F17',
+    paddingVertical: 4,
+  },
+  lockedText: {
+    fontSize: 12,
+    color: '#AEAEB2',
+    fontWeight: '500',
+  },
+
+  // Planned work
+  plannedSection: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  plannedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F57F17',
+    marginBottom: 2,
+  },
+  plannedSubtitle: {
+    fontSize: 12,
+    color: '#F9A825',
+    marginBottom: 10,
+  },
+  plannedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#FFE082',
+    gap: 8,
+  },
+  plannedMeta: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  chargeBtn: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chargeBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
   // Labour/Parts
   linesSection: { marginHorizontal: 16, marginTop: 12, backgroundColor: '#F8F9FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E5EA' },
