@@ -16,14 +16,16 @@ interface DviItem { name: string; category: string; status: string; notes: strin
 interface DamageEntry { location: string; type: string; description?: string }
 interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null; quick_access: boolean }
 
-type Step = 'entry' | 'vehicle' | 'inspection' | 'problem' | 'repairs' | 'review';
+type Step = 'entry' | 'vehicle' | 'inspection' | 'damage' | 'accessories' | 'problem' | 'repairs' | 'review';
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'entry', label: 'Vehicle & Customer' },
-  { key: 'inspection', label: 'Inspection' },
-  { key: 'problem', label: 'Problem' },
-  { key: 'repairs', label: 'Repair Items' },
-  { key: 'review', label: 'Review & Create' },
+  { key: 'entry', label: '1. Vehicle & Customer' },
+  { key: 'inspection', label: '2. Vehicle Data' },
+  { key: 'damage', label: '3. Damage Map' },
+  { key: 'accessories', label: '4. Accessories' },
+  { key: 'problem', label: '5. Symptoms' },
+  { key: 'repairs', label: '6. Repair Items' },
+  { key: 'review', label: '7. Review & Create' },
 ];
 
 const FUEL_LEVELS = ['empty', 'quarter', 'half', 'three_quarter', 'full'] as const;
@@ -79,10 +81,24 @@ export default function NewJobWizard() {
   const [damageZone, setDamageZone] = useState<string | null>(null);
   const [damageType, setDamageType] = useState('scratch');
   const [damageDesc, setDamageDesc] = useState('');
-  const [checklist, setChecklist] = useState({
-    hasSpareTire: false, hasJack: false, hasTools: false, hasRadio: false,
-    hasMats: false, hasHubcaps: false, hasAntenna: false, hasDocuments: false,
+  // Keys
+  const [keyType, setKeyType] = useState('standard');
+  const [keysReceived, setKeysReceived] = useState('1');
+
+  // Accessories checklist: status per item
+  const [safetyItems, setSafetyItems] = useState<Record<string, string>>({
+    jack: 'na', jack_handle: 'na', spare_tire: 'na', warning_triangle: 'na',
+    reflective_vest: 'na', fire_extinguisher: 'na', first_aid_kit: 'na',
   });
+  const [accessoryItems, setAccessoryItems] = useState<Record<string, string>>({
+    floor_mats: 'na', hubcaps: 'na', antenna: 'na', wiper_blades: 'na',
+    roof_rack: 'na', tow_bar: 'na', mud_flaps: 'na',
+  });
+  const [belongings, setBelongings] = useState<Array<{ label: string; detail: string }>>([]);
+  const [newBelonging, setNewBelonging] = useState('');
+
+  // Signature
+  const [signatureName, setSignatureName] = useState('');
 
   // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
@@ -206,6 +222,8 @@ export default function NewJobWizard() {
     switch (step) {
       case 'entry': return !!selectedCustomer && !!selectedVehicle;
       case 'inspection': return !!mileage.trim() && !!fuelLevel;
+      case 'damage': return true; // damage is optional (vehicle may have none)
+      case 'accessories': return true; // checklist always filled with defaults
       case 'problem': return !!reportedProblem.trim() || selectedSymptoms.length > 0;
       case 'repairs': return true; // optional but encouraged
       case 'review': return true;
@@ -239,22 +257,62 @@ export default function NewJobWizard() {
         internalNotes: internalNotes.trim() || undefined,
       });
 
-      // 2. Create inspection — MANDATORY. If this fails, delete the job card.
+      // 2. Create vehicle reception — MANDATORY. If this fails, delete the job card.
       try {
+        // Build checklist items array
+        const checklistItems: Array<{ category: string; itemCode: string; itemLabel: string; status: string; detail?: string }> = [];
+        const safetyLabels: Record<string, string> = { jack: 'Jack', jack_handle: 'Jack Handle / Wheel Wrench', spare_tire: 'Spare Tire', warning_triangle: 'Warning Triangle', reflective_vest: 'Reflective Vest', fire_extinguisher: 'Fire Extinguisher', first_aid_kit: 'First Aid Kit' };
+        const accessoryLabels: Record<string, string> = { floor_mats: 'Floor Mats', hubcaps: 'Hubcaps / Wheel Covers', antenna: 'Antenna', wiper_blades: 'Wiper Blades', roof_rack: 'Roof Rack / Bars', tow_bar: 'Tow Bar', mud_flaps: 'Mud Flaps' };
+
+        for (const [code, status] of Object.entries(safetyItems)) {
+          if (status !== 'na') checklistItems.push({ category: 'safety', itemCode: code, itemLabel: safetyLabels[code] ?? code, status });
+        }
+        for (const [code, status] of Object.entries(accessoryItems)) {
+          if (status !== 'na') checklistItems.push({ category: 'accessory', itemCode: code, itemLabel: accessoryLabels[code] ?? code, status });
+        }
+        for (const b of belongings) {
+          checklistItems.push({ category: 'belonging', itemCode: '', itemLabel: b.label, status: 'present', detail: b.detail || undefined });
+        }
+
+        // Build damage points array with severity
+        const damagePoints = damages.map((d) => ({
+          bodyZone: d.location,
+          damageType: d.type,
+          severity: (d as Record<string, unknown>).severity as string ?? 'moderate',
+          diagramView: 'top',
+          note: d.description || undefined,
+        }));
+
+        await api.post('/receptions', {
+          jobCardId: job.id,
+          vehicleId: selectedVehicle.id,
+          odometerKm: Number(mileage),
+          fuelLevel,
+          keyType,
+          keysReceived: Number(keysReceived) || 1,
+          reportedIssues: reportedProblem.trim() || undefined,
+          symptomCodes: selectedSymptoms.map((s) => s.code),
+          damagePoints: damagePoints.length > 0 ? damagePoints : undefined,
+          checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
+          signatureData: signatureName.trim() ? `signed:${signatureName.trim()}` : undefined,
+          signatureMethod: signatureName.trim() ? 'digital' : undefined,
+          signedByName: signatureName.trim() || undefined,
+        });
+
+        // Also create legacy inspection for backward compatibility
         const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
         await api.post('/inspections', {
           jobCardId: job.id,
           vehicleId: selectedVehicle.id,
           mileageIn: Number(mileage),
-          fuelLevel: fuelLevel,
+          fuelLevel,
           exteriorDamage: damages.length > 0 ? damages : [],
           dviItems: inspectedDvi.length > 0 ? inspectedDvi : undefined,
-          ...checklist,
         });
-      } catch (inspErr) {
-        // Inspection failed — roll back the job card so it doesn't exist without inspection
+      } catch (recErr) {
+        // Reception failed — roll back the job card
         try { await api.delete(`/jobs/${job.id}`); } catch { /* best effort */ }
-        throw inspErr;
+        throw recErr;
       }
 
       // 3. Apply selected catalog items
@@ -542,9 +600,30 @@ export default function NewJobWizard() {
                   </div>
                 </div>
               </div>
+              {/* Keys */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Key Type</label>
+                  <div className="flex gap-2">
+                    {(['standard', 'remote', 'keyless', 'valet'] as const).map((kt) => (
+                      <button key={kt} onClick={() => setKeyType(kt)}
+                        className={`flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition-colors ${
+                          keyType === kt ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}>
+                        {kt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Keys Received</label>
+                  <input type="number" min="1" max="10" value={keysReceived} onChange={(e) => setKeysReceived(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2" />
+                </div>
+              </div>
             </div>
 
-            {/* Equipment Checklist */}
+            {/* Equipment Checklist — moved to its own step but keep legacy */}
             <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Equipment Checklist</h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -722,6 +801,208 @@ export default function NewJobWizard() {
                 <span className="text-yellow-600">{dviItems.filter((i) => i.status === 'yellow').length} Monitor</span>
                 <span className="text-red-600">{dviItems.filter((i) => i.status === 'red').length} Urgent</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: Damage Map ── */}
+        {step === 'damage' && (
+          <div className="space-y-6">
+            {/* This reuses the existing damage diagram already in the inspection step */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Exterior Damage Map</h3>
+              <p className="text-sm text-gray-500 mb-4">Walk around the vehicle. Click any zone on the diagram to record pre-existing damage. This protects the workshop from liability.</p>
+              <div className="flex gap-6 items-start">
+                {/* SVG Car Diagram — same as inspection step */}
+                <div className="flex-shrink-0 bg-gray-50 rounded-lg border border-gray-200 p-4">
+                  <svg viewBox="0 0 400 520" width="280" height="380">
+                    <text x={200} y={8} textAnchor="middle" fontSize={10} fill="#9CA3AF" fontWeight="600">FRONT</text>
+                    <text x={200} y={518} textAnchor="middle" fontSize={10} fill="#9CA3AF" fontWeight="600">REAR</text>
+                    {[
+                      { id: 'front_bumper', label: 'Front Bumper', path: 'M120,10 L280,10 Q290,10 290,20 L290,45 L110,45 L110,20 Q110,10 120,10 Z', cx: 200, cy: 28 },
+                      { id: 'hood', label: 'Hood', path: 'M115,50 L285,50 L280,130 Q275,140 270,140 L130,140 Q125,140 120,130 Z', cx: 200, cy: 95 },
+                      { id: 'windshield', label: 'Windshield', path: 'M135,145 L265,145 L255,195 Q250,200 245,200 L155,200 Q150,200 145,195 Z', cx: 200, cy: 172 },
+                      { id: 'roof', label: 'Roof', path: 'M148,205 L252,205 L252,310 L148,310 Z', cx: 200, cy: 258 },
+                      { id: 'rear_window', label: 'Rear Window', path: 'M145,315 L255,315 L265,365 Q268,370 265,375 L135,375 Q132,370 135,365 Z', cx: 200, cy: 345 },
+                      { id: 'trunk', label: 'Trunk', path: 'M120,380 L280,380 Q285,380 285,390 L280,460 L120,460 L115,390 Q115,380 120,380 Z', cx: 200, cy: 420 },
+                      { id: 'rear_bumper', label: 'Rear Bumper', path: 'M115,465 L285,465 L290,495 Q290,505 280,505 L120,505 Q110,505 110,495 Z', cx: 200, cy: 485 },
+                      { id: 'left_door_front', label: 'L Front Door', path: 'M290,95 L340,105 Q350,108 355,115 L355,205 L340,205 L290,200 Z', cx: 325, cy: 150 },
+                      { id: 'left_door_rear', label: 'L Rear Door', path: 'M290,210 L340,210 L355,210 L355,315 Q350,320 340,322 L290,315 Z', cx: 325, cy: 265 },
+                      { id: 'right_door_front', label: 'R Front Door', path: 'M110,95 L60,105 Q50,108 45,115 L45,205 L60,205 L110,200 Z', cx: 75, cy: 150 },
+                      { id: 'right_door_rear', label: 'R Rear Door', path: 'M110,210 L60,210 L45,210 L45,315 Q50,320 60,322 L110,315 Z', cx: 75, cy: 265 },
+                      { id: 'front_left_wheel', label: 'FL Wheel', path: 'M355,80 A25,25 0 1,1 355,130 A25,25 0 1,1 355,80 Z', cx: 355, cy: 105 },
+                      { id: 'front_right_wheel', label: 'FR Wheel', path: 'M45,80 A25,25 0 1,1 45,130 A25,25 0 1,1 45,80 Z', cx: 45, cy: 105 },
+                      { id: 'rear_left_wheel', label: 'RL Wheel', path: 'M355,370 A25,25 0 1,1 355,420 A25,25 0 1,1 355,370 Z', cx: 355, cy: 395 },
+                      { id: 'rear_right_wheel', label: 'RR Wheel', path: 'M45,370 A25,25 0 1,1 45,420 A25,25 0 1,1 45,370 Z', cx: 45, cy: 395 },
+                      { id: 'left_mirror', label: 'L Mirror', path: 'M350,70 L375,60 L380,75 L355,85 Z', cx: 365, cy: 72 },
+                      { id: 'right_mirror', label: 'R Mirror', path: 'M50,70 L25,60 L20,75 L45,85 Z', cx: 35, cy: 72 },
+                    ].map((zone) => {
+                      const zoneDamages = damages.filter((d) => d.location === zone.id);
+                      const hasDamage = zoneDamages.length > 0;
+                      const isSmall = zone.id.includes('mirror') || zone.id.includes('wheel');
+                      return (
+                        <g key={zone.id} onClick={() => { setDamageZone(zone.id); setDamageType('scratch'); setDamageDesc(''); }} className="cursor-pointer">
+                          <path d={zone.path} fill={hasDamage ? '#FEE2E2' : isSmall ? '#E5E7EB' : '#F3F4F6'} stroke={hasDamage ? '#EF4444' : '#9CA3AF'} strokeWidth={hasDamage ? 2.5 : 1.2} />
+                          <text x={zone.cx} y={zone.cy + (isSmall ? 0 : 4)} textAnchor="middle" fontSize={isSmall ? 6 : 8} fill={hasDamage ? '#DC2626' : '#6B7280'} fontWeight={hasDamage ? 'bold' : 'normal'} className="pointer-events-none select-none">{zone.label}</text>
+                          {hasDamage && (<><circle cx={zone.cx} cy={zone.cy - 16} r={11} fill="#EF4444" stroke="#fff" strokeWidth={2} /><text x={zone.cx} y={zone.cy - 12} textAnchor="middle" fontSize={11} fill="white" fontWeight="bold" className="pointer-events-none">{zoneDamages.length}</text></>)}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {damageZone && (
+                    <div className="rounded-lg border-2 border-primary-300 bg-primary-50 p-4 mb-4">
+                      <p className="font-semibold text-gray-900 mb-2">{damageZone.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</p>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {(['scratch', 'dent', 'crack', 'chip', 'broken', 'missing', 'rust', 'paint_damage', 'glass_crack', 'torn'] as const).map((dt) => {
+                          const colors: Record<string, string> = { scratch: '#FF9800', dent: '#F44336', crack: '#9C27B0', chip: '#795548', broken: '#D32F2F', missing: '#607D8B', rust: '#8D6E63', paint_damage: '#2196F3', glass_crack: '#00BCD4', torn: '#9E9E9E' };
+                          return (
+                            <button key={dt} onClick={() => setDamageType(dt)} className="rounded-full px-3 py-1 text-xs font-semibold border transition-colors"
+                              style={damageType === dt ? { backgroundColor: colors[dt], color: '#fff', borderColor: colors[dt] } : { borderColor: '#D1D5DB', color: '#374151' }}>
+                              {dt.replace('_', ' ')}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2 mb-2">
+                        {(['minor', 'moderate', 'severe'] as const).map((sev) => (
+                          <button key={sev} onClick={() => { /* severity stored in damage entry */ }}
+                            className="rounded-full px-3 py-1 text-xs font-semibold border border-gray-300 text-gray-600 hover:bg-gray-100">
+                            {sev}
+                          </button>
+                        ))}
+                      </div>
+                      <input value={damageDesc} onChange={(e) => setDamageDesc(e.target.value)} placeholder="Description (optional)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-3" />
+                      <div className="flex gap-2">
+                        <button onClick={() => { setDamages([...damages, { location: damageZone, type: damageType, description: damageDesc.trim() || undefined }]); setDamageZone(null); }} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Add Damage</button>
+                        <button onClick={() => setDamageZone(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                  {damages.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-700">{damages.length} damage{damages.length > 1 ? 's' : ''} recorded</p>
+                      {damages.map((d, i) => {
+                        const colors: Record<string, string> = { scratch: '#FF9800', dent: '#F44336', crack: '#9C27B0', chip: '#795548', broken: '#D32F2F', missing: '#607D8B', rust: '#8D6E63', paint_damage: '#2196F3', glass_crack: '#00BCD4', torn: '#9E9E9E' };
+                        return (
+                          <div key={i} className="flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+                            <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: colors[d.type] ?? '#F44336' }} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-gray-900">{d.location.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+                              <span className="text-sm text-gray-500 ms-2">{d.type.replace('_', ' ')}{d.description ? ` — ${d.description}` : ''}</span>
+                            </div>
+                            <button onClick={() => setDamages(damages.filter((_, j) => j !== i))} className="text-red-600 text-xs font-semibold hover:text-red-800">Remove</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border-2 border-dashed border-green-300 bg-green-50 p-6 text-center">
+                      <p className="text-green-700 font-semibold">No damage found</p>
+                      <p className="text-sm text-green-600 mt-1">If the vehicle has no pre-existing damage, proceed to the next step</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: Accessories & Belongings ── */}
+        {step === 'accessories' && (
+          <div className="space-y-6">
+            {/* Safety Items */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Safety Equipment</h3>
+              <div className="space-y-2">
+                {([
+                  { code: 'jack', label: 'Jack' },
+                  { code: 'jack_handle', label: 'Jack Handle / Wheel Wrench' },
+                  { code: 'spare_tire', label: 'Spare Tire' },
+                  { code: 'warning_triangle', label: 'Warning Triangle' },
+                  { code: 'reflective_vest', label: 'Reflective Vest' },
+                  { code: 'fire_extinguisher', label: 'Fire Extinguisher' },
+                  { code: 'first_aid_kit', label: 'First Aid Kit' },
+                ] as const).map(({ code, label }) => (
+                  <div key={code} className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-2.5">
+                    <span className="text-sm font-medium text-gray-700 flex-1">{label}</span>
+                    {(['present', 'absent', 'damaged', 'expired'] as const).map((st) => (
+                      <button key={st} onClick={() => setSafetyItems({ ...safetyItems, [code]: safetyItems[code] === st ? 'na' : st })}
+                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                          safetyItems[code] === st
+                            ? st === 'present' ? 'bg-green-100 border-green-500 text-green-800'
+                              : st === 'absent' ? 'bg-red-100 border-red-500 text-red-800'
+                              : st === 'damaged' ? 'bg-orange-100 border-orange-500 text-orange-800'
+                              : 'bg-yellow-100 border-yellow-500 text-yellow-800'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}>
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Vehicle Accessories */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Vehicle Accessories</h3>
+              <div className="space-y-2">
+                {([
+                  { code: 'floor_mats', label: 'Floor Mats' },
+                  { code: 'hubcaps', label: 'Hubcaps / Wheel Covers' },
+                  { code: 'antenna', label: 'Antenna' },
+                  { code: 'wiper_blades', label: 'Wiper Blades' },
+                  { code: 'roof_rack', label: 'Roof Rack / Bars' },
+                  { code: 'tow_bar', label: 'Tow Bar' },
+                  { code: 'mud_flaps', label: 'Mud Flaps' },
+                ] as const).map(({ code, label }) => (
+                  <div key={code} className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-2.5">
+                    <span className="text-sm font-medium text-gray-700 flex-1">{label}</span>
+                    {(['present', 'absent', 'damaged'] as const).map((st) => (
+                      <button key={st} onClick={() => setAccessoryItems({ ...accessoryItems, [code]: accessoryItems[code] === st ? 'na' : st })}
+                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                          accessoryItems[code] === st
+                            ? st === 'present' ? 'bg-green-100 border-green-500 text-green-800'
+                              : st === 'absent' ? 'bg-red-100 border-red-500 text-red-800'
+                              : 'bg-orange-100 border-orange-500 text-orange-800'
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}>
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Personal Belongings */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Personal Belongings Left in Vehicle</h3>
+              <div className="flex gap-2 mb-3">
+                <input value={newBelonging} onChange={(e) => setNewBelonging(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && newBelonging.trim()) { setBelongings([...belongings, { label: newBelonging.trim(), detail: '' }]); setNewBelonging(''); } }}
+                  placeholder="e.g. Laptop bag on rear seat, Sunglasses in glove box..."
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <button onClick={() => { if (newBelonging.trim()) { setBelongings([...belongings, { label: newBelonging.trim(), detail: '' }]); setNewBelonging(''); } }}
+                  disabled={!newBelonging.trim()}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-40">
+                  Add
+                </button>
+              </div>
+              {belongings.length > 0 ? (
+                <div className="space-y-1">
+                  {belongings.map((b, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+                      <span className="text-sm text-gray-900 flex-1">{b.label}</span>
+                      <button onClick={() => setBelongings(belongings.filter((_, j) => j !== i))} className="text-red-600 text-xs font-semibold">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic">No belongings logged</p>
+              )}
             </div>
           </div>
         )}
@@ -977,6 +1258,18 @@ export default function NewJobWizard() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Customer Signature */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Customer Confirmation</h3>
+              <p className="text-sm text-gray-500 mb-4">I confirm the above accurately reflects the condition of my vehicle at drop-off.</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Customer Name (signature)</label>
+                <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)}
+                  placeholder="Customer's full name"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
               </div>
             </div>
 

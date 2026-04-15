@@ -97,13 +97,24 @@ export class InspectionsService {
   }
 
   /**
-   * Check whether an inspection exists for a job card.
-   * This is the SINGLE source of truth for the inspection gate.
+   * Check whether an inspection OR reception exists for a job card.
+   * This is the SINGLE source of truth for the inspection/reception gate.
    * All services that need to enforce "inspection required" must call this.
    */
   async requireInspection(tenantId: string, jobCardId: string): Promise<void> {
-    const { count, error } = await this.supabase
-      .getClient()
+    const client = this.supabase.getClient();
+
+    // Check vehicle_receptions (new Module 16 flow)
+    const { count: receptionCount } = await client
+      .from('vehicle_receptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_card_id', jobCardId)
+      .eq('tenant_id', tenantId);
+
+    if (receptionCount && receptionCount > 0) return;
+
+    // Fallback: check vehicle_inspections (legacy flow)
+    const { count: inspectionCount, error } = await client
       .from('vehicle_inspections')
       .select('id', { count: 'exact', head: true })
       .eq('job_card_id', jobCardId)
@@ -111,9 +122,9 @@ export class InspectionsService {
 
     if (error) throw error;
 
-    if (!count || count === 0) {
+    if (!inspectionCount || inspectionCount === 0) {
       throw new BadRequestException(
-        'Vehicle inspection must be completed before this action is allowed.',
+        'Vehicle reception/inspection must be completed before this action is allowed.',
       );
     }
   }
