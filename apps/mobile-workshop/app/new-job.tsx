@@ -53,6 +53,28 @@ export default function NewJobScreen() {
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
 
+  // Symptoms
+  interface SymptomCode { id: string; code: string; label_en: string; label_pt: string; family: string; category: string; icon: string | null; usage_count: number }
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [symptoms, setSymptoms] = useState<SymptomCode[]>([]);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<SymptomCode[]>([]);
+  const [symptomSearch, setSymptomSearch] = useState('');
+
+  useEffect(() => {
+    if (!selectedFamily) return;
+    apiFetch<SymptomCode[]>(`/symptoms?family=${selectedFamily}`)
+      .then(setSymptoms)
+      .catch(() => setSymptoms([]));
+  }, [selectedFamily]);
+
+  const toggleSymptom = (s: SymptomCode) => {
+    if (selectedSymptoms.some((x) => x.code === s.code)) {
+      setSelectedSymptoms(selectedSymptoms.filter((x) => x.code !== s.code));
+    } else {
+      setSelectedSymptoms([...selectedSymptoms, s]);
+    }
+  };
+
   // Job details
   const [reportedProblem, setReportedProblem] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -160,7 +182,7 @@ export default function NewJobScreen() {
 
   const handleSubmit = async () => {
     if (!selectedCustomer || !selectedVehicle) return;
-    if (!reportedProblem.trim()) {
+    if (!reportedProblem.trim() && selectedSymptoms.length === 0) {
       Alert.alert(t('common.error'), t('common.required'));
       return;
     }
@@ -170,7 +192,8 @@ export default function NewJobScreen() {
       const body: Record<string, unknown> = {
         customerId: selectedCustomer.id,
         vehicleId: selectedVehicle.id,
-        reportedProblem: reportedProblem.trim(),
+        reportedProblem: reportedProblem.trim() || selectedSymptoms.map((s) => s.label_en).join('; '),
+        symptomCodes: selectedSymptoms.map((s) => s.code),
       };
       if (internalNotes.trim()) body.internalNotes = internalNotes.trim();
       if (isInsurance) {
@@ -329,11 +352,97 @@ export default function NewJobScreen() {
           <Text style={styles.changeLink}>{t('common.edit')}</Text>
         </TouchableOpacity>
 
+        {/* Service family selector */}
+        <Text style={styles.fieldLabel}>Type of Service</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {([
+            { key: 'quick_service', label: 'Quick Service', icon: '⚡' },
+            { key: 'mechanic', label: 'Mechanic', icon: '🔧' },
+            { key: 'body_paint', label: 'Body & Paint', icon: '🎨' },
+          ] as const).map((f) => (
+            <TouchableOpacity key={f.key} onPress={() => { setSelectedFamily(f.key); setSymptomSearch(''); }}
+              style={{
+                flex: 1, alignItems: 'center', padding: 12, borderRadius: 12,
+                borderWidth: 2, borderColor: selectedFamily === f.key ? '#0087FF' : '#E5E5EA',
+                backgroundColor: selectedFamily === f.key ? '#E6F3FF' : '#F8F9FA',
+              }}>
+              <Text style={{ fontSize: 24 }}>{f.icon}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: selectedFamily === f.key ? '#006CCE' : '#636366', marginTop: 4, textAlign: 'center' }}>{f.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Symptom chips */}
+        {selectedFamily && symptoms.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#636366', marginBottom: 8 }}>Select symptoms</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {symptoms.slice(0, 10).map((s) => {
+                const selected = selectedSymptoms.some((x) => x.code === s.code);
+                return (
+                  <TouchableOpacity key={s.code} onPress={() => toggleSymptom(s)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 4,
+                      paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                      borderWidth: 1.5, borderColor: selected ? '#22C55E' : '#E5E5EA',
+                      backgroundColor: selected ? '#F0FDF4' : '#F8F9FA',
+                    }}>
+                    {s.icon ? <Text style={{ fontSize: 14 }}>{s.icon}</Text> : null}
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: selected ? '#166534' : '#363638' }}>{s.label_en}</Text>
+                    {selected && <Text style={{ fontSize: 14, color: '#22C55E' }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Search for more */}
+            {symptoms.length > 10 && (
+              <View style={{ marginTop: 8 }}>
+                <TextInput
+                  style={{ borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 }}
+                  placeholder="Search more symptoms..."
+                  placeholderTextColor="#8E8E93"
+                  value={symptomSearch}
+                  onChangeText={setSymptomSearch}
+                />
+                {symptomSearch.length > 0 && (
+                  <View style={{ borderWidth: 1, borderColor: '#E5E5EA', borderRadius: 8, marginTop: 4, maxHeight: 150 }}>
+                    <ScrollView>
+                      {symptoms.slice(10)
+                        .filter((s) => !selectedSymptoms.some((x) => x.code === s.code) &&
+                          (s.label_en.toLowerCase().includes(symptomSearch.toLowerCase()) || s.label_pt.toLowerCase().includes(symptomSearch.toLowerCase())))
+                        .map((s) => (
+                          <TouchableOpacity key={s.code} onPress={() => { toggleSymptom(s); setSymptomSearch(''); }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderColor: '#E5E5EA' }}>
+                            {s.icon ? <Text>{s.icon}</Text> : null}
+                            <Text style={{ fontSize: 14, color: '#1C1C1E' }}>{s.label_en}</Text>
+                          </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Selected tags */}
+            {selectedSymptoms.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: '#E5E5EA' }}>
+                {selectedSymptoms.map((s) => (
+                  <View key={s.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#DCFCE7', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#166534' }}>{s.icon} {s.label_en}</Text>
+                    <TouchableOpacity onPress={() => toggleSymptom(s)}><Text style={{ fontSize: 14, color: '#166534' }}>×</Text></TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Reported problem */}
-        <Text style={styles.fieldLabel}>{t('jobs.reportedProblem')} *</Text>
+        <Text style={styles.fieldLabel}>Additional Details</Text>
         <TextInput
           style={[styles.textArea]}
-          placeholder={t('jobs.reportedProblemPlaceholder')}
+          placeholder="Describe any additional issues or details..."
           placeholderTextColor="#8E8E93"
           value={reportedProblem}
           onChangeText={setReportedProblem}

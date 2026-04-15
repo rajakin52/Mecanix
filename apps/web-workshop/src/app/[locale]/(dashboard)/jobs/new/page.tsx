@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter, Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
+import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
 
 // ── Types ────────────────────────────────────────────────────
 interface Customer { id: string; full_name: string; phone: string; email: string | null }
@@ -83,9 +84,13 @@ export default function NewJobWizard() {
     hasMats: false, hasHubcaps: false, hasAntenna: false, hasDocuments: false,
   });
 
-  // Problem
+  // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<SymptomCode[]>([]);
+  const [symptomSearch, setSymptomSearch] = useState('');
+  const { data: symptomsList } = useSymptoms(selectedFamily ?? undefined, symptomSearch || undefined);
 
   // Repair items
   const [selectedCatalogIds, setSelectedCatalogIds] = useState<Set<string>>(new Set());
@@ -201,7 +206,7 @@ export default function NewJobWizard() {
     switch (step) {
       case 'entry': return !!selectedCustomer && !!selectedVehicle;
       case 'inspection': return !!mileage.trim() && !!fuelLevel;
-      case 'problem': return !!reportedProblem.trim();
+      case 'problem': return !!reportedProblem.trim() || selectedSymptoms.length > 0;
       case 'repairs': return true; // optional but encouraged
       case 'review': return true;
       default: return false;
@@ -229,7 +234,8 @@ export default function NewJobWizard() {
       const job = await api.post<{ id: string; job_number: string }>('/jobs', {
         customerId: selectedCustomer.id,
         vehicleId: selectedVehicle.id,
-        reportedProblem: reportedProblem.trim(),
+        reportedProblem: reportedProblem.trim() || selectedSymptoms.map((s) => s.label_en).join('; '),
+        symptomCodes: selectedSymptoms.map((s) => s.code),
         internalNotes: internalNotes.trim() || undefined,
       });
 
@@ -721,23 +727,125 @@ export default function NewJobWizard() {
         )}
 
         {/* ── STEP: Problem Description ── */}
-        {step === 'problem' && (
-          <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">Problem Description</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Customer Complaint *</label>
-              <textarea value={reportedProblem} onChange={(e) => setReportedProblem(e.target.value)}
-                rows={4} placeholder="Describe the issue reported by the customer..."
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+        {step === 'problem' && (() => {
+          const families = [
+            { key: 'quick_service', label: 'Quick Service', icon: '⚡', desc: 'Oil change, filters, tires, battery...' },
+            { key: 'mechanic', label: 'Mechanic', icon: '🔧', desc: 'Engine, brakes, transmission, electrical...' },
+            { key: 'body_paint', label: 'Body & Paint', icon: '🎨', desc: 'Scratches, dents, collision, respray...' },
+          ];
+          const allSymptoms = Array.isArray(symptomsList) ? symptomsList : [];
+          const topSymptoms = allSymptoms.slice(0, 10);
+          const otherSymptoms = allSymptoms.slice(10).filter((s) =>
+            !symptomSearch || s.label_en.toLowerCase().includes(symptomSearch.toLowerCase()) || s.label_pt.toLowerCase().includes(symptomSearch.toLowerCase())
+          );
+          const isSelected = (code: string) => selectedSymptoms.some((s) => s.code === code);
+          const toggleSymptom = (symptom: SymptomCode) => {
+            if (isSelected(symptom.code)) {
+              setSelectedSymptoms(selectedSymptoms.filter((s) => s.code !== symptom.code));
+            } else {
+              setSelectedSymptoms([...selectedSymptoms, symptom]);
+            }
+          };
+
+          return (
+          <div className="space-y-6">
+            {/* Family selector */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">What type of service?</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {families.map((f) => (
+                  <button key={f.key} onClick={() => { setSelectedFamily(f.key); setSymptomSearch(''); }}
+                    className={`flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all ${
+                      selectedFamily === f.key
+                        ? 'border-primary-500 bg-primary-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                    }`}>
+                    <span className="text-3xl">{f.icon}</span>
+                    <span className="text-sm font-bold text-gray-900">{f.label}</span>
+                    <span className="text-xs text-gray-500 text-center">{f.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Internal Notes</label>
-              <textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)}
-                rows={2} placeholder="Workshop-only notes (not visible to customer)"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3" />
+
+            {/* Symptoms for selected family */}
+            {selectedFamily && (
+              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Symptoms</h3>
+                <p className="text-sm text-gray-500 mb-4">Select all that apply — most common shown first</p>
+
+                {/* Top 10 as chips */}
+                {topSymptoms.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {topSymptoms.map((s) => (
+                      <button key={s.code} onClick={() => toggleSymptom(s)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+                          isSelected(s.code)
+                            ? 'border-green-500 bg-green-50 text-green-800 shadow-sm'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                        }`}>
+                        {s.icon && <span>{s.icon}</span>}
+                        <span>{s.label_en}</span>
+                        {isSelected(s.code) && <span className="ms-1 text-green-600">&#10003;</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search + dropdown for rest */}
+                {otherSymptoms.length > 0 && (
+                  <div className="mb-4">
+                    <input value={symptomSearch} onChange={(e) => setSymptomSearch(e.target.value)}
+                      placeholder="Search more symptoms..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    {symptomSearch && (
+                      <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                        {otherSymptoms.filter((s) => !isSelected(s.code)).map((s) => (
+                          <button key={s.code} onClick={() => { toggleSymptom(s); setSymptomSearch(''); }}
+                            className="w-full text-start px-3 py-2 text-sm hover:bg-primary-50 flex items-center gap-2">
+                            {s.icon && <span>{s.icon}</span>}
+                            <span>{s.label_en}</span>
+                            <span className="text-xs text-gray-400 ms-auto">{s.category}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Selected symptoms */}
+                {selectedSymptoms.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-4 pt-3 border-t border-gray-100">
+                    <span className="text-xs font-semibold text-gray-500 uppercase w-full mb-1">Selected ({selectedSymptoms.length})</span>
+                    {selectedSymptoms.map((s) => (
+                      <span key={s.code} className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-800 px-3 py-1 text-xs font-semibold">
+                        {s.icon} {s.label_en}
+                        <button onClick={() => toggleSymptom(s)} className="ms-1 text-green-600 hover:text-red-600">&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Free text complaint + notes */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Additional Details</label>
+                <textarea value={reportedProblem} onChange={(e) => setReportedProblem(e.target.value)}
+                  rows={3} placeholder="Describe any additional issues or details..."
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Internal Notes</label>
+                <textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)}
+                  rows={2} placeholder="Workshop-only notes (not visible to customer)"
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3" />
+              </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── STEP: Repair Items ── */}
         {step === 'repairs' && (() => {

@@ -20,7 +20,8 @@ export type UpdateTechnicianInput = z.infer<typeof updateTechnicianSchema>;
 export const createJobCardSchema = z.object({
   vehicleId: z.string().uuid(),
   customerId: z.string().uuid(),
-  reportedProblem: z.string().min(1).max(5000),
+  reportedProblem: z.string().max(5000).default(''),
+  symptomCodes: z.array(z.string()).default([]),
   internalNotes: z.string().max(5000).optional(),
   primaryTechnicianId: z.string().uuid().optional(),
   isInsurance: z.boolean().default(false),
@@ -35,6 +36,9 @@ export const createJobCardSchema = z.object({
   excessAmount: z.coerce.number().min(0).optional(),
   customerRemarks: z.string().max(5000).optional(),
   estimateFooter: z.string().max(2000).optional(),
+}).refine((data) => data.reportedProblem.trim().length > 0 || data.symptomCodes.length > 0, {
+  message: 'Either a reported problem or at least one symptom must be provided',
+  path: ['reportedProblem'],
 });
 
 export const updateJobCardSchema = z.object({

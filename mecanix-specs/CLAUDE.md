@@ -175,6 +175,7 @@ All endpoints under `/api/v1/`:
 | [modules/11-risks-mitigations.md](modules/11-risks-mitigations.md) | Risk register with mitigations |
 | [modules/12-success-metrics.md](modules/12-success-metrics.md) | Launch criteria, KPIs, competitor comparison |
 | [modules/15-warehouse-procurement.md](modules/15-warehouse-procurement.md) | Warehouse & Parts Procurement — delivery-app-style parts request/issue workflow |
+| [modules/16-vehicle-reception.md](modules/16-vehicle-reception.md) | Vehicle Reception & Check-In — body damage diagram, walk-around photos, accessories, fuel, mileage, signature |
 
 ## Coding Conventions (To Be Defined)
 

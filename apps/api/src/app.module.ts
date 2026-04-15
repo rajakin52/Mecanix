@@ -40,6 +40,7 @@ import { EstimatesModule } from './modules/estimates/estimates.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { PartsRequestsModule } from './modules/parts-requests/parts-requests.module';
 import { PurchaseRequestsModule } from './modules/purchase-requests/purchase-requests.module';
+import { SymptomsModule } from './modules/symptoms/symptoms.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -85,6 +86,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     WarehouseModule,
     PartsRequestsModule,
     PurchaseRequestsModule,
+    SymptomsModule,
   ],
   providers: [
     {

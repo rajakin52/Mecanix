@@ -4,6 +4,7 @@ import type { CreateJobCardInput, UpdateJobCardInput, PaginationInput } from '@m
 import { sanitizeSearch } from '../../common/utils/sanitize';
 import { PartsLinesService } from './parts-lines.service';
 import { InspectionsService } from '../inspections/inspections.service';
+import { SymptomsService } from '../symptoms/symptoms.service';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing', 'in_progress'],
@@ -32,6 +33,7 @@ export class JobsService {
     @Inject(forwardRef(() => PartsLinesService))
     private readonly partsLinesService: PartsLinesService,
     private readonly inspectionsService: InspectionsService,
+    private readonly symptomsService: SymptomsService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: JobFilters) {
@@ -167,7 +169,8 @@ export class JobsService {
         job_number: jobNumber,
         vehicle_id: input.vehicleId,
         customer_id: input.customerId,
-        reported_problem: input.reportedProblem,
+        reported_problem: input.reportedProblem || '',
+        symptom_codes: input.symptomCodes ?? [],
         internal_notes: input.internalNotes || null,
         primary_technician_id: input.primaryTechnicianId || null,
         status: 'received',
@@ -204,6 +207,11 @@ export class JobsService {
       changed_by: userId,
       notes: null,
     });
+
+    // Increment usage counts for selected symptoms
+    if (input.symptomCodes && input.symptomCodes.length > 0) {
+      await this.symptomsService.incrementUsageSimple(tenantId, input.symptomCodes);
+    }
 
     return data;
   }
@@ -301,6 +309,7 @@ export class JobsService {
 
     const fieldMap: Record<string, string> = {
       reportedProblem: 'reported_problem',
+      symptomCodes: 'symptom_codes',
       internalNotes: 'internal_notes',
       primaryTechnicianId: 'primary_technician_id',
       labels: 'labels',
