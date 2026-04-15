@@ -1291,4 +1291,76 @@ export class ReportsService {
       jobs: jobDetails,
     };
   }
+
+  // ── KPI Dashboard ──
+
+  async kpiDashboard(tenantId: string, months: number) {
+    const client = this.supabase.getClient();
+
+    // Monthly KPIs from the view
+    const { data: monthlyKpis } = await client
+      .from('kpi_monthly')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('month', { ascending: false })
+      .limit(months);
+
+    // Close rate from estimates view
+    const { data: closeRates } = await client
+      .from('kpi_close_rate')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('month', { ascending: false })
+      .limit(months);
+
+    // Current month summary
+    const currentMonth = (monthlyKpis ?? [])[0] ?? null;
+    const currentCloseRate = (closeRates ?? [])[0] ?? null;
+
+    // Today's stats
+    const today = new Date().toISOString().split('T')[0] as string;
+    const { count: todayJobCount } = await client
+      .from('job_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .gte('created_at', `${today}T00:00:00`)
+      .is('deleted_at', null);
+
+    const { count: activeJobCount } = await client
+      .from('job_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .not('status', 'in', '("invoiced","cancelled")')
+      .is('deleted_at', null);
+
+    const { count: overdueInvoiceCount } = await client
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'sent')
+      .lt('due_date', today);
+
+    return {
+      current_month: currentMonth ? {
+        car_count: currentMonth.car_count,
+        job_count: currentMonth.job_count,
+        aro: currentMonth.aro,
+        total_revenue: currentMonth.total_revenue,
+        total_labour_hours: currentMonth.total_labour_hours,
+        hours_per_ro: currentMonth.hours_per_ro,
+        effective_labour_rate: currentMonth.effective_labour_rate,
+        comeback_rate_pct: currentMonth.comeback_rate_pct,
+        close_rate_pct: currentCloseRate?.close_rate_pct ?? 0,
+        estimates_sent: currentCloseRate?.estimates_sent ?? 0,
+        estimates_approved: currentCloseRate?.estimates_approved ?? 0,
+      } : null,
+      today: {
+        new_jobs: todayJobCount ?? 0,
+        active_jobs: activeJobCount ?? 0,
+        overdue_invoices: overdueInvoiceCount ?? 0,
+      },
+      monthly_trend: (monthlyKpis ?? []).reverse(),
+      close_rate_trend: (closeRates ?? []).reverse(),
+    };
+  }
 }

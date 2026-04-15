@@ -77,6 +77,8 @@ export class CustomersService {
         payment_terms: input.paymentTerms || null,
         notes: input.notes || null,
         is_corporate: input.isCorporate ?? false,
+        is_account_customer: input.isAccountCustomer ?? false,
+        credit_terms_days: input.creditTermsDays ?? 30,
         company_name: input.companyName || null,
         billing_contact: input.billingContact || null,
         credit_limit: input.creditLimit ?? null,
@@ -106,6 +108,8 @@ export class CustomersService {
     if (input.paymentTerms !== undefined) updateData['payment_terms'] = input.paymentTerms || null;
     if (input.notes !== undefined) updateData['notes'] = input.notes || null;
     if (input.isCorporate !== undefined) updateData['is_corporate'] = input.isCorporate;
+    if (input.isAccountCustomer !== undefined) updateData['is_account_customer'] = input.isAccountCustomer;
+    if (input.creditTermsDays !== undefined) updateData['credit_terms_days'] = input.creditTermsDays;
     if (input.companyName !== undefined) updateData['company_name'] = input.companyName || null;
     if (input.billingContact !== undefined) updateData['billing_contact'] = input.billingContact || null;
     if (input.creditLimit !== undefined) updateData['credit_limit'] = input.creditLimit ?? null;

@@ -266,4 +266,12 @@ export class ReportsController {
   async wipInventory(@TenantId() tenantId: string) {
     return this.reportsService.wipInventoryReport(tenantId);
   }
+
+  @Get('kpis')
+  async kpis(
+    @TenantId() tenantId: string,
+    @Query('months') months?: string,
+  ) {
+    return this.reportsService.kpiDashboard(tenantId, Number(months) || 6);
+  }
 }

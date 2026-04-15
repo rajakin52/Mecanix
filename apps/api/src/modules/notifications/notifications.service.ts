@@ -499,4 +499,111 @@ export class NotificationsService {
       .single();
     return data;
   }
+
+  // ── Appointment Reminders (24h + 1h before) ──
+
+  async processAppointmentReminders(tenantId: string) {
+    const client = this.supabase.getClient();
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+    let sent = 0;
+
+    // 24h reminders: appointments starting within 24-25 hours that haven't been reminded
+    const { data: appts24 } = await client
+      .from('appointments')
+      .select('*, customer:customers(full_name, phone), vehicle:vehicles(plate, make, model)')
+      .eq('tenant_id', tenantId)
+      .eq('reminder_sent_24h', false)
+      .in('status', ['booked', 'confirmed'])
+      .gte('scheduled_start', in24h.toISOString())
+      .lt('scheduled_start', new Date(in24h.getTime() + 60 * 60 * 1000).toISOString());
+
+    for (const appt of appts24 ?? []) {
+      const customer = appt.customer as Record<string, unknown> | null;
+      const vehicle = appt.vehicle as Record<string, unknown> | null;
+      if (customer?.phone) {
+        const date = new Date(appt.scheduled_start as string).toLocaleDateString();
+        const time = new Date(appt.scheduled_start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const msg = `MECANIX Reminder: Your appointment is tomorrow ${date} at ${time} for ${vehicle?.plate ?? 'your vehicle'} (${vehicle?.make ?? ''} ${vehicle?.model ?? ''}). We look forward to seeing you!`;
+        try {
+          await this.whatsapp.sendText(customer.phone as string, msg);
+          await client.from('appointments').update({ reminder_sent_24h: true, reminder_sent_24h_at: now.toISOString() }).eq('id', appt.id);
+          sent++;
+        } catch (e) { this.logger.warn(`Appointment 24h reminder failed: ${e}`); }
+      }
+    }
+
+    // 1h reminders
+    const { data: appts1 } = await client
+      .from('appointments')
+      .select('*, customer:customers(full_name, phone), vehicle:vehicles(plate)')
+      .eq('tenant_id', tenantId)
+      .eq('reminder_sent_1h', false)
+      .in('status', ['booked', 'confirmed'])
+      .gte('scheduled_start', in1h.toISOString())
+      .lt('scheduled_start', new Date(in1h.getTime() + 60 * 60 * 1000).toISOString());
+
+    for (const appt of appts1 ?? []) {
+      const customer = appt.customer as Record<string, unknown> | null;
+      if (customer?.phone) {
+        const time = new Date(appt.scheduled_start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const msg = `MECANIX: Your appointment is in 1 hour (${time}). See you soon!`;
+        try {
+          await this.whatsapp.sendText(customer.phone as string, msg);
+          await client.from('appointments').update({ reminder_sent_1h: true, reminder_sent_1h_at: now.toISOString() }).eq('id', appt.id);
+          sent++;
+        } catch (e) { this.logger.warn(`Appointment 1h reminder failed: ${e}`); }
+      }
+    }
+
+    return { sent };
+  }
+
+  // ── Payment Reminders (overdue invoices) ──
+
+  async processPaymentReminders(tenantId: string) {
+    const client = this.supabase.getClient();
+    const today = new Date().toISOString().split('T')[0] as string;
+    let sent = 0;
+
+    // Find overdue invoices not fully paid
+    const { data: overdueInvoices } = await client
+      .from('invoices')
+      .select('*, customer:customers(full_name, phone)')
+      .eq('tenant_id', tenantId)
+      .in('status', ['sent', 'partial'])
+      .lt('due_date', today);
+
+    for (const inv of overdueInvoices ?? []) {
+      const dueDate = new Date(inv.due_date as string);
+      const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      const reminderCount = inv.payment_reminder_count as number;
+
+      // Send at 3, 7, 14, 30 days overdue
+      const shouldRemind =
+        (daysOverdue >= 3 && reminderCount < 1) ||
+        (daysOverdue >= 7 && reminderCount < 2) ||
+        (daysOverdue >= 14 && reminderCount < 3) ||
+        (daysOverdue >= 30 && reminderCount < 4);
+
+      if (!shouldRemind) continue;
+
+      const customer = inv.customer as Record<string, unknown> | null;
+      if (customer?.phone) {
+        const amount = Number(inv.grand_total) - Number(inv.paid_amount ?? 0);
+        const msg = `MECANIX Payment Reminder: Invoice ${inv.invoice_number} has an outstanding balance of ${amount.toFixed(2)}. Due date was ${dueDate.toLocaleDateString()}. Please arrange payment at your earliest convenience.`;
+        try {
+          await this.whatsapp.sendText(customer.phone as string, msg);
+          await client.from('invoices').update({
+            payment_reminder_count: reminderCount + 1,
+            last_reminder_sent_at: new Date().toISOString(),
+          }).eq('id', inv.id);
+          sent++;
+        } catch (e) { this.logger.warn(`Payment reminder failed: ${e}`); }
+      }
+    }
+
+    return { sent };
+  }
 }

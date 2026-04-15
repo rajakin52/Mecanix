@@ -10,6 +10,8 @@ export const createCustomerSchema = z.object({
   paymentTerms: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
   isCorporate: z.boolean().default(false),
+  isAccountCustomer: z.boolean().default(false),
+  creditTermsDays: z.coerce.number().int().min(0).max(365).optional(),
   companyName: z.string().max(200).optional(),
   billingContact: z.string().max(200).optional(),
   creditLimit: z.coerce.number().min(0).optional(),

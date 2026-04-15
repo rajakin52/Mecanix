@@ -36,6 +36,9 @@ export const createJobCardSchema = z.object({
   excessAmount: z.coerce.number().min(0).optional(),
   customerRemarks: z.string().max(5000).optional(),
   estimateFooter: z.string().max(2000).optional(),
+  isComeback: z.boolean().default(false),
+  comebackOriginalJobId: z.string().uuid().optional(),
+  comebackReason: z.string().max(2000).optional(),
 }).refine((data) => data.reportedProblem.trim().length > 0 || data.symptomCodes.length > 0, {
   message: 'Either a reported problem or at least one symptom must be provided',
   path: ['reportedProblem'],

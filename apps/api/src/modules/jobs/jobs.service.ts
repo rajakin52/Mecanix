@@ -186,6 +186,9 @@ export class JobsService {
         excess_amount: input.excessAmount ?? null,
         customer_remarks: input.customerRemarks || null,
         estimate_footer: input.estimateFooter || null,
+        is_comeback: input.isComeback ?? false,
+        comeback_original_job_id: input.comebackOriginalJobId || null,
+        comeback_reason: input.comebackReason || null,
         labour_total: 0,
         parts_total: 0,
         tax_amount: 0,
@@ -323,6 +326,9 @@ export class JobsService {
       policyNumber: 'policy_number',
       claimReference: 'claim_reference',
       excessAmount: 'excess_amount',
+      isComeback: 'is_comeback',
+      comebackOriginalJobId: 'comeback_original_job_id',
+      comebackReason: 'comeback_reason',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

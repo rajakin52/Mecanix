@@ -94,4 +94,16 @@ export class NotificationsController {
   ) {
     return this.notificationsService.onServiceReminderDue(tenantId, reminderId);
   }
+
+  /** Process appointment reminders (24h + 1h before) — called by cron */
+  @Post('process/appointment-reminders')
+  async processAppointmentReminders(@TenantId() tenantId: string) {
+    return this.notificationsService.processAppointmentReminders(tenantId);
+  }
+
+  /** Process overdue invoice payment reminders — called by cron */
+  @Post('process/payment-reminders')
+  async processPaymentReminders(@TenantId() tenantId: string) {
+    return this.notificationsService.processPaymentReminders(tenantId);
+  }
 }
