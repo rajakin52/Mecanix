@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const createInspectionSchema = z.object({
   jobCardId: z.string().uuid(),
   vehicleId: z.string().uuid(),
-  mileageIn: z.coerce.number().int().min(0).optional(),
-  fuelLevel: z.enum(['empty', 'quarter', 'half', 'three_quarter', 'full']).optional(),
+  mileageIn: z.coerce.number().int().min(0, 'Mileage is required'),
+  fuelLevel: z.enum(['empty', 'quarter', 'half', 'three_quarter', 'full'], { required_error: 'Fuel level is required' }),
   exteriorDamage: z.array(z.object({
     location: z.string(),
     type: z.string(),

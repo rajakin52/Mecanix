@@ -462,4 +462,25 @@ export class JobsService {
       parts_lines: partsLines ?? [],
     };
   }
+
+  async softDelete(tenantId: string, id: string, userId: string) {
+    const job = await this.getById(tenantId, id);
+
+    // Only allow deleting jobs in 'received' status (no work started)
+    if (job.status !== 'received') {
+      throw new BadRequestException(
+        'Only job cards in "received" status can be deleted.',
+      );
+    }
+
+    const { error } = await this.supabase
+      .getClient()
+      .from('job_cards')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
+
+    if (error) throw error;
+    return { deleted: true };
+  }
 }

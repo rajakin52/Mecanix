@@ -226,16 +226,22 @@ export default function NewJobWizard() {
         internalNotes: internalNotes.trim() || undefined,
       });
 
-      // 2. Create inspection
-      const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
-      await api.post('/inspections', {
-        jobCardId: job.id,
-        vehicleId: selectedVehicle.id,
-        mileageIn: Number(mileage) || undefined,
-        fuelLevel: fuelLevel || undefined,
-        exteriorDamage: damages.length > 0 ? damages : undefined,
-        dviItems: inspectedDvi.length > 0 ? inspectedDvi : undefined,
-      });
+      // 2. Create inspection — MANDATORY. If this fails, delete the job card.
+      try {
+        const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
+        await api.post('/inspections', {
+          jobCardId: job.id,
+          vehicleId: selectedVehicle.id,
+          mileageIn: Number(mileage),
+          fuelLevel: fuelLevel,
+          exteriorDamage: damages.length > 0 ? damages : [],
+          dviItems: inspectedDvi.length > 0 ? inspectedDvi : undefined,
+        });
+      } catch (inspErr) {
+        // Inspection failed — roll back the job card so it doesn't exist without inspection
+        try { await api.delete(`/jobs/${job.id}`); } catch { /* best effort */ }
+        throw inspErr;
+      }
 
       // 3. Apply selected catalog items
       for (const catalogId of selectedCatalogIds) {

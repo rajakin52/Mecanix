@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -97,6 +98,15 @@ export class JobsController {
     @Param('id') id: string,
   ) {
     return this.jobsService.getStatusHistory(tenantId, id);
+  }
+
+  @Delete(':id')
+  async delete(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+  ) {
+    return this.jobsService.softDelete(tenantId, id, user.id);
   }
 
   /**
