@@ -415,6 +415,18 @@ export default function InvoiceDetailPage() {
               <button onClick={() => setShowPayModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
             </div>
             <div className="space-y-4">
+              {/* Customer details */}
+              {invoice?.customers && (
+                <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                  <p className="text-sm font-semibold text-gray-900">{(invoice.customers as Record<string, unknown>).full_name as string}</p>
+                  {(invoice.customers as Record<string, unknown>).phone && (
+                    <p className="text-sm text-gray-500">{(invoice.customers as Record<string, unknown>).phone as string}</p>
+                  )}
+                  {(invoice.customers as Record<string, unknown>).email && (
+                    <p className="text-sm text-gray-500">{(invoice.customers as Record<string, unknown>).email as string}</p>
+                  )}
+                </div>
+              )}
               {payError && (
                 <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{payError}</div>
               )}

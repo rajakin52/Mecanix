@@ -13,7 +13,7 @@ interface Vehicle { id: string; plate: string; make: string; model: string; year
 interface Make { id: string; name: string; country: string | null }
 interface Model { id: string; name: string; body_type: string | null }
 interface DviItem { name: string; category: string; status: string; notes: string }
-interface DamageEntry { location: string; type: string; description: string }
+interface DamageEntry { location: string; type: string; description?: string }
 interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null; quick_access: boolean }
 
 type Step = 'entry' | 'vehicle' | 'inspection' | 'problem' | 'repairs' | 'review';

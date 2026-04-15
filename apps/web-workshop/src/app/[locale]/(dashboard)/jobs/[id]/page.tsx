@@ -1048,14 +1048,22 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      {/* Customer + Vehicle */}
-      <div className="flex gap-4 text-sm text-gray-600">
+      {/* Check-in date/time */}
+      <div className="text-xs text-gray-400">
+        Checked in: {new Date(typedJob.created_at as string).toLocaleString()}
+      </div>
+
+      {/* Customer + Vehicle + VIN */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600">
         {customer && (
           <span>
             <span className="font-medium">{tc('customers')}:</span>{' '}
             <Link href={`/customers/${typedJob.customer_id as string}`} className="text-primary-600 hover:underline">
               {customer.full_name}
             </Link>
+            {customer.phone && (
+              <span className="ms-2 text-gray-400">{customer.phone}</span>
+            )}
           </span>
         )}
         {vehicle && (
@@ -1064,6 +1072,9 @@ export default function JobDetailPage() {
             <Link href={`/vehicles/${typedJob.vehicle_id as string}`} className="text-primary-600 hover:underline">
               {vehicle.plate} - {vehicle.make} {vehicle.model}
             </Link>
+            {vehicle.vin && (
+              <span className="ms-2 text-xs text-gray-400 font-mono">VIN: {vehicle.vin}</span>
+            )}
           </span>
         )}
       </div>

@@ -24,6 +24,22 @@ export class InspectionsService {
       );
     }
 
+    // Validate mileage: must be >= vehicle's last recorded mileage
+    if (input.mileageIn != null) {
+      const { data: vehicle } = await client
+        .from('vehicles')
+        .select('mileage')
+        .eq('id', input.vehicleId)
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (vehicle?.mileage != null && input.mileageIn < Number(vehicle.mileage)) {
+        throw new BadRequestException(
+          `Mileage (${input.mileageIn} km) cannot be lower than the last recorded value (${vehicle.mileage} km).`,
+        );
+      }
+    }
+
     const { data, error } = await client
       .from('vehicle_inspections')
       .insert({

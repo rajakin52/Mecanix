@@ -127,6 +127,14 @@ export class PartsLinesService {
         .maybeSingle();
 
       if (part) {
+        // Validate available stock before reserving
+        const available = Number(part.stock_qty) - (Number(part.reserved_qty) || 0);
+        if (available < input.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for ${input.partName}. Available: ${available}, Required: ${input.quantity}`,
+          );
+        }
+
         const currentReserved = Number(part.reserved_qty) || 0;
         const newReserved = currentReserved + input.quantity;
         await this.supabase.getClient()

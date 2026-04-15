@@ -321,6 +321,10 @@ export default function JobDetailScreen() {
             </Text>
           </View>
         </View>
+        {/* Check-in date/time */}
+        <Text style={{ fontSize: 12, color: '#8E8E93', textAlign: 'center', marginTop: -4, marginBottom: 8 }}>
+          Checked in: {new Date(job.created_at).toLocaleString()}
+        </Text>
 
         {/* Status transition buttons */}
         {allowedTransitions.length > 0 && (
@@ -398,6 +402,11 @@ export default function JobDetailScreen() {
               {job.vehicle.make} {job.vehicle.model}{' '}
               {job.vehicle.year ? `(${job.vehicle.year})` : ''}
             </Text>
+            {(job.vehicle as Record<string, unknown>).vin && (
+              <Text style={{ fontSize: 11, color: '#8E8E93', fontFamily: 'monospace', marginTop: 2 }}>
+                VIN: {String((job.vehicle as Record<string, unknown>).vin)}
+              </Text>
+            )}
           </TouchableOpacity>
         )}
 
