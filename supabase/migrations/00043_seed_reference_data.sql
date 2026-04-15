@@ -1,12 +1,23 @@
 -- ═══════════════════════════════════════════════════════════════
--- Comprehensive reference data seed: vehicle models + repair catalog
+-- Comprehensive reference data seed: vehicle makes + models
 -- ═══════════════════════════════════════════════════════════════
 
--- ── VEHICLE MODELS (expand top brands with common models) ──
--- Only insert if not already present
+-- ── Step 1: Add missing makes (Chinese + other brands) ──
+INSERT INTO public.vehicle_makes (name, country)
+VALUES
+  ('Haval', 'China'), ('Chery', 'China'), ('JAC', 'China'),
+  ('GWM', 'China'), ('BAIC', 'China'), ('BYD', 'China'),
+  ('Geely', 'China'), ('MG', 'United Kingdom'), ('Opel', 'Germany'),
+  ('Citroën', 'France'), ('SEAT', 'Spain'), ('Skoda', 'Czech Republic'),
+  ('Subaru', 'Japan'), ('Lexus', 'Japan'), ('Infiniti', 'Japan'),
+  ('Porsche', 'Germany'), ('Jaguar', 'United Kingdom'),
+  ('Alfa Romeo', 'Italy'), ('Iveco', 'Italy'), ('Tata', 'India'),
+  ('Mahindra', 'India'), ('Daihatsu', 'Japan')
+ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO public.vehicle_models (tenant_id, make_id, name, body_type)
-SELECT NULL, m.id, v.model_name, v.body_type
+-- ── Step 2: Add models for ALL brands ──
+INSERT INTO public.vehicle_models (make_id, name, body_type)
+SELECT m.id, v.model_name, v.body_type
 FROM (VALUES
   -- Toyota
   ('Toyota', 'Corolla', 'sedan'), ('Toyota', 'Camry', 'sedan'), ('Toyota', 'Yaris', 'hatchback'),
@@ -81,64 +92,20 @@ FROM (VALUES
   ('Jeep', 'Grand Cherokee', 'suv'),
   -- Volvo
   ('Volvo', 'XC40', 'suv'), ('Volvo', 'XC60', 'suv'), ('Volvo', 'XC90', 'suv'),
-  -- Chinese brands (growing in Africa)
+  -- Chinese brands
   ('Haval', 'Jolion', 'suv'), ('Haval', 'H6', 'suv'), ('Haval', 'H2', 'suv'),
   ('Chery', 'Tiggo 4 Pro', 'suv'), ('Chery', 'Tiggo 7 Pro', 'suv'), ('Chery', 'Tiggo 8 Pro', 'suv'),
   ('JAC', 'S3', 'suv'), ('JAC', 'T8', 'pickup'),
   ('GWM', 'P-Series', 'pickup'), ('GWM', 'Steed', 'pickup'),
-  ('BAIC', 'X25', 'suv'), ('BAIC', 'D20', 'hatchback')
-) AS v(make_name, model_name, body_type)
-JOIN public.vehicle_makes m ON m.name = v.make_name
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.vehicle_models vm
-  WHERE vm.make_id = m.id AND vm.name = v.model_name AND vm.tenant_id IS NULL
-);
-
--- Add missing makes first (Chinese brands)
-INSERT INTO public.vehicle_makes (tenant_id, name, country)
-SELECT NULL, v.name, v.country
-FROM (VALUES
-  ('Haval', 'China'), ('Chery', 'China'), ('JAC', 'China'),
-  ('GWM', 'China'), ('BAIC', 'China'), ('BYD', 'China'),
-  ('Geely', 'China'), ('MG', 'United Kingdom'), ('Opel', 'Germany'),
-  ('Citroën', 'France'), ('SEAT', 'Spain'), ('Skoda', 'Czech Republic'),
-  ('Subaru', 'Japan'), ('Lexus', 'Japan'), ('Infiniti', 'Japan'),
-  ('Porsche', 'Germany'), ('Jaguar', 'United Kingdom'),
-  ('Alfa Romeo', 'Italy'), ('Iveco', 'Italy'), ('Tata', 'India'),
-  ('Mahindra', 'India'), ('Daihatsu', 'Japan')
-) AS v(name, country)
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.vehicle_makes vm WHERE vm.name = v.name AND vm.tenant_id IS NULL
-);
-
--- Now insert models for newly added makes
-INSERT INTO public.vehicle_models (tenant_id, make_id, name, body_type)
-SELECT NULL, m.id, v.model_name, v.body_type
-FROM (VALUES
+  ('BAIC', 'X25', 'suv'), ('BAIC', 'D20', 'hatchback'),
   ('BYD', 'Atto 3', 'suv'), ('BYD', 'Dolphin', 'hatchback'), ('BYD', 'Seal', 'sedan'),
   ('MG', 'ZS', 'suv'), ('MG', 'HS', 'suv'), ('MG', '3', 'hatchback'),
   ('Opel', 'Corsa', 'hatchback'), ('Opel', 'Crossland', 'suv'), ('Opel', 'Mokka', 'suv'),
   ('Subaru', 'Forester', 'suv'), ('Subaru', 'XV', 'suv'), ('Subaru', 'Outback', 'wagon'),
   ('Lexus', 'NX', 'suv'), ('Lexus', 'RX', 'suv'),
   ('Tata', 'Nexon', 'suv'), ('Tata', 'Punch', 'suv'),
-  ('Mahindra', 'Scorpio', 'suv'), ('Mahindra', 'XUV700', 'suv'), ('Mahindra', 'Bolero', 'suv')
+  ('Mahindra', 'Scorpio', 'suv'), ('Mahindra', 'XUV700', 'suv'), ('Mahindra', 'Bolero', 'suv'),
+  ('Skoda', 'Octavia', 'sedan'), ('Skoda', 'Kamiq', 'suv'), ('Skoda', 'Karoq', 'suv')
 ) AS v(make_name, model_name, body_type)
 JOIN public.vehicle_makes m ON m.name = v.make_name
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.vehicle_models vm
-  WHERE vm.make_id = m.id AND vm.name = v.model_name AND vm.tenant_id IS NULL
-);
-
-
--- ═══════════════════════════════════════════════════════════════
--- REPAIR CATALOG — expanded with industry standard times
--- Only insert if tenant has no catalog items yet (per-tenant seeding)
--- These are GLOBAL templates (tenant_id = NULL not supported on catalog,
--- so we insert via the seedDefaults API call on first tenant access).
--- Instead, we add more items to the code-level seed in catalog.service.ts.
--- ═══════════════════════════════════════════════════════════════
--- NOTE: Repair catalog items are tenant-scoped. The expanded catalog
--- is seeded via the API endpoint POST /catalog/seed-defaults which
--- already exists in catalog.service.ts. The migration below just
--- ensures the code-level seed data is comprehensive.
--- See catalog.service.ts seedDefaults() for the full list.
+ON CONFLICT (make_id, name) DO NOTHING;
