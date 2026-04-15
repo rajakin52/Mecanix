@@ -51,31 +51,6 @@ export class SymptomsService {
     return data;
   }
 
-  async incrementUsage(tenantId: string, codes: string[]) {
-    if (codes.length === 0) return;
-
-    const client = this.supabase.getClient();
-
-    // Increment usage for each code (both global and tenant-scoped)
-    for (const code of codes) {
-      await client.rpc('increment_symptom_usage', {
-        p_tenant_id: tenantId,
-        p_code: code,
-      }).catch(() => {
-        // Fallback: direct update if RPC doesn't exist yet
-        return client
-          .from('symptom_codes')
-          .update({ usage_count: client.rpc('', {}) as unknown as number })
-          .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
-          .eq('code', code);
-      });
-    }
-  }
-
-  /**
-   * Simple increment that works without an RPC function.
-   * Fetches current count and increments.
-   */
   async incrementUsageSimple(tenantId: string, codes: string[]) {
     if (codes.length === 0) return;
     const client = this.supabase.getClient();
