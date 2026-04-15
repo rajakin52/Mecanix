@@ -100,6 +100,28 @@ export class JobsController {
     return this.jobsService.getStatusHistory(tenantId, id);
   }
 
+  @Post(':id/split')
+  async splitJob(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() body: { label: string; technicianId?: string },
+  ) {
+    // Get parent job details
+    const parent = await this.jobsService.getById(tenantId, id);
+    // Create sub-job inheriting vehicle + customer from parent
+    return this.jobsService.create(tenantId, user.id, {
+      vehicleId: parent.vehicle_id as string,
+      customerId: parent.customer_id as string,
+      reportedProblem: `[${body.label}] ${parent.reported_problem as string}`,
+      parentJobId: id,
+      subJobLabel: body.label,
+      primaryTechnicianId: body.technicianId,
+      isInsurance: parent.is_insurance as boolean,
+      isTaxable: parent.is_taxable as boolean,
+    });
+  }
+
   @Delete(':id')
   async delete(
     @TenantId() tenantId: string,

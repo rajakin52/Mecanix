@@ -27,7 +27,22 @@ export class PaymentsService {
       throw new NotFoundException('Invoice not found');
     }
 
-    // 1. Insert payment record
+    // Generate receipt number
+    const { data: receiptNumber } = await client.rpc('generate_receipt_number', { p_tenant_id: tenantId });
+
+    // Get customer + vehicle info for receipt
+    const { data: invoiceFull } = await client
+      .from('invoices')
+      .select('invoice_number, customer:customers(full_name, phone), job_card:job_cards(vehicle:vehicles(plate))')
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    const customer = invoiceFull?.customer as Record<string, unknown> | null;
+    const jobCard = invoiceFull?.job_card as Record<string, unknown> | null;
+    const vehicle = jobCard?.vehicle as Record<string, unknown> | null;
+
+    // 1. Insert payment record with receipt data
     const { data: payment, error: payError } = await client
       .from('payments')
       .insert({
@@ -38,6 +53,11 @@ export class PaymentsService {
         reference: input.reference || null,
         notes: input.notes || null,
         payment_date: input.paymentDate || new Date().toISOString(),
+        receipt_number: receiptNumber ?? null,
+        customer_name: (customer?.full_name as string) ?? null,
+        customer_phone: (customer?.phone as string) ?? null,
+        vehicle_plate: (vehicle?.plate as string) ?? null,
+        invoice_number: (invoiceFull?.invoice_number as string) ?? null,
         created_by: userId,
       })
       .select()

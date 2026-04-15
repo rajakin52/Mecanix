@@ -128,11 +128,21 @@ export class JobsService {
       .eq('job_card_id', id)
       .order('changed_at', { ascending: true });
 
+    // Fetch sub-jobs if this is a parent
+    const { data: subJobs } = await client
+      .from('job_cards')
+      .select('id, job_number, status, sub_job_label, labour_total, parts_total, grand_total, primary_technician:technicians(id, full_name)')
+      .eq('parent_job_id', id)
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .order('created_at');
+
     return {
       ...data,
       labour_lines: labourLines ?? [],
       parts_lines: partsLines ?? [],
       status_history: statusHistory ?? [],
+      sub_jobs: subJobs ?? [],
     };
   }
 
@@ -189,6 +199,8 @@ export class JobsService {
         is_comeback: input.isComeback ?? false,
         comeback_original_job_id: input.comebackOriginalJobId || null,
         comeback_reason: input.comebackReason || null,
+        parent_job_id: input.parentJobId || null,
+        sub_job_label: input.subJobLabel || null,
         labour_total: 0,
         parts_total: 0,
         tax_amount: 0,
@@ -329,6 +341,8 @@ export class JobsService {
       isComeback: 'is_comeback',
       comebackOriginalJobId: 'comeback_original_job_id',
       comebackReason: 'comeback_reason',
+      parentJobId: 'parent_job_id',
+      subJobLabel: 'sub_job_label',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

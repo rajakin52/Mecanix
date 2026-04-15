@@ -42,6 +42,8 @@ import { PartsRequestsModule } from './modules/parts-requests/parts-requests.mod
 import { PurchaseRequestsModule } from './modules/purchase-requests/purchase-requests.module';
 import { SymptomsModule } from './modules/symptoms/symptoms.module';
 import { ReceptionsModule } from './modules/receptions/receptions.module';
+import { JobMessagesModule } from './modules/job-messages/job-messages.module';
+import { BookingModule } from './modules/booking/booking.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -89,6 +91,8 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     PurchaseRequestsModule,
     SymptomsModule,
     ReceptionsModule,
+    JobMessagesModule,
+    BookingModule,
   ],
   providers: [
     {
