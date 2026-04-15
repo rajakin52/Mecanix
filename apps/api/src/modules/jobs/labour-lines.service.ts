@@ -136,6 +136,9 @@ export class LabourLinesService {
       throw new BadRequestException('Line is already charged');
     }
 
+    // Inspection gate — cannot charge without inspection
+    await this.inspectionsService.requireInspection(tenantId, line.job_card_id);
+
     const { data, error } = await client
       .from('labour_lines')
       .update({ line_status: 'charged' })

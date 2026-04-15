@@ -23,15 +23,17 @@ import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
 import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
 
+// Must match backend VALID_TRANSITIONS in jobs.service.ts
 const STATUS_TRANSITIONS: Record<string, string[]> = {
-  received: ['diagnosing'],
-  diagnosing: ['awaiting_approval', 'insurance_review', 'in_progress'],
-  awaiting_approval: ['in_progress', 'diagnosing'],
+  received: ['diagnosing', 'in_progress'],
+  diagnosing: ['awaiting_approval', 'in_progress', 'insurance_review'],
+  awaiting_approval: ['in_progress', 'received'],
   insurance_review: ['awaiting_approval', 'in_progress'],
-  in_progress: ['awaiting_parts', 'quality_check'],
+  in_progress: ['awaiting_parts', 'quality_check', 'awaiting_reapproval'],
+  awaiting_reapproval: ['in_progress', 'received'],
   awaiting_parts: ['in_progress'],
   quality_check: ['in_progress', 'ready'],
-  ready: ['invoiced'],
+  ready: ['invoiced', 'in_progress'],
   invoiced: [],
 };
 

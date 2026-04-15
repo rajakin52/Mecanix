@@ -549,6 +549,9 @@ export class PartsLinesService {
       throw new BadRequestException('Line is already charged');
     }
 
+    // Inspection gate — cannot charge without inspection
+    await this.inspectionsService.requireInspection(tenantId, line.job_card_id);
+
     const partId = line.part_id as string | null;
     const qty = line.quantity as number;
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PricingService } from '../pricing/pricing.service';
 import { JobsService } from '../jobs/jobs.service';
+import { InspectionsService } from '../inspections/inspections.service';
 import type { CreateCatalogItemInput, UpdateCatalogItemInput } from '@mecanix/validators';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class CatalogService {
     private readonly supabase: SupabaseService,
     private readonly pricingService: PricingService,
     private readonly jobsService: JobsService,
+    private readonly inspectionsService: InspectionsService,
   ) {}
 
   async list(tenantId: string, type?: string, category?: string, quickAccessOnly?: boolean, search?: string) {
@@ -202,6 +204,9 @@ export class CatalogService {
 
   // Apply catalog item to a job card — creates labour + parts lines
   async applyToJob(tenantId: string, userId: string, jobCardId: string, catalogItemId: string) {
+    // Inspection gate — no work items without inspection
+    await this.inspectionsService.requireInspection(tenantId, jobCardId);
+
     const item = await this.getById(tenantId, catalogItemId);
     const client = this.supabase.getClient();
 

@@ -27,13 +27,14 @@ const STATUS_COLORS: Record<string, string> = {
   invoiced: '#607D8B',
 };
 
-// Mirrors backend VALID_TRANSITIONS
+// Must match backend VALID_TRANSITIONS in jobs.service.ts
 const VALID_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing', 'in_progress'],
   diagnosing: ['awaiting_approval', 'in_progress', 'insurance_review'],
   awaiting_approval: ['in_progress', 'received'],
   insurance_review: ['awaiting_approval', 'in_progress'],
-  in_progress: ['awaiting_parts', 'quality_check'],
+  in_progress: ['awaiting_parts', 'quality_check', 'awaiting_reapproval'],
+  awaiting_reapproval: ['in_progress', 'received'],
   awaiting_parts: ['in_progress'],
   quality_check: ['in_progress', 'ready'],
   ready: ['invoiced', 'in_progress'],
