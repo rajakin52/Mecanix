@@ -1064,6 +1064,9 @@ export default function JobDetailPage() {
             {customer.phone && (
               <span className="ms-2 text-gray-400">{customer.phone}</span>
             )}
+            {customer.whatsapp_number && customer.whatsapp_number !== customer.phone && (
+              <span className="ms-2 text-gray-400">WA: {customer.whatsapp_number}</span>
+            )}
           </span>
         )}
         {vehicle && (

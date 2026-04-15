@@ -70,6 +70,7 @@ export class CustomersService {
         tenant_id: tenantId,
         full_name: input.fullName,
         phone: input.phone,
+        whatsapp_number: input.whatsappNumber || null,
         email: input.email || null,
         tax_id: input.taxId || null,
         address: input.address || null,
@@ -98,6 +99,7 @@ export class CustomersService {
     const updateData: Record<string, unknown> = { updated_by: userId };
     if (input.fullName !== undefined) updateData['full_name'] = input.fullName;
     if (input.phone !== undefined) updateData['phone'] = input.phone;
+    if (input.whatsappNumber !== undefined) updateData['whatsapp_number'] = input.whatsappNumber || null;
     if (input.email !== undefined) updateData['email'] = input.email || null;
     if (input.taxId !== undefined) updateData['tax_id'] = input.taxId || null;
     if (input.address !== undefined) updateData['address'] = input.address || null;

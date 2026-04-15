@@ -416,17 +416,16 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="space-y-4">
               {/* Customer details */}
-              {invoice?.customers && (
-                <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
-                  <p className="text-sm font-semibold text-gray-900">{(invoice.customers as Record<string, unknown>).full_name as string}</p>
-                  {(invoice.customers as Record<string, unknown>).phone && (
-                    <p className="text-sm text-gray-500">{(invoice.customers as Record<string, unknown>).phone as string}</p>
-                  )}
-                  {(invoice.customers as Record<string, unknown>).email && (
-                    <p className="text-sm text-gray-500">{(invoice.customers as Record<string, unknown>).email as string}</p>
-                  )}
-                </div>
-              )}
+              {invoice?.customers && (() => {
+                const cust = invoice.customers;
+                return (
+                  <div className="rounded-md bg-gray-50 border border-gray-200 p-3">
+                    <p className="text-sm font-semibold text-gray-900">{cust.full_name}</p>
+                    {cust.phone && <p className="text-sm text-gray-500">{cust.phone}</p>}
+                    {cust.email && <p className="text-sm text-gray-500">{cust.email}</p>}
+                  </div>
+                );
+              })()}
               {payError && (
                 <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{payError}</div>
               )}
