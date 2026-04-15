@@ -13,7 +13,7 @@ interface Vehicle { id: string; plate: string; make: string; model: string; year
 interface Make { id: string; name: string; country: string | null }
 interface Model { id: string; name: string; body_type: string | null }
 interface DviItem { name: string; category: string; status: string; notes: string }
-interface DamageEntry { location: string; type: string; description?: string }
+interface DamageEntry { location: string; type: string; description?: string; severity?: string }
 interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null; quick_access: boolean }
 
 type Step = 'entry' | 'vehicle' | 'inspection' | 'damage' | 'accessories' | 'problem' | 'repairs' | 'review';
@@ -278,7 +278,7 @@ export default function NewJobWizard() {
         const damagePoints = damages.map((d) => ({
           bodyZone: d.location,
           damageType: d.type,
-          severity: (d as Record<string, unknown>).severity as string ?? 'moderate',
+          severity: d.severity ?? 'moderate',
           diagramView: 'top',
           note: d.description || undefined,
         }));
