@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateJobCardInput, UpdateJobCardInput, PaginationInput } from '@mecanix/validators';
 import { sanitizeSearch } from '../../common/utils/sanitize';
 import { PartsLinesService } from './parts-lines.service';
+import { InspectionsService } from '../inspections/inspections.service';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   received: ['diagnosing', 'in_progress'],
@@ -30,6 +31,7 @@ export class JobsService {
     private readonly supabase: SupabaseService,
     @Inject(forwardRef(() => PartsLinesService))
     private readonly partsLinesService: PartsLinesService,
+    private readonly inspectionsService: InspectionsService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: JobFilters) {
@@ -227,19 +229,7 @@ export class JobsService {
 
     // Block progression from 'received' unless inspection exists
     if (currentStatus === 'received' && newStatus !== 'received') {
-      const { data: inspection } = await client
-        .from('vehicle_inspections')
-        .select('id')
-        .eq('job_card_id', id)
-        .eq('tenant_id', tenantId)
-        .limit(1)
-        .maybeSingle();
-
-      if (!inspection) {
-        throw new BadRequestException(
-          'Vehicle inspection is required before the job can progress. Complete the inspection first.',
-        );
-      }
+      await this.inspectionsService.requireInspection(tenantId, id);
     }
 
     // Block transition to 'ready' or 'invoiced' if planned lines still exist

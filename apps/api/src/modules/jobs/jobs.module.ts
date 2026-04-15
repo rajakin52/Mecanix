@@ -6,9 +6,10 @@ import { LabourLinesService } from './labour-lines.service';
 import { PartsLinesController } from './parts-lines.controller';
 import { PartsLinesService } from './parts-lines.service';
 import { PricingModule } from '../pricing/pricing.module';
+import { InspectionsModule } from '../inspections/inspections.module';
 
 @Module({
-  imports: [PricingModule],
+  imports: [PricingModule, InspectionsModule],
   controllers: [JobsController, LabourLinesController, PartsLinesController],
   providers: [JobsService, LabourLinesService, PartsLinesService],
   exports: [JobsService, PartsLinesService],

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
+import { InspectionsService } from '../inspections/inspections.service';
 import type { CreateLabourLineInput, UpdateLabourLineInput } from '@mecanix/validators';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class LabourLinesService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly jobsService: JobsService,
+    private readonly inspectionsService: InspectionsService,
   ) {}
 
   async list(tenantId: string, jobCardId: string) {
@@ -30,20 +32,7 @@ export class LabourLinesService {
     input: CreateLabourLineInput,
   ) {
     // Require vehicle inspection before adding work items
-    const { data: inspection } = await this.supabase
-      .getClient()
-      .from('vehicle_inspections')
-      .select('id')
-      .eq('job_card_id', jobCardId)
-      .eq('tenant_id', tenantId)
-      .limit(1)
-      .maybeSingle();
-
-    if (!inspection) {
-      throw new BadRequestException(
-        'Vehicle inspection must be completed before adding labour lines.',
-      );
-    }
+    await this.inspectionsService.requireInspection(tenantId, jobCardId);
 
     const subtotal = Math.round(input.hours * input.rate * 100) / 100;
 

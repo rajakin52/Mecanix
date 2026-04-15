@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
+import { InspectionsService } from '../inspections/inspections.service';
 import { PricingService } from '../pricing/pricing.service';
 import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
 
@@ -10,6 +11,7 @@ export class PartsLinesService {
     private readonly supabase: SupabaseService,
     @Inject(forwardRef(() => JobsService))
     private readonly jobsService: JobsService,
+    private readonly inspectionsService: InspectionsService,
     private readonly pricingService: PricingService,
   ) {}
 
@@ -33,20 +35,7 @@ export class PartsLinesService {
     input: CreatePartsLineInput,
   ) {
     // Require vehicle inspection before adding work items
-    const { data: inspection } = await this.supabase
-      .getClient()
-      .from('vehicle_inspections')
-      .select('id')
-      .eq('job_card_id', jobCardId)
-      .eq('tenant_id', tenantId)
-      .limit(1)
-      .maybeSingle();
-
-    if (!inspection) {
-      throw new BadRequestException(
-        'Vehicle inspection must be completed before adding parts lines.',
-      );
-    }
+    await this.inspectionsService.requireInspection(tenantId, jobCardId);
 
     // Get pricing settings
     const pricingSettings = await this.pricingService.getPricingSettings(tenantId);

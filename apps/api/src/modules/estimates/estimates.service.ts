@@ -77,6 +77,8 @@ export class EstimatesService {
       .select('id')
       .eq('job_card_id', jobCardId)
       .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (inspection) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateInspectionInput, UpdateInspectionInput } from '@mecanix/validators';
 
@@ -8,6 +8,21 @@ export class InspectionsService {
 
   async create(tenantId: string, userId: string, input: CreateInspectionInput) {
     const client = this.supabase.getClient();
+
+    // Prevent duplicate inspections for the same job card
+    const { data: existing } = await client
+      .from('vehicle_inspections')
+      .select('id')
+      .eq('job_card_id', input.jobCardId)
+      .eq('tenant_id', tenantId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      throw new BadRequestException(
+        'An inspection already exists for this job card. Use the update endpoint to modify it.',
+      );
+    }
 
     const { data, error } = await client
       .from('vehicle_inspections')
@@ -65,6 +80,28 @@ export class InspectionsService {
     return data;
   }
 
+  /**
+   * Check whether an inspection exists for a job card.
+   * This is the SINGLE source of truth for the inspection gate.
+   * All services that need to enforce "inspection required" must call this.
+   */
+  async requireInspection(tenantId: string, jobCardId: string): Promise<void> {
+    const { count, error } = await this.supabase
+      .getClient()
+      .from('vehicle_inspections')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_card_id', jobCardId)
+      .eq('tenant_id', tenantId);
+
+    if (error) throw error;
+
+    if (!count || count === 0) {
+      throw new BadRequestException(
+        'Vehicle inspection must be completed before this action is allowed.',
+      );
+    }
+  }
+
   async getByJobCard(tenantId: string, jobCardId: string) {
     const client = this.supabase.getClient();
 
@@ -73,6 +110,8 @@ export class InspectionsService {
       .select('*')
       .eq('job_card_id', jobCardId)
       .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;

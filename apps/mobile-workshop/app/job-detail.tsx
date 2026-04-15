@@ -141,14 +141,19 @@ export default function JobDetailScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [jobData, inspectionData] = await Promise.all([
-        apiFetch<JobDetail>(`/jobs/${params.jobId}`),
-        apiFetch<InspectionSummary | null>(
-          `/inspections/job/${params.jobId}`,
-        ).catch(() => null),
-      ]);
+      const jobData = await apiFetch<JobDetail>(`/jobs/${params.jobId}`);
       setJob(jobData);
-      setInspection(inspectionData);
+
+      try {
+        const inspectionData = await apiFetch<InspectionSummary | null>(
+          `/inspections/job/${params.jobId}`,
+        );
+        setInspection(inspectionData);
+      } catch (inspErr) {
+        // Log but treat as "no inspection" — the backend gate is the real enforcer
+        console.warn('Failed to fetch inspection:', inspErr);
+        setInspection(null);
+      }
     } catch {
       Alert.alert(t('common.error'), t('jobs.fetchError'));
     } finally {
