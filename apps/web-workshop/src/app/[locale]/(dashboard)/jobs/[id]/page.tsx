@@ -1006,7 +1006,7 @@ export default function JobDetailPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedJob = job as Record<string, any>;
-  const vehicle = (typedJob.vehicle ?? typedJob.vehicles) as { plate: string; make: string; model: string; year?: number } | undefined;
+  const vehicle = (typedJob.vehicle ?? typedJob.vehicles) as { plate: string; make: string; model: string; year?: number; vin?: string } | undefined;
   const customer = (typedJob.customer ?? typedJob.customers) as { full_name: string; phone: string; email?: string; tax_id?: string; whatsapp_number?: string } | undefined;
   const technician = (typedJob.primary_technician ?? typedJob.technicians) as { full_name: string } | null | undefined;
   const currentStatus = String(typedJob.status ?? '');
