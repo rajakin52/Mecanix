@@ -19,7 +19,7 @@ export class CatalogService {
     let query = client
       .from('repair_catalog')
       .select('*, labour_items:repair_catalog_labour_items(*), parts_items:repair_catalog_parts_items(*)')
-      .eq('tenant_id', tenantId)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .eq('is_active', true)
       .order('sort_order')
       .order('name');
@@ -40,7 +40,7 @@ export class CatalogService {
       .from('repair_catalog')
       .select('*, labour_items:repair_catalog_labour_items(*), parts_items:repair_catalog_parts_items(*)')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .single();
 
     if (error || !data) throw new NotFoundException('Catalog item not found');
