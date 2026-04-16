@@ -294,26 +294,59 @@ export default function InspectionScreen() {
       if (fuelLevel) body.fuelLevel = fuelLevel;
       if (personalItems.trim()) body.personalItems = personalItems.trim();
       if (notes.trim()) body.notes = notes.trim();
-      if (signatureData) body.customerSignature = signatureData;
+
+      // Upload signature to Supabase Storage if present
+      let signatureUrl: string | null = null;
+      if (signatureData) {
+        try {
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+          const sigRes = await fetch(`${apiUrl}/photo-capture/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jobId: params.jobId,
+              photoType: 'signature',
+              base64Data: signatureData,
+              fileName: 'signature.png',
+            }),
+          });
+          if (sigRes.ok) {
+            const sigData = await sigRes.json();
+            signatureUrl = sigData.storageUrl ?? sigData.url ?? null;
+          }
+        } catch { /* best effort */ }
+        body.customerSignature = signatureUrl ?? signatureData;
+      }
 
       // DVI items
       const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
       if (inspectedDvi.length > 0) body.dviItems = inspectedDvi;
 
-      // Note: photos array is stored separately in the DB photos column
-      // The backend inspection service would need a minor update to accept photos
-      // For now, append photo URLs to notes as a workaround
+      // Attach uploaded photo URLs
       if (uploadedUrls.length > 0) {
-        const photoNote = `Photos: ${uploadedUrls.join(', ')}`;
-        body.notes = body.notes
-          ? `${body.notes}\n${photoNote}`
-          : photoNote;
+        body.photos = uploadedUrls;
       }
 
       await apiFetch('/inspections', {
         method: 'POST',
         body: JSON.stringify(body),
       });
+
+      // Also create a vehicle reception so signature appears on the job card
+      try {
+        await apiFetch('/receptions', {
+          method: 'POST',
+          body: JSON.stringify({
+            jobCardId: params.jobId,
+            vehicleId: params.vehicleId,
+            odometerKm: mileage.trim() ? parseInt(mileage, 10) : 0,
+            fuelLevel: fuelLevel || 'half',
+            signatureData: signatureUrl ?? signatureData ?? undefined,
+            signatureMethod: 'digital',
+            signedByName: undefined, // captured in the web flow only
+          }),
+        });
+      } catch { /* reception may already exist from web wizard — ignore */ }
 
       Alert.alert(t('common.success'), t('inspection.saveSuccess'), [
         { text: t('common.ok'), onPress: () => router.back() },

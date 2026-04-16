@@ -1203,9 +1203,9 @@ export default function JobDetailPage() {
       {/* Walk-Around Photos */}
       {jobPhotos.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({jobPhotos.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({jobPhotos.filter((u) => u.startsWith('http') && !u.includes('/signature_')).length})</h3>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {jobPhotos.filter((url) => url.startsWith('http')).map((url, i) => (
+            {jobPhotos.filter((url) => url.startsWith('http') && !url.includes('/signature_')).map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                 className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50 hover:border-primary-400 transition-colors">
                 <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
@@ -1215,6 +1215,28 @@ export default function JobDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Customer Signature */}
+      {(() => {
+        // Check for signature in: job photos (uploaded sig), inspection data, or reception data
+        const sigFromPhotos = jobPhotos.find((url) => url.startsWith('http') && url.includes('/signature_'));
+        const sigFromInspection = (inspectionData as Record<string, unknown> | null)?.customer_signature as string | null;
+        const sigUrl = sigFromPhotos ?? (sigFromInspection?.startsWith('http') ? sigFromInspection : null);
+        const sigBase64 = !sigUrl && sigFromInspection?.startsWith('data:') ? sigFromInspection : null;
+        if (!sigUrl && !sigBase64) return null;
+        return (
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Customer Signature</h3>
+            <div className="inline-block rounded-lg border border-gray-200 bg-gray-50 p-2">
+              <img
+                src={sigUrl ?? sigBase64 ?? ''}
+                alt="Customer signature"
+                className="h-24 w-auto"
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       </>
       )}
