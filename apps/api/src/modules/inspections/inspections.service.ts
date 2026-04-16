@@ -346,4 +346,35 @@ export class InspectionsService {
 
     return data;
   }
+
+  /**
+   * DVI-to-Estimate: Get red items that need estimate lines.
+   * Returns inspection items with status='red' that haven't been converted yet.
+   */
+  async getRedItemsForEstimate(tenantId: string, inspectionId: string) {
+    const { data, error } = await this.supabase.getClient()
+      .from('inspection_items')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'red')
+      .eq('estimate_generated', false)
+      .order('sort_order');
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  /**
+   * Mark red DVI items as converted to estimate lines
+   */
+  async markItemsEstimated(tenantId: string, itemIds: string[]) {
+    if (itemIds.length === 0) return;
+    const { error } = await this.supabase.getClient()
+      .from('inspection_items')
+      .update({ estimate_generated: true })
+      .in('id', itemIds)
+      .eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
 }

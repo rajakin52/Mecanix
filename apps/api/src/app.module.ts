@@ -50,6 +50,9 @@ import { SurveysModule } from './modules/surveys/surveys.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AccountingSyncModule } from './modules/accounting-sync/accounting-sync.module';
 import { PhotoAnnotationsModule } from './modules/photo-annotations/photo-annotations.module';
+import { DiscoveryModule } from './modules/discovery/discovery.module';
+import { BaysModule } from './modules/bays/bays.module';
+import { DataRequestsModule } from './modules/data-requests/data-requests.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -105,6 +108,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     WebhooksModule,
     AccountingSyncModule,
     PhotoAnnotationsModule,
+    DiscoveryModule,
+    BaysModule,
+    DataRequestsModule,
   ],
   providers: [
     {

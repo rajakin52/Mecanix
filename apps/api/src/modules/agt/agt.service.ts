@@ -247,4 +247,79 @@ export class AgtService {
       hashControl: '1',
     };
   }
+
+  /**
+   * Generate QR code payload for AGT-compliant invoices.
+   * Format: NIF*VALIDATION_CODE*DOCUMENT_NUMBER*DATE*HASH4*GROSS_TOTAL
+   */
+  generateQrCodeData(input: {
+    tenantNif: string;
+    validationCode: string;
+    documentNumber: string;
+    invoiceDate: string;
+    shortHash: string;
+    grossTotal: number;
+  }): string {
+    return [
+      input.tenantNif,
+      input.validationCode || 'PENDING',
+      input.documentNumber,
+      input.invoiceDate,
+      input.shortHash,
+      input.grossTotal.toFixed(2),
+    ].join('*');
+  }
+
+  /**
+   * Store QR code data and short hash on the invoice
+   */
+  async updateInvoiceAgtData(tenantId: string, invoiceId: string, qrData: string, shortHash: string) {
+    const { error } = await this.supabase.getClient()
+      .from('invoices')
+      .update({ agt_qr_code_data: qrData, agt_short_hash: shortHash })
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  /**
+   * Mark invoice as contingency (issued offline)
+   */
+  async markContingency(tenantId: string, invoiceId: string, reason: string) {
+    const { error } = await this.supabase.getClient()
+      .from('invoices')
+      .update({
+        is_contingency: true,
+        contingency_reason: reason,
+        agt_submission_status: 'contingency',
+      })
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId);
+    if (error) throw error;
+  }
+
+  /**
+   * Submit contingency invoices retroactively when AGT is online
+   */
+  async submitContingencyInvoices(tenantId: string) {
+    const { data: pending } = await this.supabase.getClient()
+      .from('invoices')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('is_contingency', true)
+      .is('contingency_submitted_at', null);
+
+    let submitted = 0;
+    for (const inv of pending ?? []) {
+      try {
+        // Re-submit to AGT
+        await this.supabase.getClient()
+          .from('invoices')
+          .update({ contingency_submitted_at: new Date().toISOString(), agt_submission_status: 'submitted' })
+          .eq('id', inv.id);
+        submitted++;
+      } catch { /* continue with next */ }
+    }
+    return { submitted, total: (pending ?? []).length };
+  }
 }

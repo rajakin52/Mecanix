@@ -87,4 +87,23 @@ export class InspectionsController {
   ) {
     return this.inspectionsService.updateDviItem(tenantId, itemId, body);
   }
+
+  // ── DVI-to-Estimate ───────────────────────────────────────
+
+  @Get(':id/red-items')
+  async getRedItems(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.inspectionsService.getRedItemsForEstimate(tenantId, id);
+  }
+
+  @Post('items/mark-estimated')
+  async markEstimated(
+    @TenantId() tenantId: string,
+    @Body() body: { itemIds: string[] },
+  ) {
+    await this.inspectionsService.markItemsEstimated(tenantId, body.itemIds);
+    return { marked: body.itemIds.length };
+  }
 }
