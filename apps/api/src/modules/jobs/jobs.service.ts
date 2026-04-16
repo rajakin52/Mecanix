@@ -260,8 +260,28 @@ export class JobsService {
       await this.inspectionsService.requireInspection(tenantId, id);
     }
 
-    // Block transition to 'ready' or 'invoiced' if planned lines still exist
-    if (newStatus === 'ready' || newStatus === 'invoiced') {
+    // Block transition to 'ready' — all work must be completed
+    if (newStatus === 'ready') {
+      // Must have at least one work item
+      const { count: labourCount } = await client
+        .from('labour_lines')
+        .select('id', { count: 'exact', head: true })
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId);
+
+      const { count: partsCount } = await client
+        .from('parts_lines')
+        .select('id', { count: 'exact', head: true })
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId);
+
+      if ((labourCount ?? 0) === 0 && (partsCount ?? 0) === 0) {
+        throw new BadRequestException(
+          'Cannot mark as ready — no labour or parts lines exist. Add work items first.',
+        );
+      }
+
+      // All lines must be charged (none still planned)
       const { data: plannedLabour } = await client
         .from('labour_lines')
         .select('id')
@@ -280,7 +300,7 @@ export class JobsService {
 
       if ((plannedLabour && plannedLabour.length > 0) || (plannedParts && plannedParts.length > 0)) {
         throw new BadRequestException(
-          'Cannot mark job as ready — there are planned work items that have not been charged or removed.',
+          'Cannot mark as ready — there are planned work items that have not been completed. Charge or remove all planned items first.',
         );
       }
     }
