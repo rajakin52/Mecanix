@@ -291,6 +291,21 @@ export class JobsService {
     };
 
     if (newStatus === 'invoiced') {
+      // Block unless an invoice exists for this job card
+      const { data: invoices } = await client
+        .from('invoices')
+        .select('id, status')
+        .eq('job_card_id', id)
+        .eq('tenant_id', tenantId)
+        .not('status', 'eq', 'cancelled')
+        .limit(1);
+
+      if (!invoices || invoices.length === 0) {
+        throw new BadRequestException(
+          'Cannot mark as invoiced — no invoice has been generated for this job card. Please create an invoice first.',
+        );
+      }
+
       updateData['date_closed'] = new Date().toISOString();
     }
 
