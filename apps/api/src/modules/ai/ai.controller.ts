@@ -56,4 +56,47 @@ export class AiController {
   ) {
     return this.aiService.getChatHistory(tenantId, phone);
   }
+
+  /** AI Writing Assistant — rewrite tech notes for customers */
+  @Post('rewrite')
+  async rewrite(
+    @Body() body: { text: string; locale?: string },
+  ) {
+    const result = await this.aiService.rewriteForCustomer(body.text, body.locale);
+    return { result };
+  }
+
+  /** Smart Technician Assignment */
+  @Post('suggest-technician/:jobId')
+  async suggestTechnician(
+    @TenantId() tenantId: string,
+    @Param('jobId') jobId: string,
+  ) {
+    return this.aiService.suggestTechnician(tenantId, jobId);
+  }
+
+  /** Predictive Maintenance for a vehicle */
+  @Get('predict-maintenance/:vehicleId')
+  async predictMaintenance(
+    @TenantId() tenantId: string,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    const prediction = await this.aiService.predictMaintenance(tenantId, vehicleId);
+    return { prediction };
+  }
+
+  /** AI Estimate Generator — suggest labour + parts from symptoms */
+  @Post('generate-estimate')
+  async generateEstimate(
+    @TenantId() tenantId: string,
+    @Body() body: {
+      reportedProblem: string;
+      symptomCodes: string[];
+      vehicleMake: string;
+      vehicleModel: string;
+      vehicleYear?: number;
+    },
+  ) {
+    return this.aiService.generateEstimate(tenantId, body);
+  }
 }
