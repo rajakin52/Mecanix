@@ -828,11 +828,18 @@ export default function NewJobWizard() {
                 ))}
               </div>
 
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 flex items-center justify-between">
                 <div className={`text-sm font-semibold ${photoCount >= 4 ? 'text-green-600' : 'text-amber-600'}`}>
                   {photoCount} / 6 photos uploaded
                   {photoCount < 4 && ' — minimum 4 required'}
                 </div>
+              </div>
+
+              {/* Send link to phone for walk-around */}
+              <div className="mt-4 rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-4">
+                <p className="text-sm font-semibold text-primary-900 mb-1">Need to take photos from your phone?</p>
+                <p className="text-xs text-primary-700 mb-3">We can send a photo capture link to your WhatsApp. Open it on your phone, take the walk-around photos, and they sync here automatically.</p>
+                <p className="text-xs text-gray-500 italic">This feature activates after the job card is created — photos can be added from the job detail page.</p>
               </div>
             </div>
           </div>
