@@ -19,6 +19,7 @@ interface Session {
   vehicle_plate: string | null;
   vehicle_info: string | null;
   required_photos: string[];
+  capture_mode: 'camera' | 'gallery';
   status: string;
   photos: Array<{ photo_type: string; storage_url: string }>;
 }
@@ -30,6 +31,8 @@ export default function PhotoCapturePage() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState<string | null>(null);
   const [capturedTypes, setCapturedTypes] = useState<Set<string>>(new Set());
+  // Local mode override — user can switch on the phone
+  const [mode, setMode] = useState<'camera' | 'gallery'>('camera');
 
   useEffect(() => {
     fetch(`${API_URL}/photo-capture/session/${params.token}`)
@@ -41,6 +44,7 @@ export default function PhotoCapturePage() {
           const s = data.data ?? data;
           setSession(s);
           setCapturedTypes(new Set((s.photos ?? []).map((p: { photo_type: string }) => p.photo_type)));
+          setMode(s.capture_mode ?? 'camera');
         }
       })
       .catch(() => setError('Failed to load session'))
@@ -127,6 +131,27 @@ export default function PhotoCapturePage() {
             </p>
           </div>
         </div>
+
+        {/* Camera / Gallery toggle */}
+        <div className="mt-3 flex gap-1 rounded-lg bg-gray-700 p-1">
+          <button
+            onClick={() => setMode('camera')}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+              mode === 'camera' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            📸 Take Photos
+          </button>
+          <button
+            onClick={() => setMode('gallery')}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+              mode === 'gallery' ? 'bg-primary-600 text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            🖼 From Gallery
+          </button>
+        </div>
+
         <div className="mt-3 flex items-center gap-2">
           <div className="flex-1 bg-gray-700 rounded-full h-2">
             <div
@@ -148,7 +173,11 @@ export default function PhotoCapturePage() {
         </div>
       ) : (
         <div className="p-4 space-y-3">
-          <p className="text-sm text-gray-400 text-center mb-4">Tap each card to take the photo</p>
+          <p className="text-sm text-gray-400 text-center mb-4">
+            {mode === 'camera'
+              ? 'Tap each card to open the camera'
+              : 'Tap each card to select a photo from your gallery'}
+          </p>
 
           {session.required_photos.map((type) => {
             const info = PHOTO_LABELS[type] ?? { label: type, icon: '📷', desc: '' };
@@ -178,7 +207,7 @@ export default function PhotoCapturePage() {
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
+                    {...(mode === 'camera' ? { capture: 'environment' as const } : {})}
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];

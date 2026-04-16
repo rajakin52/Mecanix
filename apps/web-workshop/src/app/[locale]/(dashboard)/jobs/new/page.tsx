@@ -1,11 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
+
+interface CaptureSession {
+  id: string;
+  token: string;
+  captureUrl: string;
+  status: string;
+  capture_mode: string;
+}
+interface CapturePhoto { photo_type: string; storage_url: string; captured_at: string }
 
 // ── Types ────────────────────────────────────────────────────
 interface Customer { id: string; full_name: string; phone: string; email: string | null }
@@ -122,7 +131,21 @@ export default function NewJobWizard() {
 
   // Walk-around photos (file uploads)
   const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, File | null>>({});
-  const photoCount = Object.values(vehiclePhotos).filter(Boolean).length;
+  const localPhotoCount = Object.values(vehiclePhotos).filter(Boolean).length;
+
+  // WhatsApp photo capture session (draft — no job card yet)
+  const [captureSession, setCaptureSession] = useState<CaptureSession | null>(null);
+  const [remotePhotos, setRemotePhotos] = useState<CapturePhoto[]>([]);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [whatsAppSent, setWhatsAppSent] = useState(false);
+  const [whatsAppPhone, setWhatsAppPhone] = useState('');
+
+  // Photo policy setting: 'strict' = must have photos before creation, 'flexible' = can skip
+  const [photoPolicy, setPhotoPolicy] = useState<'strict' | 'flexible'>('strict');
+
+  // Total photos = local uploads + remote (WhatsApp) captures
+  const remotePhotoTypes = new Set(remotePhotos.map((p) => p.photo_type));
+  const photoCount = localPhotoCount + [...remotePhotoTypes].filter((t) => !vehiclePhotos[t]).length;
 
   // Signature
   const [signatureName, setSignatureName] = useState('');
@@ -175,6 +198,52 @@ export default function NewJobWizard() {
     queryKey: ['catalog-all'],
     queryFn: () => api.get<CatalogItem[]>('/catalog'),
   });
+
+  // Fetch photo policy setting
+  useEffect(() => {
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/job_card_photo_policy')
+      .then((data) => {
+        if (data.value === 'strict' || data.value === 'flexible') setPhotoPolicy(data.value);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Pre-fill WhatsApp phone from selected customer
+  useEffect(() => {
+    if (selectedCustomer?.phone && !whatsAppPhone) {
+      setWhatsAppPhone(selectedCustomer.phone);
+    }
+  }, [selectedCustomer, whatsAppPhone]);
+
+  // Poll for remote photos when a capture session is active
+  useEffect(() => {
+    if (!captureSession || captureSession.status === 'completed') return;
+    const interval = setInterval(async () => {
+      try {
+        const photos = await api.get<CapturePhoto[]>(`/photo-capture/sessions/${captureSession.id}/photos`);
+        const list = Array.isArray(photos) ? photos : [];
+        setRemotePhotos(list);
+      } catch { /* ignore */ }
+    }, 3000); // poll every 3 seconds
+    return () => clearInterval(interval);
+  }, [captureSession]);
+
+  // Send WhatsApp capture link
+  const handleSendWhatsApp = useCallback(async (captureMode: 'camera' | 'gallery') => {
+    if (!whatsAppPhone.trim()) return;
+    setSendingWhatsApp(true);
+    try {
+      const session = await api.post<CaptureSession>('/photo-capture/sessions', {
+        vehiclePlate: selectedVehicle?.plate,
+        vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
+        captureMode,
+        sendWhatsApp: whatsAppPhone.replace(/\D/g, ''),
+      });
+      setCaptureSession(session);
+      setWhatsAppSent(true);
+    } catch { /* ignore */ }
+    setSendingWhatsApp(false);
+  }, [whatsAppPhone, selectedVehicle]);
 
   // Unwrap paginated responses
   const customerList = Array.isArray(customers) ? customers : (customers as { data: Customer[] } | undefined)?.data ?? [];
@@ -250,7 +319,7 @@ export default function NewJobWizard() {
       case 'entry': return !!selectedCustomer && !!selectedVehicle;
       case 'inspection': return !!mileage.trim() && !!fuelLevel && !mileageError;
       case 'damage': return true; // damage is optional (vehicle may have none)
-      case 'photos': return photoCount >= 4; // minimum 4 of 6 required
+      case 'photos': return photoPolicy === 'flexible' ? true : photoCount >= 4;
       case 'accessories': return true; // checklist always filled with defaults
       case 'problem': return !!reportedProblem.trim() || selectedSymptoms.length > 0;
       case 'repairs': return true; // optional but encouraged
@@ -343,14 +412,21 @@ export default function NewJobWizard() {
         throw recErr;
       }
 
-      // 3. Apply selected catalog items
+      // 3. Link draft photo capture session to job card (if one was created)
+      if (captureSession) {
+        try {
+          await api.patch(`/photo-capture/sessions/${captureSession.id}/link`, { jobCardId: job.id });
+        } catch { /* non-critical */ }
+      }
+
+      // 4. Apply selected catalog items
       for (const catalogId of selectedCatalogIds) {
         try {
           await api.post(`/catalog/${catalogId}/apply-to-job/${job.id}`, {});
         } catch { /* non-critical */ }
       }
 
-      // 4. Navigate to job detail
+      // 5. Navigate to job detail
       router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job card');
@@ -803,45 +879,162 @@ export default function NewJobWizard() {
           <div className="space-y-6">
             <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
               <h3 className="text-lg font-bold text-gray-900 mb-2">Vehicle Walk-Around Photos</h3>
-              <p className="text-sm text-gray-500 mb-4">Upload at least 4 photos of the vehicle exterior. These document the vehicle condition at check-in and protect the workshop from liability claims.</p>
+              <p className="text-sm text-gray-500 mb-4">
+                Upload at least 4 photos of the vehicle exterior. These document the vehicle condition at check-in and protect the workshop from liability claims.
+              </p>
 
+              {/* Photo grid — shows both local uploads and remote captures */}
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {REQUIRED_PHOTOS.map(({ key, label, desc }) => (
-                  <div key={key} className={`rounded-lg border-2 p-4 text-center transition-all ${
-                    vehiclePhotos[key] ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-primary-400'
-                  }`}>
-                    <div className="text-3xl mb-2">{vehiclePhotos[key] ? '&#9989;' : '&#128247;'}</div>
-                    <p className="text-sm font-semibold text-gray-900">{label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{desc}</p>
-                    <label className="mt-3 inline-block cursor-pointer rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
-                      {vehiclePhotos[key] ? 'Replace' : 'Upload'}
-                      <input type="file" accept="image/*" capture="environment" className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] ?? null;
-                          setVehiclePhotos({ ...vehiclePhotos, [key]: file });
-                        }} />
-                    </label>
-                    {vehiclePhotos[key] && (
-                      <p className="text-xs text-green-600 mt-1 truncate">{vehiclePhotos[key]!.name}</p>
-                    )}
-                  </div>
-                ))}
+                {REQUIRED_PHOTOS.map(({ key, label, desc }) => {
+                  const hasLocal = !!vehiclePhotos[key];
+                  const hasRemote = remotePhotoTypes.has(key);
+                  const hasPhoto = hasLocal || hasRemote;
+                  return (
+                    <div key={key} className={`rounded-lg border-2 p-4 text-center transition-all ${
+                      hasPhoto ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-primary-400'
+                    }`}>
+                      <div className="text-3xl mb-2">{hasPhoto ? '\u2705' : '\ud83d\udcf7'}</div>
+                      <p className="text-sm font-semibold text-gray-900">{label}</p>
+                      <p className="text-xs text-gray-500 mt-1">{desc}</p>
+                      {hasRemote && !hasLocal ? (
+                        <span className="mt-3 inline-block rounded-lg bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700">
+                          Via Phone
+                        </span>
+                      ) : (
+                        <label className="mt-3 inline-block cursor-pointer rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
+                          {hasPhoto ? 'Replace' : 'Upload'}
+                          <input type="file" accept="image/*" capture="environment" className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              setVehiclePhotos({ ...vehiclePhotos, [key]: file });
+                            }} />
+                        </label>
+                      )}
+                      {hasLocal && vehiclePhotos[key] && (
+                        <p className="text-xs text-green-600 mt-1 truncate">{vehiclePhotos[key]!.name}</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
+              {/* Photo count status */}
               <div className="mt-4 flex items-center justify-between">
                 <div className={`text-sm font-semibold ${photoCount >= 4 ? 'text-green-600' : 'text-amber-600'}`}>
                   {photoCount} / 6 photos uploaded
-                  {photoCount < 4 && ' — minimum 4 required'}
+                  {photoCount < 4 && ' \u2014 minimum 4 required'}
                 </div>
-              </div>
-
-              {/* Send link to phone for walk-around */}
-              <div className="mt-4 rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 p-4">
-                <p className="text-sm font-semibold text-primary-900 mb-1">Need to take photos from your phone?</p>
-                <p className="text-xs text-primary-700 mb-3">We can send a photo capture link to your WhatsApp. Open it on your phone, take the walk-around photos, and they sync here automatically.</p>
-                <p className="text-xs text-gray-500 italic">This feature activates after the job card is created — photos can be added from the job detail page.</p>
+                {captureSession && remotePhotos.length > 0 && (
+                  <span className="text-xs text-green-600 font-medium animate-pulse">
+                    {remotePhotos.length} received from phone
+                  </span>
+                )}
               </div>
             </div>
+
+            {/* ── Use your phone ── */}
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-base font-bold text-gray-900 mb-1">Use your phone</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Send a link to your WhatsApp to take new photos or upload existing ones from your phone gallery.
+              </p>
+
+              {!whatsAppSent ? (
+                <>
+                  {/* Phone number input */}
+                  <div className="flex gap-2 mb-4">
+                    <input
+                      value={whatsAppPhone}
+                      onChange={(e) => setWhatsAppPhone(e.target.value)}
+                      placeholder="WhatsApp number (e.g. +244 923 456 789)"
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    />
+                  </div>
+
+                  {/* Two action buttons: Camera and Gallery */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleSendWhatsApp('camera')}
+                      disabled={sendingWhatsApp || !whatsAppPhone.trim()}
+                      className="flex flex-col items-center gap-2 rounded-xl border-2 border-primary-200 bg-primary-50 p-4 hover:border-primary-400 hover:shadow-md transition-all disabled:opacity-40"
+                    >
+                      <span className="text-2xl">📸</span>
+                      <span className="text-sm font-bold text-primary-900">Take Photos</span>
+                      <span className="text-xs text-primary-600">Opens camera on phone</span>
+                    </button>
+                    <button
+                      onClick={() => handleSendWhatsApp('gallery')}
+                      disabled={sendingWhatsApp || !whatsAppPhone.trim()}
+                      className="flex flex-col items-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-50 p-4 hover:border-gray-400 hover:shadow-md transition-all disabled:opacity-40"
+                    >
+                      <span className="text-2xl">🖼</span>
+                      <span className="text-sm font-bold text-gray-900">Upload Existing</span>
+                      <span className="text-xs text-gray-500">Pick from phone gallery</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Waiting for photos */
+                <div className="rounded-lg border-2 border-dashed border-green-300 bg-green-50 p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                      <span className="text-xl">📱</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-green-900">Link sent to {whatsAppPhone}</p>
+                      <p className="text-xs text-green-700">
+                        {captureSession?.capture_mode === 'gallery' ? 'Upload from gallery' : 'Take photos'} on your phone \u2014 they appear here automatically
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Live photo counter */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-green-200 rounded-full h-2.5">
+                      <div
+                        className="bg-green-600 h-2.5 rounded-full transition-all duration-500"
+                        style={{ width: `${(remotePhotos.length / 6) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-green-800">{remotePhotos.length}/6</span>
+                  </div>
+
+                  {remotePhotos.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {remotePhotos.map((p) => (
+                        <span key={p.photo_type} className="inline-flex items-center gap-1 rounded-full bg-green-200 px-2.5 py-1 text-xs font-semibold text-green-800">
+                          ✓ {REQUIRED_PHOTOS.find((r) => r.key === p.photo_type)?.label ?? p.photo_type}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {remotePhotos.length === 0 && (
+                    <p className="mt-3 text-sm text-green-600 animate-pulse">
+                      Waiting for photos...
+                    </p>
+                  )}
+
+                  {/* Option to send a new link */}
+                  <button
+                    onClick={() => { setWhatsAppSent(false); setCaptureSession(null); setRemotePhotos([]); }}
+                    className="mt-3 text-xs text-green-700 hover:text-green-900 underline"
+                  >
+                    Send a new link instead
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Flexible mode warning */}
+            {photoPolicy === 'flexible' && photoCount < 4 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-800">You can proceed without photos</p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Photos can be added after the job card is created. However, the job card cannot be closed until at least 4 photos are uploaded.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

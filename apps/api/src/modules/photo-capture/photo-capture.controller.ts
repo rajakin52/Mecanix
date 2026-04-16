@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PhotoCaptureService } from './photo-capture.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
@@ -18,6 +18,24 @@ export class PhotoCaptureController {
     @Body() body: Record<string, unknown>,
   ) {
     return this.photoCaptureService.createSession(tenantId, user.id, body as never);
+  }
+
+  @Patch('sessions/:sessionId/link')
+  @UseGuards(TenantGuard)
+  async linkToJob(
+    @TenantId() tenantId: string,
+    @Param('sessionId') sessionId: string,
+    @Body() body: { jobCardId: string },
+  ) {
+    return this.photoCaptureService.linkToJob(tenantId, sessionId, body.jobCardId);
+  }
+
+  @Get('sessions/:sessionId/photos')
+  @UseGuards(TenantGuard)
+  async getSessionPhotos(
+    @Param('sessionId') sessionId: string,
+  ) {
+    return this.photoCaptureService.getSessionPhotos(sessionId);
   }
 
   @Get('job/:jobCardId')

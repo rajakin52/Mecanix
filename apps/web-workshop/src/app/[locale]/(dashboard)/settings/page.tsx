@@ -62,6 +62,11 @@ export default function SettingsPage() {
   const [savingCostMethod, setSavingCostMethod] = useState(false);
   const [costMethodMessage, setCostMethodMessage] = useState('');
 
+  // Photo policy state
+  const [photoPolicy, setPhotoPolicy] = useState<string>('strict');
+  const [savingPhotoPolicy, setSavingPhotoPolicy] = useState(false);
+  const [photoPolicyMessage, setPhotoPolicyMessage] = useState('');
+
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
       .then((data) => {
@@ -88,6 +93,13 @@ export default function SettingsPage() {
     api.get<{ key: string; value: string | null }>('/tenants/me/settings/default_cost_method')
       .then((data) => {
         if (data.value) setCostMethod(data.value);
+      })
+      .catch(() => {});
+
+    // Fetch photo policy setting
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/job_card_photo_policy')
+      .then((data) => {
+        if (data.value) setPhotoPolicy(data.value);
       })
       .catch(() => {});
   }, []);
@@ -128,6 +140,19 @@ export default function SettingsPage() {
       setCostMethodMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSavingCostMethod(false);
+    }
+  };
+
+  const handleSavePhotoPolicy = async () => {
+    setSavingPhotoPolicy(true);
+    setPhotoPolicyMessage('');
+    try {
+      await api.put('/tenants/me/settings/job_card_photo_policy', { value: photoPolicy });
+      setPhotoPolicyMessage('Photo policy saved');
+    } catch (err) {
+      setPhotoPolicyMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingPhotoPolicy(false);
     }
   };
 
@@ -229,6 +254,77 @@ export default function SettingsPage() {
           </div>
           <span className="text-gray-400 text-xl">→</span>
         </Link>
+
+        {/* Job Card Photos Policy */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Job Card Photos</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Control when walk-around photos are required during job card creation.
+          </p>
+
+          <div className="space-y-3">
+            <label
+              className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                photoPolicy === 'strict'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="photoPolicy"
+                value="strict"
+                checked={photoPolicy === 'strict'}
+                onChange={() => setPhotoPolicy('strict')}
+                className="mt-0.5 text-primary-600"
+              />
+              <div>
+                <p className="font-semibold text-gray-900">Strict &mdash; Require photos before creation</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  The wizard pauses at the Photos step. The advisor can upload directly or send a WhatsApp link to capture photos from a phone. The wizard only continues after at least 4 photos are received.
+                </p>
+              </div>
+            </label>
+
+            <label
+              className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                photoPolicy === 'flexible'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="photoPolicy"
+                value="flexible"
+                checked={photoPolicy === 'flexible'}
+                onChange={() => setPhotoPolicy('flexible')}
+                className="mt-0.5 text-primary-600"
+              />
+              <div>
+                <p className="font-semibold text-gray-900">Flexible &mdash; Allow photos after creation</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  The wizard allows skipping photos with a warning. Photos can be added from the job detail page. The job card cannot be closed until at least 4 photos are uploaded.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleSavePhotoPolicy}
+              disabled={savingPhotoPolicy}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {savingPhotoPolicy ? t('loading') : t('save')}
+            </button>
+            {photoPolicyMessage && (
+              <p className={`text-sm ${photoPolicyMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                {photoPolicyMessage}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Workshop Info */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">

@@ -6,13 +6,15 @@ export class PhotoCaptureService {
   constructor(private readonly supabase: SupabaseService) {}
 
   /**
-   * Create a photo capture session — returns a public link the advisor can open on their phone
+   * Create a photo capture session — can be a draft (no jobCardId) for the wizard flow,
+   * or linked to an existing job card.
    */
   async createSession(tenantId: string, userId: string, input: {
-    jobCardId: string;
+    jobCardId?: string;
     vehiclePlate?: string;
     vehicleInfo?: string;
     requiredPhotos?: string[];
+    captureMode?: 'camera' | 'gallery';
     sendWhatsApp?: string; // phone number to send link via WhatsApp
   }) {
     // Generate short token
@@ -23,11 +25,12 @@ export class PhotoCaptureService {
       .from('photo_capture_sessions')
       .insert({
         tenant_id: tenantId,
-        job_card_id: input.jobCardId,
+        job_card_id: input.jobCardId ?? null,
         token,
         vehicle_plate: input.vehiclePlate ?? null,
         vehicle_info: input.vehicleInfo ?? null,
         required_photos: input.requiredPhotos ?? ['front', 'rear', 'left', 'right', 'dashboard', 'interior'],
+        capture_mode: input.captureMode ?? 'camera',
         expires_at: expiresAt,
         created_by: userId,
       })
@@ -44,7 +47,10 @@ export class PhotoCaptureService {
         const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
         const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
         if (whatsappPhoneId && whatsappToken) {
-          const message = `MECANIX - Fotografias do veículo\n\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nAbra o link abaixo no seu telemóvel para tirar as fotografias do veículo:\n\n${captureUrl}\n\n⏰ Este link expira em 2 horas.`;
+          const modeText = input.captureMode === 'gallery'
+            ? 'seleccionar as fotografias da galeria'
+            : 'tirar as fotografias do veículo';
+          const message = `MECANIX - Fotografias do veículo\n\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nAbra o link abaixo no seu telemóvel para ${modeText}:\n\n${captureUrl}\n\n⏰ Este link expira em 2 horas.`;
 
           await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
             method: 'POST',
@@ -133,6 +139,35 @@ export class PhotoCaptureService {
     }
 
     return { photo: data, allCaptured, captured: capturedTypes.size, required: requiredTypes.length };
+  }
+
+  /**
+   * Link a draft session to a job card (called after job card creation)
+   */
+  async linkToJob(tenantId: string, sessionId: string, jobCardId: string) {
+    const { data, error } = await this.supabase.getClient()
+      .from('photo_capture_sessions')
+      .update({ job_card_id: jobCardId })
+      .eq('id', sessionId)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+
+    if (error || !data) throw new NotFoundException('Session not found');
+    return data;
+  }
+
+  /**
+   * Get photos for a session by session ID (for wizard polling)
+   */
+  async getSessionPhotos(sessionId: string) {
+    const { data: photos } = await this.supabase.getClient()
+      .from('photo_capture_items')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('captured_at');
+
+    return photos ?? [];
   }
 
   /**
