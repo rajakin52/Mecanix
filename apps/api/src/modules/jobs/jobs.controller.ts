@@ -131,6 +131,21 @@ export class JobsController {
     return this.jobsService.softDelete(tenantId, id, user.id);
   }
 
+  /** Public job status page (no auth, token-based) */
+  @Get('public/status/:token')
+  async publicStatus(@Param('token') token: string) {
+    return this.jobsService.getByPublicToken(token);
+  }
+
+  /** Generate public status token for a job */
+  @Post(':id/share')
+  async generateShareLink(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.jobsService.generatePublicToken(tenantId, id);
+  }
+
   /**
    * Get the last completed job for a vehicle — for "Repeat Last Service".
    */

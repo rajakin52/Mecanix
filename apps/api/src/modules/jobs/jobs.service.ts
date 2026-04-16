@@ -201,6 +201,11 @@ export class JobsService {
         comeback_reason: input.comebackReason || null,
         parent_job_id: input.parentJobId || null,
         sub_job_label: input.subJobLabel || null,
+        is_warranty: input.isWarranty ?? false,
+        warranty_type: input.warrantyType || null,
+        warranty_claim_ref: input.warrantyClaimRef || null,
+        warranty_supplier: input.warrantySupplier || null,
+        priority_level: input.priorityLevel ?? 'normal',
         labour_total: 0,
         parts_total: 0,
         tax_amount: 0,
@@ -343,6 +348,11 @@ export class JobsService {
       comebackReason: 'comeback_reason',
       parentJobId: 'parent_job_id',
       subJobLabel: 'sub_job_label',
+      isWarranty: 'is_warranty',
+      warrantyType: 'warranty_type',
+      warrantyClaimRef: 'warranty_claim_ref',
+      warrantySupplier: 'warranty_supplier',
+      priorityLevel: 'priority_level',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {
@@ -511,5 +521,32 @@ export class JobsService {
 
     if (error) throw error;
     return { deleted: true };
+  }
+
+  async generatePublicToken(tenantId: string, jobId: string) {
+    const token = Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join('');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+
+    const { error } = await this.supabase.getClient()
+      .from('job_cards')
+      .update({ public_token: token, public_token_expires_at: expiresAt })
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId);
+
+    if (error) throw error;
+    return { token, url: `/jobs/public/status/${token}`, expiresAt };
+  }
+
+  async getByPublicToken(token: string) {
+    const { data, error } = await this.supabase.getClient()
+      .from('job_cards')
+      .select('job_number, status, reported_problem, created_at, vehicle:vehicles(plate, make, model), customer:customers(full_name)')
+      .eq('public_token', token)
+      .gt('public_token_expires_at', new Date().toISOString())
+      .is('deleted_at', null)
+      .single();
+
+    if (error || !data) throw new NotFoundException('Job not found or link expired');
+    return data;
   }
 }

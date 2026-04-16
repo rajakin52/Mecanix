@@ -44,6 +44,9 @@ import { SymptomsModule } from './modules/symptoms/symptoms.module';
 import { ReceptionsModule } from './modules/receptions/receptions.module';
 import { JobMessagesModule } from './modules/job-messages/job-messages.module';
 import { BookingModule } from './modules/booking/booking.module';
+import { FleetsModule } from './modules/fleets/fleets.module';
+import { CustomerTagsModule } from './modules/customer-tags/customer-tags.module';
+import { SurveysModule } from './modules/surveys/surveys.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -93,6 +96,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     ReceptionsModule,
     JobMessagesModule,
     BookingModule,
+    FleetsModule,
+    CustomerTagsModule,
+    SurveysModule,
   ],
   providers: [
     {
