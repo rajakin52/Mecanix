@@ -146,10 +146,12 @@ export default function JobsPage() {
                   <SortableHeader label={t('jobNumber')} field="job_number" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('vehicles')}</th>
                   <SortableHeader label={tc('customers')} field="customer_name" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('phone') ?? 'Phone'}</th>
                   <SortableHeader label={t('status')} field="status" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
                   <SortableHeader label={t('total')} field="grand_total" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
                   <SortableHeader label={t('dateOpened')} field="date_opened" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Est. Completion</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -175,11 +177,19 @@ export default function JobsPage() {
                           {job.job_number}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {job.vehicles?.plate ?? '-'}
+                      <td className="px-4 py-3 text-sm">
+                        {job.vehicles ? (
+                          <div>
+                            <span className="font-mono font-semibold text-gray-900">{job.vehicles.plate}</span>
+                            <span className="ms-1.5 text-xs text-gray-400">{job.vehicles.make} {job.vehicles.model}</span>
+                          </div>
+                        ) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                         {job.customers?.full_name ?? '-'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {job.customers?.phone ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <StatusBadge status={job.status} />
@@ -193,11 +203,16 @@ export default function JobsPage() {
                       <td className="px-4 py-3 text-sm text-gray-600">
                         {new Date(job.date_opened).toLocaleDateString()}
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {job.estimated_completion
+                          ? new Date(job.estimated_completion).toLocaleDateString()
+                          : '-'}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={9}>
                       <EmptyState icon="jobs" title="No jobs found" description="Create a new job card to get started" />
                     </td>
                   </tr>

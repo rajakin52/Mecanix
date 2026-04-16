@@ -23,9 +23,9 @@ interface JobCard {
   date_closed: string | null;
   primary_technician_id: string | null;
   created_at: string;
-  vehicles?: { plate: string; make: string; model: string };
-  customers?: { full_name: string; phone: string };
-  technicians?: { full_name: string } | null;
+  vehicles?: { id: string; plate: string; make: string; model: string } | null;
+  customers?: { id: string; full_name: string; phone: string } | null;
+  technicians?: { id: string; full_name: string } | null;
 }
 
 interface JobsResponse {
