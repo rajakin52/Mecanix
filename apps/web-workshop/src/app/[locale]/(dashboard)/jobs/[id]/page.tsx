@@ -3,7 +3,9 @@
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@/i18n/navigation';
+import { api } from '@/lib/api';
 import {
   useJob,
   useUpdateJobStatus,
@@ -400,12 +402,16 @@ function InspectionSection({ jobCardId, vehicleId, inspection, isLoadingInspecti
             </div>
           </div>
         ) : null}
-        {insp.notes ? (
-          <div className="mt-4 text-sm">
-            <span className="font-medium text-gray-500">{tc('notes')}:</span>
-            <p className="mt-1 text-gray-900">{String(insp.notes)}</p>
-          </div>
-        ) : null}
+        {insp.notes ? (() => {
+          // Strip "Photos: file:///..." lines from notes — those are local mobile paths
+          const cleanNotes = String(insp.notes).split('\n').filter((line) => !line.startsWith('Photos: file:///')).join('\n').trim();
+          return cleanNotes ? (
+            <div className="mt-4 text-sm">
+              <span className="font-medium text-gray-500">{tc('notes')}:</span>
+              <p className="mt-1 text-gray-900">{cleanNotes}</p>
+            </div>
+          ) : null;
+        })() : null}
       </div>
     );
   }
@@ -821,6 +827,16 @@ export default function JobDetailPage() {
   const { data: inspectionData, isLoading: inspectionLoading } = useInspection(id);
   const hasInspection = !!inspectionData && !inspectionLoading;
 
+  // Photo capture sessions — fetch photos uploaded via WhatsApp/phone
+  const { data: captureSessionsData } = useQuery({
+    queryKey: ['photo-capture-sessions', id],
+    queryFn: () => api.get<Array<{ id: string; photos: Array<{ photo_type: string; storage_url: string }> }>>(`/photo-capture/job/${id}`),
+    enabled: !!id,
+  });
+  const capturePhotos = (Array.isArray(captureSessionsData) ? captureSessionsData : [])
+    .flatMap((s) => (s.photos ?? []))
+    .filter((p) => p.storage_url?.startsWith('http'));
+
   // Labour lines
   // Catalog / Service picker
   const { data: quickAccessItems } = useCatalogItems(undefined, undefined, true);
@@ -1200,28 +1216,36 @@ export default function JobDetailPage() {
         isLoadingInspection={inspectionLoading}
       />
 
-      {/* Walk-Around Photos */}
-      {jobPhotos.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({jobPhotos.filter((u) => u.startsWith('http') && !u.includes('/signature_')).length})</h3>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {jobPhotos.filter((url) => url.startsWith('http') && !url.includes('/signature_')).map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50 hover:border-primary-400 transition-colors">
-                <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              </a>
-            ))}
+      {/* Walk-Around Photos — merged from job_cards.photos + photo_capture_items */}
+      {(() => {
+        const fromJobCard = jobPhotos.filter((u) => u.startsWith('http') && !u.includes('/signature_'));
+        const fromCapture = capturePhotos.filter((p) => p.photo_type !== 'signature').map((p) => p.storage_url);
+        // Deduplicate
+        const allPhotoUrls = [...new Set([...fromJobCard, ...fromCapture])];
+        if (allPhotoUrls.length === 0) return null;
+        return (
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({allPhotoUrls.length})</h3>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+              {allPhotoUrls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50 hover:border-primary-400 transition-colors">
+                  <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </a>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Customer Signature */}
       {(() => {
-        // Check for signature in: job photos (uploaded sig), inspection data, or reception data
+        // Check for signature in: capture sessions, job photos, inspection data
+        const sigFromCapture = capturePhotos.find((p) => p.photo_type === 'signature')?.storage_url;
         const sigFromPhotos = jobPhotos.find((url) => url.startsWith('http') && url.includes('/signature_'));
         const sigFromInspection = (inspectionData as Record<string, unknown> | null)?.customer_signature as string | null;
-        const sigUrl = sigFromPhotos ?? (sigFromInspection?.startsWith('http') ? sigFromInspection : null);
+        const sigUrl = sigFromCapture ?? sigFromPhotos ?? (sigFromInspection?.startsWith('http') ? sigFromInspection : null);
         const sigBase64 = !sigUrl && sigFromInspection?.startsWith('data:') ? sigFromInspection : null;
         if (!sigUrl && !sigBase64) return null;
         return (
