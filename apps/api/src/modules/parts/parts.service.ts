@@ -242,4 +242,44 @@ export class PartsService {
 
     return data;
   }
+
+  /**
+   * Lookup a part by barcode (EAN/UPC) or SKU — used by mobile barcode scanner
+   */
+  async findByBarcode(tenantId: string, code: string) {
+    const client = this.supabase.getClient();
+
+    // Try barcode first
+    const { data: byBarcode } = await client
+      .from('parts')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('barcode', code)
+      .limit(1)
+      .maybeSingle();
+
+    if (byBarcode) return byBarcode;
+
+    // Try SKU
+    const { data: bySku } = await client
+      .from('parts')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('sku', code)
+      .limit(1)
+      .maybeSingle();
+
+    if (bySku) return bySku;
+
+    // Try part_number as fallback
+    const { data: byPartNumber } = await client
+      .from('parts')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('part_number', code)
+      .limit(1)
+      .maybeSingle();
+
+    return byPartNumber;
+  }
 }

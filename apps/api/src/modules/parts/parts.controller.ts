@@ -44,6 +44,16 @@ export class PartsController {
     });
   }
 
+  @Get('scan/:code')
+  async scanBarcode(
+    @TenantId() tenantId: string,
+    @Param('code') code: string,
+  ) {
+    const part = await this.partsService.findByBarcode(tenantId, code);
+    if (!part) return { found: false, part: null };
+    return { found: true, part };
+  }
+
   @Get('low-stock')
   async getLowStock(@TenantId() tenantId: string) {
     return this.partsService.getLowStock(tenantId);

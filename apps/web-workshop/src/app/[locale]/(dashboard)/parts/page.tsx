@@ -21,6 +21,10 @@ export default function PartsPage() {
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [showTecDoc, setShowTecDoc] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanResult, setScanResult] = useState<Record<string, unknown> | null>(null);
+  const [scanInput, setScanInput] = useState('');
+  const [scanning, setScanning] = useState(false);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
 
@@ -121,6 +125,12 @@ export default function PartsPage() {
           )}
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            &#128247; Scan Barcode
+          </button>
           <button
             onClick={() => { setShowTecDoc(true); setTdSearchTriggered(false); setTdMake(''); setTdModel(''); }}
             className="rounded-md border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
@@ -442,6 +452,80 @@ export default function PartsPage() {
                 {tc('cancel')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Scan / Enter Barcode</h2>
+              <button onClick={() => { setShowScanner(false); setScanResult(null); setScanInput(''); }} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-4">Scan a barcode with your device camera, or type/paste the barcode number below.</p>
+
+            <div className="flex gap-2 mb-4">
+              <input
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && scanInput.trim()) {
+                    setScanning(true);
+                    try {
+                      const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/parts/scan/${encodeURIComponent(scanInput.trim())}`, {
+                        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` },
+                      }).then(r => r.json());
+                      setScanResult(result.data ?? result);
+                    } catch { setScanResult({ found: false }); }
+                    setScanning(false);
+                  }
+                }}
+                placeholder="Enter barcode, EAN, SKU, or part number..."
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-lg font-mono focus:border-primary-500 focus:outline-none"
+                autoFocus
+              />
+              <button
+                onClick={async () => {
+                  if (!scanInput.trim()) return;
+                  setScanning(true);
+                  try {
+                    const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/parts/scan/${encodeURIComponent(scanInput.trim())}`, {
+                      headers: { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` },
+                    }).then(r => r.json());
+                    setScanResult(result.data ?? result);
+                  } catch { setScanResult({ found: false }); }
+                  setScanning(false);
+                }}
+                disabled={scanning || !scanInput.trim()}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-40"
+              >
+                {scanning ? '...' : 'Search'}
+              </button>
+            </div>
+
+            {scanResult && (
+              <div className={`rounded-lg border p-4 ${scanResult.found ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                {scanResult.found && scanResult.part ? (
+                  <div>
+                    <p className="font-bold text-green-900">{(scanResult.part as Record<string, unknown>).description as string}</p>
+                    <p className="text-sm text-green-700 mt-1">
+                      Part #: {(scanResult.part as Record<string, unknown>).part_number as string}
+                      {(scanResult.part as Record<string, unknown>).barcode && <span className="ms-3">Barcode: {(scanResult.part as Record<string, unknown>).barcode as string}</span>}
+                    </p>
+                    <p className="text-sm text-green-700">
+                      Stock: {String((scanResult.part as Record<string, unknown>).stock_qty)} |
+                      Cost: {Number((scanResult.part as Record<string, unknown>).unit_cost).toFixed(2)} |
+                      Sell: {Number((scanResult.part as Record<string, unknown>).sell_price).toFixed(2)}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-red-700 font-medium">No part found for &ldquo;{scanInput}&rdquo;</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
