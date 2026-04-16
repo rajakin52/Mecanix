@@ -23,6 +23,8 @@ interface JobCard {
   date_closed: string | null;
   primary_technician_id: string | null;
   created_at: string;
+  vehicle?: { id: string; plate: string; make: string; model: string } | null;
+  customer?: { id: string; full_name: string; phone: string } | null;
   vehicles?: { id: string; plate: string; make: string; model: string } | null;
   customers?: { id: string; full_name: string; phone: string } | null;
   technicians?: { id: string; full_name: string } | null;

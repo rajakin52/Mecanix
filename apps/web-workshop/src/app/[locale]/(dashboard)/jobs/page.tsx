@@ -164,7 +164,8 @@ export default function JobsPage() {
                     (item, field) => {
                       const job = item as Record<string, unknown>;
                       if (field === 'customer_name') {
-                        return (job.customers as { full_name: string } | undefined)?.full_name;
+                        const c = (job.customer ?? job.customers) as { full_name: string } | undefined;
+                        return c?.full_name;
                       }
                       return job[field];
                     },
@@ -178,30 +179,29 @@ export default function JobsPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {job.vehicles ? (
-                          <div>
-                            <span className="font-mono font-semibold text-gray-900">{job.vehicles.plate}</span>
-                            <span className="ms-1.5 text-xs text-gray-400">{job.vehicles.make} {job.vehicles.model}</span>
-                          </div>
-                        ) : '-'}
+                        {(() => {
+                          const v = job.vehicle ?? job.vehicles;
+                          return v ? (
+                            <div>
+                              <span className="font-mono font-semibold text-gray-900">{v.plate}</span>
+                              <span className="ms-1.5 text-xs text-gray-400">{v.make} {v.model}</span>
+                            </div>
+                          ) : '-';
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {job.customers ? (
-                          <div>
-                            <div className="font-medium text-gray-900">{job.customers.full_name}</div>
-                            <div className="text-xs text-gray-400">{job.customers.phone}</div>
-                          </div>
-                        ) : '-'}
+                        {(() => {
+                          const c = job.customer ?? job.customers;
+                          return c ? (
+                            <div>
+                              <div className="font-medium text-gray-900">{c.full_name}</div>
+                              <div className="text-xs text-gray-400">{c.phone}</div>
+                            </div>
+                          ) : '-';
+                        })()}
                       </td>
-                      <td className="px-4 py-3 text-sm">
-                        {job.vehicle_receptions?.[0]?.signed_by_name ? (
-                          <div>
-                            <div className="text-gray-900">{job.vehicle_receptions[0].signed_by_name}</div>
-                            {job.vehicle_receptions[0].contact_phone && (
-                              <div className="text-xs text-gray-400">{job.vehicle_receptions[0].contact_phone}</div>
-                            )}
-                          </div>
-                        ) : '-'}
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        -
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <StatusBadge status={job.status} />

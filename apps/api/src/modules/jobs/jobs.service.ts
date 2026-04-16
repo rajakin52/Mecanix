@@ -45,7 +45,7 @@ export class JobsService {
     let query = client
       .from('job_cards')
       .select(
-        '*, vehicles(id, plate, make, model), customers(id, full_name, phone)',
+        '*, vehicle:vehicles(id, plate, make, model), customer:customers(id, full_name, phone)',
         { count: 'exact' },
       )
       .eq('tenant_id', tenantId)
