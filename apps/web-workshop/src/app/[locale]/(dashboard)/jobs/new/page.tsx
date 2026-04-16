@@ -151,6 +151,12 @@ export default function NewJobWizard() {
   const [signatureName, setSignatureName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
 
+  // WhatsApp signature capture
+  const [signatureSession, setSignatureSession] = useState<{ id: string; token: string; signUrl: string } | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [sendingSignature, setSendingSignature] = useState(false);
+  const [signatureSent, setSignatureSent] = useState(false);
+
   // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -246,6 +252,40 @@ export default function NewJobWizard() {
     } catch { /* ignore */ }
     setSendingWhatsApp(false);
   }, [whatsAppPhone, selectedVehicle]);
+
+  // Send WhatsApp signature link
+  const handleSendSignatureLink = useCallback(async () => {
+    if (!contactPhone.trim()) return;
+    setSendingSignature(true);
+    try {
+      const session = await api.post<{ id: string; token: string; signUrl: string }>('/photo-capture/signature-sessions', {
+        vehiclePlate: selectedVehicle?.plate,
+        vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
+        customerName: signatureName.trim() || selectedCustomer?.full_name,
+        sendWhatsApp: contactPhone.replace(/\D/g, ''),
+      });
+      setSignatureSession(session);
+      setSignatureSent(true);
+    } catch { /* ignore */ }
+    setSendingSignature(false);
+  }, [contactPhone, selectedVehicle, signatureName, selectedCustomer]);
+
+  // Poll for signature completion
+  useEffect(() => {
+    if (!signatureSession || signatureUrl) return;
+    const interval = setInterval(async () => {
+      try {
+        const photos = await api.get<Array<{ photo_type: string; storage_url: string }>>(`/photo-capture/sessions/${signatureSession.id}/photos`);
+        const list = Array.isArray(photos) ? photos : [];
+        const sig = list.find((p) => p.photo_type === 'signature');
+        if (sig) {
+          setSignatureUrl(sig.storage_url);
+          clearInterval(interval);
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [signatureSession, signatureUrl]);
 
   // Unwrap paginated responses
   const customerList = Array.isArray(customers) ? customers : (customers as { data: Customer[] } | undefined)?.data ?? [];
@@ -393,8 +433,8 @@ export default function NewJobWizard() {
           symptomCodes: selectedSymptoms.map((s) => s.code),
           damagePoints: damagePoints.length > 0 ? damagePoints : undefined,
           checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
-          signatureData: signatureName.trim() ? `signed:${signatureName.trim()}` : undefined,
-          signatureMethod: signatureName.trim() ? 'digital' : undefined,
+          signatureData: signatureUrl ?? (signatureName.trim() ? `signed:${signatureName.trim()}` : undefined),
+          signatureMethod: signatureUrl ? 'whatsapp' : (signatureName.trim() ? 'digital' : undefined),
           signedByName: signatureName.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
         });
@@ -415,10 +455,15 @@ export default function NewJobWizard() {
         throw recErr;
       }
 
-      // 3. Link draft photo capture session to job card (if one was created)
+      // 3. Link draft sessions to job card (photos + signature)
       if (captureSession) {
         try {
           await api.patch(`/photo-capture/sessions/${captureSession.id}/link`, { jobCardId: job.id });
+        } catch { /* non-critical */ }
+      }
+      if (signatureSession) {
+        try {
+          await api.patch(`/photo-capture/sessions/${signatureSession.id}/link`, { jobCardId: job.id });
         } catch { /* non-critical */ }
       }
 
@@ -1411,6 +1456,56 @@ export default function NewJobWizard() {
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
                   <p className="mt-1 text-xs text-gray-400">Who to call when the vehicle is ready</p>
                 </div>
+              </div>
+
+              {/* Customer Signature via WhatsApp */}
+              <div className="mt-5 pt-5 border-t border-gray-100">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Customer Signature</label>
+
+                {signatureUrl ? (
+                  /* Signature received */
+                  <div className="flex items-center gap-4 rounded-lg border border-green-200 bg-green-50 p-4">
+                    <img src={signatureUrl} alt="Customer signature" className="h-16 w-auto rounded border border-green-300 bg-white" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-900">Signature received</p>
+                      <p className="text-xs text-green-600">{signatureName || 'Customer'} signed via phone</p>
+                    </div>
+                  </div>
+                ) : signatureSent ? (
+                  /* Waiting for signature */
+                  <div className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 animate-pulse">
+                        <span className="text-xl">&#x270D;&#xFE0F;</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-amber-900">Waiting for signature...</p>
+                        <p className="text-xs text-amber-700">Link sent to {contactPhone} &mdash; the customer signs on their phone</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setSignatureSent(false); setSignatureSession(null); }}
+                      className="mt-2 text-xs text-amber-700 hover:text-amber-900 underline"
+                    >
+                      Resend link
+                    </button>
+                  </div>
+                ) : (
+                  /* Send signature link */
+                  <button
+                    onClick={handleSendSignatureLink}
+                    disabled={sendingSignature || !contactPhone.trim()}
+                    className="flex items-center gap-3 rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 px-4 py-3 hover:border-primary-400 hover:shadow-sm transition-all disabled:opacity-40 w-full"
+                  >
+                    <span className="text-xl">&#x270D;&#xFE0F;</span>
+                    <div className="text-start">
+                      <p className="text-sm font-semibold text-primary-900">
+                        {sendingSignature ? 'Sending...' : 'Send Signature Link via WhatsApp'}
+                      </p>
+                      <p className="text-xs text-primary-600">Customer signs on their phone &mdash; syncs here automatically</p>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 

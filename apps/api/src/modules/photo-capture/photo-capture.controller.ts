@@ -47,6 +47,17 @@ export class PhotoCaptureController {
     return this.photoCaptureService.listByJob(tenantId, jobCardId);
   }
 
+  /** Create a signature session and send WhatsApp link */
+  @Post('signature-sessions')
+  @UseGuards(TenantGuard)
+  async createSignatureSession(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.photoCaptureService.createSignatureSession(tenantId, user.id, body as never);
+  }
+
   /** Direct photo upload (mobile app) — uploads to Supabase Storage and returns public URL */
   @Post('upload')
   @UseGuards(TenantGuard)
@@ -70,5 +81,13 @@ export class PhotoCaptureController {
     @Body() body: { photoType: string; storageUrl?: string; base64Data?: string; fileName?: string; fileSize?: number },
   ) {
     return this.photoCaptureService.uploadPhoto(token, body);
+  }
+
+  @Post('session/:token/sign')
+  async uploadSignature(
+    @Param('token') token: string,
+    @Body() body: { base64Data: string },
+  ) {
+    return this.photoCaptureService.uploadSignature(token, body.base64Data);
   }
 }

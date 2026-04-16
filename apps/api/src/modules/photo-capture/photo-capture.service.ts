@@ -231,6 +231,113 @@ export class PhotoCaptureService {
   }
 
   /**
+   * Create a signature session — sends a WhatsApp link for the customer to sign on their phone
+   */
+  async createSignatureSession(tenantId: string, userId: string, input: {
+    jobCardId?: string;
+    customerName?: string;
+    vehiclePlate?: string;
+    vehicleInfo?: string;
+    sendWhatsApp: string;
+  }) {
+    const token = Array.from({ length: 8 }, () => Math.random().toString(36).charAt(2)).join('').toUpperCase();
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await this.supabase.getClient()
+      .from('photo_capture_sessions')
+      .insert({
+        tenant_id: tenantId,
+        job_card_id: input.jobCardId ?? null,
+        token,
+        vehicle_plate: input.vehiclePlate ?? null,
+        vehicle_info: input.vehicleInfo ?? null,
+        required_photos: ['signature'],
+        capture_mode: 'camera',
+        expires_at: expiresAt,
+        created_by: userId,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const baseUrl = process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app';
+    const signUrl = `${baseUrl}/sign/${token}`;
+
+    // Send via WhatsApp
+    try {
+      const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
+      const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
+      if (whatsappPhoneId && whatsappToken) {
+        const name = input.customerName ? `\n👤 ${input.customerName}` : '';
+        const message = `MECANIX - Assinatura de Recepção\n${name}\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nPor favor assine a recepção do veículo no link abaixo:\n\n${signUrl}\n\n⏰ Este link expira em 2 horas.`;
+
+        await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${whatsappToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: input.sendWhatsApp.replace(/\D/g, ''),
+            type: 'text',
+            text: { body: message },
+          }),
+        });
+      }
+    } catch { /* best effort */ }
+
+    return { ...data, signUrl, token };
+  }
+
+  /**
+   * Upload a signature image for a session (public — token validates)
+   */
+  async uploadSignature(token: string, base64Data: string) {
+    const session = await this.getByToken(token);
+
+    // Upload signature PNG to Supabase Storage
+    const base64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64, 'base64');
+    const path = `${session.tenant_id}/${session.id}/signature_${Date.now()}.png`;
+
+    const { error: uploadError } = await this.supabase.getClient()
+      .storage.from('vehicle-photos')
+      .upload(path, buffer, {
+        contentType: 'image/png',
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = this.supabase.getClient()
+      .storage.from('vehicle-photos')
+      .getPublicUrl(path);
+
+    const storageUrl = urlData.publicUrl;
+
+    // Save as a capture item with type 'signature'
+    await this.supabase.getClient()
+      .from('photo_capture_items')
+      .insert({
+        session_id: session.id,
+        tenant_id: session.tenant_id,
+        photo_type: 'signature',
+        storage_url: storageUrl,
+        file_size: buffer.length,
+      });
+
+    // Mark session completed
+    await this.supabase.getClient()
+      .from('photo_capture_sessions')
+      .update({ status: 'completed' })
+      .eq('id', session.id);
+
+    return { storageUrl, completed: true };
+  }
+
+  /**
    * Link a draft session to a job card (called after job card creation)
    */
   async linkToJob(tenantId: string, sessionId: string, jobCardId: string) {
