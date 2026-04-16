@@ -45,7 +45,7 @@ export class JobsService {
     let query = client
       .from('job_cards')
       .select(
-        '*, vehicles!vehicle_id(id, plate, make, model), customers!customer_id(id, full_name, phone), technicians:technicians!primary_technician_id(id, full_name), vehicle_receptions!job_card_id(signed_by_name, contact_phone)',
+        '*, vehicles(id, plate, make, model), customers(id, full_name, phone)',
         { count: 'exact' },
       )
       .eq('tenant_id', tenantId)
@@ -94,7 +94,7 @@ export class JobsService {
     const { data, error } = await client
       .from('job_cards')
       .select(
-        '*, vehicle:vehicles!vehicle_id(*), customer:customers!customer_id(*), primary_technician:technicians!primary_technician_id(*), vehicle_receptions!job_card_id(signed_by_name, contact_phone, signature_data)',
+        '*, vehicle:vehicles(*), customer:customers(*), primary_technician:technicians(*)',
       )
       .eq('id', id)
       .eq('tenant_id', tenantId)
