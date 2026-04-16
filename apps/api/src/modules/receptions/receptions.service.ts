@@ -29,6 +29,7 @@ interface CreateReceptionInput {
   signatureData?: string;
   signatureMethod?: string;
   signedByName?: string;
+  contactPhone?: string;
 }
 
 @Injectable()
@@ -81,6 +82,7 @@ export class ReceptionsService {
         signature_method: input.signatureData ? (input.signatureMethod ?? 'digital') : null,
         signed_at: input.signatureData ? new Date().toISOString() : null,
         signed_by_name: input.signedByName ?? null,
+        contact_phone: input.contactPhone ?? null,
         received_by: userId,
         completed: !!input.signatureData,
       })

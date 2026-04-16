@@ -193,8 +193,15 @@ export default function JobsPage() {
                           </div>
                         ) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {job.vehicle_receptions?.[0]?.signed_by_name ?? '-'}
+                      <td className="px-4 py-3 text-sm">
+                        {job.vehicle_receptions?.[0]?.signed_by_name ? (
+                          <div>
+                            <div className="text-gray-900">{job.vehicle_receptions[0].signed_by_name}</div>
+                            {job.vehicle_receptions[0].contact_phone && (
+                              <div className="text-xs text-gray-400">{job.vehicle_receptions[0].contact_phone}</div>
+                            )}
+                          </div>
+                        ) : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <StatusBadge status={job.status} />

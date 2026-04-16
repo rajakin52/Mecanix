@@ -147,8 +147,9 @@ export default function NewJobWizard() {
   const remotePhotoTypes = new Set(remotePhotos.map((p) => p.photo_type));
   const photoCount = localPhotoCount + [...remotePhotoTypes].filter((t) => !vehiclePhotos[t]).length;
 
-  // Signature
+  // Drop-off person (who brought the car — may differ from customer for corporate)
   const [signatureName, setSignatureName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
 
   // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
@@ -208,12 +209,13 @@ export default function NewJobWizard() {
       .catch(() => {});
   }, []);
 
-  // Pre-fill WhatsApp phone from selected customer
+  // Pre-fill WhatsApp phone and contact phone from selected customer
   useEffect(() => {
-    if (selectedCustomer?.phone && !whatsAppPhone) {
-      setWhatsAppPhone(selectedCustomer.phone);
+    if (selectedCustomer?.phone) {
+      if (!whatsAppPhone) setWhatsAppPhone(selectedCustomer.phone);
+      if (!contactPhone) setContactPhone(selectedCustomer.phone);
     }
-  }, [selectedCustomer, whatsAppPhone]);
+  }, [selectedCustomer, whatsAppPhone, contactPhone]);
 
   // Poll for remote photos when a capture session is active
   useEffect(() => {
@@ -394,6 +396,7 @@ export default function NewJobWizard() {
           signatureData: signatureName.trim() ? `signed:${signatureName.trim()}` : undefined,
           signatureMethod: signatureName.trim() ? 'digital' : undefined,
           signedByName: signatureName.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
         });
 
         // Also create legacy inspection for backward compatibility
@@ -1390,15 +1393,24 @@ export default function NewJobWizard() {
               </div>
             </div>
 
-            {/* Customer Signature */}
+            {/* Drop-off Person & Signature */}
             <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Customer Confirmation</h3>
-              <p className="text-sm text-gray-500 mb-4">I confirm the above accurately reflects the condition of my vehicle at drop-off.</p>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Customer Name (signature)</label>
-                <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)}
-                  placeholder="Customer's full name"
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Drop-Off Confirmation</h3>
+              <p className="text-sm text-gray-500 mb-4">Person who brought the vehicle to the workshop. For corporate accounts, this may be the driver, not the account holder.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name</label>
+                  <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)}
+                    placeholder="Person dropping off the vehicle"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Contact Phone</label>
+                  <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="Phone number to call when ready"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
+                  <p className="mt-1 text-xs text-gray-400">Who to call when the vehicle is ready</p>
+                </div>
               </div>
             </div>
 
