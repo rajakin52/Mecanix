@@ -114,12 +114,19 @@ export class JobsController {
       vehicleId: parent.vehicle_id as string,
       customerId: parent.customer_id as string,
       reportedProblem: `[${body.label}] ${parent.reported_problem as string}`,
+      symptomCodes: [],
       parentJobId: id,
       subJobLabel: body.label,
       primaryTechnicianId: body.technicianId,
       isInsurance: parent.is_insurance as boolean,
       isTaxable: parent.is_taxable as boolean,
-    });
+      requiresAuthorization: false,
+      labels: [],
+      partsIssuingMode: 'auto' as const,
+      isComeback: false,
+      isWarranty: false,
+      priorityLevel: 'normal' as const,
+    } as unknown as CreateJobCardInput);
   }
 
   @Delete(':id')

@@ -38,9 +38,9 @@ export class PaymentsService {
       .eq('tenant_id', tenantId)
       .single();
 
-    const customer = invoiceFull?.customer as Record<string, unknown> | null;
-    const jobCard = invoiceFull?.job_card as Record<string, unknown> | null;
-    const vehicle = jobCard?.vehicle as Record<string, unknown> | null;
+    const customer = invoiceFull?.customer as unknown as Record<string, unknown> | null;
+    const jobCard = invoiceFull?.job_card as unknown as Record<string, unknown> | null;
+    const vehicle = jobCard?.vehicle as unknown as Record<string, unknown> | null;
 
     // 1. Insert payment record with receipt data
     const { data: payment, error: payError } = await client

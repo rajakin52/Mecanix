@@ -47,6 +47,9 @@ import { BookingModule } from './modules/booking/booking.module';
 import { FleetsModule } from './modules/fleets/fleets.module';
 import { CustomerTagsModule } from './modules/customer-tags/customer-tags.module';
 import { SurveysModule } from './modules/surveys/surveys.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { AccountingSyncModule } from './modules/accounting-sync/accounting-sync.module';
+import { PhotoAnnotationsModule } from './modules/photo-annotations/photo-annotations.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -99,6 +102,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     FleetsModule,
     CustomerTagsModule,
     SurveysModule,
+    WebhooksModule,
+    AccountingSyncModule,
+    PhotoAnnotationsModule,
   ],
   providers: [
     {
