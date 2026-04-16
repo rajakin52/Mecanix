@@ -513,7 +513,7 @@ export default function PartsPage() {
                     <p className="font-bold text-green-900">{(scanResult.part as Record<string, unknown>).description as string}</p>
                     <p className="text-sm text-green-700 mt-1">
                       Part #: {(scanResult.part as Record<string, unknown>).part_number as string}
-                      {(scanResult.part as Record<string, unknown>).barcode && <span className="ms-3">Barcode: {(scanResult.part as Record<string, unknown>).barcode as string}</span>}
+                      {String((scanResult.part as Record<string, unknown>).barcode || '') && <span className="ms-3">Barcode: {String((scanResult.part as Record<string, unknown>).barcode ?? '')}</span>}
                     </p>
                     <p className="text-sm text-green-700">
                       Stock: {String((scanResult.part as Record<string, unknown>).stock_qty)} |
