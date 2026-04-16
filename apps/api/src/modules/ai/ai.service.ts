@@ -225,7 +225,7 @@ Never make up information about job status or pricing.`;
       if (tid) workloadMap[tid] = (workloadMap[tid] ?? 0) + 1;
     }
 
-    const vehicle = job.vehicle as Record<string, string> | null;
+    const vehicle = job.vehicle as unknown as Record<string, string> | null;
 
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
