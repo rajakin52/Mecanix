@@ -157,6 +157,9 @@ export default function NewJobWizard() {
   const [sendingSignature, setSendingSignature] = useState(false);
   const [signatureSent, setSignatureSent] = useState(false);
 
+  // Estimated completion
+  const [estimatedCompletion, setEstimatedCompletion] = useState('');
+
   // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -394,6 +397,7 @@ export default function NewJobWizard() {
         reportedProblem: reportedProblem.trim() || selectedSymptoms.map((s) => s.label_en).join('; '),
         symptomCodes: selectedSymptoms.map((s) => s.code),
         internalNotes: internalNotes.trim() || undefined,
+        estimatedCompletion: estimatedCompletion || undefined,
       });
 
       // 2. Create vehicle reception — MANDATORY. If this fails, delete the job card.
@@ -1411,6 +1415,16 @@ export default function NewJobWizard() {
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase">Fuel</p>
                   <p className="font-semibold text-gray-900">{fuelLevel.replace('_', ' ')}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase block">Expected Completion</label>
+                  <input
+                    type="date"
+                    value={estimatedCompletion}
+                    onChange={(e) => setEstimatedCompletion(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                  />
                 </div>
                 <div className="col-span-2">
                   <p className="text-xs font-bold text-gray-400 uppercase">DVI Summary</p>
