@@ -146,7 +146,7 @@ export default function JobsPage() {
                   <SortableHeader label={t('jobNumber')} field="job_number" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('vehicles')}</th>
                   <SortableHeader label={tc('customers')} field="customer_name" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('phone') ?? 'Phone'}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Brought By</th>
                   <SortableHeader label={t('status')} field="status" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
                   <SortableHeader label={t('total')} field="grand_total" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} align="end" />
@@ -185,11 +185,16 @@ export default function JobsPage() {
                           </div>
                         ) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {job.customers?.full_name ?? '-'}
+                      <td className="px-4 py-3 text-sm">
+                        {job.customers ? (
+                          <div>
+                            <div className="font-medium text-gray-900">{job.customers.full_name}</div>
+                            <div className="text-xs text-gray-400">{job.customers.phone}</div>
+                          </div>
+                        ) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {job.customers?.phone ?? '-'}
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {job.vehicle_receptions?.[0]?.signed_by_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <StatusBadge status={job.status} />

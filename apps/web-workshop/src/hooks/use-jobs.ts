@@ -26,6 +26,7 @@ interface JobCard {
   vehicles?: { id: string; plate: string; make: string; model: string } | null;
   customers?: { id: string; full_name: string; phone: string } | null;
   technicians?: { id: string; full_name: string } | null;
+  vehicle_receptions?: Array<{ signed_by_name: string | null }> | null;
 }
 
 interface JobsResponse {
