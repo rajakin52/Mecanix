@@ -52,16 +52,44 @@ interface EquipmentState {
   documents: boolean;
 }
 
-// Photo upload — stores URI reference for now, actual upload handled by backend
+// Upload photo to Supabase Storage and return the public URL
 async function uploadPhoto(
-  _uri: string,
-  _jobId: string,
-  _angle: string,
+  uri: string,
+  jobId: string,
+  angle: string,
 ): Promise<string | null> {
-  // Photos are stored locally and their URIs are passed to the inspection payload.
-  // In a future phase, photos will be uploaded to Supabase Storage via a dedicated upload endpoint.
-  // For now, return the local URI as a reference.
-  return _uri;
+  try {
+    // Read the file and create a FormData-compatible blob
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    // Convert blob to base64 for the API
+    const reader = new FileReader();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    // Upload via the API endpoint which handles Supabase Storage
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+    const res = await fetch(`${apiUrl}/photo-capture/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobId,
+        photoType: angle,
+        base64Data: base64,
+        fileName: `${angle}.jpg`,
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.storageUrl ?? data.url ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export default function InspectionScreen() {

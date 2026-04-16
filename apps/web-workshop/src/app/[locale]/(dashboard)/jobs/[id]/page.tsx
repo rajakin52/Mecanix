@@ -1013,6 +1013,7 @@ export default function JobDetailPage() {
   const nextStatuses = STATUS_TRANSITIONS[currentStatus] ?? [];
   const labels = (typedJob.labels as string[]) ?? [];
   const statusHistory = (typedJob.status_history as Array<{ status: string; changed_at: string; changed_by_name?: string; notes?: string }>) ?? [];
+  const jobPhotos = (typedJob.photos as string[]) ?? [];
 
   return (
     <div className="space-y-6">
@@ -1198,6 +1199,22 @@ export default function JobDetailPage() {
         inspection={inspectionData as Record<string, unknown> | null | undefined}
         isLoadingInspection={inspectionLoading}
       />
+
+      {/* Walk-Around Photos */}
+      {jobPhotos.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({jobPhotos.length})</h3>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {jobPhotos.filter((url) => url.startsWith('http')).map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50 hover:border-primary-400 transition-colors">
+                <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       </>
       )}

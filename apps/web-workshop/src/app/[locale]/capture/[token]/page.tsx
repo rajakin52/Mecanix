@@ -68,7 +68,8 @@ export default function PhotoCapturePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           photoType,
-          storageUrl: dataUrl.substring(0, 200) + '...', // placeholder — real impl uploads to Supabase Storage
+          base64Data: dataUrl,
+          fileName: file.name,
           fileSize: file.size,
         }),
       });

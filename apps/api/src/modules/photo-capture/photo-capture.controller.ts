@@ -47,6 +47,16 @@ export class PhotoCaptureController {
     return this.photoCaptureService.listByJob(tenantId, jobCardId);
   }
 
+  /** Direct photo upload (mobile app) — uploads to Supabase Storage and returns public URL */
+  @Post('upload')
+  @UseGuards(TenantGuard)
+  async directUpload(
+    @TenantId() tenantId: string,
+    @Body() body: { jobId: string; photoType: string; base64Data: string; fileName?: string },
+  ) {
+    return this.photoCaptureService.directUpload(tenantId, body);
+  }
+
   // ── Public endpoints (phone camera — no auth, token-based) ──
 
   @Get('session/:token')
@@ -57,7 +67,7 @@ export class PhotoCaptureController {
   @Post('session/:token/upload')
   async uploadPhoto(
     @Param('token') token: string,
-    @Body() body: { photoType: string; storageUrl: string; fileSize?: number },
+    @Body() body: { photoType: string; storageUrl?: string; base64Data?: string; fileName?: string; fileSize?: number },
   ) {
     return this.photoCaptureService.uploadPhoto(token, body);
   }

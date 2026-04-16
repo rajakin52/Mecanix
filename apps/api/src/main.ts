@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true }),
+    new FastifyAdapter({ logger: true, bodyLimit: 20 * 1024 * 1024 /* 20MB for photo uploads */ }),
   );
 
   // Global rate limiting — 100 req/min per IP
