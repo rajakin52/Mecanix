@@ -138,10 +138,11 @@ export default function InspectionScreen() {
   const [personalItems, setPersonalItems] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Signature
+  // Signature — pad open by default, mandatory
   const signatureRef = useRef<SignatureViewRef>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(true);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -241,6 +242,10 @@ export default function InspectionScreen() {
       }
       if (!fuelLevel) {
         Alert.alert(t('common.error'), 'Fuel level is required');
+        return;
+      }
+      if (!signatureData) {
+        Alert.alert(t('common.error'), 'Customer signature is required. Please ask the customer to sign before submitting.');
         return;
       }
     }
@@ -376,6 +381,7 @@ export default function InspectionScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={scrollEnabled}
       >
         {/* Header info */}
         {(params.jobNumber || params.vehiclePlate) && (
@@ -660,10 +666,11 @@ export default function InspectionScreen() {
 
         </CollapsibleSection>
 
-        {/* ─── SECTION 6: CUSTOMER SIGNATURE ─── */}
+        {/* ─── SECTION 6: CUSTOMER SIGNATURE (mandatory) ─── */}
         <CollapsibleSection
           title={t('inspection.section.signature')}
           badge={signatureData ? '✓' : undefined}
+          defaultOpen={true}
         >
         <Text style={styles.signatureHint}>
           {t('inspection.signatureHint')}
@@ -689,11 +696,17 @@ export default function InspectionScreen() {
             </TouchableOpacity>
           </View>
         ) : showSignaturePad ? (
-          <View style={styles.signaturePadContainer}>
+          <View
+            style={styles.signaturePadContainer}
+            onTouchStart={() => setScrollEnabled(false)}
+            onTouchEnd={() => setScrollEnabled(true)}
+          >
             <SignatureScreen
               ref={signatureRef}
               onOK={handleSignatureOK}
               onClear={handleSignatureClear}
+              onBegin={() => setScrollEnabled(false)}
+              onEnd={() => setScrollEnabled(true)}
               autoClear={false}
               descriptionText=""
               clearText={t('inspection.clearSignature')}
