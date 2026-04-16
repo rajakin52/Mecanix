@@ -9,23 +9,34 @@ import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
 
 // ── Types ────────────────────────────────────────────────────
 interface Customer { id: string; full_name: string; phone: string; email: string | null }
-interface Vehicle { id: string; plate: string; make: string; model: string; year: number | null; vin: string | null; customer_id: string }
+interface Vehicle { id: string; plate: string; make: string; model: string; year: number | null; vin: string | null; customer_id: string; mileage?: number }
 interface Make { id: string; name: string; country: string | null }
 interface Model { id: string; name: string; body_type: string | null }
 interface DviItem { name: string; category: string; status: string; notes: string }
 interface DamageEntry { location: string; type: string; description?: string; severity?: string }
 interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null; quick_access: boolean }
 
-type Step = 'entry' | 'vehicle' | 'inspection' | 'damage' | 'accessories' | 'problem' | 'repairs' | 'review';
+type Step = 'entry' | 'vehicle' | 'inspection' | 'damage' | 'photos' | 'accessories' | 'problem' | 'repairs' | 'review';
 
 const STEPS: { key: Step; label: string }[] = [
   { key: 'entry', label: '1. Vehicle & Customer' },
   { key: 'inspection', label: '2. Vehicle Data' },
   { key: 'damage', label: '3. Damage Map' },
-  { key: 'accessories', label: '4. Accessories' },
-  { key: 'problem', label: '5. Symptoms' },
-  { key: 'repairs', label: '6. Repair Items' },
-  { key: 'review', label: '7. Review & Create' },
+  { key: 'photos', label: '4. Walk-Around Photos' },
+  { key: 'accessories', label: '5. Accessories' },
+  { key: 'problem', label: '6. Symptoms' },
+  { key: 'repairs', label: '7. Repair Items' },
+  { key: 'review', label: '8. Review & Create' },
+
+];
+
+const REQUIRED_PHOTOS = [
+  { key: 'front', label: 'Front View', desc: 'Full front of vehicle including bumper and lights' },
+  { key: 'rear', label: 'Rear View', desc: 'Full rear including bumper and lights' },
+  { key: 'left', label: 'Left Side', desc: 'Full left side from mirror to rear wheel' },
+  { key: 'right', label: 'Right Side', desc: 'Full right side from mirror to rear wheel' },
+  { key: 'dashboard', label: 'Dashboard / Odometer', desc: 'Dashboard showing the odometer reading' },
+  { key: 'interior', label: 'Interior', desc: 'Full interior from open driver door' },
 ];
 
 const FUEL_LEVELS = ['empty', 'quarter', 'half', 'three_quarter', 'full'] as const;
@@ -96,6 +107,22 @@ export default function NewJobWizard() {
   });
   const [belongings, setBelongings] = useState<Array<{ label: string; detail: string }>>([]);
   const [newBelonging, setNewBelonging] = useState('');
+
+  // Mileage validation
+  const [mileageError, setMileageError] = useState('');
+  const handleMileageChange = (val: string) => {
+    setMileage(val);
+    const km = Number(val);
+    if (selectedVehicle?.mileage != null && km > 0 && km < selectedVehicle.mileage) {
+      setMileageError(`Cannot be lower than last recorded: ${selectedVehicle.mileage.toLocaleString()} km`);
+    } else {
+      setMileageError('');
+    }
+  };
+
+  // Walk-around photos (file uploads)
+  const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, File | null>>({});
+  const photoCount = Object.values(vehiclePhotos).filter(Boolean).length;
 
   // Signature
   const [signatureName, setSignatureName] = useState('');
@@ -221,8 +248,9 @@ export default function NewJobWizard() {
   const canNext = (): boolean => {
     switch (step) {
       case 'entry': return !!selectedCustomer && !!selectedVehicle;
-      case 'inspection': return !!mileage.trim() && !!fuelLevel;
+      case 'inspection': return !!mileage.trim() && !!fuelLevel && !mileageError;
       case 'damage': return true; // damage is optional (vehicle may have none)
+      case 'photos': return photoCount >= 4; // minimum 4 of 6 required
       case 'accessories': return true; // checklist always filled with defaults
       case 'problem': return !!reportedProblem.trim() || selectedSymptoms.length > 0;
       case 'repairs': return true; // optional but encouraged
@@ -580,10 +608,13 @@ export default function NewJobWizard() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Odometer (km) *</label>
-                  <input type="number" value={mileage} onChange={(e) => setMileage(e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-lg" />
-                  {selectedVehicle && (selectedVehicle as Vehicle & { mileage?: number }).mileage != null && (
-                    <p className="mt-1 text-xs text-gray-400">Last recorded: {(selectedVehicle as Vehicle & { mileage?: number }).mileage?.toLocaleString()} km</p>
+                  <input type="number" value={mileage} onChange={(e) => handleMileageChange(e.target.value)}
+                    className={`mt-1 block w-full rounded-lg border px-3 py-2 text-lg ${mileageError ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
+                  {mileageError && (
+                    <p className="mt-1 text-sm text-red-600 font-medium">{mileageError}</p>
+                  )}
+                  {!mileageError && selectedVehicle?.mileage != null && (
+                    <p className="mt-1 text-xs text-gray-400">Last recorded: {selectedVehicle.mileage.toLocaleString()} km</p>
                   )}
                 </div>
                 <div>
@@ -761,6 +792,46 @@ export default function NewJobWizard() {
                       <p className="text-sm text-green-600 mt-1">If the vehicle has no pre-existing damage, proceed to the next step</p>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: Walk-Around Photos ── */}
+        {step === 'photos' && (
+          <div className="space-y-6">
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Vehicle Walk-Around Photos</h3>
+              <p className="text-sm text-gray-500 mb-4">Upload at least 4 photos of the vehicle exterior. These document the vehicle condition at check-in and protect the workshop from liability claims.</p>
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {REQUIRED_PHOTOS.map(({ key, label, desc }) => (
+                  <div key={key} className={`rounded-lg border-2 p-4 text-center transition-all ${
+                    vehiclePhotos[key] ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 hover:border-primary-400'
+                  }`}>
+                    <div className="text-3xl mb-2">{vehiclePhotos[key] ? '&#9989;' : '&#128247;'}</div>
+                    <p className="text-sm font-semibold text-gray-900">{label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{desc}</p>
+                    <label className="mt-3 inline-block cursor-pointer rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700">
+                      {vehiclePhotos[key] ? 'Replace' : 'Upload'}
+                      <input type="file" accept="image/*" capture="environment" className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setVehiclePhotos({ ...vehiclePhotos, [key]: file });
+                        }} />
+                    </label>
+                    {vehiclePhotos[key] && (
+                      <p className="text-xs text-green-600 mt-1 truncate">{vehiclePhotos[key]!.name}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <div className={`text-sm font-semibold ${photoCount >= 4 ? 'text-green-600' : 'text-amber-600'}`}>
+                  {photoCount} / 6 photos uploaded
+                  {photoCount < 4 && ' — minimum 4 required'}
                 </div>
               </div>
             </div>
