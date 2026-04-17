@@ -74,6 +74,11 @@ export class CustomersService {
         email: input.email || null,
         tax_id: input.taxId || null,
         address: input.address || null,
+        address_street: input.addressStreet || null,
+        address_city: input.addressCity || null,
+        address_state: input.addressState || null,
+        address_postal: input.addressPostal || null,
+        address_country: input.addressCountry || null,
         payment_terms: input.paymentTerms || null,
         notes: input.notes || null,
         is_corporate: input.isCorporate ?? false,
@@ -105,6 +110,11 @@ export class CustomersService {
     if (input.email !== undefined) updateData['email'] = input.email || null;
     if (input.taxId !== undefined) updateData['tax_id'] = input.taxId || null;
     if (input.address !== undefined) updateData['address'] = input.address || null;
+    if (input.addressStreet !== undefined) updateData['address_street'] = input.addressStreet || null;
+    if (input.addressCity !== undefined) updateData['address_city'] = input.addressCity || null;
+    if (input.addressState !== undefined) updateData['address_state'] = input.addressState || null;
+    if (input.addressPostal !== undefined) updateData['address_postal'] = input.addressPostal || null;
+    if (input.addressCountry !== undefined) updateData['address_country'] = input.addressCountry || null;
     if (input.paymentTerms !== undefined) updateData['payment_terms'] = input.paymentTerms || null;
     if (input.notes !== undefined) updateData['notes'] = input.notes || null;
     if (input.isCorporate !== undefined) updateData['is_corporate'] = input.isCorporate;

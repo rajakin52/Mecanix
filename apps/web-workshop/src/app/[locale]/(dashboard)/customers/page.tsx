@@ -173,102 +173,179 @@ export default function CustomersPage() {
 
       {/* New Customer Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{t('newCustomer')}</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#10005;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">{t('newCustomer')}</h2>
+              <button onClick={() => setShowModal(false)} className="rounded-lg p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100">&#10005;</button>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('fullName')}</label>
-                <input {...register('fullName')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('phone')}</label>
-                <input {...register('phone')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('email')}</label>
-                <input {...register('email')} type="email" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('taxId')}</label>
-                <input {...register('taxId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('paymentTerms')}</label>
-                <select {...register('paymentTerms')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
-                  {PAYMENT_TERMS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Price Group</label>
-                <select {...register('priceGroupId')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
-                  <option value="">— Default pricing —</option>
-                  {pgList.map((pg) => (
-                    <option key={pg.id} value={pg.id}>{pg.name} ({pg.default_markup_pct}%)</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('address')}</label>
-                <input {...register('address')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>
-                <textarea {...register('notes')} rows={3} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-              </div>
 
-              {/* Corporate Account Toggle */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isCorporate"
-                  checked={isCorporate}
-                  onChange={(e) => {
-                    setIsCorporate(e.target.checked);
-                    setValue('isCorporate', e.target.checked);
-                  }}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <label htmlFor="isCorporate" className="text-sm font-medium text-gray-700">{t('corporateAccount')}</label>
-              </div>
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <form id="create-customer-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-              {isCorporate && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('companyName')}</label>
-                    <input {...register('companyName')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                {/* ── Contact Information ── */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Contact Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700">{t('fullName')} *</label>
+                      <input {...register('fullName')} placeholder="Full name"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                      {errors.fullName && <p className="mt-1 text-xs text-red-600">{errors.fullName.message}</p>}
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700">{t('phone')} *</label>
+                      <input {...register('phone')} placeholder="+244 923 456 789"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                      {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
+                      <input {...register('whatsappNumber')} placeholder="If different from phone"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">{t('email')}</label>
+                      <input {...register('email')} type="email" placeholder="email@example.com"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Street Address</label>
+                      <input {...register('addressStreet')} placeholder="Street name, building, apartment"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">City</label>
+                      <input {...register('addressCity')} placeholder="City"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">State / Province</label>
+                      <input {...register('addressState')} placeholder="State or province"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Postal Code</label>
+                      <input {...register('addressPostal')} placeholder="Postal / ZIP code"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Country</label>
+                      <input {...register('addressCountry')} placeholder="Country"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Preferred Contact</label>
+                      <select {...register('preferredChannel')} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200">
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="sms">SMS</option>
+                        <option value="email">Email</option>
+                        <option value="app">App</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">{t('taxId')}</label>
+                      <input {...register('taxId')} placeholder="NIF / Tax ID"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('billingContact')}</label>
-                    <input {...register('billingContact')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('creditLimit')}</label>
-                    <input {...register('creditLimit')} type="number" min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
-                  </div>
-                </>
-              )}
+                </div>
 
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowModal(false)} className="rounded-md border px-4 py-2 text-sm">
-                  {tc('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-                >
-                  {createMutation.isPending ? tc('loading') : tc('save')}
-                </button>
-              </div>
-            </form>
+                {/* ── Financial ── */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Financial</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">{t('paymentTerms')}</label>
+                      <select {...register('paymentTerms')} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200">
+                        {PAYMENT_TERMS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Price Group</label>
+                      <select {...register('priceGroupId')} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200">
+                        <option value="">Default pricing</option>
+                        {pgList.map((pg) => (
+                          <option key={pg.id} value={pg.id}>{pg.name} ({pg.default_markup_pct}%)</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Corporate Account ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isCorporate"
+                        checked={isCorporate}
+                        onChange={(e) => {
+                          setIsCorporate(e.target.checked);
+                          setValue('isCorporate', e.target.checked);
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <label htmlFor="isCorporate" className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('corporateAccount')}</label>
+                    </div>
+                  </div>
+
+                  {isCorporate && (
+                    <div className="rounded-lg border border-primary-200 bg-primary-50/50 p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="block text-sm font-medium text-gray-700">{t('companyName')} *</label>
+                          <input {...register('companyName')} placeholder="Company legal name"
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                        </div>
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="block text-sm font-medium text-gray-700">{t('billingContact')}</label>
+                          <input {...register('billingContact')} placeholder="Billing department contact"
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">{t('creditLimit')}</label>
+                          <input {...register('creditLimit')} type="number" min="0" step="0.01" placeholder="0.00"
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Credit Terms (days)</label>
+                          <input {...register('creditTermsDays')} type="number" min="0" max="365" placeholder="30"
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Notes ── */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>
+                  <textarea {...register('notes')} rows={2} placeholder="Internal notes about this customer..."
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+                </div>
+              </form>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <button type="button" onClick={() => setShowModal(false)} className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100">
+                {tc('cancel')}
+              </button>
+              <button
+                type="submit"
+                form="create-customer-form"
+                disabled={createMutation.isPending}
+                className="rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 shadow-sm"
+              >
+                {createMutation.isPending ? tc('loading') : tc('save')}
+              </button>
+            </div>
           </div>
         </div>
       )}
