@@ -615,6 +615,7 @@ export default function InspectionScreen() {
         {/* ─── SECTION 4: EQUIPMENT ─── */}
         <CollapsibleSection
           title={t('inspection.section.equipment')}
+          defaultOpen={true}
           badge={Object.values(equipment).some(Boolean) ? '✓' : undefined}
         >
         <View style={styles.checklistContainer}>
@@ -638,6 +639,7 @@ export default function InspectionScreen() {
         {/* ─── SECTION 5: NOTES ─── */}
         <CollapsibleSection
           title={t('inspection.section.notes')}
+          defaultOpen={true}
         >
 
         <Text style={styles.fieldLabel}>{t('inspection.personalItems')}</Text>
