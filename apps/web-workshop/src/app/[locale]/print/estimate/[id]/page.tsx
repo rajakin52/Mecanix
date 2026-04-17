@@ -39,8 +39,18 @@ export default function PrintEstimatePage() {
     ]).then(async ([est, ten]) => {
       setEstimate(est);
       setTenant(ten);
-      const jobData = await api.get<Record<string, unknown>>(`/jobs/${est.job_card_id}`);
-      setJob(jobData);
+      if (est.job_card_id) {
+        const jobData = await api.get<Record<string, unknown>>(`/jobs/${est.job_card_id}`);
+        setJob(jobData);
+      } else {
+        // Standalone estimate — fetch customer/vehicle directly
+        const estAny = est as unknown as Record<string, unknown>;
+        const [custData, vehData] = await Promise.all([
+          estAny.customer_id ? api.get<Record<string, string>>(`/customers/${estAny.customer_id}`) : null,
+          estAny.vehicle_id ? api.get<Record<string, string>>(`/vehicles/${estAny.vehicle_id}`) : null,
+        ]);
+        setJob({ customer: custData, vehicle: vehData } as Record<string, unknown>);
+      }
       setLoading(false);
       setTimeout(() => window.print(), 500);
     }).catch(() => setLoading(false));

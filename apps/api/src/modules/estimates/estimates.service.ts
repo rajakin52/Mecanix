@@ -12,6 +12,47 @@ export class EstimatesService {
     private readonly configService: ConfigService,
   ) {}
 
+  // ── List all estimates (paginated, filtered) ─────────────────
+  async listAll(tenantId: string, pagination: { page: number; pageSize: number; search?: string }, filters?: { status?: string; source?: string; customerId?: string; vehicleId?: string }) {
+    const client = this.supabase.getClient();
+    const { page, pageSize, search } = pagination;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = client
+      .from('estimates')
+      .select(
+        '*, customers:customers!customer_id(id, full_name, phone), vehicles:vehicles!vehicle_id(id, plate, make, model)',
+        { count: 'exact' },
+      )
+      .eq('tenant_id', tenantId);
+
+    if (search) {
+      query = query.ilike('estimate_number', `%${search}%`);
+    }
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.source) {
+      query = query.eq('source', filters.source);
+    }
+    if (filters?.customerId) {
+      query = query.eq('customer_id', filters.customerId);
+    }
+    if (filters?.vehicleId) {
+      query = query.eq('vehicle_id', filters.vehicleId);
+    }
+
+    query = query.order('created_at', { ascending: false });
+    const { data, count, error } = await query.range(from, to);
+    if (error) throw error;
+
+    return {
+      data: data ?? [],
+      meta: { page, pageSize, total: count ?? 0, totalPages: Math.ceil((count ?? 0) / pageSize) },
+    };
+  }
+
   async listByJob(tenantId: string, jobCardId: string) {
     const { data, error } = await this.supabase
       .getClient()
@@ -199,6 +240,305 @@ export class EstimatesService {
     return estimate;
   }
 
+  // ── Standalone Estimate ──────────────────────────────────────
+
+  /**
+   * Create a standalone estimate (no job card).
+   */
+  async createStandalone(tenantId: string, userId: string, input: {
+    customerId: string;
+    vehicleId: string;
+    reportedProblem?: string;
+    labourLines: Array<{ description: string; hours: number; rate: number }>;
+    partsLines: Array<{ partName: string; partNumber?: string; quantity: number; unitCost: number; markupPct?: number }>;
+    isTaxable?: boolean;
+    terms?: string;
+    validUntil?: string;
+  }) {
+    const client = this.supabase.getClient();
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    // Build snapshot line items with calculated subtotals
+    const labourSnapshot = input.labourLines.map((l, i) => ({
+      description: l.description,
+      hours: l.hours,
+      rate: l.rate,
+      subtotal: round2(l.hours * l.rate),
+      sort_order: i,
+    }));
+
+    const partsSnapshot = input.partsLines.map((p, i) => {
+      const markup = p.markupPct ?? 0;
+      const sellPrice = round2(p.unitCost * (1 + markup / 100));
+      return {
+        part_name: p.partName,
+        part_number: p.partNumber ?? null,
+        quantity: p.quantity,
+        unit_cost: p.unitCost,
+        markup_pct: markup,
+        sell_price: sellPrice,
+        subtotal: round2(p.quantity * sellPrice),
+        sort_order: i,
+      };
+    });
+
+    const labourTotal = labourSnapshot.reduce((s, l) => s + l.subtotal, 0);
+    const partsTotal = partsSnapshot.reduce((s, p) => s + p.subtotal, 0);
+
+    // Tax rate
+    const { data: taxSetting } = await client
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'tax_rate')
+      .maybeSingle();
+
+    const taxRate = taxSetting?.value ? Number(taxSetting.value) : 14;
+    const subtotal = labourTotal + partsTotal;
+    const isTaxable = input.isTaxable !== false;
+    const taxAmount = isTaxable ? subtotal * (taxRate / 100) : 0;
+    const grandTotal = subtotal + taxAmount;
+
+    // Generate number
+    const { data: estNumber } = await client.rpc('generate_estimate_number', { p_tenant_id: tenantId });
+
+    const { data: estimate, error } = await client
+      .from('estimates')
+      .insert({
+        tenant_id: tenantId,
+        job_card_id: null,
+        customer_id: input.customerId,
+        vehicle_id: input.vehicleId,
+        source: 'standalone',
+        reported_problem: input.reportedProblem ?? null,
+        estimate_number: estNumber,
+        version: 1,
+        status: 'draft',
+        labour_total: round2(labourTotal),
+        parts_total: round2(partsTotal),
+        tax_rate: taxRate,
+        tax_amount: round2(taxAmount),
+        grand_total: round2(grandTotal),
+        labour_lines_snapshot: labourSnapshot,
+        parts_lines_snapshot: partsSnapshot,
+        dvi_snapshot: null,
+        is_revision: false,
+        terms: input.terms ?? null,
+        valid_until: input.validUntil ?? null,
+        created_by: userId,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return estimate;
+  }
+
+  /**
+   * Update a draft standalone estimate (lines, terms, etc.)
+   */
+  async updateStandalone(tenantId: string, estimateId: string, input: {
+    labourLines?: Array<{ description: string; hours: number; rate: number }>;
+    partsLines?: Array<{ partName: string; partNumber?: string; quantity: number; unitCost: number; markupPct?: number }>;
+    reportedProblem?: string;
+    terms?: string;
+    validUntil?: string;
+    isTaxable?: boolean;
+  }) {
+    const client = this.supabase.getClient();
+    const estimate = await this.getById(tenantId, estimateId);
+
+    if (estimate.source !== 'standalone') throw new BadRequestException('Only standalone estimates can be edited');
+    if (estimate.status !== 'draft') throw new BadRequestException('Only draft estimates can be edited');
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+    if (input.reportedProblem !== undefined) updates.reported_problem = input.reportedProblem;
+    if (input.terms !== undefined) updates.terms = input.terms;
+    if (input.validUntil !== undefined) updates.valid_until = input.validUntil;
+
+    // Recalculate if lines changed
+    if (input.labourLines || input.partsLines) {
+      const labourSnapshot = (input.labourLines ?? (estimate.labour_lines_snapshot as Array<{ description: string; hours: number; rate: number; subtotal: number }>)).map((l, i) => ({
+        description: l.description,
+        hours: l.hours,
+        rate: l.rate,
+        subtotal: round2(l.hours * l.rate),
+        sort_order: i,
+      }));
+
+      const partsSnapshot = (input.partsLines ?? []).map((p, i) => {
+        const markup = p.markupPct ?? 0;
+        const sellPrice = round2(p.unitCost * (1 + markup / 100));
+        return {
+          part_name: p.partName,
+          part_number: p.partNumber ?? null,
+          quantity: p.quantity,
+          unit_cost: p.unitCost,
+          markup_pct: markup,
+          sell_price: sellPrice,
+          subtotal: round2(p.quantity * sellPrice),
+          sort_order: i,
+        };
+      });
+
+      const labourTotal = labourSnapshot.reduce((s, l) => s + l.subtotal, 0);
+      const partsTotal = partsSnapshot.reduce((s, p) => s + p.subtotal, 0);
+      const subtotal = labourTotal + partsTotal;
+      const taxRate = Number(estimate.tax_rate) || 14;
+      const isTaxable = input.isTaxable !== undefined ? input.isTaxable : true;
+      const taxAmount = isTaxable ? subtotal * (taxRate / 100) : 0;
+
+      if (input.labourLines) {
+        updates.labour_lines_snapshot = labourSnapshot;
+        updates.labour_total = round2(labourTotal);
+      }
+      if (input.partsLines) {
+        updates.parts_lines_snapshot = partsSnapshot;
+        updates.parts_total = round2(partsTotal);
+      }
+      updates.tax_amount = round2(taxAmount);
+      updates.grand_total = round2(subtotal + taxAmount);
+    }
+
+    const { data, error } = await client
+      .from('estimates')
+      .update(updates)
+      .eq('id', estimateId)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Convert an approved standalone estimate into a job card.
+   * Creates the job card + actual labour_lines + parts_lines from the snapshots.
+   */
+  async convertToJobCard(tenantId: string, userId: string, estimateId: string, input?: {
+    primaryTechnicianId?: string;
+    symptomCodes?: string[];
+    reportedProblem?: string;
+  }) {
+    const client = this.supabase.getClient();
+    const estimate = await this.getById(tenantId, estimateId);
+
+    if (estimate.source !== 'standalone') throw new BadRequestException('Only standalone estimates can be converted');
+    if (estimate.converted_job_card_id) throw new BadRequestException('This estimate has already been converted to a job card');
+    if (estimate.status !== 'approved' && estimate.status !== 'draft' && estimate.status !== 'sent') {
+      throw new BadRequestException('Estimate must be approved, draft, or sent to convert');
+    }
+
+    const customerId = estimate.customer_id as string;
+    const vehicleId = estimate.vehicle_id as string;
+
+    // Check no active job for this vehicle
+    const { data: existingJobs } = await client
+      .from('job_cards')
+      .select('id, job_number, status')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .not('status', 'in', '("invoiced","cancelled")')
+      .limit(1);
+
+    if (existingJobs && existingJobs.length > 0) {
+      throw new BadRequestException(
+        `Vehicle already has an active job card: ${existingJobs[0]!.job_number}. Close it before converting this estimate.`,
+      );
+    }
+
+    // Generate job number
+    const { data: jobNumber, error: rpcError } = await client.rpc('generate_job_number', { p_tenant_id: tenantId });
+    if (rpcError) throw rpcError;
+
+    // Create job card
+    const { data: job, error: jobError } = await client
+      .from('job_cards')
+      .insert({
+        tenant_id: tenantId,
+        job_number: jobNumber,
+        vehicle_id: vehicleId,
+        customer_id: customerId,
+        reported_problem: input?.reportedProblem ?? (estimate.reported_problem as string) ?? `From estimate ${estimate.estimate_number}`,
+        symptom_codes: input?.symptomCodes ?? [],
+        primary_technician_id: input?.primaryTechnicianId ?? null,
+        status: 'received',
+        is_taxable: true,
+        current_estimate_id: estimateId,
+        created_by: userId,
+      })
+      .select()
+      .single();
+
+    if (jobError) throw jobError;
+
+    // Insert actual labour lines from snapshot
+    const labourSnap = (estimate.labour_lines_snapshot ?? []) as Array<Record<string, unknown>>;
+    for (const line of labourSnap) {
+      await client.from('labour_lines').insert({
+        tenant_id: tenantId,
+        job_card_id: job.id,
+        description: line.description,
+        hours: Number(line.hours) || 0,
+        rate: Number(line.rate) || 0,
+        subtotal: Number(line.subtotal) || 0,
+        sort_order: Number(line.sort_order) || 0,
+        line_status: 'planned',
+      });
+    }
+
+    // Insert actual parts lines from snapshot
+    const partsSnap = (estimate.parts_lines_snapshot ?? []) as Array<Record<string, unknown>>;
+    for (const line of partsSnap) {
+      const qty = Number(line.quantity) || 1;
+      const sellPrice = Number(line.sell_price) || Number(line.unit_cost) || 0;
+      await client.from('parts_lines').insert({
+        tenant_id: tenantId,
+        job_card_id: job.id,
+        part_name: line.part_name,
+        part_number: line.part_number ?? null,
+        quantity: qty,
+        unit_cost: Number(line.unit_cost) || 0,
+        markup_pct: Number(line.markup_pct) || 0,
+        sell_price: sellPrice,
+        subtotal: Math.round(qty * sellPrice * 100) / 100,
+        sort_order: Number(line.sort_order) || 0,
+        line_status: 'planned',
+      });
+    }
+
+    // Recalculate job totals
+    // (use the same pattern as the service — sum lines and update job)
+    const { data: allLabour } = await client.from('labour_lines').select('subtotal').eq('job_card_id', job.id).eq('tenant_id', tenantId);
+    const { data: allParts } = await client.from('parts_lines').select('subtotal').eq('job_card_id', job.id).eq('tenant_id', tenantId);
+    const lTotal = (allLabour ?? []).reduce((s, l) => s + (Number(l.subtotal) || 0), 0);
+    const pTotal = (allParts ?? []).reduce((s, p) => s + (Number(p.subtotal) || 0), 0);
+    const taxRate = Number(estimate.tax_rate) || 14;
+    const taxAmt = (lTotal + pTotal) * (taxRate / 100);
+    await client.from('job_cards').update({
+      labour_total: Math.round(lTotal * 100) / 100,
+      parts_total: Math.round(pTotal * 100) / 100,
+      tax_amount: Math.round(taxAmt * 100) / 100,
+      grand_total: Math.round((lTotal + pTotal + taxAmt) * 100) / 100,
+    }).eq('id', job.id).eq('tenant_id', tenantId);
+
+    // Link estimate to the new job card
+    await client
+      .from('estimates')
+      .update({
+        converted_job_card_id: job.id,
+        job_card_id: job.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', estimateId)
+      .eq('tenant_id', tenantId);
+
+    return { jobCard: job, estimateId };
+  }
+
   /**
    * Mark estimate as sent.
    */
@@ -264,34 +604,36 @@ export class EstimatesService {
 
     if (error) throw error;
 
-    // Transition job to in_progress if it was awaiting approval
-    const { data: job } = await this.supabase
-      .getClient()
-      .from('job_cards')
-      .select('status')
-      .eq('id', estimate.job_card_id)
-      .eq('tenant_id', tenantId)
-      .single();
-
-    if (job && (job.status === 'awaiting_approval' || job.status === 'awaiting_reapproval')) {
-      await this.supabase
+    // Transition job to in_progress if it was awaiting approval (only for job-linked estimates)
+    if (estimate.job_card_id) {
+      const { data: job } = await this.supabase
         .getClient()
         .from('job_cards')
-        .update({ status: 'in_progress' })
+        .select('status')
         .eq('id', estimate.job_card_id)
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .single();
 
-      await this.supabase
-        .getClient()
-        .from('job_status_history')
-        .insert({
-          tenant_id: tenantId,
-          job_card_id: estimate.job_card_id,
-          from_status: job.status,
-          to_status: 'in_progress',
-          changed_by: null,
-          notes: `Estimate ${estimate.estimate_number} approved`,
-        });
+      if (job && (job.status === 'awaiting_approval' || job.status === 'awaiting_reapproval')) {
+        await this.supabase
+          .getClient()
+          .from('job_cards')
+          .update({ status: 'in_progress' })
+          .eq('id', estimate.job_card_id)
+          .eq('tenant_id', tenantId);
+
+        await this.supabase
+          .getClient()
+          .from('job_status_history')
+          .insert({
+            tenant_id: tenantId,
+            job_card_id: estimate.job_card_id,
+            from_status: job.status,
+            to_status: 'in_progress',
+            changed_by: null,
+            notes: `Estimate ${estimate.estimate_number} approved`,
+          });
+      }
     }
 
     return data;
@@ -485,12 +827,29 @@ export class EstimatesService {
 
     if (!estimate) throw new NotFoundException('Estimate not found');
 
-    // Get job card with customer/vehicle info
-    const { data: job } = await client
-      .from('job_cards')
-      .select('*, customer:customers(full_name, phone, email), vehicle:vehicles(plate, make, model, year)')
-      .eq('id', estimate.job_card_id)
-      .single();
+    let customer = null;
+    let vehicle = null;
+
+    if (estimate.job_card_id) {
+      // Job-linked: get customer/vehicle via job card
+      const { data: job } = await client
+        .from('job_cards')
+        .select('*, customer:customers(full_name, phone, email), vehicle:vehicles(plate, make, model, year)')
+        .eq('id', estimate.job_card_id)
+        .single();
+      customer = (job as Record<string, unknown>)?.customer ?? null;
+      vehicle = (job as Record<string, unknown>)?.vehicle ?? null;
+    } else {
+      // Standalone: get customer/vehicle directly
+      if (estimate.customer_id) {
+        const { data: c } = await client.from('customers').select('full_name, phone, email').eq('id', estimate.customer_id).single();
+        customer = c;
+      }
+      if (estimate.vehicle_id) {
+        const { data: v } = await client.from('vehicles').select('plate, make, model, year').eq('id', estimate.vehicle_id).single();
+        vehicle = v;
+      }
+    }
 
     // Get tenant info
     const { data: tenant } = await client
@@ -499,12 +858,7 @@ export class EstimatesService {
       .eq('id', estimate.tenant_id)
       .single();
 
-    return {
-      estimate,
-      customer: (job as Record<string, unknown>)?.customer ?? null,
-      vehicle: (job as Record<string, unknown>)?.vehicle ?? null,
-      workshop: tenant,
-    };
+    return { estimate, customer, vehicle, workshop: tenant };
   }
 
   /**
@@ -535,20 +889,22 @@ export class EstimatesService {
       })
       .eq('id', estimateId);
 
-    // Transition job
-    const { data: job } = await this.supabase
-      .getClient()
-      .from('job_cards')
-      .select('status')
-      .eq('id', estimate.job_card_id)
-      .single();
-
-    if (job && ['awaiting_approval', 'awaiting_reapproval'].includes(job.status as string)) {
-      await this.supabase
+    // Transition job (only for job-linked estimates)
+    if (estimate.job_card_id) {
+      const { data: job } = await this.supabase
         .getClient()
         .from('job_cards')
-        .update({ status: 'in_progress' })
-        .eq('id', estimate.job_card_id);
+        .select('status')
+        .eq('id', estimate.job_card_id)
+        .single();
+
+      if (job && ['awaiting_approval', 'awaiting_reapproval'].includes(job.status as string)) {
+        await this.supabase
+          .getClient()
+          .from('job_cards')
+          .update({ status: 'in_progress' })
+          .eq('id', estimate.job_card_id);
+      }
     }
 
     return { approved: true };

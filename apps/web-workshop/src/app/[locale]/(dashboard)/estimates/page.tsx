@@ -2,98 +2,210 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { api } from '@/lib/api';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@/i18n/navigation';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useAllEstimates, useConvertEstimateToJob, type Estimate } from '@/hooks/use-estimates';
 import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
 
-interface Estimate {
-  id: string;
-  estimate_number: string;
-  version: number;
-  status: string;
-  grand_total: number;
-  job_card_id: string | null;
-  created_at: string;
-}
+const STATUSES = [
+  { key: undefined, label: 'All' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'sent', label: 'Sent' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'superseded', label: 'Superseded' },
+] as const;
+
+const SOURCES = [
+  { key: undefined, label: 'All Sources' },
+  { key: 'standalone', label: 'Standalone' },
+  { key: 'job_card', label: 'From Job Card' },
+] as const;
 
 export default function EstimatesPage() {
   const tc = useTranslations('common');
-  const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+  const [page, setPage] = useState(1);
+  const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
+  const [activeSource, setActiveSource] = useState<string | undefined>(undefined);
 
-  // Fetch all estimates (we'll get them from the API — need a list-all endpoint)
-  // For now, show estimates from all jobs
-  const { data, isLoading } = useQuery({
-    queryKey: ['all-estimates'],
-    queryFn: async () => {
-      // Get all jobs first, then their estimates
-      const jobs = await api.get<{ data: Array<{ id: string }> }>('/jobs?pageSize=100');
-      const jobList = Array.isArray(jobs) ? jobs : (jobs as { data: Array<{ id: string }> }).data ?? [];
-      const allEstimates: Estimate[] = [];
-      for (const job of jobList.slice(0, 50)) {
-        try {
-          const ests = await api.get<Estimate[]>(`/jobs/${job.id}/estimates`);
-          if (Array.isArray(ests)) allEstimates.push(...ests);
-        } catch { /* skip */ }
-      }
-      return allEstimates.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    },
-  });
+  const { data, isLoading } = useAllEstimates(page, debouncedSearch, activeStatus, activeSource);
+  const convertMutation = useConvertEstimateToJob();
 
-  const estimates = data ?? [];
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [newDesc, setNewDesc] = useState('');
-  const [newTotal, setNewTotal] = useState('');
-
-  if (isLoading) return <SkeletonTable rows={6} cols={6} />;
+  const handleConvert = async (est: Estimate) => {
+    if (!confirm(`Convert estimate ${est.estimate_number} to a job card?`)) return;
+    try {
+      const result = await convertMutation.mutateAsync({ id: est.id });
+      window.location.href = `/jobs/${result.jobCard.id}`;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to convert');
+    }
+  };
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Estimates</h1>
-        <p className="text-sm text-gray-500">Estimates are created from job cards or standalone</p>
+        <Link href="/estimates/new"
+          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+        >
+          New Estimate
+        </Link>
       </div>
 
-      {/* Estimates table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Number</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Version</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Status</th>
-              <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Total</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Date</th>
-              <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {estimates.length > 0 ? estimates.map((est) => (
-              <tr key={est.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-mono font-semibold text-gray-900">{est.estimate_number}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">v{est.version}</td>
-                <td className="px-4 py-3 text-sm">
-                  <StatusBadge status={est.status} />
-                </td>
-                <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">{Number(est.grand_total).toFixed(2)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500">{new Date(est.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3 text-end">
-                  <a href={`/print/estimate/${est.id}`} target="_blank" className="text-xs text-primary-600 hover:text-primary-700">
-                    Print
-                  </a>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={6}>
-                  <EmptyState icon="estimates" title="No estimates yet" description="Estimates are created from job cards" />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      {/* Status tabs */}
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
+        {STATUSES.map((s) => (
+          <button
+            key={s.label}
+            onClick={() => { setActiveStatus(s.key); setPage(1); }}
+            className={`px-3 py-2 text-sm font-medium transition-colors ${
+              activeStatus === s.key
+                ? 'border-b-2 border-primary-600 text-primary-600'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
+
+      {/* Filters row */}
+      <div className="mb-4 flex gap-3">
+        <input
+          type="text"
+          placeholder="Search by estimate number..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          className="max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
+        <select
+          value={activeSource ?? ''}
+          onChange={(e) => { setActiveSource(e.target.value || undefined); setPage(1); }}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
+        >
+          {SOURCES.map((s) => (
+            <option key={s.label} value={s.key ?? ''}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <SkeletonTable rows={8} cols={8} />
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-lg border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Number</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Customer</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Vehicle</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Source</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Total</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Date</th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {(data?.data ?? []).length > 0 ? (data?.data ?? []).map((est) => (
+                  <tr key={est.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-mono font-semibold text-primary-600">
+                      <Link href={`/estimates/${est.id}`}>{est.estimate_number}</Link>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {est.customers?.full_name ?? '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {est.vehicles ? (
+                        <span>
+                          <span className="font-mono font-semibold text-gray-900">{est.vehicles.plate}</span>
+                          <span className="ms-1 text-xs text-gray-400">{est.vehicles.make} {est.vehicles.model}</span>
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        est.source === 'standalone'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {est.source === 'standalone' ? 'Standalone' : 'Job Card'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <StatusBadge status={est.status} />
+                    </td>
+                    <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
+                      {formatCurrency(Number(est.grand_total))}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(est.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-end text-sm space-x-2">
+                      <a href={`/print/estimate/${est.id}`} target="_blank" className="text-xs text-primary-600 hover:text-primary-700">
+                        Print
+                      </a>
+                      {est.source === 'standalone' && est.status === 'approved' && !est.converted_job_card_id && (
+                        <button
+                          onClick={() => handleConvert(est)}
+                          disabled={convertMutation.isPending}
+                          className="text-xs font-semibold text-green-600 hover:text-green-700"
+                        >
+                          Convert to Job
+                        </button>
+                      )}
+                      {est.converted_job_card_id && (
+                        <Link href={`/jobs/${est.converted_job_card_id}`} className="text-xs text-green-600 hover:text-green-700">
+                          View Job
+                        </Link>
+                      )}
+                      {est.job_card_id && !est.converted_job_card_id && (
+                        <Link href={`/jobs/${est.job_card_id}`} className="text-xs text-gray-500 hover:text-gray-700">
+                          Job
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={8}>
+                      <EmptyState icon="estimates" title="No estimates yet" description="Create a standalone estimate or generate one from a job card" />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {data?.meta && data.meta.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+              >
+                {tc('previous')}
+              </button>
+              <span className="text-sm text-gray-600">
+                {page} / {data.meta.totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= data.meta.totalPages}
+                className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+              >
+                {tc('next')}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

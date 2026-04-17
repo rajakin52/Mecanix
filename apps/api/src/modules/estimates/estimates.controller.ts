@@ -4,7 +4,9 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { EstimatesService } from './estimates.service';
@@ -53,6 +55,56 @@ export class EstimatesController {
     private readonly estimatesService: EstimatesService,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  // ── Standalone estimate endpoints ──
+
+  @Get('estimates')
+  async listAll(
+    @TenantId() tenantId: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('source') source?: string,
+    @Query('customerId') customerId?: string,
+    @Query('vehicleId') vehicleId?: string,
+  ) {
+    return this.estimatesService.listAll(
+      tenantId,
+      { page: Number(page) || 1, pageSize: Number(pageSize) || 20, search },
+      { status, source, customerId, vehicleId },
+    );
+  }
+
+  @Post('estimates/standalone')
+  async createStandalone(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.estimatesService.createStandalone(tenantId, user.id, body as never);
+  }
+
+  @Patch('estimates/:id')
+  async updateStandalone(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.estimatesService.updateStandalone(tenantId, id, body as never);
+  }
+
+  @Post('estimates/:id/convert-to-job')
+  async convertToJobCard(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.estimatesService.convertToJobCard(tenantId, user.id, id, body as never);
+  }
+
+  // ── Job-linked estimate endpoints ──
 
   @Get('jobs/:jobId/estimates')
   async listByJob(
