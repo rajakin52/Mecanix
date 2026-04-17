@@ -740,9 +740,9 @@ export default function InspectionScreen() {
 
         {/* Submit */}
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.submitDisabled]}
+          style={[styles.submitButton, (submitting || !signatureData) && styles.submitDisabled]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !signatureData}
           activeOpacity={0.8}
         >
           {submitting ? (
