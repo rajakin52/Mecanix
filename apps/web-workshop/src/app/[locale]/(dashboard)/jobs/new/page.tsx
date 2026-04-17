@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
@@ -151,9 +151,14 @@ export default function NewJobWizard() {
   const [signatureName, setSignatureName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
 
-  // WhatsApp signature capture
+  // Signature capture — pad (on-screen) or WhatsApp (phone link)
+  const [signatureMode, setSignatureMode] = useState<'pad' | 'whatsapp' | null>(null);
+  const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [isSigDrawing, setIsSigDrawing] = useState(false);
+  const [hasSigDrawn, setHasSigDrawn] = useState(false);
   const [signatureSession, setSignatureSession] = useState<{ id: string; token: string; signUrl: string } | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null); // base64 from pad
   const [sendingSignature, setSendingSignature] = useState(false);
   const [signatureSent, setSignatureSent] = useState(false);
 
@@ -437,8 +442,8 @@ export default function NewJobWizard() {
           symptomCodes: selectedSymptoms.map((s) => s.code),
           damagePoints: damagePoints.length > 0 ? damagePoints : undefined,
           checklistItems: checklistItems.length > 0 ? checklistItems : undefined,
-          signatureData: signatureUrl ?? (signatureName.trim() ? `signed:${signatureName.trim()}` : undefined),
-          signatureMethod: signatureUrl ? 'whatsapp' : (signatureName.trim() ? 'digital' : undefined),
+          signatureData: signatureUrl ?? signatureDataUrl ?? (signatureName.trim() ? `signed:${signatureName.trim()}` : undefined),
+          signatureMethod: signatureUrl ? 'whatsapp' : signatureDataUrl ? 'digital' : (signatureName.trim() ? 'digital' : undefined),
           signedByName: signatureName.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
         });
@@ -1472,21 +1477,27 @@ export default function NewJobWizard() {
                 </div>
               </div>
 
-              {/* Customer Signature via WhatsApp */}
+              {/* Customer Signature */}
               <div className="mt-5 pt-5 border-t border-gray-100">
-                <label className="block text-sm font-medium text-gray-700 mb-3">Customer Signature</label>
+                <label className="block text-sm font-medium text-gray-700 mb-3">Customer Signature *</label>
 
-                {signatureUrl ? (
-                  /* Signature received */
+                {/* Signature captured — show it */}
+                {(signatureUrl || signatureDataUrl) ? (
                   <div className="flex items-center gap-4 rounded-lg border border-green-200 bg-green-50 p-4">
-                    <img src={signatureUrl} alt="Customer signature" className="h-16 w-auto rounded border border-green-300 bg-white" />
-                    <div>
-                      <p className="text-sm font-semibold text-green-900">Signature received</p>
-                      <p className="text-xs text-green-600">{signatureName || 'Customer'} signed via phone</p>
+                    <img src={signatureUrl ?? signatureDataUrl ?? ''} alt="Customer signature" className="h-16 w-auto rounded border border-green-300 bg-white" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-900">Signature captured</p>
+                      <p className="text-xs text-green-600">{signatureName || 'Customer'} signed {signatureUrl ? 'via phone' : 'on screen'}</p>
                     </div>
+                    <button
+                      onClick={() => { setSignatureUrl(null); setSignatureDataUrl(null); setSignatureMode(null); setSignatureSent(false); setSignatureSession(null); setHasSigDrawn(false); }}
+                      className="text-xs text-red-600 hover:text-red-800 font-semibold"
+                    >
+                      Clear
+                    </button>
                   </div>
                 ) : signatureSent ? (
-                  /* Waiting for signature */
+                  /* Waiting for WhatsApp signature */
                   <div className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 animate-pulse">
@@ -1498,27 +1509,125 @@ export default function NewJobWizard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => { setSignatureSent(false); setSignatureSession(null); }}
+                      onClick={() => { setSignatureSent(false); setSignatureSession(null); setSignatureMode(null); }}
                       className="mt-2 text-xs text-amber-700 hover:text-amber-900 underline"
                     >
-                      Resend link
+                      Try a different method
                     </button>
                   </div>
-                ) : (
-                  /* Send signature link */
-                  <button
-                    onClick={handleSendSignatureLink}
-                    disabled={sendingSignature || !contactPhone.trim()}
-                    className="flex items-center gap-3 rounded-lg border-2 border-dashed border-primary-300 bg-primary-50 px-4 py-3 hover:border-primary-400 hover:shadow-sm transition-all disabled:opacity-40 w-full"
-                  >
-                    <span className="text-xl">&#x270D;&#xFE0F;</span>
-                    <div className="text-start">
-                      <p className="text-sm font-semibold text-primary-900">
-                        {sendingSignature ? 'Sending...' : 'Send Signature Link via WhatsApp'}
-                      </p>
-                      <p className="text-xs text-primary-600">Customer signs on their phone &mdash; syncs here automatically</p>
+                ) : signatureMode === 'pad' ? (
+                  /* On-screen signature pad */
+                  <div>
+                    <div className="rounded-lg border-2 border-gray-300 bg-white overflow-hidden">
+                      <canvas
+                        ref={sigCanvasRef}
+                        className="w-full touch-none cursor-crosshair"
+                        style={{ height: 180 }}
+                        onMouseDown={(e) => {
+                          setIsSigDrawing(true); setHasSigDrawn(true);
+                          const canvas = sigCanvasRef.current; if (!canvas) return;
+                          const ctx = canvas.getContext('2d'); if (!ctx) return;
+                          const rect = canvas.getBoundingClientRect();
+                          // Init canvas size on first draw
+                          if (canvas.width !== rect.width * (window.devicePixelRatio || 1)) {
+                            const dpr = window.devicePixelRatio || 1;
+                            canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+                            ctx.scale(dpr, dpr);
+                            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, rect.width, rect.height);
+                            ctx.strokeStyle = '#1C1C1E'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                          }
+                          ctx.beginPath(); ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                        }}
+                        onMouseMove={(e) => {
+                          if (!isSigDrawing) return;
+                          const canvas = sigCanvasRef.current; if (!canvas) return;
+                          const ctx = canvas.getContext('2d'); if (!ctx) return;
+                          const rect = canvas.getBoundingClientRect();
+                          ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top); ctx.stroke();
+                        }}
+                        onMouseUp={() => setIsSigDrawing(false)}
+                        onMouseLeave={() => setIsSigDrawing(false)}
+                        onTouchStart={(e) => {
+                          e.preventDefault(); setIsSigDrawing(true); setHasSigDrawn(true);
+                          const canvas = sigCanvasRef.current; if (!canvas) return;
+                          const ctx = canvas.getContext('2d'); if (!ctx) return;
+                          const rect = canvas.getBoundingClientRect();
+                          if (canvas.width !== rect.width * (window.devicePixelRatio || 1)) {
+                            const dpr = window.devicePixelRatio || 1;
+                            canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+                            ctx.scale(dpr, dpr);
+                            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, rect.width, rect.height);
+                            ctx.strokeStyle = '#1C1C1E'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                          }
+                          const touch = e.touches[0]; if (!touch) return;
+                          ctx.beginPath(); ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                        }}
+                        onTouchMove={(e) => {
+                          e.preventDefault(); if (!isSigDrawing) return;
+                          const canvas = sigCanvasRef.current; if (!canvas) return;
+                          const ctx = canvas.getContext('2d'); if (!ctx) return;
+                          const rect = canvas.getBoundingClientRect();
+                          const touch = e.touches[0]; if (!touch) return;
+                          ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top); ctx.stroke();
+                        }}
+                        onTouchEnd={() => setIsSigDrawing(false)}
+                      />
                     </div>
-                  </button>
+                    <p className="mt-1 text-xs text-gray-400 text-center">Draw signature above with mouse or finger</p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => {
+                          const canvas = sigCanvasRef.current; if (!canvas) return;
+                          const ctx = canvas.getContext('2d'); if (!ctx) return;
+                          const rect = canvas.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1;
+                          ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
+                          ctx.scale(dpr, dpr); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, rect.width, rect.height);
+                          ctx.strokeStyle = '#1C1C1E'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                          setHasSigDrawn(false);
+                        }}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => {
+                          const canvas = sigCanvasRef.current;
+                          if (canvas && hasSigDrawn) setSignatureDataUrl(canvas.toDataURL('image/png'));
+                        }}
+                        disabled={!hasSigDrawn}
+                        className="rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-40"
+                      >
+                        Confirm Signature
+                      </button>
+                      <button
+                        onClick={() => { setSignatureMode(null); setHasSigDrawn(false); }}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-xs text-gray-500 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Choose method */
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setSignatureMode('pad')}
+                      className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 p-4 hover:border-primary-400 hover:shadow-sm transition-all"
+                    >
+                      <span className="text-2xl">&#x270D;&#xFE0F;</span>
+                      <span className="text-sm font-bold text-primary-900">Sign Here</span>
+                      <span className="text-xs text-primary-600">Customer signs on this screen</span>
+                    </button>
+                    <button
+                      onClick={handleSendSignatureLink}
+                      disabled={sendingSignature || !contactPhone.trim()}
+                      className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 hover:border-gray-400 hover:shadow-sm transition-all disabled:opacity-40"
+                    >
+                      <span className="text-2xl">&#x1F4F1;</span>
+                      <span className="text-sm font-bold text-gray-900">{sendingSignature ? 'Sending...' : 'Send to Phone'}</span>
+                      <span className="text-xs text-gray-500">Via WhatsApp link</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
