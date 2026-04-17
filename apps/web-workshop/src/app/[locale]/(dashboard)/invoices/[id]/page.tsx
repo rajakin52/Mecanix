@@ -150,20 +150,40 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Customer & Job Info */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase text-gray-500">{t('customer')}</p>
-          <p className="mt-1 text-sm font-medium text-gray-900">
-            {(invoice.customers)?.full_name ?? '-'}
-          </p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</p>
-          <Link href={`/jobs/${invoice.job_card_id}`} className="mt-1 block text-sm font-medium text-primary-600 hover:underline">
-            {(invoice.job_cards)?.job_number ?? '-'}
-          </Link>
-        </div>
-      </div>
+      {(() => {
+        const cust = invoice.customer ?? invoice.customers;
+        const jc = invoice.job_card ?? invoice.job_cards;
+        return (
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-gray-200 bg-white p-4 sm:col-span-2">
+              <p className="text-xs font-semibold uppercase text-gray-500">{t('customer')}</p>
+              {cust ? (
+                <div className="mt-1">
+                  <p className="text-sm font-semibold text-gray-900">{cust.full_name}</p>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+                    {cust.phone && <span>{cust.phone}</span>}
+                    {cust.email && <span>{cust.email}</span>}
+                    {cust.tax_id && <span>NIF: {cust.tax_id}</span>}
+                  </div>
+                  {cust.address && <p className="mt-1 text-xs text-gray-400">{cust.address}</p>}
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-gray-400">-</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</p>
+              {jc ? (
+                <Link href={`/jobs/${invoice.job_card_id}`} className="mt-1 block text-sm font-semibold text-primary-600 hover:underline">
+                  {jc.job_number}
+                </Link>
+              ) : (
+                <p className="mt-1 text-sm text-gray-400">-</p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Labour Lines */}
       <div className="mb-6">

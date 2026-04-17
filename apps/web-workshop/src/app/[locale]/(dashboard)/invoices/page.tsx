@@ -152,10 +152,10 @@ export default function InvoicesPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {inv.customers?.full_name ?? '-'}
+                        {(inv.customer ?? inv.customers)?.full_name ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {inv.job_cards?.job_number ?? '-'}
+                        {(inv.job_card ?? inv.job_cards)?.job_number ?? '-'}
                       </td>
                       <td className="px-4 py-3 text-end text-sm font-medium text-gray-900">
                         {formatCurrency(inv.grand_total)}
@@ -234,7 +234,7 @@ export default function InvoicesPage() {
                   <option value="">{t('selectJobCard')}</option>
                   {eligibleJobs.map((job) => (
                     <option key={job.id} value={job.id}>
-                      {job.job_number} - {job.customers?.full_name ?? ''}
+                      {job.job_number} - {(job.customer ?? job.customers)?.full_name ?? ''}
                     </option>
                   ))}
                 </select>

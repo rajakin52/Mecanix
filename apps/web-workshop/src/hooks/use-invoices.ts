@@ -25,8 +25,10 @@ interface Invoice {
   notes: string | null;
   pdf_url: string | null;
   created_at: string;
-  customers?: { full_name: string; phone?: string; email?: string };
-  job_cards?: { job_number: string };
+  customer?: { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string } | null;
+  customers?: { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string } | null;
+  job_card?: { id: string; job_number: string } | null;
+  job_cards?: { id: string; job_number: string } | null;
   payments?: Array<Record<string, unknown>>;
   credit_notes?: Array<Record<string, unknown>>;
 }
