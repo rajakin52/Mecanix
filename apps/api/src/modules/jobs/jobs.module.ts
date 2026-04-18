@@ -8,9 +8,10 @@ import { PartsLinesService } from './parts-lines.service';
 import { PricingModule } from '../pricing/pricing.module';
 import { InspectionsModule } from '../inspections/inspections.module';
 import { SymptomsModule } from '../symptoms/symptoms.module';
+import { PartsModule } from '../parts/parts.module';
 
 @Module({
-  imports: [PricingModule, InspectionsModule, SymptomsModule],
+  imports: [PricingModule, InspectionsModule, SymptomsModule, PartsModule],
   controllers: [JobsController, LabourLinesController, PartsLinesController],
   providers: [JobsService, LabourLinesService, PartsLinesService],
   exports: [JobsService, PartsLinesService],

@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { PricingService } from '../pricing/pricing.service';
+import { StockPolicyService } from '../parts/stock-policy.service';
 import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class PartsLinesService {
     private readonly jobsService: JobsService,
     private readonly inspectionsService: InspectionsService,
     private readonly pricingService: PricingService,
+    private readonly stockPolicyService: StockPolicyService,
   ) {}
 
   async list(tenantId: string, jobCardId: string) {
@@ -32,6 +34,7 @@ export class PartsLinesService {
     tenantId: string,
     jobCardId: string,
     userId: string,
+    userRole: string,
     input: CreatePartsLineInput,
   ) {
     // Require vehicle inspection before adding work items
@@ -127,13 +130,15 @@ export class PartsLinesService {
         .maybeSingle();
 
       if (part) {
-        // Validate available stock before reserving
+        // Validate available stock before reserving (admin/owner can override)
         const available = Number(part.stock_qty) - (Number(part.reserved_qty) || 0);
-        if (available < input.quantity) {
-          throw new BadRequestException(
-            `Insufficient stock for ${input.partName}. Available: ${available}, Required: ${input.quantity}`,
-          );
-        }
+        await this.stockPolicyService.assertSufficientOrOverride(
+          tenantId,
+          userRole,
+          available,
+          input.quantity,
+          input.partName,
+        );
 
         const currentReserved = Number(part.reserved_qty) || 0;
         const newReserved = currentReserved + input.quantity;
@@ -481,7 +486,8 @@ export class PartsLinesService {
       const qty = Number(line.quantity) || 0;
       const currentStockQty = Number(part.stock_qty);
       const currentReserved = Number(part.reserved_qty) || 0;
-      const newStockQty = Math.max(0, currentStockQty - qty);
+      // Allow stock to go negative: policy was enforced at reservation time.
+      const newStockQty = currentStockQty - qty;
       const newReserved = Math.max(0, currentReserved - qty);
 
       // Deduct stock and decrement reservation
@@ -506,7 +512,7 @@ export class PartsLinesService {
         await client
           .from('warehouse_stock')
           .update({
-            quantity: Math.max(0, whQty - qty),
+            quantity: whQty - qty,
             reserved_qty: Math.max(0, whReserved - qty),
           })
           .eq('id', whStock.id)
@@ -542,7 +548,7 @@ export class PartsLinesService {
     return issuedCount;
   }
 
-  async chargePlannedLine(tenantId: string, id: string, userId: string) {
+  async chargePlannedLine(tenantId: string, id: string, userId: string, userRole: string) {
     const client = this.supabase.getClient();
 
     const { data: line, error: fetchError } = await client
@@ -574,11 +580,13 @@ export class PartsLinesService {
 
       if (part) {
         const available = (part.stock_qty as number) - (part.reserved_qty as number || 0);
-        if (available < qty) {
-          throw new BadRequestException(
-            `Insufficient stock for ${line.part_name}. Available: ${available}, Required: ${qty}`,
-          );
-        }
+        await this.stockPolicyService.assertSufficientOrOverride(
+          tenantId,
+          userRole,
+          available,
+          qty,
+          line.part_name as string,
+        );
 
         // Reserve the stock
         await client

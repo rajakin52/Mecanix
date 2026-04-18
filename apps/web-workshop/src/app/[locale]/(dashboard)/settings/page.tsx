@@ -67,6 +67,12 @@ export default function SettingsPage() {
   const [savingPhotoPolicy, setSavingPhotoPolicy] = useState(false);
   const [photoPolicyMessage, setPhotoPolicyMessage] = useState('');
 
+  // Stock policy state
+  const [allowNegativeStock, setAllowNegativeStock] = useState<boolean>(false);
+  const [negativeStockRoles, setNegativeStockRoles] = useState<string[]>(['owner']);
+  const [savingStockPolicy, setSavingStockPolicy] = useState(false);
+  const [stockPolicyMessage, setStockPolicyMessage] = useState('');
+
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
       .then((data) => {
@@ -100,6 +106,14 @@ export default function SettingsPage() {
     api.get<{ key: string; value: string | null }>('/tenants/me/settings/job_card_photo_policy')
       .then((data) => {
         if (data.value) setPhotoPolicy(data.value);
+      })
+      .catch(() => {});
+
+    // Fetch stock policy
+    api.get<{ allowNegativeStock: boolean; overrideRoles: string[] }>('/parts/stock-policy')
+      .then((data) => {
+        setAllowNegativeStock(data.allowNegativeStock);
+        setNegativeStockRoles(data.overrideRoles);
       })
       .catch(() => {});
   }, []);
@@ -154,6 +168,28 @@ export default function SettingsPage() {
     } finally {
       setSavingPhotoPolicy(false);
     }
+  };
+
+  const handleSaveStockPolicy = async () => {
+    setSavingStockPolicy(true);
+    setStockPolicyMessage('');
+    try {
+      await api.put('/parts/stock-policy', {
+        allowNegativeStock,
+        overrideRoles: negativeStockRoles,
+      });
+      setStockPolicyMessage('Stock policy saved');
+    } catch (err) {
+      setStockPolicyMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingStockPolicy(false);
+    }
+  };
+
+  const toggleRole = (role: string) => {
+    setNegativeStockRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
+    );
   };
 
   const handleSaveCurrency = async () => {
@@ -321,6 +357,74 @@ export default function SettingsPage() {
             {photoPolicyMessage && (
               <p className={`text-sm ${photoPolicyMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
                 {photoPolicyMessage}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Stock Policy */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Parts Stock Policy</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Control who can use parts when stock is insufficient. By default the system blocks the action and only the Owner can override.
+          </p>
+
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 rounded-lg border-2 border-gray-200 p-4">
+              <input
+                type="checkbox"
+                checked={allowNegativeStock}
+                onChange={(e) => setAllowNegativeStock(e.target.checked)}
+                className="mt-0.5 h-4 w-4 text-primary-600"
+              />
+              <div>
+                <p className="font-semibold text-gray-900">Allow negative stock for everyone</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  If on, any user can add parts even when stock is 0. Not recommended. Leave off to restrict by role.
+                </p>
+              </div>
+            </label>
+
+            <div className={`rounded-lg border-2 p-4 ${allowNegativeStock ? 'opacity-50 border-gray-200' : 'border-gray-200'}`}>
+              <p className="font-semibold text-gray-900 mb-1">Roles allowed to override stock check</p>
+              <p className="text-sm text-gray-500 mb-3">
+                Users with these roles can use parts with insufficient stock (stock will go negative, audit logged).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {['owner', 'manager', 'receptionist', 'technician'].map((role) => (
+                  <label
+                    key={role}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm cursor-pointer ${
+                      negativeStockRoles.includes(role)
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-300 text-gray-600 hover:border-gray-400'
+                    } ${allowNegativeStock ? 'pointer-events-none' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={negativeStockRoles.includes(role)}
+                      onChange={() => toggleRole(role)}
+                      className="h-3.5 w-3.5"
+                      disabled={allowNegativeStock}
+                    />
+                    <span className="capitalize">{role}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleSaveStockPolicy}
+              disabled={savingStockPolicy}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {savingStockPolicy ? t('loading') : t('save')}
+            </button>
+            {stockPolicyMessage && (
+              <p className={`text-sm ${stockPolicyMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                {stockPolicyMessage}
               </p>
             )}
           </div>

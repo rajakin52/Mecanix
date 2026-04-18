@@ -36,7 +36,7 @@ export class PartsLinesController {
     @Param('jobId') jobId: string,
     @Body(new ZodValidationPipe(createPartsLineSchema)) body: CreatePartsLineInput,
   ) {
-    return this.partsLinesService.create(tenantId, jobId, user.id, body);
+    return this.partsLinesService.create(tenantId, jobId, user.id, user.role, body);
   }
 
   @Patch(':id')
@@ -56,7 +56,7 @@ export class PartsLinesController {
     @Param('jobId') jobId: string,
     @Param('id') id: string,
   ) {
-    return this.partsLinesService.chargePlannedLine(tenantId, id, user.id);
+    return this.partsLinesService.chargePlannedLine(tenantId, id, user.id, user.role);
   }
 
   @Delete(':id')
