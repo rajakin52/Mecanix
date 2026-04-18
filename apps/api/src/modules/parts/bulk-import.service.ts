@@ -310,15 +310,25 @@ export class BulkImportService {
         if (row.isActive !== undefined) payload.is_active = row.isActive;
 
         if (existing) {
-          const { error: updErr } = await client
+          if (created === 0 && updated === 0) {
+            this.logger.log(`bulk-import: first UPDATE payload=${JSON.stringify(payload)} for id=${existing.id}`);
+            debug.firstPayload = { mode: 'update', id: existing.id, payload };
+          }
+          const { data: updatedRow, error: updErr } = await client
             .from('parts')
             .update(payload)
             .eq('id', existing.id)
-            .eq('tenant_id', tenantId);
+            .eq('tenant_id', tenantId)
+            .select('id, part_number, unit_cost, stock_qty')
+            .single();
           if (updErr) {
             errors.push(`Row ${row.rowNumber}: update failed — ${updErr.message}`);
             skipped++;
           } else {
+            if (updated === 0) {
+              this.logger.log(`bulk-import: first UPDATE result=${JSON.stringify(updatedRow)}`);
+              debug.firstResult = updatedRow;
+            }
             updated++;
           }
         } else {
