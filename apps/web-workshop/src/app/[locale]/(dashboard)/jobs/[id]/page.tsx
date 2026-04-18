@@ -986,7 +986,7 @@ export default function JobDetailPage() {
   const chargeParts = useChargePartsLine();
   const [showPartsForm, setShowPartsForm] = useState(false);
   const [partSearch, setPartSearch] = useState('');
-  const [partSearchResults, setPartSearchResults] = useState<Array<{ id: string; part_number: string; description: string; unit_cost: number; sell_price: number; stock_on_hand: number; category: string }>>([]);
+  const [partSearchResults, setPartSearchResults] = useState<Array<{ id: string; part_number: string; description: string; unit_cost: number; sell_price: number; stock_qty: number; category: string }>>([]);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [partName, setPartName] = useState('');
   const [partNumber, setPartNumber] = useState('');
@@ -1014,7 +1014,7 @@ export default function JobDetailPage() {
     setPartName(part.description);
     setPartNumber(part.part_number ?? '');
     setPartUnitCost(String(part.unit_cost ?? 0));
-    setPartStockInfo(`${part.stock_on_hand ?? 0} in stock`);
+    setPartStockInfo(`${part.stock_qty ?? 0} in stock`);
     setPartSearch('');
     setPartSearchResults([]);
   };
@@ -1837,9 +1837,9 @@ export default function JobDetailPage() {
                         <div className="flex items-center gap-3 text-xs">
                           <span className="text-gray-500">{formatCurrency(p.unit_cost)}</span>
                           <span className={`rounded-full px-2 py-0.5 font-medium ${
-                            p.stock_on_hand > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            p.stock_qty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                           }`}>
-                            {p.stock_on_hand} in stock
+                            {p.stock_qty} in stock
                           </span>
                         </div>
                       </button>

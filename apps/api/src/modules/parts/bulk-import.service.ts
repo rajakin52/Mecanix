@@ -225,12 +225,9 @@ export class BulkImportService {
     updated: number;
     skipped: number;
     errors: string[];
-    debug?: unknown;
   }> {
     const rawRows = this.parseFile(fileBuffer, filename);
     if (!rawRows.length) throw new BadRequestException('No data rows found');
-
-    this.logger.log(`bulk-import: ${rawRows.length} raw rows, first keys=${Object.keys(rawRows[0] ?? {}).join(',')}`);
 
     const rows: ImportRow[] = [];
     const errors: string[] = [];
@@ -240,10 +237,6 @@ export class BulkImportService {
       if (error) errors.push(error);
       else if (row) rows.push(row);
     });
-
-    if (rows[0]) {
-      this.logger.log(`bulk-import: first normalized row=${JSON.stringify(rows[0])}`);
-    }
 
     if (!rows.length) {
       throw new BadRequestException(`No valid rows to import. First errors: ${errors.slice(0, 5).join('; ')}`);
@@ -265,10 +258,6 @@ export class BulkImportService {
     let created = 0;
     let updated = 0;
     let skipped = 0;
-    const debug: { firstRowRaw?: unknown; firstNormalized?: unknown; firstPayload?: unknown; firstResult?: unknown } = {
-      firstRowRaw: rawRows[0],
-      firstNormalized: rows[0],
-    };
 
     for (const row of rows) {
       try {
@@ -310,55 +299,34 @@ export class BulkImportService {
         if (row.isActive !== undefined) payload.is_active = row.isActive;
 
         if (existing) {
-          if (created === 0 && updated === 0) {
-            this.logger.log(`bulk-import: first UPDATE payload=${JSON.stringify(payload)} for id=${existing.id}`);
-            debug.firstPayload = { mode: 'update', id: existing.id, payload };
-          }
-          const { data: updatedRow, error: updErr } = await client
+          const { error: updErr } = await client
             .from('parts')
             .update(payload)
             .eq('id', existing.id)
-            .eq('tenant_id', tenantId)
-            .select('id, part_number, unit_cost, stock_qty')
-            .single();
+            .eq('tenant_id', tenantId);
           if (updErr) {
             errors.push(`Row ${row.rowNumber}: update failed — ${updErr.message}`);
             skipped++;
           } else {
-            if (updated === 0) {
-              this.logger.log(`bulk-import: first UPDATE result=${JSON.stringify(updatedRow)}`);
-              debug.firstResult = updatedRow;
-            }
             updated++;
           }
         } else {
-          const insertRow = {
-            tenant_id: tenantId,
-            is_active: true,
-            unit_cost: 0,
-            sell_price: 0,
-            stock_qty: 0,
-            reorder_point: 0,
-            ...payload,
-            created_by: userId,
-          };
-          if (created === 0 && updated === 0) {
-            this.logger.log(`bulk-import: first insert payload=${JSON.stringify(insertRow)}`);
-            debug.firstPayload = insertRow;
-          }
-          const { data: inserted, error: insErr } = await client
+          const { error: insErr } = await client
             .from('parts')
-            .insert(insertRow)
-            .select('id, part_number, unit_cost, stock_qty')
-            .single();
+            .insert({
+              tenant_id: tenantId,
+              is_active: true,
+              unit_cost: 0,
+              sell_price: 0,
+              stock_qty: 0,
+              reorder_point: 0,
+              ...payload,
+              created_by: userId,
+            });
           if (insErr) {
             errors.push(`Row ${row.rowNumber}: create failed — ${insErr.message}`);
             skipped++;
           } else {
-            if (created === 0) {
-              this.logger.log(`bulk-import: first insert result=${JSON.stringify(inserted)}`);
-              debug.firstResult = inserted;
-            }
             created++;
           }
         }
@@ -370,6 +338,6 @@ export class BulkImportService {
       }
     }
 
-    return { processed: rows.length, created, updated, skipped, errors, debug };
+    return { processed: rows.length, created, updated, skipped, errors };
   }
 }

@@ -168,7 +168,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-gray-500">{String(part.part_number ?? '')}</p>
                   </div>
                   <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
-                    {String(part.stock_on_hand ?? 0)} / {String(part.reorder_point ?? 0)}
+                    {String(part.stock_qty ?? 0)} / {String(part.reorder_point ?? 0)}
                   </span>
                 </li>
               ))}

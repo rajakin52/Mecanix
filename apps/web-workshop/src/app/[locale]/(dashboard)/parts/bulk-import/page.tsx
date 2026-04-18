@@ -11,12 +11,6 @@ interface ImportResult {
   updated: number;
   skipped: number;
   errors: string[];
-  debug?: {
-    firstRowRaw?: unknown;
-    firstNormalized?: unknown;
-    firstPayload?: unknown;
-    firstResult?: unknown;
-  };
 }
 
 interface TemplateResponse {
@@ -178,14 +172,6 @@ export default function PartsBulkImportPage() {
                   ))}
                 </ul>
               </div>
-            )}
-            {result.debug && (
-              <details className="mt-4 rounded border border-gray-200 bg-white p-3 text-xs">
-                <summary className="cursor-pointer font-semibold text-gray-700">
-                  Debug (first row trace)
-                </summary>
-                <pre className="mt-2 overflow-auto text-[11px] text-gray-600">{JSON.stringify(result.debug, null, 2)}</pre>
-              </details>
             )}
           </div>
         )}

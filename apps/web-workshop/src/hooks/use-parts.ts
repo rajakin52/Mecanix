@@ -8,9 +8,9 @@ interface Part {
   part_number: string;
   description: string;
   category: string;
-  stock_on_hand: number;
+  stock_qty: number;
   reorder_point: number;
-  cost_price: number;
+  unit_cost: number;
   sell_price: number;
   location: string | null;
   created_at: string;

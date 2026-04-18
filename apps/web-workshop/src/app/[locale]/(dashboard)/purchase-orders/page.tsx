@@ -266,7 +266,7 @@ export default function PurchaseOrdersPage() {
                               ...current,
                               partId,
                               description: p ? p.description : current.description,
-                              unitCost: p ? p.cost_price : current.unitCost,
+                              unitCost: p ? p.unit_cost : current.unitCost,
                             };
                             setForm({ ...form, lines });
                           }}
