@@ -13,7 +13,6 @@ export class PhotoCaptureController {
   ) {}
 
   @Get('sms-config')
-  @UseGuards(TenantGuard)
   async smsConfig() {
     return this.smsService.getConfigStatus();
   }
