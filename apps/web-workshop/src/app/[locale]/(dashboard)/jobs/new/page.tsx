@@ -249,15 +249,21 @@ export default function NewJobWizard() {
     if (!whatsAppPhone.trim()) return;
     setSendingWhatsApp(true);
     try {
-      const session = await api.post<CaptureSession>('/photo-capture/sessions', {
+      const session = await api.post<CaptureSession & { whatsappStatus?: { sent: boolean; error?: string } }>('/photo-capture/sessions', {
         vehiclePlate: selectedVehicle?.plate,
         vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
         captureMode,
         sendWhatsApp: whatsAppPhone.replace(/\D/g, ''),
       });
       setCaptureSession(session);
-      setWhatsAppSent(true);
-    } catch { /* ignore */ }
+      if (session.whatsappStatus && !session.whatsappStatus.sent) {
+        alert(`WhatsApp not sent: ${session.whatsappStatus.error ?? 'unknown'}`);
+      } else {
+        setWhatsAppSent(true);
+      }
+    } catch (e) {
+      alert(`Failed to create capture session: ${e instanceof Error ? e.message : String(e)}`);
+    }
     setSendingWhatsApp(false);
   }, [whatsAppPhone, selectedVehicle]);
 
@@ -266,15 +272,21 @@ export default function NewJobWizard() {
     if (!contactPhone.trim()) return;
     setSendingSignature(true);
     try {
-      const session = await api.post<{ id: string; token: string; signUrl: string }>('/photo-capture/signature-sessions', {
+      const session = await api.post<{ id: string; token: string; signUrl: string; whatsappStatus?: { sent: boolean; error?: string } }>('/photo-capture/signature-sessions', {
         vehiclePlate: selectedVehicle?.plate,
         vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
         customerName: signatureName.trim() || selectedCustomer?.full_name,
         sendWhatsApp: contactPhone.replace(/\D/g, ''),
       });
       setSignatureSession(session);
-      setSignatureSent(true);
-    } catch { /* ignore */ }
+      if (session.whatsappStatus && !session.whatsappStatus.sent) {
+        alert(`WhatsApp not sent: ${session.whatsappStatus.error ?? 'unknown'}`);
+      } else {
+        setSignatureSent(true);
+      }
+    } catch (e) {
+      alert(`Failed to create signature session: ${e instanceof Error ? e.message : String(e)}`);
+    }
     setSendingSignature(false);
   }, [contactPhone, selectedVehicle, signatureName, selectedCustomer]);
 
