@@ -9,7 +9,10 @@ import { useCreateStandaloneEstimate } from '@/hooks/use-estimates';
 
 interface Customer { id: string; full_name: string; phone: string; email: string | null }
 interface Vehicle { id: string; plate: string; make: string; model: string; year: number | null; customer_id: string }
-interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null }
+interface CatalogItem { id: string; name: string; code: string | null; category: string | null; type: string; estimated_hours: number | null; quick_access?: boolean }
+
+type RepairFilter = 'quick' | 'mechanic' | 'body';
+const BODY_CATEGORIES = ['Body Repair'];
 
 interface LabourLine { description: string; hours: number; rate: number }
 interface PartsLine { partName: string; partNumber: string; quantity: number; unitCost: number; markupPct: number }
@@ -38,6 +41,7 @@ export default function NewEstimateWizard() {
   // Lines
   const [labourLines, setLabourLines] = useState<LabourLine[]>([]);
   const [partsLines, setPartsLines] = useState<PartsLine[]>([]);
+  const [repairFilter, setRepairFilter] = useState<RepairFilter>('mechanic');
 
   // New line forms
   const [newLabour, setNewLabour] = useState<LabourLine>({ description: '', hours: 1, rate: 0 });
@@ -325,27 +329,63 @@ export default function NewEstimateWizard() {
             </div>
 
             {/* Quick add from catalog */}
-            {allCatalog.length > 0 && (
-              <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
-                <h3 className="text-base font-bold text-gray-900 mb-3">Add from Repair Catalog</h3>
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {allCatalog.map((item) => (
-                    <button key={item.id} onClick={() => {
-                      setLabourLines([...labourLines, {
-                        description: item.name,
-                        hours: item.estimated_hours ?? 1,
-                        rate: 0,
-                      }]);
-                    }}
-                      className="w-full text-start rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary-300 hover:bg-primary-50 text-sm">
-                      <span className="font-medium text-gray-900">{item.name}</span>
-                      {item.estimated_hours && <span className="ms-2 text-xs text-gray-400">{item.estimated_hours}h</span>}
-                      {item.category && <span className="ms-2 text-xs text-gray-300">{item.category}</span>}
-                    </button>
-                  ))}
+            {allCatalog.length > 0 && (() => {
+              const isBody = (cat: string | null) => cat ? BODY_CATEGORIES.includes(cat) : false;
+              const isMech = (cat: string | null) => !cat || !BODY_CATEGORIES.includes(cat);
+              const filtered = allCatalog.filter((i) => {
+                if (repairFilter === 'quick') return !!i.quick_access;
+                if (repairFilter === 'body') return isBody(i.category);
+                return isMech(i.category) && !i.quick_access;
+              });
+              const FILTERS: { key: RepairFilter; label: string; icon: string }[] = [
+                { key: 'quick', label: 'Quick Service', icon: '⚡' },
+                { key: 'mechanic', label: 'Mechanic', icon: '🔧' },
+                { key: 'body', label: 'Body & Paint', icon: '🎨' },
+              ];
+              return (
+                <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-200">
+                  <h3 className="text-base font-bold text-gray-900 mb-3">Add from Repair Catalog</h3>
+
+                  {/* Repair category filter */}
+                  <div className="mb-3 flex gap-1 rounded-xl bg-gray-100 p-1">
+                    {FILTERS.map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setRepairFilter(f.key)}
+                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                          repairFilter === f.key
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        <span className="me-1.5">{f.icon}</span>{f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {filtered.length === 0 ? (
+                      <p className="text-sm text-gray-400 py-4 text-center">No items in this category</p>
+                    ) : (
+                      filtered.map((item) => (
+                        <button key={item.id} onClick={() => {
+                          setLabourLines([...labourLines, {
+                            description: item.name,
+                            hours: item.estimated_hours ?? 1,
+                            rate: 0,
+                          }]);
+                        }}
+                          className="w-full text-start rounded-lg border border-gray-100 px-3 py-2.5 hover:border-primary-300 hover:bg-primary-50 text-sm">
+                          <span className="font-medium text-gray-900">{item.name}</span>
+                          {item.estimated_hours && <span className="ms-2 text-xs text-gray-400">{item.estimated_hours}h</span>}
+                          {item.category && <span className="ms-2 text-xs text-gray-300">{item.category}</span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Running total */}
             <div className="rounded-xl bg-gray-100 p-4 text-end">
