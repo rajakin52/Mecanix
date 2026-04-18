@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
 interface CreateReceptionInput {
@@ -34,6 +40,8 @@ interface CreateReceptionInput {
 
 @Injectable()
 export class ReceptionsService {
+  private readonly logger = new Logger(ReceptionsService.name);
+
   constructor(private readonly supabase: SupabaseService) {}
 
   async create(tenantId: string, userId: string, input: CreateReceptionInput) {
@@ -89,7 +97,12 @@ export class ReceptionsService {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      this.logger.error(`reception insert failed: ${JSON.stringify(error)}`);
+      throw new InternalServerErrorException(
+        `Reception insert failed: ${error.message ?? 'unknown'} (code: ${error.code ?? 'n/a'})`,
+      );
+    }
 
     // Insert damage points
     if (input.damagePoints && input.damagePoints.length > 0) {
@@ -105,7 +118,13 @@ export class ReceptionsService {
         note: dp.note ?? null,
         sort_order: i,
       }));
-      await client.from('reception_damage_points').insert(points);
+      const { error: dpErr } = await client.from('reception_damage_points').insert(points);
+      if (dpErr) {
+        this.logger.error(`damage points insert failed: ${JSON.stringify(dpErr)}`);
+        throw new InternalServerErrorException(
+          `Damage points insert failed: ${dpErr.message ?? 'unknown'} (code: ${dpErr.code ?? 'n/a'})`,
+        );
+      }
     }
 
     // Insert checklist items
@@ -120,7 +139,13 @@ export class ReceptionsService {
         detail: ci.detail ?? null,
         sort_order: i,
       }));
-      await client.from('reception_checklist_items').insert(items);
+      const { error: ciErr } = await client.from('reception_checklist_items').insert(items);
+      if (ciErr) {
+        this.logger.error(`checklist items insert failed: ${JSON.stringify(ciErr)}`);
+        throw new InternalServerErrorException(
+          `Checklist items insert failed: ${ciErr.message ?? 'unknown'} (code: ${ciErr.code ?? 'n/a'})`,
+        );
+      }
     }
 
     // Update vehicle mileage
