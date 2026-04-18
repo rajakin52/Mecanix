@@ -14,7 +14,19 @@ export class PhotoCaptureController {
 
   @Get('sms-config')
   async smsConfig() {
-    return this.smsService.getConfigStatus();
+    const twilioKeys = Object.keys(process.env)
+      .filter((k) => k.toUpperCase().includes('TWILIO'))
+      .sort()
+      .map((k) => {
+        const v = process.env[k] ?? '';
+        return {
+          name: k,
+          length: v.length,
+          prefix: v.slice(0, 3),
+          suffix: v.length > 3 ? v.slice(-3) : '',
+        };
+      });
+    return { ...this.smsService.getConfigStatus(), envKeys: twilioKeys };
   }
 
   // ── Authenticated endpoints (advisor at desk) ──
