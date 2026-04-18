@@ -57,7 +57,7 @@ export class PhotoCaptureService {
 
     if (error) throw error;
 
-    const captureUrl = `${process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app'}/capture/${token}`;
+    const captureUrl = `${process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app'}/pt-PT/capture/${token}`;
 
     const modeText = input.captureMode === 'gallery'
       ? 'seleccionar as fotografias da galeria'
@@ -293,7 +293,7 @@ export class PhotoCaptureService {
     if (error) throw error;
 
     const baseUrl = process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app';
-    const signUrl = `${baseUrl}/sign/${token}`;
+    const signUrl = `${baseUrl}/pt-PT/sign/${token}`;
 
     const name = input.customerName ? `\n👤 ${input.customerName}` : '';
     const message = `MECANIX - Assinatura de Recepção\n${name}\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nPor favor assine a recepção do veículo no link abaixo:\n\n${signUrl}\n\n⏰ Este link expira em 2 horas.`;
