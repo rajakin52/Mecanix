@@ -155,6 +155,7 @@ export class JobsService {
       .select('id, job_number, status')
       .eq('tenant_id', tenantId)
       .eq('vehicle_id', input.vehicleId)
+      .is('deleted_at', null)
       .not('status', 'in', '("invoiced","cancelled")')
       .limit(1);
 
