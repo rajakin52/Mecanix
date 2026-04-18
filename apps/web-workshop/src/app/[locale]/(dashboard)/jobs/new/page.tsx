@@ -139,6 +139,7 @@ export default function NewJobWizard() {
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [whatsAppSent, setWhatsAppSent] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState('');
+  const [sendChannel, setSendChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
 
   // Photo policy setting: 'strict' = must have photos before creation, 'flexible' = can skip
   const [photoPolicy, setPhotoPolicy] = useState<'strict' | 'flexible'>('strict');
@@ -244,20 +245,27 @@ export default function NewJobWizard() {
     return () => clearInterval(interval);
   }, [captureSession]);
 
-  // Send WhatsApp capture link
+  // Send WhatsApp or SMS capture link
   const handleSendWhatsApp = useCallback(async (captureMode: 'camera' | 'gallery') => {
     if (!whatsAppPhone.trim()) return;
     setSendingWhatsApp(true);
     try {
-      const session = await api.post<CaptureSession & { whatsappStatus?: { sent: boolean; error?: string } }>('/photo-capture/sessions', {
+      const phoneDigits = whatsAppPhone.replace(/\D/g, '');
+      const body: Record<string, unknown> = {
         vehiclePlate: selectedVehicle?.plate,
         vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
         captureMode,
-        sendWhatsApp: whatsAppPhone.replace(/\D/g, ''),
-      });
+        channel: sendChannel,
+      };
+      if (sendChannel === 'sms') {
+        body.sendSms = whatsAppPhone.trim().startsWith('+') ? whatsAppPhone.trim() : `+${phoneDigits}`;
+      } else {
+        body.sendWhatsApp = phoneDigits;
+      }
+      const session = await api.post<CaptureSession & { messageStatus?: { sent: boolean; error?: string; channel?: string } }>('/photo-capture/sessions', body);
       setCaptureSession(session);
-      if (session.whatsappStatus && !session.whatsappStatus.sent) {
-        alert(`WhatsApp not sent: ${session.whatsappStatus.error ?? 'unknown'}`);
+      if (session.messageStatus && !session.messageStatus.sent) {
+        alert(`${sendChannel === 'sms' ? 'SMS' : 'WhatsApp'} not sent: ${session.messageStatus.error ?? 'unknown'}`);
       } else {
         setWhatsAppSent(true);
       }
@@ -265,7 +273,7 @@ export default function NewJobWizard() {
       alert(`Failed to create capture session: ${e instanceof Error ? e.message : String(e)}`);
     }
     setSendingWhatsApp(false);
-  }, [whatsAppPhone, selectedVehicle]);
+  }, [whatsAppPhone, selectedVehicle, sendChannel]);
 
   // Send WhatsApp signature link
   const handleSendSignatureLink = useCallback(async () => {
@@ -1019,12 +1027,34 @@ export default function NewJobWizard() {
 
               {!whatsAppSent ? (
                 <>
+                  {/* Channel toggle */}
+                  <div className="flex gap-1 rounded-lg bg-gray-100 p-1 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setSendChannel('whatsapp')}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        sendChannel === 'whatsapp' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSendChannel('sms')}
+                      className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        sendChannel === 'sms' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      SMS
+                    </button>
+                  </div>
+
                   {/* Phone number input */}
                   <div className="flex gap-2 mb-4">
                     <input
                       value={whatsAppPhone}
                       onChange={(e) => setWhatsAppPhone(e.target.value)}
-                      placeholder="WhatsApp number (e.g. +244 923 456 789)"
+                      placeholder={sendChannel === 'sms' ? 'SMS number (e.g. +244 923 456 789)' : 'WhatsApp number (e.g. +244 923 456 789)'}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
                     />
                   </div>

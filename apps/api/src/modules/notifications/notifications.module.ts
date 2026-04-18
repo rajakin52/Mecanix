@@ -4,6 +4,7 @@ import { CronController } from './cron.controller';
 import { WebhookController } from './webhook.controller';
 import { NotificationsService } from './notifications.service';
 import { WhatsAppService } from './whatsapp.service';
+import { SmsService } from './sms.service';
 import { PushService } from './push.service';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { PurchaseRequestsModule } from '../purchase-requests/purchase-requests.module';
@@ -11,7 +12,7 @@ import { PurchaseRequestsModule } from '../purchase-requests/purchase-requests.m
 @Module({
   imports: [SupabaseModule, forwardRef(() => PurchaseRequestsModule)],
   controllers: [NotificationsController, CronController, WebhookController],
-  providers: [NotificationsService, WhatsAppService, PushService],
-  exports: [NotificationsService, WhatsAppService, PushService],
+  providers: [NotificationsService, WhatsAppService, SmsService, PushService],
+  exports: [NotificationsService, WhatsAppService, SmsService, PushService],
 })
 export class NotificationsModule {}

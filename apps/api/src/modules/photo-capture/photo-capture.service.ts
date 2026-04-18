@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { SmsService } from '../notifications/sms.service';
 import sharp from 'sharp';
 
 /** Compress an image buffer: resize to max 1600px wide, JPEG quality 75 */
@@ -15,7 +16,10 @@ async function compressPhoto(buffer: Buffer): Promise<Buffer> {
 export class PhotoCaptureService {
   private readonly logger = new Logger(PhotoCaptureService.name);
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly smsService: SmsService,
+  ) {}
 
   /**
    * Create a photo capture session — can be a draft (no jobCardId) for the wizard flow,
@@ -28,6 +32,8 @@ export class PhotoCaptureService {
     requiredPhotos?: string[];
     captureMode?: 'camera' | 'gallery';
     sendWhatsApp?: string; // phone number to send link via WhatsApp
+    sendSms?: string;      // phone number to send link via SMS (Twilio)
+    channel?: 'whatsapp' | 'sms';
   }) {
     // Generate short token
     const token = Array.from({ length: 8 }, () => Math.random().toString(36).charAt(2)).join('').toUpperCase();
@@ -53,21 +59,26 @@ export class PhotoCaptureService {
 
     const captureUrl = `${process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app'}/capture/${token}`;
 
-    // Send via WhatsApp if phone number provided
-    let whatsappStatus: { sent: boolean; error?: string } = { sent: false };
-    if (input.sendWhatsApp) {
+    const modeText = input.captureMode === 'gallery'
+      ? 'seleccionar as fotografias da galeria'
+      : 'tirar as fotografias do veículo';
+    const message = `MECANIX - Fotografias do veículo\n\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nAbra o link abaixo no seu telemóvel para ${modeText}:\n\n${captureUrl}\n\n⏰ Este link expira em 2 horas.`;
+
+    // Channel routing
+    const channel = input.channel ?? (input.sendSms ? 'sms' : 'whatsapp');
+    let messageStatus: { sent: boolean; error?: string; channel?: 'whatsapp' | 'sms' } = { sent: false };
+
+    if (channel === 'sms' && input.sendSms) {
+      const result = await this.smsService.sendText(input.sendSms, message);
+      messageStatus = { sent: result.sent, channel: 'sms', ...(result.error ? { error: result.error } : {}) };
+    } else if (input.sendWhatsApp) {
       const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
       const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
       if (!whatsappPhoneId || !whatsappToken) {
-        whatsappStatus = { sent: false, error: 'WhatsApp env vars not set on server' };
+        messageStatus = { sent: false, channel: 'whatsapp', error: 'WhatsApp env vars not set on server' };
         this.logger.warn('WhatsApp not configured (missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN)');
       } else {
         try {
-          const modeText = input.captureMode === 'gallery'
-            ? 'seleccionar as fotografias da galeria'
-            : 'tirar as fotografias do veículo';
-          const message = `MECANIX - Fotografias do veículo\n\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nAbra o link abaixo no seu telemóvel para ${modeText}:\n\n${captureUrl}\n\n⏰ Este link expira em 2 horas.`;
-
           const resp = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
             method: 'POST',
             headers: {
@@ -84,20 +95,20 @@ export class PhotoCaptureService {
           const respBody = await resp.text();
           if (!resp.ok) {
             this.logger.error(`WhatsApp API ${resp.status}: ${respBody}`);
-            whatsappStatus = { sent: false, error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
+            messageStatus = { sent: false, channel: 'whatsapp', error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
           } else {
-            this.logger.log(`WhatsApp message sent (to=${input.sendWhatsApp.replace(/\D/g, '')}): ${respBody.slice(0, 200)}`);
-            whatsappStatus = { sent: true };
+            this.logger.log(`WhatsApp message sent (to=${input.sendWhatsApp.replace(/\D/g, '')})`);
+            messageStatus = { sent: true, channel: 'whatsapp' };
           }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           this.logger.error(`WhatsApp send exception: ${msg}`);
-          whatsappStatus = { sent: false, error: msg };
+          messageStatus = { sent: false, channel: 'whatsapp', error: msg };
         }
       }
     }
 
-    return { ...data, captureUrl, token, whatsappStatus };
+    return { ...data, captureUrl, token, whatsappStatus: messageStatus, messageStatus };
   }
 
   /**
@@ -256,7 +267,9 @@ export class PhotoCaptureService {
     customerName?: string;
     vehiclePlate?: string;
     vehicleInfo?: string;
-    sendWhatsApp: string;
+    sendWhatsApp?: string;
+    sendSms?: string;
+    channel?: 'whatsapp' | 'sms';
   }) {
     const token = Array.from({ length: 8 }, () => Math.random().toString(36).charAt(2)).join('').toUpperCase();
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
@@ -282,47 +295,54 @@ export class PhotoCaptureService {
     const baseUrl = process.env['CORS_ORIGINS']?.split(',')[0] ?? 'https://mecanix-web-ten.vercel.app';
     const signUrl = `${baseUrl}/sign/${token}`;
 
-    // Send via WhatsApp
-    let whatsappStatus: { sent: boolean; error?: string } = { sent: false };
-    const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
-    const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
-    if (!whatsappPhoneId || !whatsappToken) {
-      whatsappStatus = { sent: false, error: 'WhatsApp env vars not set on server' };
-      this.logger.warn('WhatsApp not configured (signature session)');
-    } else {
-      try {
-        const name = input.customerName ? `\n👤 ${input.customerName}` : '';
-        const message = `MECANIX - Assinatura de Recepção\n${name}\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nPor favor assine a recepção do veículo no link abaixo:\n\n${signUrl}\n\n⏰ Este link expira em 2 horas.`;
+    const name = input.customerName ? `\n👤 ${input.customerName}` : '';
+    const message = `MECANIX - Assinatura de Recepção\n${name}\n🚗 ${input.vehiclePlate ?? ''} ${input.vehicleInfo ?? ''}\n\nPor favor assine a recepção do veículo no link abaixo:\n\n${signUrl}\n\n⏰ Este link expira em 2 horas.`;
 
-        const resp = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${whatsappToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: input.sendWhatsApp.replace(/\D/g, ''),
-            type: 'text',
-            text: { body: message },
-          }),
-        });
-        const respBody = await resp.text();
-        if (!resp.ok) {
-          this.logger.error(`WhatsApp signature API ${resp.status}: ${respBody}`);
-          whatsappStatus = { sent: false, error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
-        } else {
-          this.logger.log(`WhatsApp signature sent (to=${input.sendWhatsApp.replace(/\D/g, '')}): ${respBody.slice(0, 200)}`);
-          whatsappStatus = { sent: true };
+    // Channel routing
+    const channel = input.channel ?? (input.sendSms ? 'sms' : 'whatsapp');
+    let messageStatus: { sent: boolean; error?: string; channel?: 'whatsapp' | 'sms' } = { sent: false };
+
+    if (channel === 'sms' && input.sendSms) {
+      const result = await this.smsService.sendText(input.sendSms, message);
+      messageStatus = { sent: result.sent, channel: 'sms', ...(result.error ? { error: result.error } : {}) };
+    } else if (input.sendWhatsApp) {
+      const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
+      const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
+      if (!whatsappPhoneId || !whatsappToken) {
+        messageStatus = { sent: false, channel: 'whatsapp', error: 'WhatsApp env vars not set on server' };
+        this.logger.warn('WhatsApp not configured (signature session)');
+      } else {
+        try {
+          const resp = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${whatsappToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messaging_product: 'whatsapp',
+              to: input.sendWhatsApp.replace(/\D/g, ''),
+              type: 'text',
+              text: { body: message },
+            }),
+          });
+          const respBody = await resp.text();
+          if (!resp.ok) {
+            this.logger.error(`WhatsApp signature API ${resp.status}: ${respBody}`);
+            messageStatus = { sent: false, channel: 'whatsapp', error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
+          } else {
+            this.logger.log(`WhatsApp signature sent (to=${input.sendWhatsApp.replace(/\D/g, '')})`);
+            messageStatus = { sent: true, channel: 'whatsapp' };
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          this.logger.error(`WhatsApp signature send exception: ${msg}`);
+          messageStatus = { sent: false, channel: 'whatsapp', error: msg };
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.logger.error(`WhatsApp signature send exception: ${msg}`);
-        whatsappStatus = { sent: false, error: msg };
       }
     }
 
-    return { ...data, signUrl, token, whatsappStatus };
+    return { ...data, signUrl, token, whatsappStatus: messageStatus, messageStatus };
   }
 
   /**
