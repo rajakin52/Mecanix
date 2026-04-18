@@ -462,11 +462,20 @@ export default function NewJobWizard() {
 
         // Also create legacy inspection for backward compatibility
         const inspectedDvi = dviItems.filter((i) => i.status !== 'not_inspected');
+        // Map structured checklist (present/absent/damaged/na) to legacy booleans
+        // A boolean is true when the item is PRESENT. Damaged/absent/expired/na → false.
+        const isPresent = (v: string | undefined) => v === 'present';
         await api.post('/inspections', {
           jobCardId: job.id,
           vehicleId: selectedVehicle.id,
           mileageIn: Number(mileage),
           fuelLevel,
+          hasSpareTire: isPresent(safetyItems.spare_tire),
+          hasJack: isPresent(safetyItems.jack),
+          hasTools: isPresent(safetyItems.jack_handle),
+          hasMats: isPresent(accessoryItems.floor_mats),
+          hasHubcaps: isPresent(accessoryItems.hubcaps),
+          hasAntenna: isPresent(accessoryItems.antenna),
           exteriorDamage: damages.length > 0 ? damages : [],
           dviItems: inspectedDvi.length > 0 ? inspectedDvi : undefined,
         });
