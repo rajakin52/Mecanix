@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
@@ -137,6 +138,12 @@ export default function PartsPage() {
           >
             {tt('lookup')}
           </button>
+          <Link
+            href="/parts/bulk-import"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Bulk Import
+          </Link>
           <button
             onClick={() => setShowModal(true)}
             className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
