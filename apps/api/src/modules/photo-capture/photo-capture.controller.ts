@@ -1,12 +1,22 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { PhotoCaptureService } from './photo-capture.service';
+import { SmsService } from '../notifications/sms.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('photo-capture')
 export class PhotoCaptureController {
-  constructor(private readonly photoCaptureService: PhotoCaptureService) {}
+  constructor(
+    private readonly photoCaptureService: PhotoCaptureService,
+    private readonly smsService: SmsService,
+  ) {}
+
+  @Get('sms-config')
+  @UseGuards(TenantGuard)
+  async smsConfig() {
+    return this.smsService.getConfigStatus();
+  }
 
   // ── Authenticated endpoints (advisor at desk) ──
 

@@ -30,6 +30,17 @@ export class SmsService {
     return Boolean(hasAuth && this.fromNumber);
   }
 
+  getConfigStatus(): { accountSid: boolean; authToken: boolean; apiKeySid: boolean; apiKeySecret: boolean; fromNumber: boolean; configured: boolean } {
+    return {
+      accountSid: !!this.accountSid,
+      authToken: !!this.authToken,
+      apiKeySid: !!this.apiKeySid,
+      apiKeySecret: !!this.apiKeySecret,
+      fromNumber: !!this.fromNumber,
+      configured: this.isConfigured(),
+    };
+  }
+
   async sendText(to: string, body: string): Promise<SmsSendResult> {
     if (!this.isConfigured()) {
       this.logger.warn('SMS not configured — need TWILIO_ACCOUNT_SID (AC...) + TWILIO_FROM_NUMBER, plus either TWILIO_AUTH_TOKEN or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET');
