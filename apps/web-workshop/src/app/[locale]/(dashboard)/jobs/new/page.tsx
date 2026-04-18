@@ -7,6 +7,29 @@ import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
 
+// Normalize a phone number to E.164.
+// - If input starts with '+', keep country code as typed.
+// - Else if 9 digits starting with 9 (Angola mobile 92/93/94/95), prepend +244.
+// - Otherwise reject with an error.
+function normalizePhone(input: string): { number: string; error?: string } {
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, '');
+
+  if (trimmed.startsWith('+')) {
+    if (digits.length < 7) return { number: '', error: 'Phone number too short' };
+    return { number: `+${digits}` };
+  }
+
+  if (digits.length === 9 && /^9[2-5]/.test(digits)) {
+    return { number: `+244${digits}` };
+  }
+
+  return {
+    number: '',
+    error: 'Use an Angolan 9-digit number (e.g. 923456789) or include + and country code (e.g. +351912345678).',
+  };
+}
+
 interface CaptureSession {
   id: string;
   token: string;
@@ -248,9 +271,13 @@ export default function NewJobWizard() {
   // Send WhatsApp or SMS capture link
   const handleSendWhatsApp = useCallback(async (captureMode: 'camera' | 'gallery') => {
     if (!whatsAppPhone.trim()) return;
+    const { number: e164, error: phoneErr } = normalizePhone(whatsAppPhone);
+    if (phoneErr) {
+      alert(phoneErr);
+      return;
+    }
     setSendingWhatsApp(true);
     try {
-      const phoneDigits = whatsAppPhone.replace(/\D/g, '');
       const body: Record<string, unknown> = {
         vehiclePlate: selectedVehicle?.plate,
         vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
@@ -258,9 +285,10 @@ export default function NewJobWizard() {
         channel: sendChannel,
       };
       if (sendChannel === 'sms') {
-        body.sendSms = whatsAppPhone.trim().startsWith('+') ? whatsAppPhone.trim() : `+${phoneDigits}`;
+        body.sendSms = e164;
       } else {
-        body.sendWhatsApp = phoneDigits;
+        // WhatsApp Cloud API wants digits only, no leading +
+        body.sendWhatsApp = e164.replace(/^\+/, '');
       }
       const session = await api.post<CaptureSession & { messageStatus?: { sent: boolean; error?: string; channel?: string } }>('/photo-capture/sessions', body);
       setCaptureSession(session);
@@ -278,13 +306,18 @@ export default function NewJobWizard() {
   // Send WhatsApp signature link
   const handleSendSignatureLink = useCallback(async () => {
     if (!contactPhone.trim()) return;
+    const { number: e164, error: phoneErr } = normalizePhone(contactPhone);
+    if (phoneErr) {
+      alert(phoneErr);
+      return;
+    }
     setSendingSignature(true);
     try {
       const session = await api.post<{ id: string; token: string; signUrl: string; whatsappStatus?: { sent: boolean; error?: string } }>('/photo-capture/signature-sessions', {
         vehiclePlate: selectedVehicle?.plate,
         vehicleInfo: selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}${selectedVehicle.year ? ` (${selectedVehicle.year})` : ''}` : undefined,
         customerName: signatureName.trim() || selectedCustomer?.full_name,
-        sendWhatsApp: contactPhone.replace(/\D/g, ''),
+        sendWhatsApp: e164.replace(/^\+/, ''),
       });
       setSignatureSession(session);
       if (session.whatsappStatus && !session.whatsappStatus.sent) {
