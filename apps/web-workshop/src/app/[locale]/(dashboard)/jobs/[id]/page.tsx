@@ -18,6 +18,7 @@ import {
   useTechnicians,
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
+import { useReception } from '@/hooks/use-receptions';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
 import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
@@ -211,6 +212,92 @@ function AiDiagnosisPanel({ reportedProblem, vehicleMake, vehicleModel, vehicleY
           <p className="text-sm text-purple-900 whitespace-pre-wrap">{(diagnose.data as { suggestion: string }).suggestion}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+const CHECKLIST_ITEM_LABELS: Record<string, string> = {
+  jack: 'Jack',
+  jack_handle: 'Jack Handle / Wheel Wrench',
+  spare_tire: 'Spare Tire',
+  warning_triangle: 'Warning Triangle',
+  reflective_vest: 'Reflective Vest',
+  fire_extinguisher: 'Fire Extinguisher',
+  first_aid_kit: 'First Aid Kit',
+  floor_mats: 'Floor Mats',
+  hubcaps: 'Hubcaps / Wheel Covers',
+  antenna: 'Antenna',
+  wiper_blades: 'Wiper Blades',
+  roof_rack: 'Roof Rack / Bars',
+  tow_bar: 'Tow Bar',
+  mud_flaps: 'Mud Flaps',
+};
+
+const STATUS_PILL_CLASSES: Record<string, string> = {
+  present: 'bg-green-100 text-green-800 border-green-300',
+  absent: 'bg-red-100 text-red-800 border-red-300',
+  damaged: 'bg-orange-100 text-orange-800 border-orange-300',
+  expired: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  na: 'bg-gray-100 text-gray-500 border-gray-300',
+};
+
+const CATEGORY_TITLES: Record<string, string> = {
+  safety: 'Safety Equipment',
+  accessory: 'Vehicle Accessories',
+  belonging: 'Personal Belongings',
+};
+
+function ReceptionEquipmentSection({ jobCardId }: { jobCardId: string }) {
+  const { data: reception, isLoading } = useReception(jobCardId);
+
+  if (isLoading || !reception) return null;
+  const items = reception.checklist_items ?? [];
+  if (items.length === 0) return null;
+
+  const grouped = items.reduce<Record<string, typeof items>>((acc, item) => {
+    const cat = item.category ?? 'other';
+    (acc[cat] ??= []).push(item);
+    return acc;
+  }, {});
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <h3 className="mb-4 text-lg font-semibold text-gray-900">Reception Equipment</h3>
+      <div className="space-y-5">
+        {(['safety', 'accessory', 'belonging'] as const).map((cat) => {
+          const catItems = grouped[cat];
+          if (!catItems || catItems.length === 0) return null;
+          return (
+            <div key={cat}>
+              <h4 className="mb-2 text-sm font-semibold text-gray-700">
+                {CATEGORY_TITLES[cat] ?? cat}
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {catItems.map((item, i) => {
+                  const label = item.item_label
+                    || (item.item_code ? CHECKLIST_ITEM_LABELS[item.item_code] ?? item.item_code : 'Item');
+                  const statusKey = (item.status ?? 'na').toLowerCase();
+                  const pillClass = STATUS_PILL_CLASSES[statusKey] ?? STATUS_PILL_CLASSES.na;
+                  return (
+                    <span
+                      key={item.id ?? `${cat}-${i}`}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${pillClass}`}
+                    >
+                      <span>{label}</span>
+                      <span className="uppercase tracking-wide opacity-80">
+                        {statusKey === 'na' ? 'N/A' : statusKey}
+                      </span>
+                      {item.detail ? (
+                        <span className="opacity-70">— {item.detail}</span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1207,6 +1294,9 @@ export default function JobDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Reception Equipment (from structured checklist) */}
+      <ReceptionEquipmentSection jobCardId={id} />
 
       {/* Vehicle Inspection */}
       <InspectionSection
