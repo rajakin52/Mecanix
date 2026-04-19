@@ -211,6 +211,7 @@ export class EstimatesService {
         estimate_number: estNumber,
         version,
         status: 'draft',
+        is_taxable: job.is_taxable !== false,
         labour_total: round2(labourTotal),
         parts_total: round2(partsTotal),
         tax_rate: taxRate,
