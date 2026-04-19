@@ -3,6 +3,19 @@ import { ReceptionsService } from './receptions.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createReceptionSchema,
+  updateReceptionSchema,
+  damagePointSchema,
+  saveChecklistSchema,
+  signReceptionSchema,
+  type CreateReceptionInput,
+  type UpdateReceptionInput,
+  type DamagePointInput,
+  type SaveChecklistInput,
+  type SignReceptionInput,
+} from '@mecanix/validators';
 
 @Controller('receptions')
 @UseGuards(TenantGuard)
@@ -13,7 +26,7 @@ export class ReceptionsController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(createReceptionSchema)) body: CreateReceptionInput,
   ) {
     return this.receptionsService.create(tenantId, user.id, body as never);
   }
@@ -42,7 +55,7 @@ export class ReceptionsController {
   async update(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateReceptionSchema)) body: UpdateReceptionInput,
   ) {
     return this.receptionsService.update(tenantId, id, body as never);
   }
@@ -53,7 +66,7 @@ export class ReceptionsController {
   async addDamagePoint(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(damagePointSchema)) body: DamagePointInput,
   ) {
     return this.receptionsService.addDamagePoint(tenantId, id, body as never);
   }
@@ -73,7 +86,7 @@ export class ReceptionsController {
   async saveChecklist(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { items: Array<Record<string, unknown>> },
+    @Body(new ZodValidationPipe(saveChecklistSchema)) body: SaveChecklistInput,
   ) {
     return this.receptionsService.saveChecklist(tenantId, id, body.items as never);
   }
@@ -84,7 +97,7 @@ export class ReceptionsController {
   async sign(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(signReceptionSchema)) body: SignReceptionInput,
   ) {
     return this.receptionsService.sign(tenantId, id, body as never);
   }
