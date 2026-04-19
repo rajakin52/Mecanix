@@ -67,7 +67,12 @@
     "navInventory": "Inventário",
     "navFinancial": "Financeiro",
     "tryAgain": "Tentar novamente",
-    "workshopManagement": "gestão de oficina"
+    "workshopManagement": "gestão de oficina",
+    "catalogue": "Catálogo",
+    "warehouses": "Armazéns",
+    "procurement": "Aprovisionamento",
+    "pricing": "Preços",
+    "repairCatalog": "Catálogo de Reparações"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -469,7 +474,13 @@
     "full": "Cheio",
     "checklist": "Lista de Verifica\u00e7\u00e3o",
     "noInspection": "Nenhuma inspe\u00e7\u00e3o registada",
-    "saved": "Inspe\u00e7\u00e3o guardada"
+    "saved": "Inspe\u00e7\u00e3o guardada",
+    "trafficLight": {
+      "green": "Bom",
+      "yellow": "Monitorizar",
+      "red": "Urgente",
+      "not_inspected": "N/D"
+    }
   },
   "vehicles": {
     "title": "Veículos",

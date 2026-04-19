@@ -429,11 +429,12 @@ function InspectionSection({ jobCardId, vehicleId, inspection, isLoadingInspecti
     setDviItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
   };
 
+  const tTraffic = useTranslations('inspection.trafficLight');
   const statusColors: Record<string, { bg: string; border: string; text: string; label: string }> = {
-    green: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Good' },
-    yellow: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Monitor' },
-    red: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Urgent' },
-    not_inspected: { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: 'N/A' },
+    green: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: tTraffic('green') },
+    yellow: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: tTraffic('yellow') },
+    red: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: tTraffic('red') },
+    not_inspected: { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: tTraffic('not_inspected') },
   };
 
   const [personalItems, setPersonalItems] = useState('');
@@ -888,7 +889,7 @@ function InspectionSection({ jobCardId, vehicleId, inspection, isLoadingInspecti
                 <div className="space-y-1">
                   {dviItems.map((item, idx) => {
                     if (item.category !== cat) return null;
-                    const sc = statusColors[item.status] ?? statusColors['not_inspected'] ?? { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: 'N/A' };
+                    const sc = statusColors[item.status] ?? statusColors['not_inspected'] ?? { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-400', label: tTraffic('not_inspected') };
                     return (
                       <div key={idx} className={`flex items-center gap-2 rounded-md border px-3 py-2 ${sc.bg} ${sc.border}`}>
                         <span className={`text-sm font-medium flex-1 ${sc.text}`}>{item.name}</span>

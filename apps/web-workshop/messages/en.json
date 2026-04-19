@@ -69,7 +69,12 @@
     "navInventory": "Inventory",
     "navFinancial": "Financial",
     "tryAgain": "Try again",
-    "workshopManagement": "workshop management"
+    "workshopManagement": "workshop management",
+    "catalogue": "Catalogue",
+    "warehouses": "Warehouses",
+    "procurement": "Procurement",
+    "pricing": "Pricing",
+    "repairCatalog": "Repair Catalog"
   },
   "jobs": {
     "title": "Job Cards",
@@ -471,7 +476,13 @@
     "full": "Full",
     "checklist": "Checklist",
     "noInspection": "No inspection recorded yet",
-    "saved": "Inspection saved"
+    "saved": "Inspection saved",
+    "trafficLight": {
+      "green": "Good",
+      "yellow": "Monitor",
+      "red": "Urgent",
+      "not_inspected": "N/A"
+    }
   },
   "vehicles": {
     "title": "Vehicles",

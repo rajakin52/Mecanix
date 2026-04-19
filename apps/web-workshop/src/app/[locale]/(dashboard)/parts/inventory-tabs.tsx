@@ -1,23 +1,27 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { usePathname, Link } from '@/i18n/navigation';
 import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen } from 'lucide-react';
 
-const TABS = [
-  { href: '/parts', label: 'Catalogue', icon: Package },
-  { href: '/warehouse', label: 'Warehouses', icon: Warehouse },
-  { href: '/procurement', label: 'Procurement', icon: ClipboardList },
-  { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
-  { href: '/settings/pricing', label: 'Pricing', icon: Tags },
-  { href: '/settings/catalog', label: 'Repair Catalog', icon: BookOpen },
-] as const;
+type CommonKey = 'catalogue' | 'warehouses' | 'procurement' | 'purchaseOrders' | 'pricing' | 'repairCatalog';
+
+const TABS: { href: string; tKey: CommonKey; icon: typeof Package }[] = [
+  { href: '/parts', tKey: 'catalogue', icon: Package },
+  { href: '/warehouse', tKey: 'warehouses', icon: Warehouse },
+  { href: '/procurement', tKey: 'procurement', icon: ClipboardList },
+  { href: '/purchase-orders', tKey: 'purchaseOrders', icon: ShoppingCart },
+  { href: '/settings/pricing', tKey: 'pricing', icon: Tags },
+  { href: '/settings/catalog', tKey: 'repairCatalog', icon: BookOpen },
+];
 
 export function InventoryTabs() {
   const pathname = usePathname();
+  const tc = useTranslations('common');
 
   return (
     <div className="mb-6 border-b border-gray-200">
-      <nav className="flex gap-1" aria-label="Inventory sections">
+      <nav className="flex gap-1" aria-label={tc('procurement')}>
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = pathname.startsWith(tab.href);
@@ -32,7 +36,7 @@ export function InventoryTabs() {
               }`}
             >
               <Icon className="h-4 w-4" />
-              {tab.label}
+              {tc(tab.tKey)}
             </Link>
           );
         })}
