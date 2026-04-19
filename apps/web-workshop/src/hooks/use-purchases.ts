@@ -106,9 +106,12 @@ export function useCreatePurchaseOrder() {
 
 export function useReceiveGoods() {
   const qc = useQueryClient();
+  // Backend expects a flat body `{ lineId, receivedQty }` per call
+  // (see receiveGoodsSchema). Receive one line at a time; the caller
+  // loops if it needs to receive multiple.
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; lines: Array<{ lineId: string; receivedQty: number }> }) =>
-      api.post(`/purchase-orders/${id}/receive`, data),
+    mutationFn: ({ id, lineId, receivedQty }: { id: string; lineId: string; receivedQty: number }) =>
+      api.post(`/purchase-orders/${id}/receive`, { lineId, receivedQty }),
     onSuccess: (_d, v) => {
       qc.invalidateQueries({ queryKey: ['purchase-orders'] });
       qc.invalidateQueries({ queryKey: ['purchase-order', v.id] });

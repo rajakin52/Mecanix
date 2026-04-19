@@ -38,7 +38,8 @@ export default function PurchaseOrderDetailPage() {
     try {
       await receiveMutation.mutateAsync({
         id,
-        lines: [{ lineId: receiveLineId, receivedQty: receiveQty }],
+        lineId: receiveLineId,
+        receivedQty: receiveQty,
       });
       setReceiveLineId(null);
       setReceiveQty(0);
