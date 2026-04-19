@@ -3,6 +3,8 @@ import { JobMessagesService } from './job-messages.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { sendJobMessageSchema, type SendJobMessageInput } from '@mecanix/validators';
 
 @Controller('jobs/:jobId/messages')
 @UseGuards(TenantGuard)
@@ -22,7 +24,7 @@ export class JobMessagesController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('jobId') jobId: string,
-    @Body() body: { message: string; senderName: string; senderRole: string; photoUrl?: string },
+    @Body(new ZodValidationPipe(sendJobMessageSchema)) body: SendJobMessageInput,
   ) {
     return this.messagesService.send(tenantId, user.id, {
       jobCardId: jobId,

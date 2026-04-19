@@ -13,10 +13,12 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   reviewEstimateLineSchema,
   approveEstimateSchema,
+  createSupplementSchema,
 } from '@mecanix/validators';
 import type {
   ReviewEstimateLineInput,
   ApproveEstimateInput,
+  CreateSupplementInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -39,7 +41,7 @@ export class EstimatesController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('claimId') claimId: string,
-    @Body() body: { reason: string },
+    @Body(new ZodValidationPipe(createSupplementSchema)) body: CreateSupplementInput,
   ) {
     return this.estimatesService.createSupplement(tenantId, claimId, user.id, body.reason);
   }

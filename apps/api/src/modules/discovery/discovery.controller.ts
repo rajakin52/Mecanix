@@ -10,6 +10,13 @@ import {
 import { DiscoveryService } from './discovery.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  submitWorkshopRatingSchema,
+  replyToRatingSchema,
+  type SubmitWorkshopRatingInput,
+  type ReplyToRatingInput,
+} from '@mecanix/validators';
 
 @Controller('discovery')
 export class DiscoveryController {
@@ -53,14 +60,7 @@ export class DiscoveryController {
   @Post('workshops/:id/rate')
   async submitRating(
     @Param('id') id: string,
-    @Body()
-    body: {
-      customerId: string;
-      jobCardId?: string;
-      rating: number;
-      title?: string;
-      review?: string;
-    },
+    @Body(new ZodValidationPipe(submitWorkshopRatingSchema)) body: SubmitWorkshopRatingInput,
   ) {
     return this.discoveryService.submitRating(id, body);
   }
@@ -72,7 +72,7 @@ export class DiscoveryController {
   async replyToRating(
     @TenantId() tenantId: string,
     @Param('id') ratingId: string,
-    @Body() body: { reply: string },
+    @Body(new ZodValidationPipe(replyToRatingSchema)) body: ReplyToRatingInput,
   ) {
     return this.discoveryService.replyToRating(tenantId, ratingId, body.reply);
   }

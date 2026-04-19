@@ -11,6 +11,13 @@ import { StockCountService } from './stock-count.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createStockCountSchema,
+  updateStockCountLineSchema,
+  type CreateStockCountInput,
+  type UpdateStockCountLineInput,
+} from '@mecanix/validators';
 
 @Controller('stock-counts')
 @UseGuards(TenantGuard)
@@ -34,11 +41,7 @@ export class StockCountController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      warehouseId: string;
-      categoryFilter?: string;
-      notes?: string;
-    },
+    @Body(new ZodValidationPipe(createStockCountSchema)) body: CreateStockCountInput,
   ) {
     return this.stockCountService.createCount(tenantId, user.id, body);
   }
@@ -48,10 +51,7 @@ export class StockCountController {
     @TenantId() tenantId: string,
     @Param('countId') countId: string,
     @Param('lineId') lineId: string,
-    @Body() body: {
-      countedQty: number;
-      notes?: string;
-    },
+    @Body(new ZodValidationPipe(updateStockCountLineSchema)) body: UpdateStockCountLineInput,
   ) {
     return this.stockCountService.updateCountLine(tenantId, countId, lineId, body);
   }

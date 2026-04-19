@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@n
 import { CannedNotesService } from './canned-notes.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { createCannedNoteSchema, type CreateCannedNoteInput } from '@mecanix/validators';
 
 @Controller('canned-notes')
 @UseGuards(TenantGuard)
@@ -14,7 +16,10 @@ export class CannedNotesController {
   }
 
   @Post()
-  async create(@TenantId() tenantId: string, @Body() body: { category: string; title: string; content: string }) {
+  async create(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(createCannedNoteSchema)) body: CreateCannedNoteInput,
+  ) {
     return this.cannedNotesService.create(tenantId, body);
   }
 

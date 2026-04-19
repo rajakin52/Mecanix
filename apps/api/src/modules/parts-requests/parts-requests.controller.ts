@@ -12,6 +12,13 @@ import { PartsRequestsService } from './parts-requests.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createPartsRequestSchema,
+  cancelPartsRequestSchema,
+  type CreatePartsRequestInput,
+  type CancelPartsRequestInput,
+} from '@mecanix/validators';
 
 @Controller('parts-requests')
 @UseGuards(TenantGuard)
@@ -39,17 +46,7 @@ export class PartsRequestsController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      jobCardId: string;
-      priority?: string;
-      oldPartPhoto?: string;
-      oldPartNote?: string;
-      warehouseId?: string;
-      items: Array<{
-        partId: string;
-        quantity: number;
-      }>;
-    },
+    @Body(new ZodValidationPipe(createPartsRequestSchema)) body: CreatePartsRequestInput,
   ) {
     return this.partsRequestsService.create(tenantId, user.id, body);
   }
@@ -102,7 +99,7 @@ export class PartsRequestsController {
   async cancel(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { reason?: string },
+    @Body(new ZodValidationPipe(cancelPartsRequestSchema)) body: CancelPartsRequestInput,
   ) {
     return this.partsRequestsService.cancel(tenantId, id, body.reason);
   }

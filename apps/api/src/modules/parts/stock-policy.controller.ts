@@ -4,6 +4,8 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { updateStockPolicySchema, type UpdateStockPolicyInput } from '@mecanix/validators';
 
 @Controller('parts/stock-policy')
 @UseGuards(TenantGuard)
@@ -20,7 +22,7 @@ export class StockPolicyController {
   @Roles('owner')
   async update(
     @TenantId() tenantId: string,
-    @Body() body: { allowNegativeStock?: boolean; overrideRoles?: string[] },
+    @Body(new ZodValidationPipe(updateStockPolicySchema)) body: UpdateStockPolicyInput,
   ) {
     return this.stockPolicyService.updatePolicy(tenantId, body);
   }

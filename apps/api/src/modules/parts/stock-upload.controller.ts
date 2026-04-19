@@ -10,6 +10,8 @@ import { StockUploadService } from './stock-upload.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { csvUploadSchema, type CsvUploadInput } from '@mecanix/validators';
 
 @Controller('parts/stock-upload')
 @UseGuards(TenantGuard)
@@ -26,11 +28,8 @@ export class StockUploadController {
   async upload(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { csvContent: string },
+    @Body(new ZodValidationPipe(csvUploadSchema)) body: CsvUploadInput,
   ) {
-    if (!body.csvContent) {
-      return { error: 'No CSV content provided' };
-    }
     return this.stockUploadService.processUpload(
       tenantId,
       user.id,

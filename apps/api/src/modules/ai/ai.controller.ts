@@ -10,7 +10,14 @@ import { AiService } from './ai.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { aiRespondSchema, aiDiagnoseSchema } from '@mecanix/validators';
+import {
+  aiRespondSchema,
+  aiDiagnoseSchema,
+  aiRewriteSchema,
+  aiGenerateEstimateSchema,
+  type AiRewriteInput,
+  type AiGenerateEstimateInput,
+} from '@mecanix/validators';
 
 @Controller('ai')
 @UseGuards(TenantGuard)
@@ -60,7 +67,7 @@ export class AiController {
   /** AI Writing Assistant — rewrite tech notes for customers */
   @Post('rewrite')
   async rewrite(
-    @Body() body: { text: string; locale?: string },
+    @Body(new ZodValidationPipe(aiRewriteSchema)) body: AiRewriteInput,
   ) {
     const result = await this.aiService.rewriteForCustomer(body.text, body.locale);
     return { result };
@@ -89,13 +96,7 @@ export class AiController {
   @Post('generate-estimate')
   async generateEstimate(
     @TenantId() tenantId: string,
-    @Body() body: {
-      reportedProblem: string;
-      symptomCodes: string[];
-      vehicleMake: string;
-      vehicleModel: string;
-      vehicleYear?: number;
-    },
+    @Body(new ZodValidationPipe(aiGenerateEstimateSchema)) body: AiGenerateEstimateInput,
   ) {
     return this.aiService.generateEstimate(tenantId, body);
   }

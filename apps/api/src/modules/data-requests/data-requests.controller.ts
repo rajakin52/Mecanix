@@ -11,6 +11,13 @@ import { DataRequestsService } from './data-requests.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createDataRequestSchema,
+  completeDataRequestSchema,
+  type CreateDataRequestInput,
+  type CompleteDataRequestInput,
+} from '@mecanix/validators';
 
 @Controller('data-requests')
 @UseGuards(TenantGuard)
@@ -28,7 +35,7 @@ export class DataRequestsController {
   @Post()
   async create(
     @TenantId() tenantId: string,
-    @Body() body: { customerId: string; requestType: string },
+    @Body(new ZodValidationPipe(createDataRequestSchema)) body: CreateDataRequestInput,
   ) {
     return this.dataRequestsService.create(tenantId, body);
   }
@@ -47,7 +54,7 @@ export class DataRequestsController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { exportUrl?: string },
+    @Body(new ZodValidationPipe(completeDataRequestSchema)) body: CompleteDataRequestInput,
   ) {
     return this.dataRequestsService.complete(
       tenantId,

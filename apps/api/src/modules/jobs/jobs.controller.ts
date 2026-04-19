@@ -18,12 +18,14 @@ import {
   updateJobCardSchema,
   changeStatusSchema,
   paginationSchema,
+  splitJobSchema,
 } from '@mecanix/validators';
 import type {
   CreateJobCardInput,
   UpdateJobCardInput,
   ChangeStatusInput,
   PaginationInput,
+  SplitJobInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -105,7 +107,7 @@ export class JobsController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { label: string; technicianId?: string },
+    @Body(new ZodValidationPipe(splitJobSchema)) body: SplitJobInput,
   ) {
     // Get parent job details
     const parent = await this.jobsService.getById(tenantId, id);

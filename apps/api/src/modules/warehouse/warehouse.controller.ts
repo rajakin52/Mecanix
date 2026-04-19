@@ -12,6 +12,15 @@ import { WarehouseService } from './warehouse.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createWarehouseSchema,
+  updateWarehouseSchema,
+  moveStockSchema,
+  type CreateWarehouseInput,
+  type UpdateWarehouseInput,
+  type MoveStockInput,
+} from '@mecanix/validators';
 
 @Controller('warehouses')
 @UseGuards(TenantGuard)
@@ -40,15 +49,7 @@ export class WarehouseController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      name: string;
-      code: string;
-      type?: string;
-      branchId?: string;
-      address?: string;
-      isDefault?: boolean;
-      notes?: string;
-    },
+    @Body(new ZodValidationPipe(createWarehouseSchema)) body: CreateWarehouseInput,
   ) {
     return this.warehouseService.createWarehouse(tenantId, user.id, body);
   }
@@ -58,15 +59,7 @@ export class WarehouseController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: {
-      name?: string;
-      code?: string;
-      type?: string;
-      branchId?: string;
-      address?: string;
-      isDefault?: boolean;
-      notes?: string;
-    },
+    @Body(new ZodValidationPipe(updateWarehouseSchema)) body: UpdateWarehouseInput,
   ) {
     return this.warehouseService.updateWarehouse(tenantId, id, user.id, body);
   }
@@ -99,13 +92,7 @@ export class WarehouseController {
   async moveStock(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      partId: string;
-      fromWarehouseId: string;
-      toWarehouseId: string;
-      quantity: number;
-      reason?: string;
-    },
+    @Body(new ZodValidationPipe(moveStockSchema)) body: MoveStockInput,
   ) {
     return this.warehouseService.moveStock(tenantId, user.id, body);
   }

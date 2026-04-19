@@ -12,6 +12,17 @@ import { PurchaseRequestsService } from './purchase-requests.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createPurchaseRequestSchema,
+  approvePurchaseRequestSchema,
+  rejectPurchaseRequestSchema,
+  linkPurchaseOrderSchema,
+  type CreatePurchaseRequestInput,
+  type ApprovePurchaseRequestInput,
+  type RejectPurchaseRequestInput,
+  type LinkPurchaseOrderInput,
+} from '@mecanix/validators';
 
 @Controller('purchase-requests')
 @UseGuards(TenantGuard)
@@ -38,16 +49,7 @@ export class PurchaseRequestsController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      jobCardId: string;
-      partsRequestId?: string;
-      items: Array<{
-        partId: string;
-        quantity: number;
-        estimatedUnitCost?: number;
-      }>;
-      notes?: string;
-    },
+    @Body(new ZodValidationPipe(createPurchaseRequestSchema)) body: CreatePurchaseRequestInput,
   ) {
     return this.purchaseRequestsService.create(tenantId, user.id, body);
   }
@@ -57,7 +59,7 @@ export class PurchaseRequestsController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { via?: string },
+    @Body(new ZodValidationPipe(approvePurchaseRequestSchema)) body: ApprovePurchaseRequestInput,
   ) {
     return this.purchaseRequestsService.approve(tenantId, id, user.id, body.via);
   }
@@ -67,7 +69,7 @@ export class PurchaseRequestsController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { reason: string },
+    @Body(new ZodValidationPipe(rejectPurchaseRequestSchema)) body: RejectPurchaseRequestInput,
   ) {
     return this.purchaseRequestsService.reject(tenantId, id, user.id, body.reason);
   }
@@ -76,7 +78,7 @@ export class PurchaseRequestsController {
   async linkPurchaseOrder(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { purchaseOrderId: string; vendorId: string },
+    @Body(new ZodValidationPipe(linkPurchaseOrderSchema)) body: LinkPurchaseOrderInput,
   ) {
     return this.purchaseRequestsService.linkPurchaseOrder(
       tenantId,

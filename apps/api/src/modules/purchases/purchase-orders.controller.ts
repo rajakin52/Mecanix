@@ -19,12 +19,14 @@ import {
   createPoLineSchema,
   receiveGoodsSchema,
   paginationSchema,
+  applyLandedCostsSchema,
 } from '@mecanix/validators';
 import type {
   CreatePurchaseOrderInput,
   CreatePoLineInput,
   ReceiveGoodsInput,
   PaginationInput,
+  ApplyLandedCostsInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 import { z } from 'zod';
@@ -110,7 +112,7 @@ export class PurchaseOrdersController {
   async applyLandedCosts(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { additionalCosts: Array<{ type: string; amount: number }> },
+    @Body(new ZodValidationPipe(applyLandedCostsSchema)) body: ApplyLandedCostsInput,
   ) {
     return this.costingService.applyLandedCosts(tenantId, id, body.additionalCosts);
   }

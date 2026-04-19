@@ -16,12 +16,14 @@ import {
   changeClaimStatusSchema,
   addClaimPhotoSchema,
   paginationSchema,
+  checkTotalLossSchema,
 } from '@mecanix/validators';
 import type {
   InitiateClaimInput,
   ChangeClaimStatusInput,
   AddClaimPhotoInput,
   PaginationInput,
+  CheckTotalLossInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -89,7 +91,7 @@ export class ClaimsController {
   async checkTotalLoss(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { vehicleValue: number },
+    @Body(new ZodValidationPipe(checkTotalLossSchema)) body: CheckTotalLossInput,
   ) {
     return this.claimsService.checkTotalLoss(tenantId, id, body.vehicleValue);
   }

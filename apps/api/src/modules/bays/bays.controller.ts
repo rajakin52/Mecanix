@@ -11,6 +11,13 @@ import {
 import { BaysService } from './bays.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createBaySchema,
+  updateBaySchema,
+  type CreateBayInput,
+  type UpdateBayInput,
+} from '@mecanix/validators';
 
 @Controller('bays')
 @UseGuards(TenantGuard)
@@ -25,7 +32,7 @@ export class BaysController {
   @Post()
   async create(
     @TenantId() tenantId: string,
-    @Body() body: { name: string; type?: string; sortOrder?: number },
+    @Body(new ZodValidationPipe(createBaySchema)) body: CreateBayInput,
   ) {
     return this.baysService.create(tenantId, body);
   }
@@ -34,7 +41,7 @@ export class BaysController {
   async update(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { name?: string; type?: string; sortOrder?: number },
+    @Body(new ZodValidationPipe(updateBaySchema)) body: UpdateBayInput,
   ) {
     return this.baysService.update(tenantId, id, body);
   }

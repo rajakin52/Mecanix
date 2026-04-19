@@ -2,6 +2,8 @@ import { Controller, Delete, Get, Param, Post, Query, UseGuards, Body } from '@n
 import { CustomerTagsService } from './customer-tags.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { addCustomerTagSchema, type AddCustomerTagInput } from '@mecanix/validators';
 
 @Controller('customer-tags')
 @UseGuards(TenantGuard)
@@ -18,7 +20,11 @@ export class CustomerTagsController {
   async listByCustomer(@TenantId() tenantId: string, @Param('customerId') cid: string) { return this.tagsService.listByCustomer(tenantId, cid); }
 
   @Post('customer/:customerId')
-  async addTag(@TenantId() tenantId: string, @Param('customerId') cid: string, @Body() body: { tag: string }) { return this.tagsService.addTag(tenantId, cid, body.tag); }
+  async addTag(
+    @TenantId() tenantId: string,
+    @Param('customerId') cid: string,
+    @Body(new ZodValidationPipe(addCustomerTagSchema)) body: AddCustomerTagInput,
+  ) { return this.tagsService.addTag(tenantId, cid, body.tag); }
 
   @Delete('customer/:customerId/:tag')
   async removeTag(@TenantId() tenantId: string, @Param('customerId') cid: string, @Param('tag') tag: string) { return this.tagsService.removeTag(tenantId, cid, tag); }

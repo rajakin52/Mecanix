@@ -11,6 +11,11 @@ import { StockTransferService } from './stock-transfer.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createStockTransferSchema,
+  type CreateStockTransferInput,
+} from '@mecanix/validators';
 
 @Controller('stock-transfers')
 @UseGuards(TenantGuard)
@@ -37,15 +42,7 @@ export class StockTransferController {
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: {
-      fromWarehouseId: string;
-      toWarehouseId: string;
-      notes?: string;
-      lines: Array<{
-        partId: string;
-        quantity: number;
-      }>;
-    },
+    @Body(new ZodValidationPipe(createStockTransferSchema)) body: CreateStockTransferInput,
   ) {
     return this.stockTransferService.createTransfer(tenantId, user.id, body);
   }

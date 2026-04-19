@@ -10,6 +10,13 @@ import {
 import { DeferredServicesService } from './deferred.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createDeferredServiceSchema,
+  convertDeferredSchema,
+  type CreateDeferredServiceInput,
+  type ConvertDeferredInput,
+} from '@mecanix/validators';
 
 @Controller('deferred-services')
 @UseGuards(TenantGuard)
@@ -39,14 +46,7 @@ export class DeferredServicesController {
   @Post()
   async create(
     @TenantId() tenantId: string,
-    @Body() body: {
-      customerId: string;
-      vehicleId: string;
-      description: string;
-      estimatedCost?: number;
-      priority?: string;
-      followUpDate?: string;
-    },
+    @Body(new ZodValidationPipe(createDeferredServiceSchema)) body: CreateDeferredServiceInput,
   ) {
     return this.deferredService.create(tenantId, body);
   }
@@ -55,7 +55,7 @@ export class DeferredServicesController {
   async convert(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { jobCardId: string },
+    @Body(new ZodValidationPipe(convertDeferredSchema)) body: ConvertDeferredInput,
   ) {
     return this.deferredService.convertToJob(tenantId, id, body.jobCardId);
   }

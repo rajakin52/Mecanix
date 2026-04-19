@@ -3,6 +3,8 @@ import { VehiclesBulkImportService } from './vehicles-bulk-import.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { fileUploadSchema, type FileUploadInput } from '@mecanix/validators';
 
 @Controller('vehicles/bulk-import')
 @UseGuards(TenantGuard)
@@ -23,15 +25,14 @@ export class VehiclesBulkImportController {
   async upload(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { fileName: string; base64: string },
+    @Body(new ZodValidationPipe(fileUploadSchema)) body: FileUploadInput,
   ) {
-    if (!body?.base64) return { error: 'No file content provided' };
     const buffer = Buffer.from(body.base64, 'base64');
     return this.service.processUpload(
       tenantId,
       user.id,
       buffer,
-      body.fileName ?? 'upload.csv',
+      body.fileName,
     );
   }
 }

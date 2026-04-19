@@ -1,5 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { MakesModelsService } from './makes-models.service';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  addMakeSchema,
+  addModelSchema,
+  type AddMakeInput,
+  type AddModelInput,
+} from '@mecanix/validators';
 
 // No TenantGuard — makes/models are global (shared across tenants)
 @Controller('vehicle-lookup')
@@ -22,14 +29,14 @@ export class MakesModelsController {
   }
 
   @Post('makes')
-  async addMake(@Body() body: { name: string; country?: string }) {
+  async addMake(@Body(new ZodValidationPipe(addMakeSchema)) body: AddMakeInput) {
     return this.makesModelsService.addMake(body.name, body.country);
   }
 
   @Post('makes/:makeId/models')
   async addModel(
     @Param('makeId') makeId: string,
-    @Body() body: { name: string; bodyType?: string },
+    @Body(new ZodValidationPipe(addModelSchema)) body: AddModelInput,
   ) {
     return this.makesModelsService.addModel(makeId, body.name, body.bodyType);
   }

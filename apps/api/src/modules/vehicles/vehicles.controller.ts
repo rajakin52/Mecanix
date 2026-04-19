@@ -14,8 +14,8 @@ import { VinService } from './vin.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { createVehicleSchema, updateVehicleSchema, paginationSchema } from '@mecanix/validators';
-import type { CreateVehicleInput, UpdateVehicleInput, PaginationInput } from '@mecanix/validators';
+import { createVehicleSchema, updateVehicleSchema, paginationSchema, photoUploadSchema } from '@mecanix/validators';
+import type { CreateVehicleInput, UpdateVehicleInput, PaginationInput, PhotoUploadInput } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('vehicles')
@@ -89,7 +89,7 @@ export class VehiclesController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { file: string; filename: string },
+    @Body(new ZodValidationPipe(photoUploadSchema)) body: PhotoUploadInput,
   ) {
     const buffer = Buffer.from(body.file, 'base64');
     return this.vehiclesService.uploadPhoto(tenantId, id, user.id, buffer, body.filename);

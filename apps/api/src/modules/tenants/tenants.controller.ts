@@ -5,8 +5,18 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { updateTenantSchema } from '@mecanix/validators';
-import type { UpdateTenantInput } from '@mecanix/validators';
+import {
+  updateTenantSchema,
+  setExchangeRateSchema,
+  setSecondaryCurrencySchema,
+  setTenantSettingSchema,
+} from '@mecanix/validators';
+import type {
+  UpdateTenantInput,
+  SetExchangeRateInput,
+  SetSecondaryCurrencyInput,
+  SetTenantSettingInput,
+} from '@mecanix/validators';
 
 @Controller('tenants')
 @UseGuards(TenantGuard, RolesGuard)
@@ -31,7 +41,7 @@ export class TenantsController {
   @Roles('owner')
   async setExchangeRate(
     @TenantId() tenantId: string,
-    @Body() body: { rate: number },
+    @Body(new ZodValidationPipe(setExchangeRateSchema)) body: SetExchangeRateInput,
   ) {
     return this.tenantsService.setExchangeRate(tenantId, body.rate);
   }
@@ -45,7 +55,7 @@ export class TenantsController {
   @Roles('owner')
   async setSecondaryCurrency(
     @TenantId() tenantId: string,
-    @Body() body: { currency: string | null },
+    @Body(new ZodValidationPipe(setSecondaryCurrencySchema)) body: SetSecondaryCurrencyInput,
   ) {
     return this.tenantsService.setSecondaryCurrency(tenantId, body.currency);
   }
@@ -64,7 +74,7 @@ export class TenantsController {
   async setSetting(
     @TenantId() tenantId: string,
     @Param('key') key: string,
-    @Body() body: { value: string },
+    @Body(new ZodValidationPipe(setTenantSettingSchema)) body: SetTenantSettingInput,
   ) {
     return this.tenantsService.setSetting(tenantId, key, body.value);
   }

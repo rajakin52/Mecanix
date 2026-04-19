@@ -22,12 +22,18 @@ import {
   approveStandaloneEstimateSchema,
   rejectStandaloneEstimateSchema,
   publicEstimateActionSchema,
+  createJobEstimateSchema,
+  sendEstimateSchema,
+  autoConvertDviSchema,
   type CreateStandaloneEstimateInput,
   type UpdateStandaloneEstimateInput,
   type ConvertEstimateInput,
   type ApproveStandaloneEstimateInput,
   type RejectStandaloneEstimateInput,
   type PublicEstimateActionInput,
+  type CreateJobEstimateInput,
+  type SendEstimateInput,
+  type AutoConvertDviInput,
 } from '@mecanix/validators';
 
 // Public endpoints (no auth — token validated)
@@ -142,7 +148,7 @@ export class EstimatesController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('jobId') jobId: string,
-    @Body() body: { terms?: string; validUntil?: string },
+    @Body(new ZodValidationPipe(createJobEstimateSchema)) body: CreateJobEstimateInput,
   ) {
     return this.estimatesService.create(tenantId, user.id, jobId, body);
   }
@@ -151,7 +157,7 @@ export class EstimatesController {
   async send(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { channels: string[] },
+    @Body(new ZodValidationPipe(sendEstimateSchema)) body: SendEstimateInput,
   ) {
     const channels = body.channels ?? ['print'];
     // Send via notification service (WhatsApp, push, etc.)
@@ -171,7 +177,7 @@ export class EstimatesController {
   async autoConvertDvi(
     @TenantId() tenantId: string,
     @Param('jobId') jobId: string,
-    @Body() body: { inspectionId: string },
+    @Body(new ZodValidationPipe(autoConvertDviSchema)) body: AutoConvertDviInput,
   ) {
     return this.estimatesService.autoConvertDviToLines(tenantId, jobId, body.inspectionId);
   }

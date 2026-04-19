@@ -30,6 +30,18 @@ export const updateTenantSchema = z.object({
   logoUrl: z.string().optional(),
 });
 
+export const setExchangeRateSchema = z.object({
+  rate: z.coerce.number().positive().max(1_000_000),
+});
+
+export const setSecondaryCurrencySchema = z.object({
+  currency: z.string().length(3).nullable(),
+});
+
+export const setTenantSettingSchema = z.object({
+  value: z.string().max(10_000),
+});
+
 export const customerSignUpSchema = z.object({
   fullName: z.string().min(2).max(200),
   email: z.string().email(),
@@ -43,3 +55,6 @@ export type SignUpInput = z.infer<typeof signUpSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
 export type CustomerSignUpInput = z.infer<typeof customerSignUpSchema>;
+export type SetExchangeRateInput = z.infer<typeof setExchangeRateSchema>;
+export type SetSecondaryCurrencyInput = z.infer<typeof setSecondaryCurrencySchema>;
+export type SetTenantSettingInput = z.infer<typeof setTenantSettingSchema>;
