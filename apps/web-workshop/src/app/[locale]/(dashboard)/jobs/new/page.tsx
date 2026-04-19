@@ -249,13 +249,14 @@ export default function NewJobWizard() {
       .catch(() => {});
   }, []);
 
-  // Pre-fill WhatsApp phone and contact phone from selected customer
+  // Pre-fill WhatsApp phone (for photo capture) from the customer, but leave
+  // the drop-off contact phone blank — in most cases a driver drops off the
+  // vehicle, not the account holder, so the advisor must enter it manually.
   useEffect(() => {
     if (selectedCustomer?.phone) {
       if (!whatsAppPhone) setWhatsAppPhone(selectedCustomer.phone);
-      if (!contactPhone) setContactPhone(selectedCustomer.phone);
     }
-  }, [selectedCustomer, whatsAppPhone, contactPhone]);
+  }, [selectedCustomer, whatsAppPhone]);
 
   // Poll for remote photos when a capture session is active
   useEffect(() => {
@@ -446,6 +447,14 @@ export default function NewJobWizard() {
   // ── Submit everything ──
   const handleSubmit = async () => {
     if (!selectedCustomer || !selectedVehicle) return;
+    if (!signatureName.trim()) {
+      setError('Please enter the name of the person dropping off the vehicle.');
+      return;
+    }
+    if (!contactPhone.trim()) {
+      setError('Please enter a contact phone number for the drop-off person.');
+      return;
+    }
     setSubmitting(true);
     setError('');
 
@@ -1549,16 +1558,25 @@ export default function NewJobWizard() {
               <p className="text-sm text-gray-500 mb-4">Person who brought the vehicle to the workshop. For corporate accounts, this may be the driver, not the account holder.</p>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Name</label>
+                  <label className="block text-sm font-medium text-gray-700">Name <span className="text-red-500">*</span></label>
                   <input value={signatureName} onChange={(e) => setSignatureName(e.target.value)}
                     placeholder="Person dropping off the vehicle"
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Contact Phone</label>
+                  <label className="block text-sm font-medium text-gray-700">Contact Phone <span className="text-red-500">*</span></label>
                   <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)}
-                    placeholder="Phone number to call when ready"
+                    placeholder="Driver's phone number"
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-lg" />
+                  {selectedCustomer?.phone && contactPhone !== selectedCustomer.phone && (
+                    <button
+                      type="button"
+                      onClick={() => setContactPhone(selectedCustomer.phone)}
+                      className="mt-1 text-xs text-primary-600 hover:text-primary-800 underline"
+                    >
+                      Use owner&apos;s number ({selectedCustomer.phone})
+                    </button>
+                  )}
                   <p className="mt-1 text-xs text-gray-400">Who to call when the vehicle is ready</p>
                 </div>
               </div>
