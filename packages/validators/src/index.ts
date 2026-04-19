@@ -25,3 +25,4 @@ export * from './catalog';
 export * from './symptom';
 export * from './reception';
 export * from './estimate';
+export * from './photo-capture';

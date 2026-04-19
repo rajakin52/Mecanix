@@ -4,6 +4,21 @@ import { SmsService } from '../notifications/sms.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createPhotoCaptureSessionSchema,
+  createSignatureSessionSchema,
+  linkSessionToJobSchema,
+  directPhotoUploadSchema,
+  publicPhotoUploadSchema,
+  publicSignatureUploadSchema,
+  type CreatePhotoCaptureSessionInput,
+  type CreateSignatureSessionInput,
+  type LinkSessionToJobInput,
+  type DirectPhotoUploadInput,
+  type PublicPhotoUploadInput,
+  type PublicSignatureUploadInput,
+} from '@mecanix/validators';
 
 @Controller('photo-capture')
 export class PhotoCaptureController {
@@ -36,7 +51,7 @@ export class PhotoCaptureController {
   async createSession(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(createPhotoCaptureSessionSchema)) body: CreatePhotoCaptureSessionInput,
   ) {
     return this.photoCaptureService.createSession(tenantId, user.id, body as never);
   }
@@ -46,7 +61,7 @@ export class PhotoCaptureController {
   async linkToJob(
     @TenantId() tenantId: string,
     @Param('sessionId') sessionId: string,
-    @Body() body: { jobCardId: string },
+    @Body(new ZodValidationPipe(linkSessionToJobSchema)) body: LinkSessionToJobInput,
   ) {
     return this.photoCaptureService.linkToJob(tenantId, sessionId, body.jobCardId);
   }
@@ -74,13 +89,13 @@ export class PhotoCaptureController {
     return this.photoCaptureService.listOrphanSessions(tenantId);
   }
 
-  /** Create a signature session and send WhatsApp link */
+  /** Create a signature session and send WhatsApp/SMS link */
   @Post('signature-sessions')
   @UseGuards(TenantGuard)
   async createSignatureSession(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(createSignatureSessionSchema)) body: CreateSignatureSessionInput,
   ) {
     return this.photoCaptureService.createSignatureSession(tenantId, user.id, body as never);
   }
@@ -90,7 +105,7 @@ export class PhotoCaptureController {
   @UseGuards(TenantGuard)
   async directUpload(
     @TenantId() tenantId: string,
-    @Body() body: { jobId: string; photoType: string; base64Data: string; fileName?: string },
+    @Body(new ZodValidationPipe(directPhotoUploadSchema)) body: DirectPhotoUploadInput,
   ) {
     return this.photoCaptureService.directUpload(tenantId, body);
   }
@@ -105,7 +120,7 @@ export class PhotoCaptureController {
   @Post('session/:token/upload')
   async uploadPhoto(
     @Param('token') token: string,
-    @Body() body: { photoType: string; storageUrl?: string; base64Data?: string; fileName?: string; fileSize?: number },
+    @Body(new ZodValidationPipe(publicPhotoUploadSchema)) body: PublicPhotoUploadInput,
   ) {
     return this.photoCaptureService.uploadPhoto(token, body);
   }
@@ -113,7 +128,7 @@ export class PhotoCaptureController {
   @Post('session/:token/sign')
   async uploadSignature(
     @Param('token') token: string,
-    @Body() body: { base64Data: string },
+    @Body(new ZodValidationPipe(publicSignatureUploadSchema)) body: PublicSignatureUploadInput,
   ) {
     return this.photoCaptureService.uploadSignature(token, body.base64Data);
   }
