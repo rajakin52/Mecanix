@@ -25,5 +25,6 @@ export function useSymptoms(family?: string, search?: string) {
       return api.get<SymptomCode[]>(`/symptoms${qs ? `?${qs}` : ''}`);
     },
     enabled: !!family,
+    staleTime: 10 * 60 * 1000, // symptoms are reference data, barely change
   });
 }

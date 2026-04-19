@@ -30,7 +30,7 @@ export default function EstimatesPage() {
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [activeSource, setActiveSource] = useState<string | undefined>(undefined);
 
-  const { data, isLoading } = useAllEstimates(page, debouncedSearch, activeStatus, activeSource);
+  const { data, isLoading, isError, error: queryError } = useAllEstimates(page, debouncedSearch, activeStatus, activeSource);
   const convertMutation = useConvertEstimateToJob();
 
   const formatCurrency = (val: number) =>
@@ -96,6 +96,10 @@ export default function EstimatesPage() {
 
       {isLoading ? (
         <SkeletonTable rows={8} cols={8} />
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Failed to load estimates: {queryError instanceof Error ? queryError.message : 'unknown error'}
+        </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

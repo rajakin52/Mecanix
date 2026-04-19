@@ -62,6 +62,9 @@ describe('CustomersService', () => {
         fullName: 'New Customer',
         phone: '+244 923 456 789',
         isCorporate: false,
+        isAccountCustomer: false,
+        vatCaptivePct: 0,
+        withholdsServiceRetention: false,
       });
 
       expect(result.full_name).toBe('New Customer');

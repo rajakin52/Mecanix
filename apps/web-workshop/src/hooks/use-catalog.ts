@@ -47,6 +47,7 @@ export function useCatalogItems(type?: string, category?: string, quickAccessOnl
   return useQuery({
     queryKey: ['catalog', type, category, quickAccessOnly, search],
     queryFn: () => api.get<CatalogItem[]>(`/catalog${qs ? `?${qs}` : ''}`),
+    staleTime: 5 * 60 * 1000, // catalog rarely changes mid-session
   });
 }
 
@@ -55,6 +56,7 @@ export function useCatalogItem(id: string) {
     queryKey: ['catalog', id],
     queryFn: () => api.get<CatalogItem>(`/catalog/${id}`),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -62,6 +64,7 @@ export function useCatalogCategories() {
   return useQuery({
     queryKey: ['catalog-categories'],
     queryFn: () => api.get<string[]>('/catalog/categories'),
+    staleTime: 10 * 60 * 1000,
   });
 }
 

@@ -13,9 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # packageManager in package.json pins the pnpm version — don't
+      # duplicate it here (was breaking every build since March).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:

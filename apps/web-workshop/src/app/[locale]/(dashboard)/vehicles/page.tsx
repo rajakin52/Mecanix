@@ -28,7 +28,7 @@ export default function VehiclesPage() {
     setSortDir(dir);
   };
 
-  const { data, isLoading } = useVehicles(page, debouncedSearch);
+  const { data, isLoading, isError, error } = useVehicles(page, debouncedSearch);
   const createMutation = useCreateVehicle();
   const { data: customersData } = useCustomers(1, '');
   const [formError, setFormError] = useState<string | null>(null);
@@ -100,6 +100,10 @@ export default function VehiclesPage() {
 
       {isLoading ? (
         <SkeletonTable rows={6} cols={5} />
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Failed to load vehicles: {error instanceof Error ? error.message : 'unknown error'}
+        </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">
