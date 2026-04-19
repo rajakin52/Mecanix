@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { useClaim, useChangeClaimStatus, useCreateEstimate, useApproveEstimate } from '@/hooks/use-insurance';
 import { Link } from '@/i18n/navigation';
+import { formatNumber } from '@/lib/format';
 
 const STATUS_COLORS: Record<string, string> = {
   initiated: 'bg-gray-100 text-gray-700',
@@ -65,8 +66,7 @@ export default function ClaimDetailPage() {
   const [photoUrl, setPhotoUrl] = useState('');
   const [photoStage, setPhotoStage] = useState('damage');
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(locale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
   const handleStatusChange = async (newStatus: string) => {
     await changeStatusMutation.mutateAsync({ id, status: newStatus, notes: statusNotes || undefined });

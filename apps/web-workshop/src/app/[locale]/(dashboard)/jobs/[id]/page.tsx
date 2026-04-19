@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { formatNumber } from '@/lib/format';
 import {
   useJob,
   useUpdateJobStatus,
@@ -1098,8 +1099,7 @@ export default function JobDetailPage() {
     setPartSearchResults([]);
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, undefined, 2);
 
   const handleStatusChange = (newStatus: string) => {
     statusMutation.mutate({ id, status: newStatus });

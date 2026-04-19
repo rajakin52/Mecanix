@@ -8,6 +8,7 @@ import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { Link } from '@/i18n/navigation';
 import { SkeletonTable, StatusBadge, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
+import { formatNumber } from '@/lib/format';
 
 const STATUSES = [
   { key: undefined, label: 'All' },
@@ -88,8 +89,7 @@ export default function JobsPage() {
     }
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, undefined, 2);
 
   return (
     <div>

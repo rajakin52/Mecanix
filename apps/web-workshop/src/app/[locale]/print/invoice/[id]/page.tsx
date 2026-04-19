@@ -6,6 +6,7 @@ import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTenant } from '@/hooks/use-tenant';
 import { useEffect } from 'react';
+import { formatCurrency as formatCurrencyLib, formatDate as formatDateLib } from '@/lib/format';
 
 export default function PrintInvoicePage() {
   const params = useParams();
@@ -34,20 +35,9 @@ export default function PrintInvoicePage() {
   const jobCard = (inv.job_card ?? inv.job_cards) as { job_number: string } | undefined;
   const tenantData = tenant as Record<string, unknown> | undefined;
 
-  const formatCurrency = (val: number | string | null | undefined) => {
-    const num = typeof val === 'string' ? parseFloat(val) : (val ?? 0);
-    const currency = (tenantData?.currency as string) ?? 'AOA';
-    try {
-      return new Intl.NumberFormat('pt-PT', { style: 'currency', currency }).format(num);
-    } catch {
-      return `${num.toFixed(2)} ${currency}`;
-    }
-  };
-
-  const formatDate = (d: string | null | undefined) => {
-    if (!d) return '-';
-    return new Date(d).toLocaleDateString('pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
+  const currency = (tenantData?.currency as string) ?? 'AOA';
+  const formatCurrency = (val: number | string | null | undefined) => formatCurrencyLib(val, currency, 'pt-PT');
+  const formatDate = (d: string | null | undefined) => formatDateLib(d, 'pt-PT', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const labour = (labourLines ?? []) as Array<Record<string, unknown>>;
   const parts = (partsLines ?? []) as Array<Record<string, unknown>>;

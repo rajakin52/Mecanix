@@ -6,6 +6,7 @@ import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/us
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
 import { SkeletonTable, StatusBadge, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
+import { formatNumber } from '@/lib/format';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -50,8 +51,7 @@ export default function InvoicesPage() {
   const [genNotes, setGenNotes] = useState('');
   const [genCustomerPortion, setGenCustomerPortion] = useState('');
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(locale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
   const handleGenerate = async () => {
     if (!genJobCardId) return;

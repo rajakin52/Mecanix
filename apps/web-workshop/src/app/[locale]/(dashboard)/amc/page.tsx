@@ -12,6 +12,7 @@ import {
 } from '@/hooks/use-amc';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
+import { formatNumber } from '@/lib/format';
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
@@ -127,8 +128,7 @@ export default function AmcPage() {
     }
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, undefined, 2);
 
   return (
     <div className="space-y-6">

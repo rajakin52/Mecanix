@@ -8,6 +8,7 @@ import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
 import { Link } from '@/i18n/navigation';
 import { useToast } from '@mecanix/ui-web';
+import { formatNumber } from '@/lib/format';
 
 const STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -57,8 +58,7 @@ export default function InvoiceDetailPage() {
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(locale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
   const handleMarkAsSent = async () => {
     await markAsSentMutation.mutateAsync(id);

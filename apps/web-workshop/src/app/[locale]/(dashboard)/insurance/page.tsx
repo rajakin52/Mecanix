@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useClaims, useInitiateClaim, useInsuranceCompanies } from '@/hooks/use-insurance';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
+import { formatNumber } from '@/lib/format';
 
 const STATUS_TABS = [
   { key: undefined, label: 'All' },
@@ -53,8 +54,7 @@ export default function InsuranceClaimsPage() {
   const [claimPolicyNumber, setClaimPolicyNumber] = useState('');
   const [claimExcess, setClaimExcess] = useState('');
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(locale, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
   const handleCreateClaim = async () => {
     if (!claimJobId || !claimInsurerId) return;

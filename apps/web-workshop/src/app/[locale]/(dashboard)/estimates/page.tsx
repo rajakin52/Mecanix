@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useAllEstimates, useConvertEstimateToJob, type Estimate } from '@/hooks/use-estimates';
 import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
+import { formatNumber } from '@/lib/format';
 
 const STATUSES = [
   { key: undefined, label: 'All' },
@@ -33,8 +34,7 @@ export default function EstimatesPage() {
   const { data, isLoading, isError, error: queryError } = useAllEstimates(page, debouncedSearch, activeStatus, activeSource);
   const convertMutation = useConvertEstimateToJob();
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(undefined, { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+  const formatCurrency = (val: number) => formatNumber(val, undefined, 2);
 
   const handleConvert = async (est: Estimate) => {
     if (!confirm(`Convert estimate ${est.estimate_number} to a job card?`)) return;
