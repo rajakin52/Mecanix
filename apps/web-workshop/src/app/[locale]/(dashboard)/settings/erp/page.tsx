@@ -22,6 +22,8 @@ interface ErpConfig {
   auto_export_payments: boolean;
   default_labour_article: string;
   default_parts_article: string;
+  captive_vat_account: string | null;
+  service_retention_account: string | null;
 }
 
 interface ExportLogEntry {
@@ -93,6 +95,8 @@ export default function ErpConfigPage() {
     auto_export_payments: false,
     default_labour_article: 'SRV-MO',
     default_parts_article: 'SRV-PC',
+    captive_vat_account: '',
+    service_retention_account: '',
   });
 
   const [paymentMapping, setPaymentMapping] = useState<Record<string, string>>({ ...DEFAULT_PAYMENT_MAPPING });
@@ -152,6 +156,8 @@ export default function ErpConfigPage() {
         autoExportPayments: config.auto_export_payments,
         defaultLabourArticle: config.default_labour_article,
         defaultPartsArticle: config.default_parts_article,
+        captiveVatAccount: config.captive_vat_account,
+        serviceRetentionAccount: config.service_retention_account,
         // Store additional mappings in tax_mapping (extended)
         paymentMapping,
         articleMapping,
@@ -511,7 +517,7 @@ export default function ErpConfigPage() {
           </tbody>
         </table>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Default Labour Article</label>
             <input
@@ -528,6 +534,32 @@ export default function ErpConfigPage() {
               value={config.default_parts_article}
               onChange={(e) => setConfig({ ...config, default_parts_article: e.target.value })}
               className="w-32 rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              IVA Cativo GL Account
+              <span className="ms-1 text-xs text-gray-400">(receivable from state)</span>
+            </label>
+            <input
+              type="text"
+              value={config.captive_vat_account ?? ''}
+              onChange={(e) => setConfig({ ...config, captive_vat_account: e.target.value })}
+              placeholder="24342"
+              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Retenção Serviços GL Account
+              <span className="ms-1 text-xs text-gray-400">(6.5% credit)</span>
+            </label>
+            <input
+              type="text"
+              value={config.service_retention_account ?? ''}
+              onChange={(e) => setConfig({ ...config, service_retention_account: e.target.value })}
+              placeholder="2417"
+              className="w-40 rounded border border-gray-300 px-2 py-1 text-sm focus:border-primary-500"
             />
           </div>
         </div>
