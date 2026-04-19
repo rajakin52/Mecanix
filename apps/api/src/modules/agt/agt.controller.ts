@@ -11,6 +11,17 @@ import {
 import { AgtService } from './agt.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  updateAgtConfigSchema,
+  createAgtSeriesSchema,
+  updateAgtSeriesSchema,
+  initializeAgtSeriesSchema,
+  type UpdateAgtConfigInput,
+  type CreateAgtSeriesInput,
+  type UpdateAgtSeriesInput,
+  type InitializeAgtSeriesInput,
+} from '@mecanix/validators';
 
 @Controller('agt')
 @UseGuards(TenantGuard)
@@ -27,7 +38,7 @@ export class AgtController {
   @Put('config')
   async updateConfig(
     @TenantId() tenantId: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateAgtConfigSchema)) body: UpdateAgtConfigInput,
   ) {
     return this.agtService.updateConfig(tenantId, body);
   }
@@ -47,7 +58,7 @@ export class AgtController {
   @Post('series')
   async createSeries(
     @TenantId() tenantId: string,
-    @Body() body: { documentType: string; seriesCode: string; fiscalYear?: number },
+    @Body(new ZodValidationPipe(createAgtSeriesSchema)) body: CreateAgtSeriesInput,
   ) {
     return this.agtService.createSeries(tenantId, body);
   }
@@ -56,7 +67,7 @@ export class AgtController {
   async updateSeries(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { isActive?: boolean },
+    @Body(new ZodValidationPipe(updateAgtSeriesSchema)) body: UpdateAgtSeriesInput,
   ) {
     return this.agtService.updateSeries(tenantId, id, body);
   }
@@ -64,7 +75,7 @@ export class AgtController {
   @Post('series/initialize')
   async initializeDefaultSeries(
     @TenantId() tenantId: string,
-    @Body() body: { seriesCode?: string },
+    @Body(new ZodValidationPipe(initializeAgtSeriesSchema)) body: InitializeAgtSeriesInput,
   ) {
     return this.agtService.initializeDefaultSeries(tenantId, body.seriesCode);
   }
