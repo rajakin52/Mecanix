@@ -3,6 +3,13 @@ import { BookingService } from './booking.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  submitBookingRequestSchema,
+  confirmBookingRequestSchema,
+  type SubmitBookingRequestInput,
+  type ConfirmBookingRequestInput,
+} from '@mecanix/validators';
 
 /**
  * Public booking endpoints (no auth) at /booking/public/:slug
@@ -32,7 +39,10 @@ export class BookingController {
   }
 
   @Post('public/:slug/request')
-  async submitRequest(@Param('slug') slug: string, @Body() body: Record<string, unknown>) {
+  async submitRequest(
+    @Param('slug') slug: string,
+    @Body(new ZodValidationPipe(submitBookingRequestSchema)) body: SubmitBookingRequestInput,
+  ) {
     const workshop = await this.bookingService.getWorkshopBySlug(slug);
     return this.bookingService.submitBookingRequest(workshop.id, body as never);
   }
@@ -54,7 +64,7 @@ export class BookingController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: { scheduledStart: string; scheduledEnd: string; technicianId?: string },
+    @Body(new ZodValidationPipe(confirmBookingRequestSchema)) body: ConfirmBookingRequestInput,
   ) {
     return this.bookingService.confirmRequest(tenantId, user.id, id, body);
   }

@@ -26,3 +26,5 @@ export * from './symptom';
 export * from './reception';
 export * from './estimate';
 export * from './photo-capture';
+export * from './booking';
+export * from './fleet';
