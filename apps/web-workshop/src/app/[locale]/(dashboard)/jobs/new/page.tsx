@@ -170,6 +170,7 @@ export default function NewJobWizard() {
   // Problem & Symptoms
   const [reportedProblem, setReportedProblem] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [isTaxable, setIsTaxable] = useState(true);
   const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<SymptomCode[]>([]);
   const [symptomSearch, setSymptomSearch] = useState('');
@@ -452,6 +453,7 @@ export default function NewJobWizard() {
         symptomCodes: selectedSymptoms.map((s) => s.code),
         internalNotes: internalNotes.trim() || undefined,
         estimatedCompletion: estimatedCompletion || undefined,
+        isTaxable,
       });
 
       // 2. Create vehicle reception — MANDATORY. If this fails, delete the job card.
@@ -1429,6 +1431,17 @@ export default function NewJobWizard() {
                   rows={2} placeholder="Workshop-only notes (not visible to customer)"
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3" />
               </div>
+              <label className="flex items-center gap-3 pt-2">
+                <input
+                  type="checkbox"
+                  checked={isTaxable}
+                  onChange={(e) => setIsTaxable(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">
+                  Apply VAT to this job (uncheck for VAT-exempt / export work)
+                </span>
+              </label>
             </div>
           </div>
           );

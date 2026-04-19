@@ -510,14 +510,14 @@ export class EstimatesService {
       });
     }
 
-    // Recalculate job totals
-    // (use the same pattern as the service — sum lines and update job)
+    // Recalculate job totals (respect is_taxable — a non-taxable job must
+    // have tax_amount = 0 even if the source estimate carried a tax_rate).
     const { data: allLabour } = await client.from('labour_lines').select('subtotal').eq('job_card_id', job.id).eq('tenant_id', tenantId);
     const { data: allParts } = await client.from('parts_lines').select('subtotal').eq('job_card_id', job.id).eq('tenant_id', tenantId);
     const lTotal = (allLabour ?? []).reduce((s, l) => s + (Number(l.subtotal) || 0), 0);
     const pTotal = (allParts ?? []).reduce((s, p) => s + (Number(p.subtotal) || 0), 0);
     const taxRate = Number(estimate.tax_rate) || 14;
-    const taxAmt = (lTotal + pTotal) * (taxRate / 100);
+    const taxAmt = (job.is_taxable as boolean) ? (lTotal + pTotal) * (taxRate / 100) : 0;
     await client.from('job_cards').update({
       labour_total: Math.round(lTotal * 100) / 100,
       parts_total: Math.round(pTotal * 100) / 100,

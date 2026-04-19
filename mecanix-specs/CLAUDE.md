@@ -176,6 +176,8 @@ All endpoints under `/api/v1/`:
 | [modules/12-success-metrics.md](modules/12-success-metrics.md) | Launch criteria, KPIs, competitor comparison |
 | [modules/15-warehouse-procurement.md](modules/15-warehouse-procurement.md) | Warehouse & Parts Procurement — delivery-app-style parts request/issue workflow |
 | [modules/16-vehicle-reception.md](modules/16-vehicle-reception.md) | Vehicle Reception & Check-In — body damage diagram, walk-around photos, accessories, fuel, mileage, signature |
+| [modules/17-enhancements-competitive-parity.md](modules/17-enhancements-competitive-parity.md) | All competitive gap features: scheduling, VIN decode, sub-jobs, fleet, CRM, KPIs, AI, discounts, deposits, chat |
+| [COMPETITIVE_GAP_ANALYSIS.md](COMPETITIVE_GAP_ANALYSIS.md) | Full 165-feature audit against 10+ competitors with scoring matrix |
 
 ## Coding Conventions (To Be Defined)
 

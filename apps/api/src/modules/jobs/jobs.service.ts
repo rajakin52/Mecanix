@@ -407,6 +407,14 @@ export class JobsService {
       .single();
 
     if (error) throw error;
+
+    // Toggling is_taxable must refresh the cached tax_amount / grand_total
+    // on the job card; otherwise the old VAT figure lingers until the next
+    // line edit forces a recalc.
+    if (input.isTaxable !== undefined) {
+      await this.recalculateTotals(tenantId, id);
+    }
+
     return data;
   }
 
