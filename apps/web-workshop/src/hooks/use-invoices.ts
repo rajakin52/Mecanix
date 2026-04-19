@@ -14,6 +14,11 @@ interface Invoice {
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
+  vat_by_rate?: Record<string, number>;
+  vat_captive_pct?: number;
+  iva_captive_amount?: number;
+  service_retention_pct?: number;
+  service_retention_amount?: number;
   grand_total: number;
   paid_amount: number;
   balance_due: number;

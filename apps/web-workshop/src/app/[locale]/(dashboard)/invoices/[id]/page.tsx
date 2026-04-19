@@ -267,13 +267,53 @@ export default function InvoiceDetailPage() {
             <span className="text-gray-500">{t('subtotal')}</span>
             <span className="text-gray-900">{formatCurrency(invoice.subtotal)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('taxRate')} ({invoice.tax_rate}%)</span>
-            <span className="text-gray-900">{formatCurrency(invoice.tax_amount)}</span>
+          {/* VAT breakdown by rate */}
+          {invoice.vat_by_rate && Object.keys(invoice.vat_by_rate as Record<string, number>).length > 0 ? (
+            Object.entries(invoice.vat_by_rate as Record<string, number>)
+              .filter(([, amt]) => amt > 0)
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([rate, amt]) => (
+                <div key={rate} className="flex justify-between text-sm">
+                  <span className="text-gray-500">IVA {Number(rate).toFixed(0)}%</span>
+                  <span className="text-gray-900">{formatCurrency(amt)}</span>
+                </div>
+              ))
+          ) : (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">{t('taxRate')} ({invoice.tax_rate}%)</span>
+              <span className="text-gray-900">{formatCurrency(invoice.tax_amount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-gray-200 pt-2 text-sm">
+            <span className="text-gray-700 font-medium">{t('grandTotal')} (com IVA)</span>
+            <span className="text-gray-900 font-medium">{formatCurrency(invoice.grand_total)}</span>
           </div>
+          {/* Captive VAT retention line */}
+          {(invoice.iva_captive_amount ?? 0) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-amber-700">
+                IVA Cativo ({invoice.vat_captive_pct}%)
+              </span>
+              <span className="text-amber-700">
+                −{formatCurrency(invoice.iva_captive_amount ?? 0)}
+              </span>
+            </div>
+          )}
+          {/* Service retention line */}
+          {(invoice.service_retention_amount ?? 0) > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-amber-700">
+                Retenção serviços ({Number(invoice.service_retention_pct).toFixed(1)}%)
+              </span>
+              <span className="text-amber-700">
+                −{formatCurrency(invoice.service_retention_amount ?? 0)}
+              </span>
+            </div>
+          )}
+          {/* Client pays line */}
           <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold">
-            <span className="text-gray-900">{t('grandTotal')}</span>
-            <span className="text-gray-900">{formatCurrency(invoice.grand_total)}</span>
+            <span className="text-gray-900">Total a pagar pelo cliente</span>
+            <span className="text-gray-900">{formatCurrency(invoice.balance_due + invoice.paid_amount)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{t('paid')}</span>

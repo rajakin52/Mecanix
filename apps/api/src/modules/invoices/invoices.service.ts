@@ -129,10 +129,10 @@ export class InvoicesService {
       );
     }
 
-    // 2. Get labour lines — only charged lines are invoiced
+    // 2. Get labour lines with their snapshotted tax rate — charged only
     const { data: labourLines } = await client
       .from('labour_lines')
-      .select('subtotal')
+      .select('subtotal, tax_rate')
       .eq('job_card_id', input.jobCardId)
       .eq('tenant_id', tenantId)
       .eq('line_status', 'charged');
@@ -142,10 +142,10 @@ export class InvoicesService {
       0,
     );
 
-    // 3. Get parts lines — only charged lines are invoiced
+    // 3. Get parts lines with their snapshotted tax rate — charged only
     const { data: partsLines } = await client
       .from('parts_lines')
-      .select('subtotal')
+      .select('subtotal, tax_rate')
       .eq('job_card_id', input.jobCardId)
       .eq('tenant_id', tenantId)
       .eq('line_status', 'charged');
@@ -163,35 +163,67 @@ export class InvoicesService {
 
     if (rpcError) throw rpcError;
 
-    // 5. Get tax rate from tenant settings
-    const { data: taxRateSetting } = await client
-      .from('tenant_settings')
-      .select('value')
+    // 5. Fetch customer tax profile (cativo + retention).
+    const { data: customer } = await client
+      .from('customers')
+      .select('vat_captive_pct, withholds_service_retention')
+      .eq('id', jobCard.customer_id)
       .eq('tenant_id', tenantId)
-      .eq('key', 'tax_rate')
       .single();
 
-    const taxRate = taxRateSetting?.value ? Number(taxRateSetting.value) : 14;
-
-    // 6. Calculate totals
-    const subtotal = labourTotal + partsTotal;
-    const taxAmount = jobCard.is_taxable ? subtotal * (taxRate / 100) : 0;
-    const grandTotal = subtotal + taxAmount;
+    const customerCaptivePct = Number(customer?.vat_captive_pct ?? 0);
+    const customerRetains = Boolean(customer?.withholds_service_retention);
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
 
-    // 7. Handle insurance split
-    let customerPortion = round2(grandTotal);
-    let insurancePortion = 0;
+    // 6. Compute per-rate VAT from the line snapshots.
+    const vatByRate: Record<string, number> = {};
+    const addToRate = (subtotal: number, rate: number | null | undefined) => {
+      if (!jobCard.is_taxable) return;
+      const r = Number(rate ?? 0);
+      const vat = subtotal * (r / 100);
+      const key = r.toFixed(2);
+      vatByRate[key] = (vatByRate[key] ?? 0) + vat;
+    };
+    (labourLines ?? []).forEach((l: { subtotal: number; tax_rate: number | null }) =>
+      addToRate(l.subtotal || 0, l.tax_rate));
+    (partsLines ?? []).forEach((p: { subtotal: number; tax_rate: number | null }) =>
+      addToRate(p.subtotal || 0, p.tax_rate));
 
+    const totalVat = Object.values(vatByRate).reduce((s, v) => s + v, 0);
+
+    // 7. Captive VAT: portion of VAT the customer will pay directly to AGT.
+    const captiveAmount = totalVat * (customerCaptivePct / 100);
+
+    // 8. Service retention: 6.5% of the labour total, withheld by the customer.
+    const retentionPct = customerRetains ? 6.5 : 0;
+    const retentionAmount = labourTotal * (retentionPct / 100);
+
+    // 9. Totals.
+    const subtotal = labourTotal + partsTotal;
+    const grandTotal = subtotal + totalVat;                 // full invoice
+    const clientOwes = grandTotal - captiveAmount - retentionAmount; // net to us
+
+    // 10. Round vat_by_rate values for storage
+    const vatByRateRounded: Record<string, number> = {};
+    for (const [k, v] of Object.entries(vatByRate)) vatByRateRounded[k] = round2(v);
+
+    // 11. Handle insurance split (applies to the net client portion).
+    let customerPortion = round2(clientOwes);
+    let insurancePortion = 0;
     if (jobCard.is_insurance) {
       customerPortion = input.customerPortion != null
         ? round2(input.customerPortion)
-        : round2(grandTotal);
-      insurancePortion = round2(grandTotal - customerPortion);
+        : round2(clientOwes);
+      insurancePortion = round2(clientOwes - customerPortion);
     }
 
-    // 8. Insert invoice
+    // 12. Keep a representative top-level tax_rate for legacy reports that
+    // expect a single number. Use the dominant rate if one exists, else 0.
+    const legacyTaxRate = Object.entries(vatByRate)
+      .sort(([, a], [, b]) => b - a)[0]?.[0];
+
+    // 13. Insert invoice with the new fields.
     const { data: invoice, error: insertError } = await client
       .from('invoices')
       .insert({
@@ -203,19 +235,23 @@ export class InvoicesService {
         labour_total: round2(labourTotal),
         parts_total: round2(partsTotal),
         subtotal: round2(subtotal),
-        tax_rate: taxRate,
-        tax_amount: round2(taxAmount),
+        tax_rate: legacyTaxRate ? Number(legacyTaxRate) : 0,
+        tax_amount: round2(totalVat),
+        vat_by_rate: vatByRateRounded,
+        vat_captive_pct: customerCaptivePct,
+        iva_captive_amount: round2(captiveAmount),
+        service_retention_pct: retentionPct,
+        service_retention_amount: round2(retentionAmount),
         grand_total: round2(grandTotal),
         customer_portion: customerPortion,
         insurance_portion: insurancePortion,
         paid_amount: 0,
-        balance_due: round2(grandTotal),
+        balance_due: round2(clientOwes),
         is_insurance: jobCard.is_insurance ?? false,
         due_date: input.dueDate || null,
         notes: input.notes || null,
         footer: input.footer || null,
         created_by: userId,
-
       })
       .select()
       .single();
