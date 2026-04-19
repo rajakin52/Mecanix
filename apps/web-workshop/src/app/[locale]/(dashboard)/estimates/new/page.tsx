@@ -42,6 +42,7 @@ export default function NewEstimateWizard() {
   const [labourLines, setLabourLines] = useState<LabourLine[]>([]);
   const [partsLines, setPartsLines] = useState<PartsLine[]>([]);
   const [repairFilter, setRepairFilter] = useState<RepairFilter>('mechanic');
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // New line forms
   const [newLabour, setNewLabour] = useState<LabourLine>({ description: '', hours: 1, rate: 0 });
@@ -332,10 +333,20 @@ export default function NewEstimateWizard() {
             {allCatalog.length > 0 && (() => {
               const isBody = (cat: string | null) => cat ? BODY_CATEGORIES.includes(cat) : false;
               const isMech = (cat: string | null) => !cat || !BODY_CATEGORIES.includes(cat);
+              const q = catalogSearch.trim().toLowerCase();
               const filtered = allCatalog.filter((i) => {
-                if (repairFilter === 'quick') return !!i.quick_access;
-                if (repairFilter === 'body') return isBody(i.category);
-                return isMech(i.category) && !i.quick_access;
+                const matchesCategory = repairFilter === 'quick'
+                  ? !!i.quick_access
+                  : repairFilter === 'body'
+                    ? isBody(i.category)
+                    : isMech(i.category) && !i.quick_access;
+                if (!matchesCategory) return false;
+                if (!q) return true;
+                return (
+                  i.name.toLowerCase().includes(q)
+                  || (i.code?.toLowerCase().includes(q) ?? false)
+                  || (i.category?.toLowerCase().includes(q) ?? false)
+                );
               });
               const FILTERS: { key: RepairFilter; label: string; icon: string }[] = [
                 { key: 'quick', label: 'Quick Service', icon: '⚡' },
@@ -363,9 +374,31 @@ export default function NewEstimateWizard() {
                     ))}
                   </div>
 
-                  <div className="max-h-48 overflow-y-auto space-y-1">
+                  {/* Search */}
+                  <div className="relative mb-3">
+                    <input
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      placeholder="Search by name, code, or category…"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pe-9 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    />
+                    {catalogSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setCatalogSearch('')}
+                        className="absolute end-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-1">
                     {filtered.length === 0 ? (
-                      <p className="text-sm text-gray-400 py-4 text-center">No items in this category</p>
+                      <p className="text-sm text-gray-400 py-4 text-center">
+                        {q ? `No items match "${catalogSearch.trim()}"` : 'No items in this category'}
+                      </p>
                     ) : (
                       filtered.map((item) => (
                         <button key={item.id} onClick={() => {
