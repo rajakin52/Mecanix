@@ -33,5 +33,27 @@ export const createInspectionSchema = z.object({
 
 export const updateInspectionSchema = createInspectionSchema.partial();
 
+export const createInspectionTemplateSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  type: z.enum(['multi_point', 'pre_delivery', 'diagnostic', 'safety']).default('multi_point'),
+  items: z.array(z.record(z.unknown())).default([]),
+  isDefault: z.boolean().optional(),
+});
+
+export const updateDviItemSchema = z.object({
+  status: z.enum(['green', 'yellow', 'red', 'not_inspected']).optional(),
+  notes: z.string().max(2000).optional(),
+  recommendation: z.string().max(2000).optional(),
+  photos: z.array(z.string().max(2000)).max(20).optional(),
+});
+
+export const markItemsEstimatedSchema = z.object({
+  itemIds: z.array(z.string().uuid()).min(1).max(200),
+});
+
 export type CreateInspectionInput = z.infer<typeof createInspectionSchema>;
 export type UpdateInspectionInput = z.infer<typeof updateInspectionSchema>;
+export type CreateInspectionTemplateInput = z.infer<typeof createInspectionTemplateSchema>;
+export type UpdateDviItemInput = z.infer<typeof updateDviItemSchema>;
+export type MarkItemsEstimatedInput = z.infer<typeof markItemsEstimatedSchema>;

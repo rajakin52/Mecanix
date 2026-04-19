@@ -28,3 +28,4 @@ export * from './estimate';
 export * from './photo-capture';
 export * from './booking';
 export * from './fleet';
+export * from './survey';

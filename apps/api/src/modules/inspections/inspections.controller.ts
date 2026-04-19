@@ -14,10 +14,16 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   createInspectionSchema,
   updateInspectionSchema,
+  createInspectionTemplateSchema,
+  updateDviItemSchema,
+  markItemsEstimatedSchema,
 } from '@mecanix/validators';
 import type {
   CreateInspectionInput,
   UpdateInspectionInput,
+  CreateInspectionTemplateInput,
+  UpdateDviItemInput,
+  MarkItemsEstimatedInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -64,7 +70,7 @@ export class InspectionsController {
   async createTemplate(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(createInspectionTemplateSchema)) body: CreateInspectionTemplateInput,
   ) {
     return this.inspectionsService.createTemplate(tenantId, user.id, body);
   }
@@ -83,7 +89,7 @@ export class InspectionsController {
   async updateDviItem(
     @TenantId() tenantId: string,
     @Param('itemId') itemId: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateDviItemSchema)) body: UpdateDviItemInput,
   ) {
     return this.inspectionsService.updateDviItem(tenantId, itemId, body);
   }
@@ -101,7 +107,7 @@ export class InspectionsController {
   @Post('items/mark-estimated')
   async markEstimated(
     @TenantId() tenantId: string,
-    @Body() body: { itemIds: string[] },
+    @Body(new ZodValidationPipe(markItemsEstimatedSchema)) body: MarkItemsEstimatedInput,
   ) {
     await this.inspectionsService.markItemsEstimated(tenantId, body.itemIds);
     return { marked: body.itemIds.length };
