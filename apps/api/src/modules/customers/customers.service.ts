@@ -89,6 +89,8 @@ export class CustomersService {
         credit_limit: input.creditLimit ?? null,
         price_group_id: input.priceGroupId || null,
         preferred_channel: input.preferredChannel ?? 'whatsapp',
+        vat_captive_pct: input.vatCaptivePct ?? 0,
+        withholds_service_retention: input.withholdsServiceRetention ?? false,
         created_by: userId,
         updated_by: userId,
       })
@@ -125,6 +127,8 @@ export class CustomersService {
     if (input.creditLimit !== undefined) updateData['credit_limit'] = input.creditLimit ?? null;
     if (input.priceGroupId !== undefined) updateData['price_group_id'] = input.priceGroupId || null;
     if (input.preferredChannel !== undefined) updateData['preferred_channel'] = input.preferredChannel;
+    if (input.vatCaptivePct !== undefined) updateData['vat_captive_pct'] = input.vatCaptivePct;
+    if (input.withholdsServiceRetention !== undefined) updateData['withholds_service_retention'] = input.withholdsServiceRetention;
 
     const { data, error } = await this.supabase
       .getClient()

@@ -22,6 +22,9 @@ export const createCustomerSchema = z.object({
   creditLimit: z.coerce.number().min(0).optional(),
   priceGroupId: z.string().uuid().optional().or(z.literal('')),
   preferredChannel: z.enum(['whatsapp', 'email', 'app', 'sms']).optional(),
+  // Angola tax treatment
+  vatCaptivePct: z.union([z.literal(0), z.literal(50), z.literal(100)]).default(0),
+  withholdsServiceRetention: z.boolean().default(false),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

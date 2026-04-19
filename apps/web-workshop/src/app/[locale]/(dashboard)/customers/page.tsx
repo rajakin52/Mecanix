@@ -323,6 +323,41 @@ export default function CustomersPage() {
                   )}
                 </div>
 
+                {/* ── Tax treatment (Angola) ── */}
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+                  <p className="mb-3 text-sm font-semibold text-gray-800">Tax treatment</p>
+
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700">IVA Cativo</label>
+                    <select
+                      {...register('vatCaptivePct', { valueAsNumber: true })}
+                      defaultValue={0}
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    >
+                      <option value={0}>0% — Cliente normal</option>
+                      <option value={50}>50% — Banco / Seguradora / Telecom</option>
+                      <option value={100}>100% — Entidade pública / Empresa petrolífera</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      % do IVA que o cliente retém directamente à AGT.
+                    </p>
+                  </div>
+
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      {...register('withholdsServiceRetention')}
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600"
+                    />
+                    <span>
+                      <span className="font-medium text-gray-800">Retém 6.5% sobre serviços</span>
+                      <span className="block text-xs text-gray-500">
+                        Aplicável quando o cliente é uma entidade que retém o imposto industrial sobre a prestação de serviços. Apenas afecta a parte de mão-de-obra da factura.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
                 {/* ── Notes ── */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">{t('notes')}</label>

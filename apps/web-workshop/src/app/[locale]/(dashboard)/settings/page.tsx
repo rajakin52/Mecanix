@@ -249,6 +249,20 @@ export default function SettingsPage() {
           <span className="text-gray-400 text-xl">&rarr;</span>
         </Link>
 
+        {/* Tax Codes Link */}
+        <Link
+          href="/settings/tax-codes"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Tax Codes (IVA)</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              VAT classifications for parts, services and invoicing
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* Pricing Link */}
         <Link
           href="/settings/pricing"

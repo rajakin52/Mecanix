@@ -4,6 +4,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
+import { TaxCodesModule } from './modules/tax-codes/tax-codes.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { TechniciansModule } from './modules/technicians/technicians.module';
@@ -63,6 +64,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     SupabaseModule,
     AuthModule,
     TenantsModule,
+    TaxCodesModule,
     CustomersModule,
     VehiclesModule,
     TechniciansModule,
