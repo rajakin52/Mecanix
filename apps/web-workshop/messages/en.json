@@ -379,6 +379,28 @@
       "job_card": "From Job Card"
     }
   },
+  "procurement": {
+    "tabs": {
+      "parts_requests": "Parts Requests",
+      "purchase_requests": "Purchase Requests",
+      "put_away": "Put-Away Tasks"
+    },
+    "partsRequestStatuses": {
+      "all": "All",
+      "requested": "Requested",
+      "picking": "Picking",
+      "ready": "Ready",
+      "issued": "Issued"
+    },
+    "purchaseRequestStatuses": {
+      "all": "All",
+      "pending_approval": "Pending Approval",
+      "approved": "Approved",
+      "ordered": "Ordered",
+      "received": "Received",
+      "rejected": "Rejected"
+    }
+  },
   "reports": {
     "title": "Reports",
     "selectReport": "Select report",

@@ -60,12 +60,13 @@ type MainTab = 'parts-requests' | 'purchase-requests' | 'put-away';
 
 export default function ProcurementPage() {
   const tc = useTranslations('common');
+  const tTab = useTranslations('procurement.tabs');
   const [activeTab, setActiveTab] = useState<MainTab>('parts-requests');
 
-  const tabs: { key: MainTab; label: string; icon: React.ElementType }[] = [
-    { key: 'parts-requests', label: 'Parts Requests', icon: ClipboardList },
-    { key: 'purchase-requests', label: 'Purchase Requests', icon: ShoppingCart },
-    { key: 'put-away', label: 'Put-Away Tasks', icon: PackageCheck },
+  const tabs: { key: MainTab; tKey: 'parts_requests' | 'purchase_requests' | 'put_away'; icon: React.ElementType }[] = [
+    { key: 'parts-requests', tKey: 'parts_requests', icon: ClipboardList },
+    { key: 'purchase-requests', tKey: 'purchase_requests', icon: ShoppingCart },
+    { key: 'put-away', tKey: 'put_away', icon: PackageCheck },
   ];
 
   return (
@@ -92,7 +93,7 @@ export default function ProcurementPage() {
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                {tab.label}
+                {tTab(tab.tKey)}
               </button>
             );
           })}
@@ -114,6 +115,7 @@ type PRStatusFilter = 'all' | PartsRequestStatus;
 
 function PartsRequestsTab() {
   const tc = useTranslations('common');
+  const tStatus = useTranslations('procurement.partsRequestStatuses');
   const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<PRStatusFilter>('all');
   const [page, setPage] = useState(1);
@@ -131,12 +133,12 @@ function PartsRequestsTab() {
   const issuePartsMut = useIssueParts();
   const cancelMut = useCancelPartsRequest();
 
-  const statusTabs: { key: PRStatusFilter; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'requested', label: 'Requested' },
-    { key: 'picking', label: 'Picking' },
-    { key: 'ready', label: 'Ready' },
-    { key: 'issued', label: 'Issued' },
+  const statusTabs: { key: PRStatusFilter; tKey: 'all' | 'requested' | 'picking' | 'ready' | 'issued' }[] = [
+    { key: 'all', tKey: 'all' },
+    { key: 'requested', tKey: 'requested' },
+    { key: 'picking', tKey: 'picking' },
+    { key: 'ready', tKey: 'ready' },
+    { key: 'issued', tKey: 'issued' },
   ];
 
   const handleStartPicking = async (id: string) => {
@@ -193,7 +195,7 @@ function PartsRequestsTab() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {tab.label}
+              {tStatus(tab.tKey)}
             </button>
           ))}
         </div>
@@ -755,6 +757,7 @@ type PRStatusFilterPurchase = 'all' | PurchaseRequestStatus;
 
 function PurchaseRequestsTab() {
   const tc = useTranslations('common');
+  const tStatus = useTranslations('procurement.purchaseRequestStatuses');
   const toast = useToast();
   const [statusFilter, setStatusFilter] = useState<PRStatusFilterPurchase>('all');
   const [page, setPage] = useState(1);
@@ -774,13 +777,13 @@ function PurchaseRequestsTab() {
   const linkPOMut = useLinkPO();
   const receiveMut = useMarkPRReceived();
 
-  const statusTabs: { key: PRStatusFilterPurchase; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'pending_approval', label: 'Pending Approval' },
-    { key: 'approved', label: 'Approved' },
-    { key: 'ordered', label: 'Ordered' },
-    { key: 'received', label: 'Received' },
-    { key: 'rejected', label: 'Rejected' },
+  const statusTabs: { key: PRStatusFilterPurchase; tKey: 'all' | 'pending_approval' | 'approved' | 'ordered' | 'received' | 'rejected' }[] = [
+    { key: 'all', tKey: 'all' },
+    { key: 'pending_approval', tKey: 'pending_approval' },
+    { key: 'approved', tKey: 'approved' },
+    { key: 'ordered', tKey: 'ordered' },
+    { key: 'received', tKey: 'received' },
+    { key: 'rejected', tKey: 'rejected' },
   ];
 
   const handleApprove = async (id: string) => {
@@ -841,7 +844,7 @@ function PurchaseRequestsTab() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {tab.label}
+            {tStatus(tab.tKey)}
           </button>
         ))}
       </div>

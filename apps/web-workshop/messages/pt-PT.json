@@ -377,6 +377,28 @@
       "job_card": "Da ficha de trabalho"
     }
   },
+  "procurement": {
+    "tabs": {
+      "parts_requests": "Pedidos de Peças",
+      "purchase_requests": "Pedidos de Compra",
+      "put_away": "Arrumação"
+    },
+    "partsRequestStatuses": {
+      "all": "Todos",
+      "requested": "Pedido",
+      "picking": "A separar",
+      "ready": "Pronto",
+      "issued": "Entregue"
+    },
+    "purchaseRequestStatuses": {
+      "all": "Todos",
+      "pending_approval": "Aguarda aprovação",
+      "approved": "Aprovado",
+      "ordered": "Encomendado",
+      "received": "Recebido",
+      "rejected": "Rejeitado"
+    }
+  },
   "reports": {
     "title": "Relatórios",
     "selectReport": "Selecionar relatório",
