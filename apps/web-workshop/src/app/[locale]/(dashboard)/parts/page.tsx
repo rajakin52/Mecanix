@@ -34,7 +34,7 @@ export default function PartsPage() {
     setSortDir(dir);
   };
 
-  const { data, isLoading } = useParts(page, debouncedSearch, category || undefined);
+  const { data, isLoading, isError, error } = useParts(page, debouncedSearch, category || undefined);
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
 
@@ -175,6 +175,10 @@ export default function PartsPage() {
 
       {isLoading ? (
         <SkeletonTable rows={6} cols={6} />
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Failed to load parts: {error instanceof Error ? error.message : 'unknown error'}
+        </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

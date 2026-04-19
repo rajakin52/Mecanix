@@ -4,33 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { normalizePhone } from '@/lib/phone';
 import { useQuery } from '@tanstack/react-query';
 import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
-
-// Normalize a phone number to E.164.
-// - Exactly 9 digits starting with 9[2-5] → Angolan mobile, prepend +244 (even if user typed a stray +).
-// - Else if input starts with '+' and has >=10 digits, trust as full international.
-// - Otherwise reject with an error.
-function normalizePhone(input: string): { number: string; error?: string } {
-  const trimmed = input.trim();
-  const digits = trimmed.replace(/\D/g, '');
-
-  if (digits.length === 9 && /^9[2-5]/.test(digits)) {
-    return { number: `+244${digits}` };
-  }
-
-  if (trimmed.startsWith('+')) {
-    if (digits.length < 10) {
-      return { number: '', error: 'Phone number too short — include full country code' };
-    }
-    return { number: `+${digits}` };
-  }
-
-  return {
-    number: '',
-    error: 'Use an Angolan 9-digit number (e.g. 923456789) or + and full country code (e.g. +351912345678).',
-  };
-}
 
 interface CaptureSession {
   id: string;
