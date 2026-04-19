@@ -558,14 +558,41 @@ export default function NewJobWizard() {
         }
       }
 
-      // 4. Apply selected catalog items
+      // 4. Upload any locally-selected photos (from the PC "Upload" button)
+      const localPhotoEntries = Object.entries(vehiclePhotos).filter(([, f]) => f) as Array<[string, File]>;
+      if (localPhotoEntries.length > 0) {
+        const photoErrors: string[] = [];
+        for (const [photoType, file] of localPhotoEntries) {
+          try {
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            });
+            await api.post('/photo-capture/upload', {
+              jobId: job.id,
+              photoType,
+              base64Data: base64,
+              fileName: file.name,
+            });
+          } catch (e) {
+            photoErrors.push(`${photoType}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        if (photoErrors.length > 0) {
+          alert(`Job card created, but some photos failed to upload:\n${photoErrors.join('\n')}\nYou can re-add them from the job detail page.`);
+        }
+      }
+
+      // 5. Apply selected catalog items
       for (const catalogId of selectedCatalogIds) {
         try {
           await api.post(`/catalog/${catalogId}/apply-to-job/${job.id}`, {});
         } catch { /* non-critical */ }
       }
 
-      // 5. Navigate to job detail
+      // 6. Navigate to job detail
       router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job card');
