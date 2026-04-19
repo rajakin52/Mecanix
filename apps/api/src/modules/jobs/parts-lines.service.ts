@@ -97,117 +97,42 @@ export class PartsLinesService {
     const sellPrice = Math.round(input.unitCost * (1 + markupPct / 100) * 100) / 100;
     const subtotal = Math.round(input.quantity * sellPrice * 100) / 100;
 
-    const { data, error } = await this.supabase
-      .getClient()
-      .from('parts_lines')
-      .insert({
-        tenant_id: tenantId,
-        job_card_id: jobCardId,
-        part_name: input.partName,
-        part_number: input.partNumber || null,
-        quantity: input.quantity,
-        unit_cost: input.unitCost,
-        markup_pct: markupPct,
-        sell_price: sellPrice,
-        subtotal,
-        price_overridden: priceOverridden,
-        original_markup_pct: originalMarkupPct,
-      })
-      .select()
-      .single();
+    // Decide whether the caller may go negative. The RPC enforces the check.
+    const stockPolicy = await this.stockPolicyService.getPolicy(tenantId);
+    const allowNegative = this.stockPolicyService.canOverride(stockPolicy, userRole);
 
-    if (error) throw error;
+    // All the stock bookkeeping (insert line, deduct parts.stock_qty, sync
+    // warehouse_stock, insert inventory_adjustments) happens atomically inside
+    // the create_parts_line_atomic RPC, so concurrent creates can't corrupt stock.
+    const { data: line, error } = await this.supabase.getClient().rpc('create_parts_line_atomic', {
+      p_tenant_id: tenantId,
+      p_job_card_id: jobCardId,
+      p_user_id: userId,
+      p_part_name: input.partName,
+      p_part_number: input.partNumber || null,
+      p_quantity: input.quantity,
+      p_unit_cost: input.unitCost,
+      p_markup_pct: markupPct,
+      p_sell_price: sellPrice,
+      p_subtotal: subtotal,
+      p_allow_negative: allowNegative,
+      p_original_markup_pct: originalMarkupPct,
+      p_price_overridden: priceOverridden,
+    });
 
-    // Reserve stock if part exists in inventory
-    if (input.partNumber) {
-      const { data: part } = await this.supabase
-        .getClient()
-        .from('parts')
-        .select('id, stock_qty, reserved_qty')
-        .eq('tenant_id', tenantId)
-        .eq('part_number', input.partNumber)
-        .limit(1)
-        .maybeSingle();
-
-      if (part) {
-        // Validate available stock before deducting (admin/owner can override)
-        const available = Number(part.stock_qty) - (Number(part.reserved_qty) || 0);
-        await this.stockPolicyService.assertSufficientOrOverride(
-          tenantId,
-          userRole,
-          available,
-          input.quantity,
-          input.partName,
+    if (error) {
+      // Translate the custom stock-exception into a clean 400.
+      if (typeof error.message === 'string' && error.message.includes('INSUFFICIENT_STOCK')) {
+        throw new BadRequestException(
+          `Insufficient stock for ${input.partName}. Contact an administrator to override.`,
         );
-
-        // Deduct stock immediately on add — the part is considered issued to the job.
-        const currentStockQty = Number(part.stock_qty);
-        const newStockQty = currentStockQty - input.quantity;
-        await this.supabase.getClient()
-          .from('parts')
-          .update({ stock_qty: newStockQty, updated_by: userId })
-          .eq('id', part.id)
-          .eq('tenant_id', tenantId);
-
-        // Update warehouse_stock quantity as well
-        const { data: whStock } = await this.supabase.getClient()
-          .from('warehouse_stock')
-          .select('id, quantity')
-          .eq('part_id', part.id)
-          .eq('tenant_id', tenantId)
-          .limit(1)
-          .maybeSingle();
-
-        if (whStock) {
-          const whQty = Number(whStock.quantity) || 0;
-          await this.supabase.getClient()
-            .from('warehouse_stock')
-            .update({ quantity: whQty - input.quantity })
-            .eq('id', whStock.id)
-            .eq('tenant_id', tenantId);
-        }
-
-        // Get vehicle plate for reference
-        const { data: job } = await this.supabase.getClient()
-          .from('job_cards')
-          .select('vehicle:vehicles(plate)')
-          .eq('id', jobCardId)
-          .eq('tenant_id', tenantId)
-          .single();
-
-        const vehicleData = job?.vehicle as unknown;
-        const plate = (vehicleData && typeof vehicleData === 'object' && 'plate' in (vehicleData as Record<string, unknown>))
-          ? String((vehicleData as Record<string, unknown>).plate)
-          : '';
-
-        // Record inventory adjustment — issue
-        await this.supabase.getClient()
-          .from('inventory_adjustments')
-          .insert({
-            tenant_id: tenantId,
-            part_id: part.id,
-            quantity_change: -input.quantity,
-            quantity_before: currentStockQty,
-            quantity_after: newStockQty,
-            reason: `Issued to job: ${plate}`,
-            reference: jobCardId,
-          });
-
-        // Mark parts_line as issued
-        await this.supabase.getClient()
-          .from('parts_lines')
-          .update({
-            stock_status: 'issued',
-            issued_at: new Date().toISOString(),
-          })
-          .eq('id', data.id)
-          .eq('tenant_id', tenantId);
       }
+      throw new BadRequestException(error.message || 'Failed to create parts line');
     }
 
     await this.jobsService.recalculateTotals(tenantId, jobCardId);
 
-    return data;
+    return line;
   }
 
   async update(
