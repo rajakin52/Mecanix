@@ -76,6 +76,18 @@ export function useUpdateJobStatus() {
   });
 }
 
+export function useUpdateJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      api.patch<JobCard>(`/jobs/${id}`, data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      qc.invalidateQueries({ queryKey: ['job', v.id] });
+    },
+  });
+}
+
 export function useTechnicians() {
   return useQuery({
     queryKey: ['technicians'],

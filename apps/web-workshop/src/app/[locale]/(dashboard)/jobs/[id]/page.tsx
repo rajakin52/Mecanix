@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 import {
   useJob,
+  useUpdateJob,
   useUpdateJobStatus,
   useLabourLines,
   useCreateLabourLine,
@@ -972,6 +973,7 @@ export default function JobDetailPage() {
   const tg = useTranslations('gatePass');
   const { data: job, isLoading } = useJob(id);
   const statusMutation = useUpdateJobStatus();
+  const updateJobMutation = useUpdateJob();
   const { data: techData } = useTechnicians();
   const { data: gatePasses } = useGatePasses(id);
   const createGatePass = useCreateGatePass();
@@ -2076,8 +2078,19 @@ export default function JobDetailPage() {
             <span className="text-gray-600">{t('partsTotal')}</span>
             <span className="font-medium text-gray-900">{formatCurrency(typedJob.parts_total as number)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">{t('taxAmount')}</span>
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(typedJob.is_taxable)}
+                disabled={updateJobMutation.isPending}
+                onChange={(e) =>
+                  updateJobMutation.mutate({ id, isTaxable: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>{t('taxAmount')}</span>
+            </label>
             <span className="font-medium text-gray-900">{formatCurrency(typedJob.tax_amount as number)}</span>
           </div>
           <div className="border-t border-gray-200 pt-2">
