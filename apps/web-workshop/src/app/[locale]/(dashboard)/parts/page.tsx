@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
@@ -49,7 +51,22 @@ export default function PartsPage() {
     unitCost: 0,
     sellPrice: 0,
     location: '',
+    taxCodeId: '',
   });
+
+  interface TaxCodeSummary { id: string; code: string; name: string; rate: number; is_default: boolean; is_active: boolean }
+  const { data: taxCodesData } = useQuery({
+    queryKey: ['tax-codes'],
+    queryFn: () => api.get<TaxCodeSummary[]>('/tax-codes'),
+  });
+  const taxCodes = (Array.isArray(taxCodesData) ? taxCodesData : []).filter((t) => t.is_active);
+  // Pre-select default code whenever the list is loaded
+  React.useEffect(() => {
+    if (!form.taxCodeId && taxCodes.length > 0) {
+      const def = taxCodes.find((t) => t.is_default) ?? taxCodes[0];
+      if (def) setForm((f) => ({ ...f, taxCodeId: def.id }));
+    }
+  }, [taxCodes, form.taxCodeId]);
 
   // TecDoc state
   const [tdMake, setTdMake] = useState('');
@@ -75,9 +92,10 @@ export default function PartsPage() {
         unitCost: Number(form.unitCost),
         sellPrice: Number(form.sellPrice),
         location: form.location || undefined,
+        taxCodeId: form.taxCodeId || undefined,
       });
       setShowModal(false);
-      setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '' });
+      setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '', taxCodeId: '' });
       toast.success('Saved successfully!');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create part');
@@ -343,6 +361,22 @@ export default function PartsPage() {
                   placeholder={t('locationPlaceholder')}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">IVA *</label>
+                <select
+                  value={form.taxCodeId}
+                  onChange={(e) => setForm({ ...form, taxCodeId: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white"
+                  required
+                >
+                  <option value="">—</option>
+                  {taxCodes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.code} — {t.name} ({Number(t.rate).toFixed(0)}%)
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowModal(false)} className="rounded-md border px-4 py-2 text-sm">

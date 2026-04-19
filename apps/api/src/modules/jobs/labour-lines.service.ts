@@ -36,6 +36,20 @@ export class LabourLinesService {
 
     const subtotal = Math.round(input.hours * input.rate * 100) / 100;
 
+    // Snapshot the tenant's default tax code onto the line so later
+    // rate edits never rewrite historical invoices. Labour is always
+    // considered a "service" for retention purposes (see Código do
+    // Imposto Industrial, retenção sobre prestação de serviços).
+    const { data: defaultTax } = await this.supabase
+      .getClient()
+      .from('tax_codes')
+      .select('id, rate')
+      .eq('tenant_id', tenantId)
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
     const { data, error } = await this.supabase
       .getClient()
       .from('labour_lines')
@@ -47,6 +61,8 @@ export class LabourLinesService {
         rate: input.rate,
         subtotal,
         technician_id: input.technicianId || null,
+        tax_code_id: defaultTax?.id ?? null,
+        tax_rate: defaultTax?.rate ?? null,
       })
       .select()
       .single();

@@ -104,6 +104,8 @@ export class PartsLinesService {
     // All the stock bookkeeping (insert line, deduct parts.stock_qty, sync
     // warehouse_stock, insert inventory_adjustments) happens atomically inside
     // the create_parts_line_atomic RPC, so concurrent creates can't corrupt stock.
+    // The RPC resolves tax_code_id itself when we don't pass one, so free-text
+    // lines fall back to the tenant default.
     const { data: line, error } = await this.supabase.getClient().rpc('create_parts_line_atomic', {
       p_tenant_id: tenantId,
       p_job_card_id: jobCardId,
@@ -118,6 +120,8 @@ export class PartsLinesService {
       p_allow_negative: allowNegative,
       p_original_markup_pct: originalMarkupPct,
       p_price_overridden: priceOverridden,
+      p_tax_code_id: null,
+      p_tax_rate: null,
     });
 
     if (error) {

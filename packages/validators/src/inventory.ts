@@ -12,6 +12,7 @@ export const createPartSchema = z.object({
   supplierId: z.string().uuid().optional(),
   category: z.string().max(100).optional(),
   location: z.string().max(200).optional(),
+  taxCodeId: z.string().uuid().optional(),
 });
 
 export const updatePartSchema = createPartSchema.partial();

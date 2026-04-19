@@ -84,6 +84,7 @@ export class PartsService {
         supplier_id: input.supplierId || null,
         category: input.category || null,
         location: input.location || null,
+        tax_code_id: input.taxCodeId || null,
         is_active: true,
         created_by: userId,
         updated_by: userId,
@@ -110,6 +111,7 @@ export class PartsService {
       supplierId: 'supplier_id',
       category: 'category',
       location: 'location',
+      taxCodeId: 'tax_code_id',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

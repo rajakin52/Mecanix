@@ -16,6 +16,7 @@ interface ImportRow {
   sku?: string;
   supplierName?: string;
   isActive?: boolean;
+  taxCode?: string;
 }
 
 type RowRecord = Record<string, unknown>;
@@ -60,6 +61,9 @@ const COLUMN_ALIASES: Record<string, string> = {
   vendor: 'supplierName',
   is_active: 'isActive',
   active: 'isActive',
+  tax_code: 'taxCode',
+  iva: 'taxCode',
+  vat_code: 'taxCode',
 };
 
 @Injectable()
@@ -83,6 +87,7 @@ export class BulkImportService {
         barcode: '5901234123457',
         sku: 'SKU-BRK-001',
         supplier: 'ACME Auto Parts',
+        tax_code: 'IVA14',
         is_active: true,
       },
       {
@@ -97,15 +102,15 @@ export class BulkImportService {
         barcode: '',
         sku: '',
         supplier: '',
+        tax_code: 'IVA14',
         is_active: true,
       },
     ];
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Column widths
     ws['!cols'] = [
       { wch: 18 }, { wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
       { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 },
-      { wch: 22 }, { wch: 10 },
+      { wch: 22 }, { wch: 10 }, { wch: 10 },
     ];
     XLSX.utils.book_append_sheet(workbook, ws, 'Parts');
     return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
@@ -158,6 +163,7 @@ export class BulkImportService {
       barcode: this.toStringOrUndef(normalized.barcode),
       sku: this.toStringOrUndef(normalized.sku),
       supplierName: this.toStringOrUndef(normalized.supplierName),
+      taxCode: this.toStringOrUndef(normalized.taxCode),
     };
 
     const unitCost = this.toNumberOrUndef(normalized.unitCost);
@@ -255,6 +261,19 @@ export class BulkImportService {
       supplierMap.set(v.name.toLowerCase().trim(), v.id);
     });
 
+    // Preload tax codes for code→id resolution.
+    const { data: taxCodes } = await client
+      .from('tax_codes')
+      .select('id, code, is_default')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+    const taxCodeMap = new Map<string, string>();
+    let defaultTaxCodeId: string | null = null;
+    (taxCodes ?? []).forEach((t: { id: string; code: string; is_default: boolean }) => {
+      taxCodeMap.set(t.code.toLowerCase().trim(), t.id);
+      if (t.is_default) defaultTaxCodeId = t.id;
+    });
+
     let created = 0;
     let updated = 0;
     let skipped = 0;
@@ -297,6 +316,16 @@ export class BulkImportService {
         if (row.sku !== undefined) payload.sku = row.sku;
         if (supplierId) payload.supplier_id = supplierId;
         if (row.isActive !== undefined) payload.is_active = row.isActive;
+
+        // Resolve tax code: explicit column first, else tenant default.
+        if (row.taxCode) {
+          const resolved = taxCodeMap.get(row.taxCode.toLowerCase().trim());
+          if (resolved) payload.tax_code_id = resolved;
+          else errors.push(`Row ${row.rowNumber}: tax code "${row.taxCode}" not found — using default IVA14`);
+        }
+        if (payload.tax_code_id === undefined && defaultTaxCodeId) {
+          payload.tax_code_id = defaultTaxCodeId;
+        }
 
         if (existing) {
           const { error: updErr } = await client
