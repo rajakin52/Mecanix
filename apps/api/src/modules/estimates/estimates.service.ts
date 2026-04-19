@@ -314,6 +314,7 @@ export class EstimatesService {
         estimate_number: estNumber,
         version: 1,
         status: 'draft',
+        is_taxable: isTaxable,
         labour_total: round2(labourTotal),
         parts_total: round2(partsTotal),
         tax_rate: taxRate,
@@ -387,7 +388,11 @@ export class EstimatesService {
       const partsTotal = partsSnapshot.reduce((s, p) => s + p.subtotal, 0);
       const subtotal = labourTotal + partsTotal;
       const taxRate = Number(estimate.tax_rate) || 14;
-      const isTaxable = input.isTaxable !== undefined ? input.isTaxable : true;
+      // Fall back to the persisted flag so an update that doesn't send
+      // isTaxable doesn't silently re-tax a previously exempt estimate.
+      const isTaxable = input.isTaxable !== undefined
+        ? input.isTaxable
+        : Boolean(estimate.is_taxable);
       const taxAmount = isTaxable ? subtotal * (taxRate / 100) : 0;
 
       if (input.labourLines) {
@@ -398,6 +403,16 @@ export class EstimatesService {
         updates.parts_lines_snapshot = partsSnapshot;
         updates.parts_total = round2(partsTotal);
       }
+      if (input.isTaxable !== undefined) updates.is_taxable = input.isTaxable;
+      updates.tax_amount = round2(taxAmount);
+      updates.grand_total = round2(subtotal + taxAmount);
+    } else if (input.isTaxable !== undefined) {
+      // Toggling is_taxable alone, without line edits: recompute using
+      // the previously stored totals.
+      const subtotal = Number(estimate.labour_total) + Number(estimate.parts_total);
+      const taxRate = Number(estimate.tax_rate) || 14;
+      const taxAmount = input.isTaxable ? subtotal * (taxRate / 100) : 0;
+      updates.is_taxable = input.isTaxable;
       updates.tax_amount = round2(taxAmount);
       updates.grand_total = round2(subtotal + taxAmount);
     }
@@ -454,7 +469,8 @@ export class EstimatesService {
     const { data: jobNumber, error: rpcError } = await client.rpc('generate_job_number', { p_tenant_id: tenantId });
     if (rpcError) throw rpcError;
 
-    // Create job card
+    // Create job card — inherit is_taxable from the source estimate so a
+    // non-taxable estimate stays non-taxable after conversion.
     const { data: job, error: jobError } = await client
       .from('job_cards')
       .insert({
@@ -466,7 +482,7 @@ export class EstimatesService {
         symptom_codes: input?.symptomCodes ?? [],
         primary_technician_id: input?.primaryTechnicianId ?? null,
         status: 'received',
-        is_taxable: true,
+        is_taxable: Boolean(estimate.is_taxable),
         current_estimate_id: estimateId,
         created_by: userId,
       })
