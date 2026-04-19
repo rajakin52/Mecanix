@@ -180,7 +180,7 @@ export default function PrintInvoicePage() {
         )}
 
         {/* Totals */}
-        <div className="ml-auto w-72 border-t-2 border-gray-800 pt-4">
+        <div className="ml-auto w-80 border-t-2 border-gray-800 pt-4">
           <div className="flex justify-between py-1 text-sm">
             <span>Mão de Obra:</span>
             <span>{formatCurrency(inv.labour_total as number)}</span>
@@ -193,14 +193,57 @@ export default function PrintInvoicePage() {
             <span>Subtotal:</span>
             <span>{formatCurrency(inv.subtotal as number)}</span>
           </div>
-          <div className="flex justify-between py-1 text-sm">
-            <span>IVA ({String(inv.tax_rate)}%):</span>
-            <span>{formatCurrency(inv.tax_amount as number)}</span>
-          </div>
-          <div className="flex justify-between py-2 text-lg font-bold border-t-2 border-gray-800 mt-1">
-            <span>TOTAL:</span>
+
+          {/* Per-rate VAT breakdown (falls back to single-rate for old invoices) */}
+          {inv.vat_by_rate && Object.keys(inv.vat_by_rate as Record<string, number>).length > 0 ? (
+            Object.entries(inv.vat_by_rate as Record<string, number>)
+              .filter(([, amt]) => (amt as number) > 0)
+              .sort(([a], [b]) => Number(b) - Number(a))
+              .map(([rate, amt]) => (
+                <div key={rate} className="flex justify-between py-1 text-sm">
+                  <span>IVA {Number(rate).toFixed(0)}%:</span>
+                  <span>{formatCurrency(amt as number)}</span>
+                </div>
+              ))
+          ) : (
+            <div className="flex justify-between py-1 text-sm">
+              <span>IVA ({String(inv.tax_rate)}%):</span>
+              <span>{formatCurrency(inv.tax_amount as number)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between py-1 text-sm border-t border-gray-200 mt-1 pt-1 font-medium">
+            <span>Total (c/ IVA):</span>
             <span>{formatCurrency(inv.grand_total as number)}</span>
           </div>
+
+          {/* Captive VAT deduction */}
+          {(inv.iva_captive_amount as number) > 0 && (
+            <div className="flex justify-between py-1 text-sm text-amber-700">
+              <span>IVA Cativo ({String(inv.vat_captive_pct)}%):</span>
+              <span>−{formatCurrency(inv.iva_captive_amount as number)}</span>
+            </div>
+          )}
+
+          {/* Service retention deduction */}
+          {(inv.service_retention_amount as number) > 0 && (
+            <div className="flex justify-between py-1 text-sm text-amber-700">
+              <span>Retenção serviços ({Number(inv.service_retention_pct).toFixed(1)}%):</span>
+              <span>−{formatCurrency(inv.service_retention_amount as number)}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between py-2 text-lg font-bold border-t-2 border-gray-800 mt-1">
+            <span>A PAGAR:</span>
+            <span>
+              {formatCurrency(
+                (inv.grand_total as number)
+                  - ((inv.iva_captive_amount as number) ?? 0)
+                  - ((inv.service_retention_amount as number) ?? 0),
+              )}
+            </span>
+          </div>
+
           {(inv.paid_amount as number) > 0 && (
             <>
               <div className="flex justify-between py-1 text-sm text-green-700">
@@ -214,6 +257,18 @@ export default function PrintInvoicePage() {
             </>
           )}
         </div>
+
+        {/* Legal note when captive or retention applies */}
+        {((inv.iva_captive_amount as number) > 0 || (inv.service_retention_amount as number) > 0) && (
+          <div className="mt-4 ms-auto w-[60%] text-[10px] text-gray-500 italic">
+            {(inv.iva_captive_amount as number) > 0 && (
+              <p>IVA cativado pelo adquirente nos termos do Código do IVA (Lei n.º 7/19).</p>
+            )}
+            {(inv.service_retention_amount as number) > 0 && (
+              <p>Retenção na fonte a 6,5% sobre serviços ao abrigo do Código do Imposto Industrial.</p>
+            )}
+          </div>
+        )}
 
         {/* Insurance split */}
         {inv.is_insurance && (

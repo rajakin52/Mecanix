@@ -24,6 +24,10 @@ export interface ErpConnectionConfig {
   baseCurrency: string;
   defaultLabourArticle: string;
   defaultPartsArticle: string;
+  /** GL / account code to post `IVA Cativo` against (receivable from state). */
+  captiveVatAccount?: string;
+  /** GL / account code to post the 6.5% service retention credit against. */
+  serviceRetentionAccount?: string;
 }
 
 export interface ErpInvoiceData {
@@ -40,7 +44,18 @@ export interface ErpInvoiceData {
   lines: ErpDocumentLine[];
   labourTotal: number;
   partsTotal: number;
+  /** Total VAT across all rates (sum of vatByRate). */
   taxAmount: number;
+  /** VAT breakdown keyed by rate string, e.g. {"14.00": 2100, "7.00": 350}. */
+  vatByRate?: Record<string, number>;
+  /** 0 / 50 / 100 — % of VAT the customer withholds (IVA Cativo). */
+  vatCaptivePct?: number;
+  /** Computed cativo amount (= taxAmount × vatCaptivePct/100). */
+  ivaCaptiveAmount?: number;
+  /** Retention rate applied on labour (typically 6.5%). */
+  serviceRetentionPct?: number;
+  /** Amount withheld at source on services (= labourTotal × retentionPct/100). */
+  serviceRetentionAmount?: number;
   grandTotal: number;
   notes?: string;
 }

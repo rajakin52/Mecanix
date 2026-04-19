@@ -76,6 +76,41 @@ export class PrimaveraV10Provider implements ErpProvider {
 
   async exportInvoice(config: ErpConnectionConfig, data: ErpInvoiceData): Promise<ErpDocumentResult> {
     try {
+      const docLines = data.lines.map((line) => ({
+        article: line.articleCode ??
+          (line.lineType === 'labour' ? config.defaultLabourArticle : config.defaultPartsArticle),
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        unit: 'UN',
+        taxCode: config.taxMapping[line.taxCode] ?? config.taxMapping['standard'] ?? 'NOR',
+        taxRate: line.taxRate,
+      }));
+
+      // Adjustments: captive VAT + service retention, posted as separate
+      // custom entries so the accountant can book them to the right
+      // receivable / credit accounts. Amount is the deduction from the
+      // invoice total (what the customer withholds and pays direct to AGT).
+      const adjustments: Array<Record<string, unknown>> = [];
+      if ((data.ivaCaptiveAmount ?? 0) > 0) {
+        adjustments.push({
+          kind: 'captiveVat',
+          pct: data.vatCaptivePct,
+          amount: data.ivaCaptiveAmount,
+          account: config.captiveVatAccount ?? null,
+          description: `IVA Cativo ${data.vatCaptivePct}%`,
+        });
+      }
+      if ((data.serviceRetentionAmount ?? 0) > 0) {
+        adjustments.push({
+          kind: 'serviceRetention',
+          pct: data.serviceRetentionPct,
+          amount: data.serviceRetentionAmount,
+          account: config.serviceRetentionAccount ?? null,
+          description: `Retenção serviços ${data.serviceRetentionPct}%`,
+        });
+      }
+
       const primaveraDoc = {
         documentType: 'FT',
         series: config.invoiceSeries,
@@ -88,17 +123,14 @@ export class PrimaveraV10Provider implements ErpProvider {
         customFields: {
           CDU_MecanixId: data.mecanixId,
           CDU_MecanixRef: data.invoiceNumber,
+          CDU_VatByRate: data.vatByRate ?? null,
+          CDU_CaptiveVatPct: data.vatCaptivePct ?? 0,
+          CDU_CaptiveVatAmount: data.ivaCaptiveAmount ?? 0,
+          CDU_ServiceRetentionPct: data.serviceRetentionPct ?? 0,
+          CDU_ServiceRetentionAmount: data.serviceRetentionAmount ?? 0,
         },
-        lines: data.lines.map((line) => ({
-          article: line.articleCode ??
-            (line.lineType === 'labour' ? config.defaultLabourArticle : config.defaultPartsArticle),
-          description: line.description,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          unit: 'UN',
-          taxCode: config.taxMapping[line.taxCode] ?? config.taxMapping['standard'] ?? 'NOR',
-          taxRate: line.taxRate,
-        })),
+        lines: docLines,
+        adjustments,
       };
 
       const result = await this.apiCall(

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { ErpProvider, ErpConnectionConfig, ErpInvoiceData, ErpPaymentData } from './erp-provider.interface';
+import type { ErpProvider, ErpConnectionConfig, ErpInvoiceData, ErpDocumentLine, ErpPaymentData } from './erp-provider.interface';
 import { PrimaveraV10Provider } from './providers/primavera-v10.provider';
 import { SaftExportProvider } from './providers/saft-export.provider';
 import { encrypt, decrypt, isEncrypted } from '../../common/utils/encryption';
@@ -53,6 +53,8 @@ export class ErpIntegrationService {
       baseCurrency: data.base_currency ?? 'AOA',
       defaultLabourArticle: data.default_labour_article ?? 'SRV-MO',
       defaultPartsArticle: data.default_parts_article ?? 'SRV-PC',
+      captiveVatAccount: data.captive_vat_account ?? undefined,
+      serviceRetentionAccount: data.service_retention_account ?? undefined,
     };
   }
 
@@ -90,6 +92,8 @@ export class ErpIntegrationService {
       auto_export_payments: config.autoExportPayments ?? false,
       default_labour_article: config.defaultLabourArticle ?? 'SRV-MO',
       default_parts_article: config.defaultPartsArticle ?? 'SRV-PC',
+      captive_vat_account: config.captiveVatAccount ?? null,
+      service_retention_account: config.serviceRetentionAccount ?? null,
       created_by: userId,
     };
 
@@ -246,12 +250,52 @@ export class ErpIntegrationService {
 
     if (!invoice) throw new NotFoundException('Invoice not found');
 
-    // Fetch line items
-    const { data: lines } = await client
-      .from('invoice_lines')
-      .select('*')
-      .eq('invoice_id', invoiceId)
-      .order('sort_order', { ascending: true });
+    // Invoices have no dedicated invoice_lines table; lines live on the job
+    // card as labour_lines + parts_lines with their tax snapshots.
+    const jobCardId: string | null = invoice.job_card_id ?? null;
+    type LabourRow = { description: string; hours: number | null; rate: number | null; subtotal: number; tax_rate: number | null };
+    type PartsRow  = { part_name: string; part_number: string | null; quantity: number; sell_price: number | null; unit_cost: number | null; subtotal: number; tax_rate: number | null };
+
+    let labourLines: LabourRow[] = [];
+    let partsLines: PartsRow[] = [];
+    if (jobCardId) {
+      const { data: labour } = await client
+        .from('labour_lines')
+        .select('description, hours, rate, subtotal, tax_rate')
+        .eq('job_card_id', jobCardId)
+        .eq('tenant_id', tenantId)
+        .eq('line_status', 'charged');
+      labourLines = (labour ?? []) as LabourRow[];
+
+      const { data: parts } = await client
+        .from('parts_lines')
+        .select('part_name, part_number, quantity, sell_price, unit_cost, subtotal, tax_rate')
+        .eq('job_card_id', jobCardId)
+        .eq('tenant_id', tenantId)
+        .eq('line_status', 'charged');
+      partsLines = (parts ?? []) as PartsRow[];
+    }
+
+    const lines = [
+      ...labourLines.map((l): ErpDocumentLine => ({
+        description: l.description ?? '',
+        quantity: Number(l.hours) || 1,
+        unitPrice: Number(l.rate) || 0,
+        taxCode: 'standard',
+        taxRate: Number(l.tax_rate) || 14,
+        lineType: 'labour',
+      })),
+      ...partsLines.map((p): ErpDocumentLine => ({
+        description: p.part_number ? `${p.part_name} (${p.part_number})` : p.part_name,
+        quantity: Number(p.quantity) || 1,
+        unitPrice: Number(p.sell_price) || 0,
+        taxCode: 'standard',
+        taxRate: Number(p.tax_rate) || 14,
+        lineType: 'parts',
+      })),
+    ];
+
+    const vatByRateRaw = (invoice.vat_by_rate as Record<string, number> | null | undefined) ?? undefined;
 
     return {
       mecanixId: invoice.id,
@@ -262,18 +306,16 @@ export class ErpIntegrationService {
       customerTaxId: invoice.customer?.tax_id,
       customerPhone: invoice.customer?.phone,
       currency: invoice.currency ?? 'AOA',
-      lines: (lines ?? []).map((line: Record<string, unknown>) => ({
-        description: (line.description as string) ?? '',
-        quantity: Number(line.quantity) || 1,
-        unitPrice: Number(line.unit_price) || 0,
-        taxCode: 'standard',
-        taxRate: Number(line.tax_rate) || 14,
-        lineType: (line.line_type as 'labour' | 'parts') ?? 'labour',
-      })),
+      lines,
       labourTotal: Number(invoice.labour_total) || 0,
       partsTotal: Number(invoice.parts_total) || 0,
       taxAmount: Number(invoice.tax_amount) || 0,
-      grandTotal: Number(invoice.total) || 0,
+      vatByRate: vatByRateRaw,
+      vatCaptivePct: Number(invoice.vat_captive_pct) || 0,
+      ivaCaptiveAmount: Number(invoice.iva_captive_amount) || 0,
+      serviceRetentionPct: Number(invoice.service_retention_pct) || 0,
+      serviceRetentionAmount: Number(invoice.service_retention_amount) || 0,
+      grandTotal: Number(invoice.grand_total) || 0,
     };
   }
 }
