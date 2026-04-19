@@ -8,19 +8,20 @@ import { Link } from '@/i18n/navigation';
 import { SkeletonTable, StatusBadge, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { formatNumber } from '@/lib/format';
 
-const STATUS_TABS = [
-  { key: undefined, label: 'All' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'sent', label: 'Sent' },
-  { key: 'partial', label: 'Partial' },
-  { key: 'paid', label: 'Paid' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'cancelled', label: 'Cancelled' },
+const STATUS_KEYS = [
+  { key: undefined, tKey: 'all' },
+  { key: 'draft', tKey: 'draft' },
+  { key: 'sent', tKey: 'sent' },
+  { key: 'partial', tKey: 'partial' },
+  { key: 'paid', tKey: 'paid' },
+  { key: 'overdue', tKey: 'overdue' },
+  { key: 'cancelled', tKey: 'cancelled' },
 ] as const;
 
 export default function InvoicesPage() {
   const t = useTranslations('invoices');
   const tc = useTranslations('common');
+  const tStatus = useTranslations('invoices.statuses');
   const locale = useLocale();
 
   const [page, setPage] = useState(1);
@@ -106,9 +107,9 @@ export default function InvoicesPage() {
 
       {/* Status Tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
-        {STATUS_TABS.map((s) => (
+        {STATUS_KEYS.map((s) => (
           <button
-            key={s.label}
+            key={s.tKey}
             onClick={() => { setActiveStatus(s.key); setPage(1); }}
             className={`px-3 py-2 text-sm font-medium transition-colors ${
               activeStatus === s.key
@@ -116,7 +117,7 @@ export default function InvoicesPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {s.label}
+            {tStatus(s.tKey)}
           </button>
         ))}
       </div>

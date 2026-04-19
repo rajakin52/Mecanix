@@ -8,23 +8,25 @@ import { useAllEstimates, useConvertEstimateToJob, type Estimate } from '@/hooks
 import { SkeletonTable, StatusBadge, EmptyState } from '@mecanix/ui-web';
 import { formatNumber } from '@/lib/format';
 
-const STATUSES = [
-  { key: undefined, label: 'All' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'sent', label: 'Sent' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'superseded', label: 'Superseded' },
+const STATUS_KEYS = [
+  { key: undefined, tKey: 'all' },
+  { key: 'draft', tKey: 'draft' },
+  { key: 'sent', tKey: 'sent' },
+  { key: 'approved', tKey: 'approved' },
+  { key: 'rejected', tKey: 'rejected' },
+  { key: 'superseded', tKey: 'superseded' },
 ] as const;
 
-const SOURCES = [
-  { key: undefined, label: 'All Sources' },
-  { key: 'standalone', label: 'Standalone' },
-  { key: 'job_card', label: 'From Job Card' },
+const SOURCE_KEYS = [
+  { key: undefined, tKey: 'all' },
+  { key: 'standalone', tKey: 'standalone' },
+  { key: 'job_card', tKey: 'job_card' },
 ] as const;
 
 export default function EstimatesPage() {
   const tc = useTranslations('common');
+  const tStatus = useTranslations('estimates.statuses');
+  const tSource = useTranslations('estimates.sources');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
@@ -59,9 +61,9 @@ export default function EstimatesPage() {
 
       {/* Status tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
-        {STATUSES.map((s) => (
+        {STATUS_KEYS.map((s) => (
           <button
-            key={s.label}
+            key={s.tKey}
             onClick={() => { setActiveStatus(s.key); setPage(1); }}
             className={`px-3 py-2 text-sm font-medium transition-colors ${
               activeStatus === s.key
@@ -69,7 +71,7 @@ export default function EstimatesPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {s.label}
+            {tStatus(s.tKey)}
           </button>
         ))}
       </div>
@@ -88,8 +90,8 @@ export default function EstimatesPage() {
           onChange={(e) => { setActiveSource(e.target.value || undefined); setPage(1); }}
           className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm"
         >
-          {SOURCES.map((s) => (
-            <option key={s.label} value={s.key ?? ''}>{s.label}</option>
+          {SOURCE_KEYS.map((s) => (
+            <option key={s.tKey} value={s.key ?? ''}>{tSource(s.tKey)}</option>
           ))}
         </select>
       </div>

@@ -118,7 +118,18 @@
     "tabEstimates": "Estimates",
     "tabHistory": "History",
     "addServices": "Add Services",
-    "estimatesHeading": "Estimates"
+    "estimatesHeading": "Estimates",
+    "statuses": {
+      "all": "All",
+      "received": "Received",
+      "diagnosing": "Diagnosing",
+      "awaiting_approval": "Awaiting Approval",
+      "in_progress": "In Progress",
+      "awaiting_parts": "Awaiting Parts",
+      "quality_check": "Quality Check",
+      "ready": "Ready",
+      "invoiced": "Invoiced"
+    }
   },
   "customers": {
     "title": "Customers",
@@ -299,7 +310,16 @@
     "insurancePortion": "Insurer portion",
     "payments": "Payments",
     "creditNotes": "Credit Notes",
-    "generated": "Invoice generated"
+    "generated": "Invoice generated",
+    "statuses": {
+      "all": "All",
+      "draft": "Draft",
+      "sent": "Sent",
+      "partial": "Partial",
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "cancelled": "Cancelled"
+    }
   },
   "insurance": {
     "title": "Insurance Claims",
@@ -330,7 +350,34 @@
     "slaHours": "SLA (hours)",
     "claimCreated": "Claim initiated",
     "statusChanged": "Status changed",
-    "estimateCreated": "Estimate created"
+    "estimateCreated": "Estimate created",
+    "statuses": {
+      "all": "All",
+      "initiated": "Initiated",
+      "documented": "Documented",
+      "submitted": "Submitted",
+      "under_review": "Under Review",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "in_repair": "In Repair",
+      "completed": "Completed",
+      "paid": "Paid"
+    }
+  },
+  "estimates": {
+    "statuses": {
+      "all": "All",
+      "draft": "Draft",
+      "sent": "Sent",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "superseded": "Superseded"
+    },
+    "sources": {
+      "all": "All Sources",
+      "standalone": "Standalone",
+      "job_card": "From Job Card"
+    }
   },
   "reports": {
     "title": "Reports",

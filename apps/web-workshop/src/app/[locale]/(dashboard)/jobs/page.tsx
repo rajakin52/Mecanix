@@ -10,21 +10,22 @@ import { Link } from '@/i18n/navigation';
 import { SkeletonTable, StatusBadge, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { formatNumber } from '@/lib/format';
 
-const STATUSES = [
-  { key: undefined, label: 'All' },
-  { key: 'received', label: 'Received' },
-  { key: 'diagnosing', label: 'Diagnosing' },
-  { key: 'awaiting_approval', label: 'Awaiting Approval' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'awaiting_parts', label: 'Awaiting Parts' },
-  { key: 'quality_check', label: 'Quality Check' },
-  { key: 'ready', label: 'Ready' },
-  { key: 'invoiced', label: 'Invoiced' },
+const STATUS_KEYS = [
+  { key: undefined, tKey: 'all' },
+  { key: 'received', tKey: 'received' },
+  { key: 'diagnosing', tKey: 'diagnosing' },
+  { key: 'awaiting_approval', tKey: 'awaiting_approval' },
+  { key: 'in_progress', tKey: 'in_progress' },
+  { key: 'awaiting_parts', tKey: 'awaiting_parts' },
+  { key: 'quality_check', tKey: 'quality_check' },
+  { key: 'ready', tKey: 'ready' },
+  { key: 'invoiced', tKey: 'invoiced' },
 ] as const;
 
 export default function JobsPage() {
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
+  const tStatus = useTranslations('jobs.statuses');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
@@ -104,9 +105,9 @@ export default function JobsPage() {
 
       {/* Status tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
-        {STATUSES.map((s) => (
+        {STATUS_KEYS.map((s) => (
           <button
-            key={s.label}
+            key={s.tKey}
             onClick={() => { setActiveStatus(s.key); setPage(1); }}
             className={`px-3 py-2 text-sm font-medium transition-colors ${
               activeStatus === s.key
@@ -114,7 +115,7 @@ export default function JobsPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {s.label}
+            {tStatus(s.tKey)}
             {data?.meta && s.key === activeStatus && (
               <span className="ms-1.5 inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
                 {data.meta.total}

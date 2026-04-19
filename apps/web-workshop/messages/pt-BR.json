@@ -116,7 +116,18 @@
     "tabEstimates": "Orçamentos",
     "tabHistory": "Histórico",
     "addServices": "Adicionar Serviços",
-    "estimatesHeading": "Orçamentos"
+    "estimatesHeading": "Orçamentos",
+    "statuses": {
+      "all": "Todos",
+      "received": "Recebido",
+      "diagnosing": "Em diagnóstico",
+      "awaiting_approval": "Aguardando aprovação",
+      "in_progress": "Em andamento",
+      "awaiting_parts": "Aguardando peças",
+      "quality_check": "Controle de qualidade",
+      "ready": "Pronto",
+      "invoiced": "Faturado"
+    }
   },
   "customers": {
     "title": "Clientes",
@@ -297,7 +308,16 @@
     "insurancePortion": "Parte da seguradora",
     "payments": "Pagamentos",
     "creditNotes": "Notas de Crédito",
-    "generated": "Nota fiscal gerada"
+    "generated": "Nota fiscal gerada",
+    "statuses": {
+      "all": "Todas",
+      "draft": "Rascunho",
+      "sent": "Enviada",
+      "partial": "Parcial",
+      "paid": "Paga",
+      "overdue": "Vencida",
+      "cancelled": "Cancelada"
+    }
   },
   "insurance": {
     "title": "Sinistros",
@@ -328,7 +348,34 @@
     "slaHours": "SLA (horas)",
     "claimCreated": "Sinistro iniciado",
     "statusChanged": "Status alterado",
-    "estimateCreated": "Orçamento criado"
+    "estimateCreated": "Orçamento criado",
+    "statuses": {
+      "all": "Todos",
+      "initiated": "Iniciado",
+      "documented": "Documentado",
+      "submitted": "Enviado",
+      "under_review": "Em análise",
+      "approved": "Aprovado",
+      "rejected": "Rejeitado",
+      "in_repair": "Em reparo",
+      "completed": "Concluído",
+      "paid": "Pago"
+    }
+  },
+  "estimates": {
+    "statuses": {
+      "all": "Todos",
+      "draft": "Rascunho",
+      "sent": "Enviado",
+      "approved": "Aprovado",
+      "rejected": "Rejeitado",
+      "superseded": "Substituído"
+    },
+    "sources": {
+      "all": "Todas as origens",
+      "standalone": "Avulso",
+      "job_card": "Da ordem de serviço"
+    }
   },
   "reports": {
     "title": "Relatórios",
