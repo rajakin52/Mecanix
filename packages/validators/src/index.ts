@@ -24,3 +24,4 @@ export * from './pricing';
 export * from './catalog';
 export * from './symptom';
 export * from './reception';
+export * from './estimate';

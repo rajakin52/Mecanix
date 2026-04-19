@@ -14,6 +14,21 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createStandaloneEstimateSchema,
+  updateStandaloneEstimateSchema,
+  convertEstimateSchema,
+  approveStandaloneEstimateSchema,
+  rejectStandaloneEstimateSchema,
+  publicEstimateActionSchema,
+  type CreateStandaloneEstimateInput,
+  type UpdateStandaloneEstimateInput,
+  type ConvertEstimateInput,
+  type ApproveStandaloneEstimateInput,
+  type RejectStandaloneEstimateInput,
+  type PublicEstimateActionInput,
+} from '@mecanix/validators';
 
 // Public endpoints (no auth — token validated)
 @Controller('public/estimates')
@@ -30,7 +45,7 @@ export class PublicEstimatesController {
   @Post(':token/approve')
   async approvePublic(
     @Param('token') token: string,
-    @Body() body: { notes?: string },
+    @Body(new ZodValidationPipe(publicEstimateActionSchema)) body: PublicEstimateActionInput,
   ) {
     const estimateId = this.estimatesService.validatePublicToken(token);
     if (!estimateId) throw new NotFoundException('Invalid or expired link');
@@ -40,7 +55,7 @@ export class PublicEstimatesController {
   @Post(':token/reject')
   async rejectPublic(
     @Param('token') token: string,
-    @Body() body: { notes?: string },
+    @Body(new ZodValidationPipe(publicEstimateActionSchema)) body: PublicEstimateActionInput,
   ) {
     const estimateId = this.estimatesService.validatePublicToken(token);
     if (!estimateId) throw new NotFoundException('Invalid or expired link');
@@ -80,7 +95,7 @@ export class EstimatesController {
   async createStandalone(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(createStandaloneEstimateSchema)) body: CreateStandaloneEstimateInput,
   ) {
     return this.estimatesService.createStandalone(tenantId, user.id, body as never);
   }
@@ -89,7 +104,7 @@ export class EstimatesController {
   async updateStandalone(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateStandaloneEstimateSchema)) body: UpdateStandaloneEstimateInput,
   ) {
     return this.estimatesService.updateStandalone(tenantId, id, body as never);
   }
@@ -99,7 +114,7 @@ export class EstimatesController {
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(convertEstimateSchema)) body: ConvertEstimateInput,
   ) {
     return this.estimatesService.convertToJobCard(tenantId, user.id, id, body as never);
   }
@@ -147,7 +162,7 @@ export class EstimatesController {
   async approve(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { notes?: string; signatureUrl?: string; method?: string },
+    @Body(new ZodValidationPipe(approveStandaloneEstimateSchema)) body: ApproveStandaloneEstimateInput,
   ) {
     return this.estimatesService.approve(tenantId, id, body);
   }
@@ -171,7 +186,7 @@ export class EstimatesController {
   async reject(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: { notes?: string },
+    @Body(new ZodValidationPipe(rejectStandaloneEstimateSchema)) body: RejectStandaloneEstimateInput,
   ) {
     return this.estimatesService.reject(tenantId, id, body);
   }
