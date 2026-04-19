@@ -4,8 +4,18 @@ import { PushService } from './push.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { sendMessageSchema, sendTestSchema } from '@mecanix/validators';
-import type { SendMessageInput, SendTestInput } from '@mecanix/validators';
+import {
+  sendMessageSchema,
+  sendTestSchema,
+  registerPushTokenSchema,
+  deactivatePushTokenSchema,
+} from '@mecanix/validators';
+import type {
+  SendMessageInput,
+  SendTestInput,
+  RegisterPushTokenInput,
+  DeactivatePushTokenInput,
+} from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('notifications')
@@ -22,21 +32,21 @@ export class NotificationsController {
   async registerPushToken(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { pushToken: string; platform: string; appType: string },
+    @Body(new ZodValidationPipe(registerPushTokenSchema)) body: RegisterPushTokenInput,
   ) {
     return this.pushService.registerToken(
       tenantId,
       user.id,
       body.pushToken,
-      body.platform as 'ios' | 'android' | 'web',
-      body.appType as 'customer' | 'workshop' | 'technician',
+      body.platform,
+      body.appType,
     );
   }
 
   @Delete('push/token')
   async deactivatePushToken(
     @CurrentUser() user: RequestUser,
-    @Body() body: { pushToken: string },
+    @Body(new ZodValidationPipe(deactivatePushTokenSchema)) body: DeactivatePushTokenInput,
   ) {
     return this.pushService.deactivateToken(user.id, body.pushToken);
   }

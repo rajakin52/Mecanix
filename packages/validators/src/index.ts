@@ -30,3 +30,7 @@ export * from './booking';
 export * from './fleet';
 export * from './survey';
 export * from './agt';
+export * from './erp';
+export * from './photo-annotation';
+export * from './accounting-sync';
+export * from './webhook';

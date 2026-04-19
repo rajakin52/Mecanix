@@ -2,6 +2,13 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@n
 import { AccountingSyncService } from './accounting-sync.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createAccountingConnectionSchema,
+  updateAccountingConnectionSchema,
+  type CreateAccountingConnectionInput,
+  type UpdateAccountingConnectionInput,
+} from '@mecanix/validators';
 
 @Controller('accounting')
 @UseGuards(TenantGuard)
@@ -14,17 +21,20 @@ export class AccountingSyncController {
   }
 
   @Post('connections')
-  async createConnection(@TenantId() tenantId: string, @Body() body: Record<string, unknown>) {
-    return this.accountingSyncService.createConnection(tenantId, body as never);
+  async createConnection(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(createAccountingConnectionSchema)) body: CreateAccountingConnectionInput,
+  ) {
+    return this.accountingSyncService.createConnection(tenantId, body);
   }
 
   @Patch('connections/:id')
   async updateConnection(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateAccountingConnectionSchema)) body: UpdateAccountingConnectionInput,
   ) {
-    return this.accountingSyncService.updateConnection(tenantId, id, body as never);
+    return this.accountingSyncService.updateConnection(tenantId, id, body);
   }
 
   @Delete('connections/:id')

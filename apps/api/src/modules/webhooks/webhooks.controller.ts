@@ -2,6 +2,13 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@n
 import { WebhooksService } from './webhooks.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantId } from '../../common/decorators/user.decorator';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import {
+  createWebhookSchema,
+  updateWebhookSchema,
+  type CreateWebhookInput,
+  type UpdateWebhookInput,
+} from '@mecanix/validators';
 
 @Controller('webhooks')
 @UseGuards(TenantGuard)
@@ -14,17 +21,20 @@ export class WebhooksController {
   }
 
   @Post()
-  async create(@TenantId() tenantId: string, @Body() body: Record<string, unknown>) {
-    return this.webhooksService.create(tenantId, body as never);
+  async create(
+    @TenantId() tenantId: string,
+    @Body(new ZodValidationPipe(createWebhookSchema)) body: CreateWebhookInput,
+  ) {
+    return this.webhooksService.create(tenantId, body);
   }
 
   @Patch(':id')
   async update(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(updateWebhookSchema)) body: UpdateWebhookInput,
   ) {
-    return this.webhooksService.update(tenantId, id, body as never);
+    return this.webhooksService.update(tenantId, id, body);
   }
 
   @Delete(':id')

@@ -15,6 +15,18 @@ export const mpesaPaySchema = z.object({
   invoiceId: z.string().uuid(),
 });
 
+export const registerPushTokenSchema = z.object({
+  pushToken: z.string().min(1).max(500),
+  platform: z.enum(['ios', 'android', 'web']),
+  appType: z.enum(['customer', 'workshop', 'technician']),
+});
+
+export const deactivatePushTokenSchema = z.object({
+  pushToken: z.string().min(1).max(500),
+});
+
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 export type SendTestInput = z.infer<typeof sendTestSchema>;
 export type MpesaPayInput = z.infer<typeof mpesaPaySchema>;
+export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;
+export type DeactivatePushTokenInput = z.infer<typeof deactivatePushTokenSchema>;

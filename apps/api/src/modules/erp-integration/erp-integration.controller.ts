@@ -12,6 +12,8 @@ import { ErpIntegrationService } from './erp-integration.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { saveErpConfigSchema, type SaveErpConfigInput } from '@mecanix/validators';
 
 @Controller('erp')
 @UseGuards(TenantGuard)
@@ -27,7 +29,7 @@ export class ErpIntegrationController {
   async saveConfig(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(saveErpConfigSchema)) body: SaveErpConfigInput,
   ) {
     return this.service.saveConfig(tenantId, user.id, body);
   }
