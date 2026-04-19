@@ -216,6 +216,75 @@ function AiDiagnosisPanel({ reportedProblem, vehicleMake, vehicleModel, vehicleY
   );
 }
 
+interface OrphanSession {
+  id: string;
+  token: string;
+  vehicle_plate: string | null;
+  vehicle_info: string | null;
+  created_at: string;
+  photos: Array<{ id: string; photo_type: string; storage_url: string }>;
+}
+
+function OrphanPhotoLinker({ jobCardId }: { jobCardId: string }) {
+  const { data: orphansData, refetch } = useQuery({
+    queryKey: ['photo-capture-orphans'],
+    queryFn: () => api.get<OrphanSession[]>('/photo-capture/orphans'),
+  });
+  const [linking, setLinking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const orphans = Array.isArray(orphansData) ? orphansData : [];
+  if (orphans.length === 0) return null;
+
+  const linkSession = async (sessionId: string) => {
+    setLinking(sessionId);
+    setError(null);
+    try {
+      await api.patch(`/photo-capture/sessions/${sessionId}/link`, { jobCardId });
+      await refetch();
+      // Force the job-detail photo query to refetch
+      window.location.reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLinking(null);
+    }
+  };
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <h3 className="text-sm font-semibold text-amber-900 mb-1">
+        Unlinked photo sessions ({orphans.length})
+      </h3>
+      <p className="text-xs text-amber-700 mb-3">
+        These photos were uploaded recently but not attached to a job card. Link the right one to this job.
+      </p>
+      <div className="space-y-2">
+        {orphans.map((o) => (
+          <div key={o.id} className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-white p-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900">
+                {o.vehicle_plate ? `Plate: ${o.vehicle_plate}` : 'No plate'}
+                {o.vehicle_info ? <span className="ms-2 text-gray-500">— {o.vehicle_info}</span> : null}
+              </p>
+              <p className="text-xs text-gray-500">
+                {o.photos.length} photo{o.photos.length === 1 ? '' : 's'} · token {o.token} · {new Date(o.created_at).toLocaleString()}
+              </p>
+            </div>
+            <button
+              onClick={() => linkSession(o.id)}
+              disabled={linking === o.id}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {linking === o.id ? 'Linking…' : 'Link to this job'}
+            </button>
+          </div>
+        ))}
+      </div>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 const CHECKLIST_ITEM_LABELS: Record<string, string> = {
   jack: 'Jack',
   jack_handle: 'Jack Handle / Wheel Wrench',
@@ -1312,7 +1381,9 @@ export default function JobDetailPage() {
         const fromCapture = capturePhotos.filter((p) => p.photo_type !== 'signature').map((p) => p.storage_url);
         // Deduplicate
         const allPhotoUrls = [...new Set([...fromJobCard, ...fromCapture])];
-        if (allPhotoUrls.length === 0) return null;
+        if (allPhotoUrls.length === 0) {
+          return <OrphanPhotoLinker jobCardId={id} />;
+        }
         return (
           <div className="rounded-lg border border-gray-200 bg-white p-6">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Walk-Around Photos ({allPhotoUrls.length})</h3>

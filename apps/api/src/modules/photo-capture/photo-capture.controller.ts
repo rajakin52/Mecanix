@@ -68,6 +68,12 @@ export class PhotoCaptureController {
     return this.photoCaptureService.listByJob(tenantId, jobCardId);
   }
 
+  @Get('orphans')
+  @UseGuards(TenantGuard)
+  async orphans(@TenantId() tenantId: string) {
+    return this.photoCaptureService.listOrphanSessions(tenantId);
+  }
+
   /** Create a signature session and send WhatsApp link */
   @Post('signature-sessions')
   @UseGuards(TenantGuard)

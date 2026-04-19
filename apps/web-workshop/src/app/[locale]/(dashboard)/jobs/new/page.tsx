@@ -541,12 +541,21 @@ export default function NewJobWizard() {
       if (captureSession) {
         try {
           await api.patch(`/photo-capture/sessions/${captureSession.id}/link`, { jobCardId: job.id });
-        } catch { /* non-critical */ }
+        } catch (linkErr) {
+          // Non-fatal for job creation, but surface so the advisor can recover.
+          alert(`Photos uploaded but could not be linked to the new job card: ${
+            linkErr instanceof Error ? linkErr.message : String(linkErr)
+          }. Open the job detail and use "Link orphan photos".`);
+        }
       }
       if (signatureSession) {
         try {
           await api.patch(`/photo-capture/sessions/${signatureSession.id}/link`, { jobCardId: job.id });
-        } catch { /* non-critical */ }
+        } catch (linkErr) {
+          alert(`Signature captured but could not be linked: ${
+            linkErr instanceof Error ? linkErr.message : String(linkErr)
+          }`);
+        }
       }
 
       // 4. Apply selected catalog items

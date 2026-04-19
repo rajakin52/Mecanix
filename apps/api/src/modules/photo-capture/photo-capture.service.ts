@@ -408,6 +408,23 @@ export class PhotoCaptureService {
   }
 
   /**
+   * List draft (unlinked) photo-capture sessions for this tenant.
+   * Used to recover orphaned sessions when the automatic link step failed.
+   */
+  async listOrphanSessions(tenantId: string, sinceHours = 24) {
+    const since = new Date(Date.now() - sinceHours * 60 * 60 * 1000).toISOString();
+    const { data } = await this.supabase.getClient()
+      .from('photo_capture_sessions')
+      .select('*, photos:photo_capture_items(*)')
+      .eq('tenant_id', tenantId)
+      .is('job_card_id', null)
+      .gt('created_at', since)
+      .order('created_at', { ascending: false });
+
+    return (data ?? []).filter((s: { photos?: unknown[] }) => (s.photos?.length ?? 0) > 0);
+  }
+
+  /**
    * Get photos for a session by session ID (for wizard polling)
    */
   async getSessionPhotos(sessionId: string) {
