@@ -224,18 +224,17 @@ export class PurchaseOrdersService {
         .eq('id', line.part_id)
         .eq('tenant_id', tenantId);
 
-      // Record inventory adjustment
+      // Record inventory adjustment — table only has
+      // (quantity_change, reason, reference, adjusted_by)
       await client
         .from('inventory_adjustments')
         .insert({
           tenant_id: tenantId,
           part_id: line.part_id,
           quantity_change: input.receivedQty,
-          quantity_before: part.stock_qty,
-          quantity_after: newStockQty,
           reason: 'PO goods received',
           reference: poId,
-          created_by: userId,
+          adjusted_by: userId,
         });
     }
 

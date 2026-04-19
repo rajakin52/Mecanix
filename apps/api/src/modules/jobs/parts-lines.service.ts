@@ -249,10 +249,9 @@ export class PartsLinesService {
               tenant_id: tenantId,
               part_id: part.id,
               quantity_change: -qtyDiff,
-              quantity_before: currentStockQty,
-              quantity_after: newStockQty,
               reason: `Qty adjusted on job card`,
               reference: existing.job_card_id,
+              adjusted_by: userId,
             });
         } else if (existing.stock_status === 'reserved') {
           // Legacy reservations — keep the old reserved_qty adjustment
@@ -340,8 +339,6 @@ export class PartsLinesService {
               tenant_id: tenantId,
               part_id: part.id,
               quantity_change: qty,
-              quantity_before: Number(part.stock_qty),
-              quantity_after: Number(part.stock_qty),
               reason: 'Reservation released from job card',
               reference: jobCardId,
             });
@@ -379,8 +376,6 @@ export class PartsLinesService {
               tenant_id: tenantId,
               part_id: part.id,
               quantity_change: qty,
-              quantity_before: Number(part.stock_qty),
-              quantity_after: Number(part.stock_qty) + qty,
               reason: 'Returned from job card (issued)',
               reference: jobCardId,
             });
@@ -486,8 +481,6 @@ export class PartsLinesService {
           tenant_id: tenantId,
           part_id: part.id,
           quantity_change: -qty,
-          quantity_before: currentStockQty,
-          quantity_after: newStockQty,
           reason: `Issued to job: ${plate}`,
           reference: jobCardId,
         });
