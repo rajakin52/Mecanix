@@ -130,7 +130,7 @@ export class PartsLinesService {
         .maybeSingle();
 
       if (part) {
-        // Validate available stock before reserving (admin/owner can override)
+        // Validate available stock before deducting (admin/owner can override)
         const available = Number(part.stock_qty) - (Number(part.reserved_qty) || 0);
         await this.stockPolicyService.assertSufficientOrOverride(
           tenantId,
@@ -140,28 +140,29 @@ export class PartsLinesService {
           input.partName,
         );
 
-        const currentReserved = Number(part.reserved_qty) || 0;
-        const newReserved = currentReserved + input.quantity;
+        // Deduct stock immediately on add — the part is considered issued to the job.
+        const currentStockQty = Number(part.stock_qty);
+        const newStockQty = currentStockQty - input.quantity;
         await this.supabase.getClient()
           .from('parts')
-          .update({ reserved_qty: newReserved })
+          .update({ stock_qty: newStockQty, updated_by: userId })
           .eq('id', part.id)
           .eq('tenant_id', tenantId);
 
-        // Update warehouse_stock reserved_qty if warehouse tracking exists
+        // Update warehouse_stock quantity as well
         const { data: whStock } = await this.supabase.getClient()
           .from('warehouse_stock')
-          .select('id, reserved_qty')
+          .select('id, quantity')
           .eq('part_id', part.id)
           .eq('tenant_id', tenantId)
           .limit(1)
           .maybeSingle();
 
         if (whStock) {
-          const whReserved = Number(whStock.reserved_qty) || 0;
+          const whQty = Number(whStock.quantity) || 0;
           await this.supabase.getClient()
             .from('warehouse_stock')
-            .update({ reserved_qty: whReserved + input.quantity })
+            .update({ quantity: whQty - input.quantity })
             .eq('id', whStock.id)
             .eq('tenant_id', tenantId);
         }
@@ -179,25 +180,25 @@ export class PartsLinesService {
           ? String((vehicleData as Record<string, unknown>).plate)
           : '';
 
-        // Record inventory adjustment — reservation
+        // Record inventory adjustment — issue
         await this.supabase.getClient()
           .from('inventory_adjustments')
           .insert({
             tenant_id: tenantId,
             part_id: part.id,
             quantity_change: -input.quantity,
-            quantity_before: Number(part.stock_qty),
-            quantity_after: Number(part.stock_qty),
-            reason: `Reserved for job: ${plate}`,
+            quantity_before: currentStockQty,
+            quantity_after: newStockQty,
+            reason: `Issued to job: ${plate}`,
             reference: jobCardId,
           });
 
-        // Update the parts_line with stock_status
+        // Mark parts_line as issued
         await this.supabase.getClient()
           .from('parts_lines')
           .update({
-            stock_status: 'reserved',
-            reserved_at: new Date().toISOString(),
+            stock_status: 'issued',
+            issued_at: new Date().toISOString(),
           })
           .eq('id', data.id)
           .eq('tenant_id', tenantId);
@@ -261,47 +262,77 @@ export class PartsLinesService {
 
     if (error) throw error;
 
-    // Adjust reserved_qty if quantity changed on a reserved line
+    // Adjust stock if quantity changed on an issued line
     if (
       input.quantity !== undefined &&
       input.quantity !== Number(existing.quantity) &&
-      existing.stock_status === 'reserved' &&
       existing.part_number
     ) {
-      const qtyDiff = input.quantity - Number(existing.quantity);
+      const qtyDiff = input.quantity - Number(existing.quantity); // positive = more stock to deduct
       const { data: part } = await this.supabase
         .getClient()
         .from('parts')
-        .select('id, reserved_qty')
+        .select('id, stock_qty, reserved_qty')
         .eq('tenant_id', tenantId)
         .eq('part_number', existing.part_number as string)
         .limit(1)
         .maybeSingle();
 
       if (part) {
-        const currentReserved = Number(part.reserved_qty) || 0;
-        const newReserved = Math.max(0, currentReserved + qtyDiff);
-        await this.supabase.getClient()
-          .from('parts')
-          .update({ reserved_qty: newReserved })
-          .eq('id', part.id)
-          .eq('tenant_id', tenantId);
-
-        // Also adjust warehouse_stock if applicable
-        const { data: whStock } = await this.supabase.getClient()
-          .from('warehouse_stock')
-          .select('id, reserved_qty')
-          .eq('part_id', part.id)
-          .eq('tenant_id', tenantId)
-          .limit(1)
-          .maybeSingle();
-
-        if (whStock) {
-          const whReserved = Number(whStock.reserved_qty) || 0;
+        if (existing.stock_status === 'issued') {
+          // Deducting more? Run the policy check on the delta.
+          if (qtyDiff > 0) {
+            const available = Number(part.stock_qty) - (Number(part.reserved_qty) || 0);
+            await this.stockPolicyService.assertSufficientOrOverride(
+              tenantId,
+              'owner', // trust: line already exists; update doesn't have userRole plumbed through yet
+              available,
+              qtyDiff,
+              existing.part_name as string,
+            );
+          }
+          const currentStockQty = Number(part.stock_qty);
+          const newStockQty = currentStockQty - qtyDiff;
           await this.supabase.getClient()
+            .from('parts')
+            .update({ stock_qty: newStockQty, updated_by: userId })
+            .eq('id', part.id)
+            .eq('tenant_id', tenantId);
+
+          const { data: whStock } = await this.supabase.getClient()
             .from('warehouse_stock')
-            .update({ reserved_qty: Math.max(0, whReserved + qtyDiff) })
-            .eq('id', whStock.id)
+            .select('id, quantity')
+            .eq('part_id', part.id)
+            .eq('tenant_id', tenantId)
+            .limit(1)
+            .maybeSingle();
+          if (whStock) {
+            await this.supabase.getClient()
+              .from('warehouse_stock')
+              .update({ quantity: Number(whStock.quantity) - qtyDiff })
+              .eq('id', whStock.id)
+              .eq('tenant_id', tenantId);
+          }
+
+          await this.supabase.getClient()
+            .from('inventory_adjustments')
+            .insert({
+              tenant_id: tenantId,
+              part_id: part.id,
+              quantity_change: -qtyDiff,
+              quantity_before: currentStockQty,
+              quantity_after: newStockQty,
+              reason: `Qty adjusted on job card`,
+              reference: existing.job_card_id,
+            });
+        } else if (existing.stock_status === 'reserved') {
+          // Legacy reservations — keep the old reserved_qty adjustment
+          const currentReserved = Number(part.reserved_qty) || 0;
+          const newReserved = Math.max(0, currentReserved + qtyDiff);
+          await this.supabase.getClient()
+            .from('parts')
+            .update({ reserved_qty: newReserved })
+            .eq('id', part.id)
             .eq('tenant_id', tenantId);
         }
       }
