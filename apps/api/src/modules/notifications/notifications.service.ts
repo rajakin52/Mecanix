@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { WhatsAppService } from './whatsapp.service';
 import { PushService } from './push.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { redactPhone } from '../../common/utils/redact';
 
 @Injectable()
 export class NotificationsService {

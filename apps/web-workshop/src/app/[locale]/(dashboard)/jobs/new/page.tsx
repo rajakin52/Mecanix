@@ -242,7 +242,9 @@ export default function NewJobWizard() {
         const photos = await api.get<CapturePhoto[]>(`/photo-capture/sessions/${captureSession.id}/photos`);
         const list = Array.isArray(photos) ? photos : [];
         setRemotePhotos(list);
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('photo-capture poll failed', err);
+      }
     }, 3000); // poll every 3 seconds
     return () => clearInterval(interval);
   }, [captureSession]);
@@ -322,7 +324,9 @@ export default function NewJobWizard() {
           setSignatureUrl(sig.storage_url);
           clearInterval(interval);
         }
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('signature poll failed', err);
+      }
     }, 3000);
     return () => clearInterval(interval);
   }, [signatureSession, signatureUrl]);
@@ -348,13 +352,18 @@ export default function NewJobWizard() {
           try {
             const cust = await api.get<Customer>(`/customers/${list[0]!.customer_id}`);
             setSelectedCustomer(cust);
-          } catch { /* ignore */ }
+          } catch (err) {
+            console.error('customer lookup failed', err);
+          }
         }
       } else {
         setShowNewVehicle(true);
         setNewVehicle((v) => ({ ...v, plate: plateSearch.toUpperCase() }));
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('plate search failed', err);
+      alert(`Plate search failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
   };
 
   // ── Create new vehicle inline ──
@@ -509,7 +518,11 @@ export default function NewJobWizard() {
         });
       } catch (recErr) {
         // Reception failed — roll back the job card
-        try { await api.delete(`/jobs/${job.id}`); } catch { /* best effort */ }
+        try {
+          await api.delete(`/jobs/${job.id}`);
+        } catch (delErr) {
+          console.error('rollback-delete failed', delErr);
+        }
         throw recErr;
       }
 

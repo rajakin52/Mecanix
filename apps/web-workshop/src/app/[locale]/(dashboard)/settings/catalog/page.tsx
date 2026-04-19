@@ -91,12 +91,20 @@ export default function CatalogPage() {
             <button
               onClick={async () => {
                 try {
-                  await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/catalog/seed-defaults`, {
+                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/catalog/seed-defaults`, {
                     method: 'POST',
                     headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}`, 'Content-Type': 'application/json' },
                   });
+                  if (!res.ok) {
+                    const body = await res.text();
+                    alert(`Seed failed: ${body}`);
+                    return;
+                  }
                   window.location.reload();
-                } catch { /* ignore */ }
+                } catch (err) {
+                  console.error('seed-defaults failed', err);
+                  alert(`Seed failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+                }
               }}
               className="rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
             >

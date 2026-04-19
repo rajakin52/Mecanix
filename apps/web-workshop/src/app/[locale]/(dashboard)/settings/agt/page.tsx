@@ -135,7 +135,10 @@ export default function AgtSettingsPage() {
       await api.patch(`/agt/series/${id}`, { isActive: !currentActive });
       const ser = await api.get<DocumentSeries[]>('/agt/series');
       setSeries(Array.isArray(ser) ? ser : []);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('toggle series failed', err);
+      alert(`Could not toggle series: ${err instanceof Error ? err.message : 'unknown error'}`);
+    }
   };
 
   if (loading) return <p className="text-gray-500">{tc('loading')}</p>;

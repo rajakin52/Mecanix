@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../notifications/sms.service';
+import { redactPhone } from '../../common/utils/redact';
 import sharp from 'sharp';
 
 /** Compress an image buffer: resize to max 1600px wide, JPEG quality 75 */
@@ -97,7 +98,7 @@ export class PhotoCaptureService {
             this.logger.error(`WhatsApp API ${resp.status}: ${respBody}`);
             messageStatus = { sent: false, channel: 'whatsapp', error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
           } else {
-            this.logger.log(`WhatsApp message sent (to=${input.sendWhatsApp.replace(/\D/g, '')})`);
+            this.logger.log(`WhatsApp message sent (to=${redactPhone(input.sendWhatsApp)})`);
             messageStatus = { sent: true, channel: 'whatsapp' };
           }
         } catch (e) {
@@ -331,7 +332,7 @@ export class PhotoCaptureService {
             this.logger.error(`WhatsApp signature API ${resp.status}: ${respBody}`);
             messageStatus = { sent: false, channel: 'whatsapp', error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
           } else {
-            this.logger.log(`WhatsApp signature sent (to=${input.sendWhatsApp.replace(/\D/g, '')})`);
+            this.logger.log(`WhatsApp signature sent (to=${redactPhone(input.sendWhatsApp)})`);
             messageStatus = { sent: true, channel: 'whatsapp' };
           }
         } catch (e) {

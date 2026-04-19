@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { redactPhone } from '../../common/utils/redact';
 
 export interface SmsSendResult {
   sent: boolean;
@@ -88,7 +89,7 @@ export class SmsService {
         // non-JSON response, leave sid undefined
       }
 
-      this.logger.log(`SMS sent to=${cleanTo} sid=${sid ?? 'unknown'}`);
+      this.logger.log(`SMS sent to=${redactPhone(cleanTo)} sid=${sid ?? 'unknown'}`);
       return { sent: true, ...(sid ? { messageSid: sid } : {}) };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
