@@ -126,7 +126,7 @@ function WarehousesTab() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
 
-  const { data, isLoading } = useWarehouses(page);
+  const { data, isLoading, isError, error } = useWarehouses(page);
   const { data: summary, isLoading: summaryLoading } = useInventorySummary();
   const deleteMutation = useDeleteWarehouse();
 
@@ -211,6 +211,10 @@ function WarehousesTab() {
       {/* Table */}
       {isLoading ? (
         <SkeletonTable rows={5} cols={7} />
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Failed to load warehouses: {error instanceof Error ? error.message : 'unknown error'}
+        </div>
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border border-gray-200">

@@ -120,7 +120,7 @@ function PartsRequestsTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
 
-  const { data, isLoading } = usePartsRequests(
+  const { data, isLoading, isError, error } = usePartsRequests(
     statusFilter === 'all' ? undefined : statusFilter,
     undefined,
     page,
@@ -209,6 +209,10 @@ function PartsRequestsTab() {
       {/* Table */}
       {isLoading ? (
         <SkeletonTable rows={5} cols={8} />
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          Failed to load parts requests: {error instanceof Error ? error.message : 'unknown error'}
+        </div>
       ) : requests.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
