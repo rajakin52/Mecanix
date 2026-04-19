@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
 import type { GenerateInvoiceInput, PaginationInput } from '@mecanix/validators';
+import { computeInvoiceTotals } from './invoice-math';
 
 interface InvoiceFilters {
   status?: string;
@@ -174,54 +175,15 @@ export class InvoicesService {
     const customerCaptivePct = Number(customer?.vat_captive_pct ?? 0);
     const customerRetains = Boolean(customer?.withholds_service_retention);
 
-    const round2 = (n: number) => Math.round(n * 100) / 100;
-
-    // 6. Compute per-rate VAT from the line snapshots.
-    const vatByRate: Record<string, number> = {};
-    const addToRate = (subtotal: number, rate: number | null | undefined) => {
-      if (!jobCard.is_taxable) return;
-      const r = Number(rate ?? 0);
-      const vat = subtotal * (r / 100);
-      const key = r.toFixed(2);
-      vatByRate[key] = (vatByRate[key] ?? 0) + vat;
-    };
-    (labourLines ?? []).forEach((l: { subtotal: number; tax_rate: number | null }) =>
-      addToRate(l.subtotal || 0, l.tax_rate));
-    (partsLines ?? []).forEach((p: { subtotal: number; tax_rate: number | null }) =>
-      addToRate(p.subtotal || 0, p.tax_rate));
-
-    const totalVat = Object.values(vatByRate).reduce((s, v) => s + v, 0);
-
-    // 7. Captive VAT: portion of VAT the customer will pay directly to AGT.
-    const captiveAmount = totalVat * (customerCaptivePct / 100);
-
-    // 8. Service retention: 6.5% of the labour total, withheld by the customer.
-    const retentionPct = customerRetains ? 6.5 : 0;
-    const retentionAmount = labourTotal * (retentionPct / 100);
-
-    // 9. Totals.
-    const subtotal = labourTotal + partsTotal;
-    const grandTotal = subtotal + totalVat;                 // full invoice
-    const clientOwes = grandTotal - captiveAmount - retentionAmount; // net to us
-
-    // 10. Round vat_by_rate values for storage
-    const vatByRateRounded: Record<string, number> = {};
-    for (const [k, v] of Object.entries(vatByRate)) vatByRateRounded[k] = round2(v);
-
-    // 11. Handle insurance split (applies to the net client portion).
-    let customerPortion = round2(clientOwes);
-    let insurancePortion = 0;
-    if (jobCard.is_insurance) {
-      customerPortion = input.customerPortion != null
-        ? round2(input.customerPortion)
-        : round2(clientOwes);
-      insurancePortion = round2(clientOwes - customerPortion);
-    }
-
-    // 12. Keep a representative top-level tax_rate for legacy reports that
-    // expect a single number. Use the dominant rate if one exists, else 0.
-    const legacyTaxRate = Object.entries(vatByRate)
-      .sort(([, a], [, b]) => b - a)[0]?.[0];
+    const totals = computeInvoiceTotals({
+      labourLines: (labourLines ?? []) as Array<{ subtotal: number; tax_rate: number | null }>,
+      partsLines: (partsLines ?? []) as Array<{ subtotal: number; tax_rate: number | null }>,
+      customerCaptivePct,
+      customerRetains,
+      isTaxable: Boolean(jobCard.is_taxable),
+      isInsurance: Boolean(jobCard.is_insurance),
+      customerPortionOverride: input.customerPortion,
+    });
 
     // 13. Insert invoice with the new fields.
     const { data: invoice, error: insertError } = await client
@@ -232,21 +194,21 @@ export class InvoicesService {
         job_card_id: input.jobCardId,
         customer_id: jobCard.customer_id,
         status: 'draft',
-        labour_total: round2(labourTotal),
-        parts_total: round2(partsTotal),
-        subtotal: round2(subtotal),
-        tax_rate: legacyTaxRate ? Number(legacyTaxRate) : 0,
-        tax_amount: round2(totalVat),
-        vat_by_rate: vatByRateRounded,
+        labour_total: totals.labourTotal,
+        parts_total: totals.partsTotal,
+        subtotal: totals.subtotal,
+        tax_rate: totals.legacyTaxRate,
+        tax_amount: totals.totalVat,
+        vat_by_rate: totals.vatByRate,
         vat_captive_pct: customerCaptivePct,
-        iva_captive_amount: round2(captiveAmount),
-        service_retention_pct: retentionPct,
-        service_retention_amount: round2(retentionAmount),
-        grand_total: round2(grandTotal),
-        customer_portion: customerPortion,
-        insurance_portion: insurancePortion,
+        iva_captive_amount: totals.captiveAmount,
+        service_retention_pct: totals.retentionPct,
+        service_retention_amount: totals.retentionAmount,
+        grand_total: totals.grandTotal,
+        customer_portion: totals.customerPortion,
+        insurance_portion: totals.insurancePortion,
         paid_amount: 0,
-        balance_due: round2(clientOwes),
+        balance_due: totals.clientOwes,
         is_insurance: jobCard.is_insurance ?? false,
         due_date: input.dueDate || null,
         notes: input.notes || null,
@@ -266,7 +228,7 @@ export class InvoicesService {
         'FT',
         now.toISOString().slice(0, 10),
         now.toISOString().replace(/\.\d{3}Z$/, ''),
-        round2(grandTotal),
+        totals.grandTotal,
       );
 
       // Update invoice with hash data
