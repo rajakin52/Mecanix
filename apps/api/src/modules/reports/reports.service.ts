@@ -1363,4 +1363,131 @@ export class ReportsService {
       close_rate_trend: (closeRates ?? []).reverse(),
     };
   }
+
+  /** Revenue summary broken down by VAT rate (for AGT reporting). */
+  async vatSummaryReport(tenantId: string, startDate: string, endDate: string) {
+    const { data } = await this.supabase
+      .getClient()
+      .from('invoices')
+      .select('subtotal, tax_amount, grand_total, vat_by_rate, invoice_date')
+      .eq('tenant_id', tenantId)
+      .gte('invoice_date', startDate)
+      .lte('invoice_date', endDate)
+      .in('status', ['sent', 'partial', 'paid']);
+
+    // Sum per-rate VAT across all invoices in the period.
+    const byRate: Record<string, { rate: number; vat: number; invoices: number }> = {};
+    let totalSubtotal = 0;
+    let totalVat = 0;
+    let totalGrand = 0;
+
+    for (const inv of (data ?? []) as Array<Record<string, unknown>>) {
+      const subtotal = Number(inv.subtotal) || 0;
+      const grand = Number(inv.grand_total) || 0;
+      const taxAmount = Number(inv.tax_amount) || 0;
+      totalSubtotal += subtotal;
+      totalVat += taxAmount;
+      totalGrand += grand;
+      const vatByRate = (inv.vat_by_rate as Record<string, number> | null) ?? {};
+      const entries = Object.entries(vatByRate);
+      if (entries.length === 0 && taxAmount > 0) {
+        // Legacy invoices without breakdown — bucket under 14% (AO standard).
+        const key = '14.00';
+        if (!byRate[key]) byRate[key] = { rate: 14, vat: 0, invoices: 0 };
+        byRate[key].vat += taxAmount;
+        byRate[key].invoices += 1;
+      } else {
+        for (const [rate, amt] of entries) {
+          if (!byRate[rate]) byRate[rate] = { rate: Number(rate), vat: 0, invoices: 0 };
+          byRate[rate].vat += Number(amt) || 0;
+          byRate[rate].invoices += 1;
+        }
+      }
+    }
+
+    return {
+      period: { startDate, endDate },
+      totals: {
+        subtotal: Math.round(totalSubtotal * 100) / 100,
+        total_vat: Math.round(totalVat * 100) / 100,
+        grand_total: Math.round(totalGrand * 100) / 100,
+        invoice_count: (data ?? []).length,
+      },
+      by_rate: Object.values(byRate)
+        .sort((a, b) => b.rate - a.rate)
+        .map((r) => ({ rate: r.rate, vat: Math.round(r.vat * 100) / 100, invoices: r.invoices })),
+    };
+  }
+
+  /** IVA Cativo — amounts the workshop can reclaim from state via captive customers. */
+  async captiveVatReport(tenantId: string, startDate: string, endDate: string) {
+    const { data } = await this.supabase
+      .getClient()
+      .from('invoices')
+      .select(`
+        id, invoice_number, invoice_date, grand_total,
+        vat_captive_pct, iva_captive_amount,
+        customer:customers(full_name, tax_id)
+      `)
+      .eq('tenant_id', tenantId)
+      .gte('invoice_date', startDate)
+      .lte('invoice_date', endDate)
+      .gt('iva_captive_amount', 0)
+      .order('invoice_date', { ascending: false });
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const total = rows.reduce((s, r) => s + (Number(r.iva_captive_amount) || 0), 0);
+
+    return {
+      period: { startDate, endDate },
+      total_captive: Math.round(total * 100) / 100,
+      invoice_count: rows.length,
+      invoices: rows.map((r) => ({
+        id: r.id as string,
+        invoice_number: r.invoice_number as string,
+        invoice_date: r.invoice_date as string,
+        customer_name: (r.customer as { full_name?: string } | null)?.full_name ?? '',
+        customer_tax_id: (r.customer as { tax_id?: string } | null)?.tax_id ?? null,
+        grand_total: Number(r.grand_total) || 0,
+        captive_pct: Number(r.vat_captive_pct) || 0,
+        captive_amount: Number(r.iva_captive_amount) || 0,
+      })),
+    };
+  }
+
+  /** Service retention — 6.5% credits withheld by captive customers. */
+  async serviceRetentionReport(tenantId: string, startDate: string, endDate: string) {
+    const { data } = await this.supabase
+      .getClient()
+      .from('invoices')
+      .select(`
+        id, invoice_number, invoice_date, labour_total,
+        service_retention_pct, service_retention_amount,
+        customer:customers(full_name, tax_id)
+      `)
+      .eq('tenant_id', tenantId)
+      .gte('invoice_date', startDate)
+      .lte('invoice_date', endDate)
+      .gt('service_retention_amount', 0)
+      .order('invoice_date', { ascending: false });
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const total = rows.reduce((s, r) => s + (Number(r.service_retention_amount) || 0), 0);
+
+    return {
+      period: { startDate, endDate },
+      total_retention: Math.round(total * 100) / 100,
+      invoice_count: rows.length,
+      invoices: rows.map((r) => ({
+        id: r.id as string,
+        invoice_number: r.invoice_number as string,
+        invoice_date: r.invoice_date as string,
+        customer_name: (r.customer as { full_name?: string } | null)?.full_name ?? '',
+        customer_tax_id: (r.customer as { tax_id?: string } | null)?.tax_id ?? null,
+        labour_total: Number(r.labour_total) || 0,
+        retention_pct: Number(r.service_retention_pct) || 0,
+        retention_amount: Number(r.service_retention_amount) || 0,
+      })),
+    };
+  }
 }

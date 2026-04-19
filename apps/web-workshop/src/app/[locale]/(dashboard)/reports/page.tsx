@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { useFormat } from '@/hooks/use-format';
 import {
   useRevenueReport,
@@ -71,7 +72,15 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
+        <Link
+          href="/reports/tax"
+          className="rounded-md border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
+        >
+          Tax Reports →
+        </Link>
+      </div>
 
       {/* Controls */}
       <div className="mt-6 flex flex-wrap items-end gap-4">

@@ -274,4 +274,46 @@ export class ReportsController {
   ) {
     return this.reportsService.kpiDashboard(tenantId, Number(months) || 6);
   }
+
+  @Get('vat-summary')
+  async vatSummary(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.vatSummaryReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('captive-vat')
+  async captiveVat(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.captiveVatReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('service-retention')
+  async serviceRetention(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.serviceRetentionReport(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
 }
