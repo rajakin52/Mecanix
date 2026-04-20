@@ -38,4 +38,5 @@ export * from './bulk-import';
 export * from './purchase-request';
 export * from './parts-request';
 export * from './warehouse';
+export * from './tire-storage';
 export * from './misc';

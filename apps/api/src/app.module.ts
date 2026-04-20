@@ -55,6 +55,7 @@ import { PhotoCaptureModule } from './modules/photo-capture/photo-capture.module
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { BaysModule } from './modules/bays/bays.module';
 import { DataRequestsModule } from './modules/data-requests/data-requests.module';
+import { TireStorageModule } from './modules/tire-storage/tire-storage.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -115,6 +116,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     BaysModule,
     DataRequestsModule,
     PhotoCaptureModule,
+    TireStorageModule,
   ],
   providers: [
     {

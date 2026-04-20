@@ -92,6 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { href: '/parts', label: t('parts'), icon: Package },
         { href: '/vendors', label: t('vendors'), icon: Truck },
+        { href: '/tire-storage', label: 'Tire storage', icon: Warehouse },
       ],
     },
     {
