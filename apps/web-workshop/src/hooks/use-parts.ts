@@ -14,6 +14,8 @@ interface Part {
   sell_price: number;
   location: string | null;
   created_at: string;
+  tax_code_id: string | null;
+  tax_code?: { id: string; code: string; rate: number } | null;
 }
 
 interface PartsResponse {

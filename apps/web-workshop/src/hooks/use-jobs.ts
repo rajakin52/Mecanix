@@ -137,6 +137,30 @@ export function useCreatePartsLine() {
   });
 }
 
+export function useUpdateLabourLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, lineId, ...data }: Record<string, unknown> & { jobId: string; lineId: string }) =>
+      api.patch(`/jobs/${jobId}/labour-lines/${lineId}`, data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['labour-lines', v.jobId] });
+      qc.invalidateQueries({ queryKey: ['job', v.jobId] });
+    },
+  });
+}
+
+export function useUpdatePartsLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, lineId, ...data }: Record<string, unknown> & { jobId: string; lineId: string }) =>
+      api.patch(`/jobs/${jobId}/parts-lines/${lineId}`, data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['parts-lines', v.jobId] });
+      qc.invalidateQueries({ queryKey: ['job', v.jobId] });
+    },
+  });
+}
+
 export function useChargeLabourLine() {
   const qc = useQueryClient();
   return useMutation({

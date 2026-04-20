@@ -21,7 +21,7 @@ export class PartsLinesService {
     const { data, error } = await this.supabase
       .getClient()
       .from('parts_lines')
-      .select('*')
+      .select('*, tax_code:tax_codes(id, code, rate)')
       .eq('job_card_id', jobCardId)
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true });
@@ -120,7 +120,7 @@ export class PartsLinesService {
       p_allow_negative: allowNegative,
       p_original_markup_pct: originalMarkupPct,
       p_price_overridden: priceOverridden,
-      p_tax_code_id: null,
+      p_tax_code_id: input.taxCodeId ?? null,
       p_tax_rate: null,
     });
 
@@ -178,6 +178,25 @@ export class PartsLinesService {
       if (existing.original_markup_pct != null && input.markupPct !== Number(existing.original_markup_pct)) {
         updateData['price_overridden'] = true;
       }
+    }
+
+    // Per-line VAT override: re-snapshot tax_rate from the chosen code
+    if (input.taxCodeId !== undefined) {
+      const { data: tc, error: tcErr } = await this.supabase
+        .getClient()
+        .from('tax_codes')
+        .select('id, rate')
+        .eq('id', input.taxCodeId)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .single();
+
+      if (tcErr || !tc) {
+        throw new BadRequestException('Invalid tax code');
+      }
+
+      updateData['tax_code_id'] = tc.id;
+      updateData['tax_rate'] = tc.rate;
     }
 
     const { data, error } = await this.supabase

@@ -6,7 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useParts, useCreatePart, useLowStock } from '@/hooks/use-parts';
+import { useParts, useCreatePart, useUpdatePart, useLowStock } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { InventoryTabs } from './inventory-tabs';
@@ -39,6 +39,18 @@ export default function PartsPage() {
   const { data, isLoading, isError, error } = useParts(page, debouncedSearch, category || undefined);
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
+  const updateMutation = useUpdatePart();
+  const [editPart, setEditPart] = useState<Record<string, unknown> | null>(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    category: 'Other',
+    reorderPoint: 0,
+    unitCost: 0,
+    sellPrice: 0,
+    location: '',
+    taxCodeId: '',
+  });
+  const [editError, setEditError] = useState<string | null>(null);
 
   const [formError, setFormError] = useState<string | null>(null);
   const toast = useToast();
@@ -106,6 +118,7 @@ export default function PartsPage() {
     try {
       setAddingPart(part.partNumber as string);
       const avgPrice = (part.avgPrice as number) ?? 0;
+      const defaultTax = taxCodes.find((t) => t.is_default) ?? taxCodes[0];
       await createMutation.mutateAsync({
         partNumber: part.partNumber as string,
         description: part.description as string,
@@ -114,12 +127,48 @@ export default function PartsPage() {
         reorderPoint: 5,
         unitCost: avgPrice / 100,
         sellPrice: (avgPrice * 1.3) / 100,
+        taxCodeId: defaultTax?.id,
       });
       toast.success(tt('addedToCatalogue'));
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add part');
     } finally {
       setAddingPart(null);
+    }
+  };
+
+  const openEdit = (part: Record<string, unknown>) => {
+    setEditError(null);
+    setEditPart(part);
+    setEditForm({
+      description: (part.description as string) ?? '',
+      category: (part.category as string) ?? 'Other',
+      reorderPoint: Number(part.reorder_point ?? 0),
+      unitCost: Number(part.unit_cost ?? 0),
+      sellPrice: Number(part.sell_price ?? 0),
+      location: (part.location as string) ?? '',
+      taxCodeId: (part.tax_code_id as string) ?? '',
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editPart) return;
+    try {
+      setEditError(null);
+      await updateMutation.mutateAsync({
+        id: editPart.id as string,
+        description: editForm.description,
+        category: editForm.category || undefined,
+        reorderPoint: Number(editForm.reorderPoint),
+        unitCost: Number(editForm.unitCost),
+        sellPrice: Number(editForm.sellPrice),
+        location: editForm.location || undefined,
+        taxCodeId: editForm.taxCodeId || undefined,
+      });
+      setEditPart(null);
+      toast.success('Saved successfully!');
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update part');
     }
   };
 
@@ -192,7 +241,7 @@ export default function PartsPage() {
       </div>
 
       {isLoading ? (
-        <SkeletonTable rows={6} cols={6} />
+        <SkeletonTable rows={6} cols={8} />
       ) : isError ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
           Failed to load parts: {error instanceof Error ? error.message : 'unknown error'}
@@ -208,7 +257,9 @@ export default function PartsPage() {
                   <SortableHeader label={t('stock')} field="stock_qty" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <SortableHeader label={t('costPrice')} field="unit_cost" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('sellPrice')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('category')}</th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -233,12 +284,29 @@ export default function PartsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{(part.unit_cost ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{((part.sell_price as number) ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {part.tax_code ? (
+                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                            {(part.tax_code as { code: string }).code} ({Number((part.tax_code as { rate: number }).rate).toFixed(0)}%)
+                          </span>
+                        ) : (
+                          <span className="text-xs text-red-600">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500">{part.category as string}</td>
+                      <td className="px-4 py-3 text-end text-sm">
+                        <button
+                          onClick={() => openEdit(part as unknown as Record<string, unknown>)}
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          {tc('edit')}
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={8}>
                       <EmptyState icon="parts" title="No parts in inventory" description="Add parts manually or search TecDoc" />
                     </td>
                   </tr>
@@ -496,6 +564,114 @@ export default function PartsPage() {
               <button onClick={() => setShowTecDoc(false)} className="rounded-md border px-4 py-2 text-sm">
                 {tc('cancel')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Part Modal */}
+      {editPart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">
+                {tc('edit')} — {editPart.part_number as string}
+              </h2>
+              <button onClick={() => setEditPart(null)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
+            </div>
+            <div className="space-y-4">
+              {editError && (
+                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{editError}</div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('description')}</label>
+                <input
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('category')}</label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('reorderPoint')}</label>
+                  <input
+                    type="number"
+                    value={editForm.reorderPoint}
+                    onChange={(e) => setEditForm({ ...editForm, reorderPoint: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('costPrice')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.unitCost}
+                    onChange={(e) => setEditForm({ ...editForm, unitCost: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">{t('sellPrice')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.sellPrice}
+                    onChange={(e) => setEditForm({ ...editForm, sellPrice: Number(e.target.value) })}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('location')}</label>
+                <input
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">IVA *</label>
+                <select
+                  value={editForm.taxCodeId}
+                  onChange={(e) => setEditForm({ ...editForm, taxCodeId: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white"
+                  required
+                >
+                  <option value="">—</option>
+                  {taxCodes.map((tx) => (
+                    <option key={tx.id} value={tx.id}>
+                      {tx.code} — {tx.name} ({Number(tx.rate).toFixed(0)}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setEditPart(null)} className="rounded-md border px-4 py-2 text-sm">
+                  {tc('cancel')}
+                </button>
+                <button
+                  onClick={handleUpdate}
+                  disabled={updateMutation.isPending}
+                  className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {updateMutation.isPending ? tc('loading') : tc('save')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ export class PartsService {
 
     let query = client
       .from('parts')
-      .select('*, vendor:vendors(id, name)', { count: 'exact' })
+      .select('*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .eq('is_active', true);
 
@@ -56,7 +56,7 @@ export class PartsService {
     const { data, error } = await this.supabase
       .getClient()
       .from('parts')
-      .select('*, vendor:vendors(id, name)')
+      .select('*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate)')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .eq('is_active', true)

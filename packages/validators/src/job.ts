@@ -84,6 +84,7 @@ export const createLabourLineSchema = z.object({
   hours: z.coerce.number().min(0),
   rate: z.coerce.number().min(0),
   technicianId: z.string().uuid().optional(),
+  taxCodeId: z.string().uuid().optional(),
 });
 
 export const updateLabourLineSchema = createLabourLineSchema.partial();
@@ -99,6 +100,7 @@ export const createPartsLineSchema = z.object({
   quantity: z.coerce.number().min(0),
   unitCost: z.coerce.number().min(0),
   markupPct: z.coerce.number().min(0).default(0),
+  taxCodeId: z.string().uuid().optional(),
 });
 
 export const updatePartsLineSchema = createPartsLineSchema.partial();

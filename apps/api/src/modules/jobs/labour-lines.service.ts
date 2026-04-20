@@ -16,7 +16,7 @@ export class LabourLinesService {
     const { data, error } = await this.supabase
       .getClient()
       .from('labour_lines')
-      .select('*, technician:technicians(id, full_name)')
+      .select('*, technician:technicians(id, full_name), tax_code:tax_codes(id, code, rate)')
       .eq('job_card_id', jobCardId)
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true });
@@ -36,19 +36,38 @@ export class LabourLinesService {
 
     const subtotal = Math.round(input.hours * input.rate * 100) / 100;
 
-    // Snapshot the tenant's default tax code onto the line so later
-    // rate edits never rewrite historical invoices. Labour is always
-    // considered a "service" for retention purposes (see Código do
-    // Imposto Industrial, retenção sobre prestação de serviços).
-    const { data: defaultTax } = await this.supabase
-      .getClient()
-      .from('tax_codes')
-      .select('id, rate')
-      .eq('tenant_id', tenantId)
-      .eq('is_default', true)
-      .eq('is_active', true)
-      .limit(1)
-      .maybeSingle();
+    // Snapshot the chosen (or tenant-default) tax code onto the line so
+    // later rate edits never rewrite historical invoices. Labour is
+    // always considered a "service" for retention purposes (see Código
+    // do Imposto Industrial, retenção sobre prestação de serviços).
+    let taxCodeId: string | null = null;
+    let taxRate: number | null = null;
+
+    if (input.taxCodeId) {
+      const { data: chosen, error: chosenErr } = await this.supabase
+        .getClient()
+        .from('tax_codes')
+        .select('id, rate')
+        .eq('id', input.taxCodeId)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .single();
+      if (chosenErr || !chosen) throw new BadRequestException('Invalid tax code');
+      taxCodeId = chosen.id as string;
+      taxRate = Number(chosen.rate);
+    } else {
+      const { data: defaultTax } = await this.supabase
+        .getClient()
+        .from('tax_codes')
+        .select('id, rate')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+      taxCodeId = (defaultTax?.id as string | undefined) ?? null;
+      taxRate = defaultTax?.rate != null ? Number(defaultTax.rate) : null;
+    }
 
     const { data, error } = await this.supabase
       .getClient()
@@ -61,8 +80,8 @@ export class LabourLinesService {
         rate: input.rate,
         subtotal,
         technician_id: input.technicianId || null,
-        tax_code_id: defaultTax?.id ?? null,
-        tax_rate: defaultTax?.rate ?? null,
+        tax_code_id: taxCodeId,
+        tax_rate: taxRate,
       })
       .select()
       .single();
@@ -105,6 +124,20 @@ export class LabourLinesService {
     if (input.hours !== undefined) updateData['hours'] = input.hours;
     if (input.rate !== undefined) updateData['rate'] = input.rate;
     if (input.technicianId !== undefined) updateData['technician_id'] = input.technicianId || null;
+
+    if (input.taxCodeId !== undefined) {
+      const { data: tc, error: tcErr } = await this.supabase
+        .getClient()
+        .from('tax_codes')
+        .select('id, rate')
+        .eq('id', input.taxCodeId)
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .single();
+      if (tcErr || !tc) throw new BadRequestException('Invalid tax code');
+      updateData['tax_code_id'] = tc.id;
+      updateData['tax_rate'] = tc.rate;
+    }
 
     const { data, error } = await this.supabase
       .getClient()

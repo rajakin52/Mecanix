@@ -13,8 +13,10 @@ import {
   useUpdateJobStatus,
   useLabourLines,
   useCreateLabourLine,
+  useUpdateLabourLine,
   usePartsLines,
   useCreatePartsLine,
+  useUpdatePartsLine,
   useChargeLabourLine,
   useChargePartsLine,
   useTechnicians,
@@ -1041,7 +1043,17 @@ export default function JobDetailPage() {
 
   const { data: labourLines } = useLabourLines(id);
   const createLabour = useCreateLabourLine();
+  const updateLabour = useUpdateLabourLine();
   const chargeLabour = useChargeLabourLine();
+
+  // Tax codes for per-line VAT picker
+  interface TaxCodeOption { id: string; code: string; name: string; rate: number; is_default: boolean; is_active: boolean }
+  const { data: taxCodesRaw } = useQuery({
+    queryKey: ['tax-codes'],
+    queryFn: () => api.get<TaxCodeOption[]>('/tax-codes'),
+  });
+  const taxCodes = (Array.isArray(taxCodesRaw) ? taxCodesRaw : []).filter((t) => t.is_active);
+  const isInvoiced = ((job as Record<string, unknown> | undefined)?.status as string) === 'invoiced';
   const [showLabourForm, setShowLabourForm] = useState(false);
   const [labourDesc, setLabourDesc] = useState('');
   const [labourHours, setLabourHours] = useState('');
@@ -1056,6 +1068,7 @@ export default function JobDetailPage() {
   // Parts lines
   const { data: partsLines } = usePartsLines(id);
   const createParts = useCreatePartsLine();
+  const updateParts = useUpdatePartsLine();
   const chargeParts = useChargePartsLine();
   const [showPartsForm, setShowPartsForm] = useState(false);
   const [partSearch, setPartSearch] = useState('');
@@ -1717,24 +1730,47 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('hours')}</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('rate')}</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('subtotal')}</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {(labourLines as Array<Record<string, unknown>> | undefined)?.map((line) => (
+            {(labourLines as Array<Record<string, unknown>> | undefined)?.map((line) => {
+              const lineRate = Number(line.tax_rate ?? 0);
+              const lineVat = Math.round((Number(line.subtotal ?? 0) * lineRate) ) / 100;
+              return (
               <tr key={line.id as string}>
                 <td className="px-4 py-2 text-sm text-gray-900">{line.description as string}</td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">{line.hours as number}</td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">{formatCurrency(line.rate as number)}</td>
                 <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">
+                  <select
+                    value={(line.tax_code_id as string) ?? ''}
+                    disabled={isInvoiced || updateLabour.isPending}
+                    onChange={(e) =>
+                      updateLabour.mutate({ jobId: id, lineId: String(line.id), taxCodeId: e.target.value || undefined })
+                    }
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    <option value="">—</option>
+                    {taxCodes.map((tx) => (
+                      <option key={tx.id} value={tx.id}>
+                        {tx.code} ({Number(tx.rate).toFixed(0)}%)
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(lineVat)}</td>
+                <td className="px-4 py-2 text-sm text-gray-600">
                   {(line.technicians as Record<string, string> | null | undefined)?.full_name ?? '-'}
                 </td>
               </tr>
-            ))}
+            );})}
             {(!labourLines || (labourLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
@@ -1854,10 +1890,15 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('markupPct')}</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('sellPrice')}</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('subtotal')}</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {(partsLines as Array<Record<string, unknown>> | undefined)?.map((line) => (
+            {(partsLines as Array<Record<string, unknown>> | undefined)?.map((line) => {
+              const lineRate = Number(line.tax_rate ?? 0);
+              const lineVat = Math.round((Number(line.subtotal ?? 0) * lineRate)) / 100;
+              return (
               <tr key={line.id as string}>
                 <td className="px-4 py-2 text-sm text-gray-900">{line.part_name as string}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">{(line.part_number as string) || '-'}</td>
@@ -1866,11 +1907,29 @@ export default function JobDetailPage() {
                 <td className="px-4 py-2 text-end text-sm text-gray-600">{line.markup_pct as number}%</td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">{formatCurrency(line.sell_price as number)}</td>
                 <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
+                <td className="px-4 py-2 text-sm text-gray-600">
+                  <select
+                    value={(line.tax_code_id as string) ?? ''}
+                    disabled={isInvoiced || updateParts.isPending}
+                    onChange={(e) =>
+                      updateParts.mutate({ jobId: id, lineId: String(line.id), taxCodeId: e.target.value || undefined })
+                    }
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    <option value="">—</option>
+                    {taxCodes.map((tx) => (
+                      <option key={tx.id} value={tx.id}>
+                        {tx.code} ({Number(tx.rate).toFixed(0)}%)
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(lineVat)}</td>
               </tr>
-            ))}
+            );})}
             {(!partsLines || (partsLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
