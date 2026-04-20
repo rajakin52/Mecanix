@@ -105,6 +105,26 @@ export class JobsService {
       throw new NotFoundException('Job card not found');
     }
 
+    // Refresh cached totals for open jobs so per-line tax-rate changes
+    // and stale data from earlier deploys self-correct on next view.
+    // Skip invoiced/cancelled jobs to keep closed financials frozen.
+    if (data.status !== 'invoiced' && data.status !== 'cancelled') {
+      try {
+        await this.recalculateTotals(tenantId, id);
+        const { data: refreshed } = await client
+          .from('job_cards')
+          .select('labour_total, parts_total, tax_amount, grand_total')
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+          .single();
+        if (refreshed) {
+          Object.assign(data, refreshed);
+        }
+      } catch {
+        // Non-fatal — fall back to stored totals
+      }
+    }
+
     // Fetch labour lines
     const { data: labourLines } = await client
       .from('labour_lines')
@@ -443,10 +463,13 @@ export class JobsService {
   async recalculateTotals(tenantId: string, jobId: string) {
     const client = this.supabase.getClient();
 
-    // Sum labour lines — only 'charged' lines count toward totals
+    // Sum labour lines — only 'charged' lines count toward totals.
+    // Pull tax_rate so we can compute VAT per line (each line freezes
+    // its own rate at create-time; a flat tenant-wide rate would
+    // ignore 0%/7%/5% overrides on individual items).
     const { data: labourLines } = await client
       .from('labour_lines')
-      .select('subtotal')
+      .select('subtotal, tax_rate')
       .eq('job_card_id', jobId)
       .eq('tenant_id', tenantId)
       .eq('line_status', 'charged');
@@ -459,7 +482,7 @@ export class JobsService {
     // Sum parts lines — only 'charged' lines count toward totals
     const { data: partsLines } = await client
       .from('parts_lines')
-      .select('subtotal')
+      .select('subtotal, tax_rate')
       .eq('job_card_id', jobId)
       .eq('tenant_id', tenantId)
       .eq('line_status', 'charged');
@@ -468,16 +491,6 @@ export class JobsService {
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),
       0,
     );
-
-    // Get tax rate from tenant settings or default 14%
-    const { data: taxRateSetting } = await client
-      .from('tenant_settings')
-      .select('value')
-      .eq('tenant_id', tenantId)
-      .eq('key', 'tax_rate')
-      .single();
-
-    const taxRate = taxRateSetting?.value ? Number(taxRateSetting.value) : 14;
 
     // Get job to check if taxable
     const { data: job } = await client
@@ -488,7 +501,18 @@ export class JobsService {
       .single();
 
     const subtotal = labourTotal + partsTotal;
-    const taxAmount = job?.is_taxable ? subtotal * (taxRate / 100) : 0;
+
+    // Per-line VAT: each line's subtotal * its own frozen tax_rate.
+    // If is_taxable=false on the job, zero out regardless.
+    const sumLineVat = (lines: Array<{ subtotal: number; tax_rate: number | null }> | null | undefined) =>
+      (lines ?? []).reduce(
+        (sum, line) => sum + (Number(line.subtotal) || 0) * (Number(line.tax_rate ?? 0) / 100),
+        0,
+      );
+    const taxAmount = job?.is_taxable
+      ? sumLineVat(labourLines as Array<{ subtotal: number; tax_rate: number | null }> | null) +
+        sumLineVat(partsLines as Array<{ subtotal: number; tax_rate: number | null }> | null)
+      : 0;
     const grandTotal = subtotal + taxAmount;
 
     // Round to 2 decimal places using banker's rounding via Math.round.
