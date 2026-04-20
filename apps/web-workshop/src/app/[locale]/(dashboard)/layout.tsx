@@ -98,6 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: t('navFinancial'),
       items: [
         { href: '/invoices', label: t('invoices'), icon: Receipt },
+        { href: '/collections', label: 'Collections', icon: CreditCard },
         { href: '/credit-notes', label: 'Credit notes', icon: ClipboardList },
         { href: '/bills', label: t('bills'), icon: CreditCard },
         { href: '/expenses', label: t('expenses'), icon: CreditCard },

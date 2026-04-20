@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { InvoicesService } from './invoices.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -28,7 +29,10 @@ import type { RequestUser } from '../../common/guards/tenant.guard';
 @Controller('invoices')
 @UseGuards(TenantGuard, RolesGuard)
 export class InvoicesController {
-  constructor(private readonly invoicesService: InvoicesService) {}
+  constructor(
+    private readonly invoicesService: InvoicesService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   @Get()
   async list(
@@ -88,6 +92,15 @@ export class InvoicesController {
     @Param('id') id: string,
   ) {
     return this.invoicesService.revokePaymentLink(tenantId, id);
+  }
+
+  @Post(':id/payment-reminder')
+  @Roles('owner', 'manager', 'receptionist')
+  async sendPaymentReminder(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.notificationsService.sendInvoicePaymentReminder(tenantId, id);
   }
 }
 

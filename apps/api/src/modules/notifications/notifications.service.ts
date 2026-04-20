@@ -607,4 +607,56 @@ export class NotificationsService {
 
     return { sent };
   }
+
+  /**
+   * Send a payment reminder for a single invoice on demand. Used by
+   * the back-office collections page so a receptionist can nudge a
+   * customer without waiting for the cron batch. Increments the
+   * ladder counter and last_reminder_sent_at so the cron won't then
+   * re-send the same step.
+   */
+  async sendInvoicePaymentReminder(tenantId: string, invoiceId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: inv } = await client
+      .from('invoices')
+      .select('*, customer:customers(full_name, phone)')
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (!inv) {
+      return { ok: false, reason: 'invoice_not_found' as const };
+    }
+    const balance = Number(inv.grand_total) - Number(inv.paid_amount ?? 0);
+    if (balance <= 0) {
+      return { ok: false, reason: 'nothing_owed' as const };
+    }
+    const customer = inv.customer as Record<string, unknown> | null;
+    const phone = customer?.phone as string | undefined;
+    if (!phone) {
+      return { ok: false, reason: 'no_customer_phone' as const };
+    }
+
+    const dueDate = inv.due_date ? new Date(inv.due_date as string).toLocaleDateString() : '';
+    const msg = `MECANIX Payment Reminder: Invoice ${inv.invoice_number} has an outstanding balance of ${balance.toFixed(2)}.${dueDate ? ` Due date was ${dueDate}.` : ''} Please arrange payment at your earliest convenience.`;
+
+    try {
+      await this.whatsapp.sendText(phone, msg);
+    } catch (e) {
+      this.logger.warn(`Manual payment reminder failed: ${e}`);
+      return { ok: false, reason: 'send_failed' as const };
+    }
+
+    await client
+      .from('invoices')
+      .update({
+        payment_reminder_count: (Number(inv.payment_reminder_count) || 0) + 1,
+        last_reminder_sent_at: new Date().toISOString(),
+      })
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId);
+
+    return { ok: true, reason: 'sent' as const, phone: redactPhone(phone) };
+  }
 }

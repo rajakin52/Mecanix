@@ -112,6 +112,21 @@ export function useRevokePaymentLink() {
   });
 }
 
+export function useSendPaymentReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (invoiceId: string) =>
+      api.post<{ ok: boolean; reason: string; phone?: string }>(
+        `/invoices/${invoiceId}/payment-reminder`,
+        {},
+      ),
+    onSuccess: (_d, invoiceId) => {
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+    },
+  });
+}
+
 export function useRecordPayment() {
   const qc = useQueryClient();
   return useMutation({
