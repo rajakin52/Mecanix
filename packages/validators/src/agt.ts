@@ -29,3 +29,10 @@ export type UpdateAgtConfigInput = z.infer<typeof updateAgtConfigSchema>;
 export type CreateAgtSeriesInput = z.infer<typeof createAgtSeriesSchema>;
 export type UpdateAgtSeriesInput = z.infer<typeof updateAgtSeriesSchema>;
 export type InitializeAgtSeriesInput = z.infer<typeof initializeAgtSeriesSchema>;
+
+export const saftMonthlyExportSchema = z.object({
+  year: z.coerce.number().int().min(2020).max(2100),
+  month: z.coerce.number().int().min(1).max(12),
+});
+
+export type SaftMonthlyExportInput = z.infer<typeof saftMonthlyExportSchema>;

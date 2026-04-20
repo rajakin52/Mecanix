@@ -333,6 +333,182 @@ export default function AgtSettingsPage() {
             <li>When AGT API is connected, invoices are submitted automatically for validation</li>
           </ul>
         </div>
+
+        <SaftExportSection />
+      </div>
+    </div>
+  );
+}
+
+interface SaftExport {
+  id: string;
+  period_year: number;
+  period_month: number;
+  period_start: string;
+  period_end: string;
+  public_url: string | null;
+  file_size: number;
+  invoice_count: number;
+  total_revenue: number | string;
+  total_tax: number | string;
+  generated_at: string;
+}
+
+function SaftExportSection() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1); // default = current month
+  const [exports, setExports] = useState<SaftExport[] | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const load = async () => {
+    try {
+      const data = await api.get<SaftExport[]>('/agt/saft-exports');
+      setExports(data);
+    } catch (err) {
+      setMessage({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to load' });
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const onGenerate = async () => {
+    setGenerating(true);
+    setMessage(null);
+    try {
+      await api.post<SaftExport>('/agt/saft-exports', { year, month });
+      setMessage({ kind: 'ok', text: `SAF-T for ${String(month).padStart(2, '0')}/${year} generated` });
+      await load();
+    } catch (err) {
+      setMessage({ kind: 'err', text: err instanceof Error ? err.message : 'Failed to generate' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentYear = now.getFullYear();
+  const years = [currentYear - 1, currentYear];
+
+  return (
+    <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-1 text-lg font-semibold text-gray-900">Monthly SAF-T export</h2>
+      <p className="mb-4 text-sm text-gray-600">
+        Generate a SAF-T AO XML file for a calendar month. Deadline: 10th of the following
+        month. The file covers every non-draft invoice in the period plus the customer master.
+      </p>
+
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Year</label>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="mt-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700">Month</label>
+          <select
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+            className="mt-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+          >
+            {months.map((m, i) => (
+              <option key={m} value={i + 1}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={onGenerate}
+          disabled={generating}
+          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+        >
+          {generating ? 'Generating…' : 'Generate'}
+        </button>
+      </div>
+
+      {message && (
+        <div
+          className={`mb-4 rounded-md p-3 text-sm ${
+            message.kind === 'ok' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-md border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Period</th>
+              <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Invoices</th>
+              <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Revenue</th>
+              <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Tax</th>
+              <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Generated</th>
+              <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {!exports ? (
+              <tr>
+                <td colSpan={6} className="py-4 text-center text-sm text-gray-400">
+                  Loading…
+                </td>
+              </tr>
+            ) : exports.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-4 text-center text-sm text-gray-500">
+                  No SAF-T exports yet.
+                </td>
+              </tr>
+            ) : (
+              exports.map((e) => (
+                <tr key={e.id}>
+                  <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                    {String(e.period_month).padStart(2, '0')} / {e.period_year}
+                  </td>
+                  <td className="px-3 py-2 text-end text-sm text-gray-700">{e.invoice_count}</td>
+                  <td className="px-3 py-2 text-end text-sm text-gray-700">
+                    {Number(e.total_revenue).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-end text-sm text-gray-700">
+                    {Number(e.total_tax).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-sm text-gray-500">
+                    {new Date(e.generated_at).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-end">
+                    {e.public_url ? (
+                      <a
+                        href={e.public_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Download
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -9,24 +9,31 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AgtService } from './agt.service';
+import { SaftMonthlyService } from './saft-monthly.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
-import { TenantId } from '../../common/decorators/user.decorator';
+import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   updateAgtConfigSchema,
   createAgtSeriesSchema,
   updateAgtSeriesSchema,
   initializeAgtSeriesSchema,
+  saftMonthlyExportSchema,
   type UpdateAgtConfigInput,
   type CreateAgtSeriesInput,
   type UpdateAgtSeriesInput,
   type InitializeAgtSeriesInput,
+  type SaftMonthlyExportInput,
 } from '@mecanix/validators';
+import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('agt')
 @UseGuards(TenantGuard)
 export class AgtController {
-  constructor(private readonly agtService: AgtService) {}
+  constructor(
+    private readonly agtService: AgtService,
+    private readonly saftMonthly: SaftMonthlyService,
+  ) {}
 
   // ── Config ────────────────────────────────────────────────
 
@@ -78,5 +85,20 @@ export class AgtController {
     @Body(new ZodValidationPipe(initializeAgtSeriesSchema)) body: InitializeAgtSeriesInput,
   ) {
     return this.agtService.initializeDefaultSeries(tenantId, body.seriesCode);
+  }
+
+  // ── SAF-T monthly export ─────────────────────────────────
+  @Get('saft-exports')
+  async listSaftExports(@TenantId() tenantId: string) {
+    return this.saftMonthly.list(tenantId);
+  }
+
+  @Post('saft-exports')
+  async generateSaftExport(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(saftMonthlyExportSchema)) body: SaftMonthlyExportInput,
+  ) {
+    return this.saftMonthly.generateMonthly(tenantId, user.id, body.year, body.month);
   }
 }
