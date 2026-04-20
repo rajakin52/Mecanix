@@ -9,6 +9,7 @@ import { useLowStock } from '@/hooks/use-parts';
 import { useDueReminders } from '@/hooks/use-reminders';
 import { useFormat } from '@/hooks/use-format';
 import { useDeferredSummary } from '@/hooks/use-deferred';
+import { useKpiDashboard, useOutstandingInvoices, useTechnicianReport } from '@/hooks/use-reports';
 import { Link } from '@/i18n/navigation';
 
 export default function DashboardPage() {
@@ -28,6 +29,29 @@ export default function DashboardPage() {
   const { data: lowStockData } = useLowStock();
   const { data: dueRemindersData, isLoading: loadingReminders } = useDueReminders();
   const { data: deferredData } = useDeferredSummary();
+
+  // v1.5 KPIs
+  const { data: kpiData } = useKpiDashboard(1);
+  const { data: agingData } = useOutstandingInvoices();
+  const monthStart = (() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  })();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const { data: techReport } = useTechnicianReport(monthStart, todayStr);
+
+  const kpi = (kpiData as Record<string, unknown> | undefined) ?? {};
+  const currentMonth = (kpi.current_month as Record<string, unknown> | null) ?? null;
+  const aging = agingData as {
+    current?: { totalAmount: number; count: number };
+    thirtyDays?: { totalAmount: number; count: number };
+    sixtyDays?: { totalAmount: number; count: number };
+    ninetyPlus?: { totalAmount: number; count: number };
+  } | undefined;
+  const techRows = (techReport ?? []) as Array<Record<string, unknown>>;
+  const topTechs = [...techRows]
+    .sort((a, b) => Number(b.billedHours ?? 0) - Number(a.billedHours ?? 0))
+    .slice(0, 5);
 
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
@@ -111,6 +135,118 @@ export default function DashboardPage() {
             {summary ? money(summary.revenue_this_month ?? 0) : '...'}
           </p>
         </Link>
+      </div>
+
+      {/* Performance KPIs (module 18 / phase 1 item 10) */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* ARO + performance */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            This month performance
+          </h2>
+          {currentMonth ? (
+            <dl className="space-y-3">
+              <div className="flex items-baseline justify-between">
+                <dt className="text-sm text-gray-600">ARO (avg repair order)</dt>
+                <dd className="text-2xl font-semibold text-gray-900">
+                  {money(Number(currentMonth.aro ?? 0))}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <dt className="text-sm text-gray-600">Hours / RO</dt>
+                <dd className="text-lg font-medium text-gray-900">
+                  {Number(currentMonth.hours_per_ro ?? 0).toFixed(1)}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <dt className="text-sm text-gray-600">Close rate</dt>
+                <dd className="text-lg font-medium text-gray-900">
+                  {Number(currentMonth.close_rate_pct ?? 0).toFixed(0)}%
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <dt className="text-sm text-gray-600">Comeback rate</dt>
+                <dd
+                  className={`text-lg font-medium ${
+                    Number(currentMonth.comeback_rate_pct ?? 0) > 5
+                      ? 'text-red-600'
+                      : 'text-gray-900'
+                  }`}
+                >
+                  {Number(currentMonth.comeback_rate_pct ?? 0).toFixed(1)}%
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-gray-400">No data for the current month yet.</p>
+          )}
+        </div>
+
+        {/* AR aging */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              AR aging
+            </h2>
+            <Link href="/invoices" className="text-xs text-primary-600 hover:underline">
+              View invoices &rarr;
+            </Link>
+          </div>
+          {aging ? (
+            <div className="space-y-2">
+              <AgingRow label="Current" color="bg-green-500" bucket={aging.current} money={money} />
+              <AgingRow label="1-30 days overdue" color="bg-yellow-400" bucket={aging.thirtyDays} money={money} />
+              <AgingRow label="31-60 days overdue" color="bg-orange-500" bucket={aging.sixtyDays} money={money} />
+              <AgingRow label="60+ days overdue" color="bg-red-600" bucket={aging.ninetyPlus} money={money} />
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Loading…</p>
+          )}
+        </div>
+
+        {/* Tech productivity */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Technician productivity
+            </h2>
+            <Link href="/timesheets" className="text-xs text-primary-600 hover:underline">
+              Timesheets &rarr;
+            </Link>
+          </div>
+          {topTechs.length === 0 ? (
+            <p className="text-sm text-gray-400">No billed hours this month.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {topTechs.map((t) => {
+                const pct = t.productivityPct as number | null;
+                const billed = Number(t.billedHours ?? 0);
+                const clocked = Number(t.clockedHours ?? 0);
+                const barColor = pct == null ? 'bg-gray-300' : pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-red-500';
+                const width = pct == null ? 0 : Math.min(100, pct);
+                return (
+                  <div key={t.technicianName as string}>
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="font-medium text-gray-900">{t.technicianName as string}</span>
+                      <span className="text-xs text-gray-500">
+                        {billed.toFixed(1)}h billed / {clocked.toFixed(1)}h clocked
+                        {pct != null ? (
+                          <span className="ms-2 font-semibold text-gray-700">{pct}%</span>
+                        ) : null}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 rounded-full bg-gray-100">
+                      <div
+                        className={`h-1.5 rounded-full ${barColor}`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Jobs by Status + Low Stock */}
@@ -309,6 +445,35 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function AgingRow({
+  label,
+  color,
+  bucket,
+  money,
+}: {
+  label: string;
+  color: string;
+  bucket: { totalAmount: number; count: number } | undefined;
+  money: (n: number) => string;
+}) {
+  const amount = Number(bucket?.totalAmount ?? 0);
+  const count = bucket?.count ?? 0;
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-gray-100 py-1.5 last:border-0">
+      <div className="flex items-center gap-2 text-sm">
+        <span className={`h-2 w-2 rounded-full ${color}`} />
+        <span className="text-gray-700">{label}</span>
+      </div>
+      <div className="text-right text-sm">
+        <span className="font-medium text-gray-900">{money(amount)}</span>
+        <span className="ms-2 text-xs text-gray-500">
+          ({count} invoice{count === 1 ? '' : 's'})
+        </span>
+      </div>
     </div>
   );
 }

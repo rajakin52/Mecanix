@@ -44,6 +44,13 @@ export function useOutstandingInvoices() {
   });
 }
 
+export function useKpiDashboard(months = 6) {
+  return useQuery({
+    queryKey: ['report-kpis', months],
+    queryFn: () => api.get<Record<string, unknown>>(`/reports/kpis?months=${months}`),
+  });
+}
+
 export function useOutstandingBills() {
   return useQuery({
     queryKey: ['report-outstanding-bills'],

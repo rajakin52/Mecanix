@@ -89,6 +89,7 @@ export class ReportsService {
   async technicianReport(tenantId: string, startDate: string, endDate: string) {
     const client = this.supabase.getClient();
 
+    // Clocked hours per tech (time entries)
     const { data: entries, error } = await client
       .from('time_entries')
       .select('technician_id, total_seconds, job_card_id, technician:technicians(full_name)')
@@ -98,10 +99,24 @@ export class ReportsService {
 
     if (error) throw error;
 
-    const techMap = new Map<
-      string,
-      { technicianName: string; totalSeconds: number; jobIds: Set<string> }
-    >();
+    // Billed hours per tech (labour_lines — only charged lines count)
+    const { data: labourLines } = await client
+      .from('labour_lines')
+      .select('technician_id, hours, subtotal, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged')
+      .not('technician_id', 'is', null)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
+
+    type TechRow = {
+      technicianName: string;
+      clockedSeconds: number;
+      jobIds: Set<string>;
+      billedHours: number;
+      billedRevenue: number;
+    };
+    const techMap = new Map<string, TechRow>();
 
     for (const row of entries ?? []) {
       const techId = row.technician_id as string;
@@ -111,23 +126,51 @@ export class ReportsService {
       if (!techMap.has(techId)) {
         techMap.set(techId, {
           technicianName: techName,
-          totalSeconds: 0,
+          clockedSeconds: 0,
           jobIds: new Set(),
+          billedHours: 0,
+          billedRevenue: 0,
         });
       }
 
       const entry = techMap.get(techId)!;
-      entry.totalSeconds += (row.total_seconds as number) || 0;
-      if (row.job_card_id) {
-        entry.jobIds.add(row.job_card_id as string);
+      entry.clockedSeconds += (row.total_seconds as number) || 0;
+      if (row.job_card_id) entry.jobIds.add(row.job_card_id as string);
+    }
+
+    for (const line of labourLines ?? []) {
+      const techId = line.technician_id as string | null;
+      if (!techId) continue;
+      const existing = techMap.get(techId);
+      if (existing) {
+        existing.billedHours += Number(line.hours) || 0;
+        existing.billedRevenue += Number(line.subtotal) || 0;
+      } else {
+        // Tech has billed work but no time entries in the window —
+        // still surface them with clockedHours=0 so the mismatch is visible.
+        techMap.set(techId, {
+          technicianName: 'Unknown',
+          clockedSeconds: 0,
+          jobIds: new Set(),
+          billedHours: Number(line.hours) || 0,
+          billedRevenue: Number(line.subtotal) || 0,
+        });
       }
     }
 
-    return Array.from(techMap.values()).map((t) => ({
-      technicianName: t.technicianName,
-      totalHours: round2(t.totalSeconds / 3600),
-      jobsCount: t.jobIds.size,
-    }));
+    return Array.from(techMap.values()).map((t) => {
+      const clockedHours = t.clockedSeconds / 3600;
+      const productivity = clockedHours > 0 ? t.billedHours / clockedHours : null;
+      return {
+        technicianName: t.technicianName,
+        totalHours: round2(clockedHours),
+        clockedHours: round2(clockedHours),
+        billedHours: round2(t.billedHours),
+        billedRevenue: round2(t.billedRevenue),
+        productivityPct: productivity != null ? Math.round(productivity * 100) : null,
+        jobsCount: t.jobIds.size,
+      };
+    });
   }
 
   async partsUsageReport(tenantId: string, startDate: string, endDate: string) {
