@@ -1,8 +1,23 @@
 # Module 18 — Enhancements Audit (April 2026)
 
-> **Status:** Planned — Phase 1 starting 2026-04-20
+> **Status:** Phases 1 & 2 complete. Phase 3 is 4-of-6 shipped (items 3 & 4 blocked on external input). Last updated 2026-04-20.
 > **Source:** Strategic re-audit of the shipped codebase (56 API modules, 48 web pages, 3 mobile apps) against industry standard and Module 17's aspirational catalogue.
 > **Distinction from Module 17:** Module 17 is the reference catalogue. This module is the *delta* between what is **actually shipped today** and what we commit to build next, with a concrete phased plan and owner per item.
+
+## Shipped commits
+
+**Phase 1** (2026-04-20): `88d28f8` QC · `ae8ab99` pickup sig · `3bb3cea` pay links · `985f9c7` 6 module pages · `aa0323f` dashboard v1.5.
+
+**Phase 2** (2026-04-20): `ada8267` warranty · `dc7099a` comeback UX · `bdaf6cc` deferred work · `ceeb923` tech live board · `b4c9f19` dashboard v2 · `a728a71` line photos · `1ad4bae` collections.
+
+**Phase 3** (2026-04-20): `77c45e5` WhatsApp flow + comms log · `36cbc2d` AI advisor · `08ad804` tire storage · `14214ac` SAF-T monthly. Items 3 (insurance auto-filing) and 4 (multi-location) **deferred pending inputs** — insurance needs per-insurer API specs, multi-location needs scoping call on whether branches share customers/vehicles/parts.
+
+## Migration / deploy checklist
+
+- Migrations `00071` (QC) through `00078` (SAF-T history) — apply in order.
+- Supabase Storage: `vehicle-photos` bucket (already exists) now also used by line-photos; `saft-exports` bucket **must be created** once per environment.
+- API env: `PUBLIC_APP_URL` must be set so WhatsApp messages can embed tokenised pay links.
+- Tenant `settings` JSONB keys now meaningful for the public pay page: `bank_name`, `bank_account`, `iban`, `mpesa_paybill`, `multicaixa_number`, `payment_instructions`.
 
 ---
 
