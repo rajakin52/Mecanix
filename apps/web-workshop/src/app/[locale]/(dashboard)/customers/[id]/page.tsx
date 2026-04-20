@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { useLoyalty, useLoyaltyTransactions, useEarnPoints, useRedeemPoints } from '@/hooks/use-loyalty';
+import { useCustomerComms } from '@/hooks/use-comms';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -477,6 +478,9 @@ export default function CustomerDetailPage() {
         </div>
       </div>
 
+      {/* Communications log */}
+      <CustomerCommsPanel customerId={id} />
+
       {/* Statement of Account */}
       <CustomerStatement customerId={id} />
 
@@ -679,6 +683,90 @@ export default function CustomerDetailPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+const CHANNEL_LABEL: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  sms: 'SMS',
+  push: 'Push',
+  email: 'Email',
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  sent: 'bg-blue-100 text-blue-700',
+  delivered: 'bg-green-100 text-green-700',
+  read: 'bg-green-100 text-green-700',
+  queued: 'bg-gray-100 text-gray-600',
+  failed: 'bg-red-100 text-red-700',
+};
+
+function CustomerCommsPanel({ customerId }: { customerId: string }) {
+  const { data, isLoading } = useCustomerComms({ customerId });
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const rows = data ?? [];
+
+  return (
+    <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Communications</h2>
+          <p className="text-xs text-gray-500">
+            Every automated WhatsApp / SMS / push this customer received.
+          </p>
+        </div>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+          {isLoading ? '…' : rows.length}
+        </span>
+      </div>
+
+      {isLoading ? (
+        <p className="py-6 text-center text-sm text-gray-400">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-500">No comms recorded for this customer.</p>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((c) => {
+            const open = expanded === c.id;
+            return (
+              <li key={c.id} className="py-3">
+                <button
+                  onClick={() => setExpanded(open ? null : c.id)}
+                  className="flex w-full items-start justify-between text-start"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700">
+                        {CHANNEL_LABEL[c.channel] ?? c.channel}
+                      </span>
+                      <span className="text-gray-900">{c.template_key}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-xs ${STATUS_COLOR[c.delivery_status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {c.delivery_status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {new Date(c.sent_at).toLocaleString()}
+                      {c.recipient ? <span className="ms-2">to {c.recipient}</span> : null}
+                    </p>
+                  </div>
+                  <span className="text-xs text-gray-400">{open ? '\u25B2' : '\u25BC'}</span>
+                </button>
+                {open && c.body ? (
+                  <pre className="mt-2 whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-800">
+                    {c.body}
+                  </pre>
+                ) : null}
+                {open && c.delivery_error ? (
+                  <p className="mt-2 rounded-md bg-red-50 p-2 text-xs text-red-700">
+                    Error: {c.delivery_error}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

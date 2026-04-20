@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { PushService } from './push.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
@@ -87,6 +87,20 @@ export class NotificationsController {
   @Get('templates')
   async getTemplates() {
     return this.notificationsService.getTemplates();
+  }
+
+  @Get('comms')
+  async listComms(
+    @TenantId() tenantId: string,
+    @Query('customerId') customerId?: string,
+    @Query('jobCardId') jobCardId?: string,
+    @Query('invoiceId') invoiceId?: string,
+  ) {
+    return this.notificationsService.listCustomerComms(tenantId, {
+      customerId,
+      jobCardId,
+      invoiceId,
+    });
   }
 
   @Post('appointment/:appointmentId/confirmed')

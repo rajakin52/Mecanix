@@ -73,13 +73,39 @@ export class NotificationsService {
     const job = await this.getJobWithCustomer(tenantId, jobCardId);
     if (!job) return;
 
-    const message = this.getTemplate('ready_collection', {
+    // If an invoice already exists, include a tokenised pay link so
+    // the customer can settle before arriving — shortens pickup time.
+    const invoiceId = await this.getInvoiceIdForJob(tenantId, jobCardId);
+    const payUrl = invoiceId ? await this.ensurePayLinkUrl(tenantId, invoiceId) : null;
+
+    const base = this.getTemplate('ready_collection', {
       plate: job.vehicle?.plate ?? '',
       jobNumber: job.job_number ?? '',
     });
+    const message = payUrl ? `${base}\n\nPay online: ${payUrl}` : base;
 
     if (job.customer?.phone) {
-      try { await this.whatsapp.sendText(job.customer.phone, message); } catch (e) { this.logger.warn(`WhatsApp failed: ${e}`); }
+      let status: 'sent' | 'failed' = 'sent';
+      let err: string | null = null;
+      try {
+        await this.whatsapp.sendText(job.customer.phone, message);
+      } catch (e) {
+        status = 'failed';
+        err = e instanceof Error ? e.message : String(e);
+        this.logger.warn(`WhatsApp failed: ${e}`);
+      }
+      await this.logComms(tenantId, {
+        customerId: job.customer_id as string | null,
+        jobCardId,
+        invoiceId,
+        channel: 'whatsapp',
+        templateKey: 'ready_collection',
+        recipient: job.customer.phone,
+        body: message,
+        deliveryStatus: status,
+        deliveryError: err,
+        metadata: payUrl ? { pay_link: true } : {},
+      });
     }
 
     if (job.customer_id) {
@@ -107,13 +133,36 @@ export class NotificationsService {
 
     if (!invoice?.customer?.phone) return;
 
-    const message = this.getTemplate('invoice_generated', {
+    const base = this.getTemplate('invoice_generated', {
       invoiceNumber: invoice.invoice_number ?? '',
       total: String(invoice.grand_total ?? '0'),
       jobNumber: invoice.job_card?.job_number ?? '',
     });
+    const payUrl = await this.ensurePayLinkUrl(tenantId, invoiceId);
+    const message = payUrl ? `${base}\n\nPay online: ${payUrl}` : base;
 
-    return this.whatsapp.sendText(invoice.customer.phone, message);
+    let status: 'sent' | 'failed' = 'sent';
+    let err: string | null = null;
+    try {
+      await this.whatsapp.sendText(invoice.customer.phone, message);
+    } catch (e) {
+      status = 'failed';
+      err = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`WhatsApp invoice failed: ${e}`);
+    }
+    await this.logComms(tenantId, {
+      customerId: invoice.customer_id as string | null,
+      jobCardId: invoice.job_card_id as string | null,
+      invoiceId,
+      channel: 'whatsapp',
+      templateKey: 'invoice_generated',
+      recipient: invoice.customer.phone,
+      body: message,
+      deliveryStatus: status,
+      deliveryError: err,
+      metadata: payUrl ? { pay_link: true } : {},
+    });
+    return;
   }
 
   /** Send appointment confirmation */
@@ -493,12 +542,111 @@ export class NotificationsService {
     const { data } = await client
       .from('job_cards')
       .select(
-        '*, customer:customers(full_name, phone), vehicle:vehicles(plate, make, model)',
+        '*, customer:customers(id, full_name, phone), vehicle:vehicles(plate, make, model)',
       )
       .eq('id', jobCardId)
       .eq('tenant_id', tenantId)
       .single();
     return data;
+  }
+
+  /**
+   * Appends a row to customer_comms. Never throws — comms logging
+   * must not block the caller if the DB insert fails. Logs on the
+   * common path so the back-office can reconstruct the customer
+   * relationship audit trail.
+   */
+  private async logComms(
+    tenantId: string,
+    row: {
+      customerId?: string | null;
+      jobCardId?: string | null;
+      invoiceId?: string | null;
+      channel: 'whatsapp' | 'sms' | 'push' | 'email';
+      templateKey: string;
+      recipient?: string | null;
+      body?: string | null;
+      deliveryStatus?: 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+      deliveryError?: string | null;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    try {
+      await this.supabase.getClient().from('customer_comms').insert({
+        tenant_id: tenantId,
+        customer_id: row.customerId ?? null,
+        job_card_id: row.jobCardId ?? null,
+        invoice_id: row.invoiceId ?? null,
+        channel: row.channel,
+        template_key: row.templateKey,
+        recipient: row.recipient ?? null,
+        body: row.body ?? null,
+        delivery_status: row.deliveryStatus ?? 'sent',
+        delivery_error: row.deliveryError ?? null,
+        metadata: row.metadata ?? {},
+      });
+    } catch (e) {
+      this.logger.warn(`Comms log insert failed: ${e}`);
+    }
+  }
+
+  /**
+   * Ensure an invoice has a public pay token. Returns the URL or
+   * null if no app base URL is configured / the invoice has no
+   * balance.
+   */
+  private async ensurePayLinkUrl(tenantId: string, invoiceId: string): Promise<string | null> {
+    const base = process.env.PUBLIC_APP_URL ?? '';
+    if (!base) return null;
+    const client = this.supabase.getClient();
+    const { data: inv } = await client
+      .from('invoices')
+      .select('public_pay_token, public_pay_expires_at, balance_due, status')
+      .eq('id', invoiceId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!inv) return null;
+    if (Number(inv.balance_due) <= 0) return null;
+    if (inv.status === 'draft' || inv.status === 'cancelled') return null;
+
+    let token = inv.public_pay_token as string | null;
+    const expired =
+      inv.public_pay_expires_at &&
+      new Date(inv.public_pay_expires_at as string).getTime() < Date.now();
+    if (!token || expired) {
+      const newToken = [...Array(24)]
+        .map(() => Math.floor(Math.random() * 16).toString(16))
+        .join('') + Date.now().toString(16);
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await client
+        .from('invoices')
+        .update({
+          public_pay_token: newToken,
+          public_pay_created_at: new Date().toISOString(),
+          public_pay_expires_at: expiresAt,
+        })
+        .eq('id', invoiceId)
+        .eq('tenant_id', tenantId);
+      token = newToken;
+    }
+    // Locale prefix can't be derived here without a tenant default;
+    // leave it unprefixed — the /public/pay/[token] route handler
+    // resolves locale via Next.js middleware.
+    return `${base.replace(/\/+$/, '')}/public/pay/${token}`;
+  }
+
+  private async getInvoiceIdForJob(tenantId: string, jobCardId: string): Promise<string | null> {
+    const { data } = await this.supabase
+      .getClient()
+      .from('invoices')
+      .select('id, balance_due')
+      .eq('tenant_id', tenantId)
+      .eq('job_card_id', jobCardId)
+      .not('status', 'eq', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data?.id as string | null) ?? null;
   }
 
   // ── Appointment Reminders (24h + 1h before) ──
@@ -639,14 +787,34 @@ export class NotificationsService {
     }
 
     const dueDate = inv.due_date ? new Date(inv.due_date as string).toLocaleDateString() : '';
-    const msg = `MECANIX Payment Reminder: Invoice ${inv.invoice_number} has an outstanding balance of ${balance.toFixed(2)}.${dueDate ? ` Due date was ${dueDate}.` : ''} Please arrange payment at your earliest convenience.`;
+    const payUrl = await this.ensurePayLinkUrl(tenantId, invoiceId);
+    const base = `MECANIX Payment Reminder: Invoice ${inv.invoice_number} has an outstanding balance of ${balance.toFixed(2)}.${dueDate ? ` Due date was ${dueDate}.` : ''} Please arrange payment at your earliest convenience.`;
+    const msg = payUrl ? `${base}\n\nPay online: ${payUrl}` : base;
 
+    let status: 'sent' | 'failed' = 'sent';
+    let err: string | null = null;
     try {
       await this.whatsapp.sendText(phone, msg);
     } catch (e) {
+      status = 'failed';
+      err = e instanceof Error ? e.message : String(e);
       this.logger.warn(`Manual payment reminder failed: ${e}`);
-      return { ok: false, reason: 'send_failed' as const };
     }
+
+    await this.logComms(tenantId, {
+      customerId: inv.customer_id as string | null,
+      invoiceId,
+      jobCardId: inv.job_card_id as string | null,
+      channel: 'whatsapp',
+      templateKey: 'payment_reminder',
+      recipient: phone,
+      body: msg,
+      deliveryStatus: status,
+      deliveryError: err,
+      metadata: { manual: true, ladder_step: Number(inv.payment_reminder_count) + 1 },
+    });
+
+    if (status === 'failed') return { ok: false, reason: 'send_failed' as const };
 
     await client
       .from('invoices')
@@ -658,5 +826,24 @@ export class NotificationsService {
       .eq('tenant_id', tenantId);
 
     return { ok: true, reason: 'sent' as const, phone: redactPhone(phone) };
+  }
+
+  async listCustomerComms(
+    tenantId: string,
+    filters: { customerId?: string; jobCardId?: string; invoiceId?: string; limit?: number } = {},
+  ) {
+    let q = this.supabase
+      .getClient()
+      .from('customer_comms')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('sent_at', { ascending: false })
+      .limit(filters.limit ?? 100);
+    if (filters.customerId) q = q.eq('customer_id', filters.customerId);
+    if (filters.jobCardId) q = q.eq('job_card_id', filters.jobCardId);
+    if (filters.invoiceId) q = q.eq('invoice_id', filters.invoiceId);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data ?? [];
   }
 }
