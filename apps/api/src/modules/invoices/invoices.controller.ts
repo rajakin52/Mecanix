@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -68,5 +70,35 @@ export class InvoicesController {
     @Param('id') id: string,
   ) {
     return this.invoicesService.sendInvoice(tenantId, id);
+  }
+
+  @Post(':id/payment-link')
+  @Roles('owner', 'manager', 'receptionist')
+  async createPaymentLink(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.invoicesService.createPaymentLink(tenantId, id);
+  }
+
+  @Delete(':id/payment-link')
+  @Roles('owner', 'manager')
+  async revokePaymentLink(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.invoicesService.revokePaymentLink(tenantId, id);
+  }
+}
+
+// Public endpoints — the token IS the authorisation. No tenant guard.
+@Controller('public/invoices')
+export class PublicInvoicesController {
+  constructor(private readonly invoicesService: InvoicesService) {}
+
+  @Get(':token')
+  async getByToken(@Param('token') token: string) {
+    if (!token || token.length < 16) throw new NotFoundException('Invalid link');
+    return this.invoicesService.getPublicByToken(token);
   }
 }

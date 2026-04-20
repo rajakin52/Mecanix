@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { InvoicesController } from './invoices.controller';
+import { InvoicesController, PublicInvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
@@ -9,7 +9,7 @@ import { AgtModule } from '../agt/agt.module';
 
 @Module({
   imports: [AgtModule],
-  controllers: [InvoicesController, PaymentsController, CreditNotesController],
+  controllers: [InvoicesController, PublicInvoicesController, PaymentsController, CreditNotesController],
   providers: [InvoicesService, PaymentsService, CreditNotesService],
   exports: [InvoicesService, PaymentsService, CreditNotesService],
 })

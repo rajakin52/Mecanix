@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote } from '@/hooks/use-invoices';
+import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote, useCreatePaymentLink } from '@/hooks/use-invoices';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
 import { Link } from '@/i18n/navigation';
@@ -34,6 +34,7 @@ export default function InvoiceDetailPage() {
   const markAsSentMutation = useMarkAsSent();
   const payMutation = useRecordPayment();
   const creditNoteMutation = useCreateCreditNote();
+  const createPayLinkMutation = useCreatePaymentLink();
   const { data: mpesaConfig } = useMpesaConfigured();
   const mpesaPayMutation = useMpesaPay();
 
@@ -144,6 +145,26 @@ export default function InvoiceDetailPage() {
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {markAsSentMutation.isPending ? tc('loading') : t('markAsSent')}
+            </button>
+          )}
+          {status !== 'draft' && status !== 'cancelled' && Number(invoice.balance_due ?? 0) > 0 && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await createPayLinkMutation.mutateAsync(id);
+                  const token = (res as { public_pay_token?: string } | undefined)?.public_pay_token;
+                  if (!token) throw new Error('No token returned');
+                  const url = `${window.location.origin}/${locale}/public/pay/${token}`;
+                  await navigator.clipboard.writeText(url);
+                  toast.success('Payment link copied to clipboard');
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Failed to create link');
+                }
+              }}
+              disabled={createPayLinkMutation.isPending}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {createPayLinkMutation.isPending ? tc('loading') : 'Copy payment link'}
             </button>
           )}
         </div>

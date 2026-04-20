@@ -87,6 +87,31 @@ export function useMarkAsSent() {
   });
 }
 
+export function useCreatePaymentLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (invoiceId: string) =>
+      api.post<{ public_pay_token: string; public_pay_expires_at: string }>(
+        `/invoices/${invoiceId}/payment-link`,
+        {},
+      ),
+    onSuccess: (_d, invoiceId) => {
+      qc.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+    },
+  });
+}
+
+export function useRevokePaymentLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (invoiceId: string) => api.delete(`/invoices/${invoiceId}/payment-link`),
+    onSuccess: (_d, invoiceId) => {
+      qc.invalidateQueries({ queryKey: ['invoice', invoiceId] });
+    },
+  });
+}
+
 export function useRecordPayment() {
   const qc = useQueryClient();
   return useMutation({
