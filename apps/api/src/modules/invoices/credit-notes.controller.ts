@@ -37,3 +37,14 @@ export class CreditNotesController {
     return this.creditNotesService.create(tenantId, user.id, invoiceId, body);
   }
 }
+
+@Controller('credit-notes')
+@UseGuards(TenantGuard)
+export class CreditNotesRegisterController {
+  constructor(private readonly creditNotesService: CreditNotesService) {}
+
+  @Get()
+  async list(@TenantId() tenantId: string) {
+    return this.creditNotesService.listAll(tenantId);
+  }
+}

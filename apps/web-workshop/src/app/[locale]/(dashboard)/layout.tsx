@@ -84,6 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/customers', label: t('customers'), icon: Users },
         { href: '/vehicles', label: t('vehicles'), icon: Car },
         { href: '/technicians', label: t('technicians'), icon: HardHat },
+        { href: '/fleets', label: 'Fleets', icon: Truck },
       ],
     },
     {
@@ -97,9 +98,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: t('navFinancial'),
       items: [
         { href: '/invoices', label: t('invoices'), icon: Receipt },
+        { href: '/credit-notes', label: 'Credit notes', icon: ClipboardList },
         { href: '/bills', label: t('bills'), icon: CreditCard },
         { href: '/expenses', label: t('expenses'), icon: CreditCard },
+        { href: '/cash-register', label: 'Cash register', icon: ShoppingCart },
         { href: '/reports', label: t('reports'), icon: BarChart3 },
+      ],
+    },
+    {
+      title: 'Engagement',
+      items: [
+        { href: '/reminders', label: 'Reminders', icon: Calendar },
+        { href: '/surveys', label: 'Feedback', icon: ClipboardList },
       ],
     },
   ];

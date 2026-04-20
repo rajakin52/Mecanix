@@ -91,4 +91,23 @@ export class CreditNotesService {
 
     return data ?? [];
   }
+
+  /**
+   * Tenant-wide credit-note register. Surfaces issued NCs for the
+   * back-office page so finance has a single pane; each row joins
+   * back to the invoice number and customer for context.
+   */
+  async listAll(tenantId: string, limit = 200) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('credit_notes')
+      .select(
+        '*, invoice:invoices(id, invoice_number, customer:customers(id, full_name))',
+      )
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  }
 }

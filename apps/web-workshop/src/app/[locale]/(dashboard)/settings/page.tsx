@@ -305,6 +305,20 @@ export default function SettingsPage() {
           <span className="text-gray-400 text-xl">→</span>
         </Link>
 
+        {/* Webhooks Link */}
+        <Link
+          href="/settings/webhooks"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Webhooks</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              HTTP callbacks for job, estimate, invoice, and customer events
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* Job Card Photos Policy */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-gray-900">Job Card Photos</h2>
