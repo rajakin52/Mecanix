@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
@@ -21,6 +21,7 @@ import {
   useChargePartsLine,
   useJobQc,
   useUpsertJobQc,
+  useRecordPickupSignature,
   useTechnicians,
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
@@ -1090,6 +1091,107 @@ export default function JobDetailPage() {
     ['tools_removed', 'toolsRemoved', 'Tools removed from vehicle'],
     ['personal_items_verified', 'personalItemsVerified', 'Personal items verified'],
   ] as const;
+  // Pickup signature (handover)
+  const recordSignature = useRecordPickupSignature();
+  const sigCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [sigHasDrawn, setSigHasDrawn] = useState(false);
+  const [sigIsDrawing, setSigIsDrawing] = useState(false);
+  const [sigName, setSigName] = useState('');
+  const [sigMileage, setSigMileage] = useState('');
+  const [sigError, setSigError] = useState<string | null>(null);
+
+  const sigGetPos = (e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e) {
+      const touch = e.touches[0];
+      if (!touch) return { x: 0, y: 0 };
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+    return {
+      x: (e as React.MouseEvent).clientX - rect.left,
+      y: (e as React.MouseEvent).clientY - rect.top,
+    };
+  };
+  const sigStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setSigIsDrawing(true);
+    setSigHasDrawn(true);
+    const ctx = sigCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const p = sigGetPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  };
+  const sigMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!sigIsDrawing) return;
+    e.preventDefault();
+    const ctx = sigCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    const p = sigGetPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  };
+  const sigEnd = () => setSigIsDrawing(false);
+  const sigClear = () => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#FFFFFF';
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.strokeStyle = '#1C1C1E';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    setSigHasDrawn(false);
+  };
+  const sigSubmit = async () => {
+    setSigError(null);
+    if (!sigHasDrawn) return setSigError('Please sign in the box');
+    if (!sigName.trim()) return setSigError('Please enter the signer name');
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    try {
+      await recordSignature.mutateAsync({
+        jobId: id,
+        signatureDataUrl: canvas.toDataURL('image/png'),
+        signedName: sigName.trim(),
+        mileageOut: sigMileage ? Number(sigMileage) : undefined,
+      });
+      setSigName('');
+      setSigMileage('');
+      setSigHasDrawn(false);
+    } catch (err) {
+      setSigError(err instanceof Error ? err.message : 'Failed to record signature');
+    }
+  };
+
+  // Initialise the canvas once the ref is mounted.
+  useEffect(() => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.strokeStyle = '#1C1C1E';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, [sigCanvasRef.current]);
+
   const handleQcSave = async (markPassed: boolean) => {
     const payload: Record<string, unknown> = {};
     for (const [, camel] of qcBooleans) {
@@ -2252,6 +2354,123 @@ export default function JobDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Customer pickup handover */}
+      {(() => {
+        const readyOrInvoiced = (typedJob.status as string) === 'ready' || isInvoiced;
+        const alreadySigned = Boolean(typedJob.pickup_signed_at);
+        if (!readyOrInvoiced && !alreadySigned) return null;
+        return (
+          <div className="rounded-lg border border-gray-200 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Customer handover</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  {alreadySigned
+                    ? `Signed by ${typedJob.pickup_signed_name} on ${new Date(typedJob.pickup_signed_at as string).toLocaleString()}`
+                    : 'Capture the customer\u2019s signature at pickup.'}
+                </p>
+              </div>
+              {alreadySigned ? (
+                <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                  Signed
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
+                  Awaiting signature
+                </span>
+              )}
+            </div>
+
+            {alreadySigned ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                  <div className="text-xs text-gray-500">Signer</div>
+                  <div className="text-sm font-medium text-gray-900">{String(typedJob.pickup_signed_name ?? '')}</div>
+                </div>
+                {typedJob.pickup_mileage_out != null && (
+                  <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <div className="text-xs text-gray-500">Mileage at handover</div>
+                    <div className="text-sm font-medium text-gray-900">{String(typedJob.pickup_mileage_out)}</div>
+                  </div>
+                )}
+                {typedJob.pickup_signature_url && (
+                  <div className="md:col-span-2">
+                    <div className="text-xs text-gray-500 mb-1">Signature</div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={String(typedJob.pickup_signature_url)}
+                      alt="Customer signature"
+                      className="rounded-md border border-gray-200 bg-white"
+                      style={{ maxHeight: 180 }}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sigError && (
+                  <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{sigError}</div>
+                )}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Signer name</label>
+                    <input
+                      value={sigName}
+                      onChange={(e) => setSigName(e.target.value)}
+                      placeholder="Full name"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Mileage at handover</label>
+                    <input
+                      type="number"
+                      value={sigMileage}
+                      onChange={(e) => setSigMileage(e.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Signature</label>
+                  <div className="mt-1 overflow-hidden rounded-md border-2 border-gray-300 bg-white" style={{ height: 200 }}>
+                    <canvas
+                      ref={sigCanvasRef}
+                      className="w-full h-full touch-none"
+                      onMouseDown={sigStart}
+                      onMouseMove={sigMove}
+                      onMouseUp={sigEnd}
+                      onMouseLeave={sigEnd}
+                      onTouchStart={sigStart}
+                      onTouchMove={sigMove}
+                      onTouchEnd={sigEnd}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Customer confirms vehicle received in working condition and acknowledges the invoice total.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={sigClear}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={sigSubmit}
+                    disabled={recordSignature.isPending || !sigHasDrawn || !sigName.trim()}
+                    className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {recordSignature.isPending ? tc('loading') : 'Confirm handover'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Totals Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

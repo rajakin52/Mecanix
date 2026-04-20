@@ -19,6 +19,7 @@ import {
   changeStatusSchema,
   paginationSchema,
   splitJobSchema,
+  pickupSignatureSchema,
 } from '@mecanix/validators';
 import type {
   CreateJobCardInput,
@@ -26,6 +27,7 @@ import type {
   ChangeStatusInput,
   PaginationInput,
   SplitJobInput,
+  PickupSignatureInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -92,6 +94,16 @@ export class JobsController {
       body.status,
       body.notes,
     );
+  }
+
+  @Post(':id/pickup-signature')
+  async recordPickupSignature(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(pickupSignatureSchema)) body: PickupSignatureInput,
+  ) {
+    return this.jobsService.recordPickupSignature(tenantId, id, user.id, body);
   }
 
   @Get(':id/history')

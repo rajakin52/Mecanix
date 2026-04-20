@@ -127,3 +127,17 @@ export const upsertJobQcSchema = z.object({
 });
 
 export type UpsertJobQcInput = z.infer<typeof upsertJobQcSchema>;
+
+// ---------- Pickup Signature ----------
+
+export const pickupSignatureSchema = z.object({
+  signatureDataUrl: z
+    .string()
+    .min(20)
+    .max(500_000)
+    .refine((s) => s.startsWith('data:image/'), 'Must be a data URL image'),
+  signedName: z.string().min(1).max(200),
+  mileageOut: z.coerce.number().int().nonnegative().optional(),
+});
+
+export type PickupSignatureInput = z.infer<typeof pickupSignatureSchema>;

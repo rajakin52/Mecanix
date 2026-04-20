@@ -452,6 +452,52 @@ export class JobsService {
     return data;
   }
 
+  async recordPickupSignature(
+    tenantId: string,
+    jobId: string,
+    userId: string,
+    input: { signatureDataUrl: string; signedName: string; mileageOut?: number },
+  ) {
+    const client = this.supabase.getClient();
+
+    const { data: job, error: fetchErr } = await client
+      .from('job_cards')
+      .select('id, status')
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (fetchErr || !job) throw new NotFoundException('Job card not found');
+
+    // Handover requires that the vehicle is actually ready.
+    const handoverStatuses = ['ready', 'invoiced'];
+    if (!handoverStatuses.includes(job.status as string)) {
+      throw new BadRequestException(
+        `Cannot record pickup signature while job is '${job.status}'. Mark the job as ready first.`,
+      );
+    }
+
+    const patch: Record<string, unknown> = {
+      pickup_signature_url: input.signatureDataUrl,
+      pickup_signed_name: input.signedName,
+      pickup_signed_at: new Date().toISOString(),
+      pickup_signed_by: userId,
+      updated_by: userId,
+    };
+    if (input.mileageOut !== undefined) patch.pickup_mileage_out = input.mileageOut;
+
+    const { data, error } = await client
+      .from('job_cards')
+      .update(patch)
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+      .select('id, pickup_signed_name, pickup_signed_at, pickup_mileage_out')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   async getStatusHistory(tenantId: string, jobId: string) {
     // Lightweight existence check instead of full getById
     const { data: exists } = await this.supabase.getClient()

@@ -181,6 +181,15 @@ export function useUpsertJobQc() {
   });
 }
 
+export function useRecordPickupSignature() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, ...data }: { jobId: string; signatureDataUrl: string; signedName: string; mileageOut?: number }) =>
+      api.post(`/jobs/${jobId}/pickup-signature`, data),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['job', v.jobId] }),
+  });
+}
+
 export function useChargeLabourLine() {
   const qc = useQueryClient();
   return useMutation({
