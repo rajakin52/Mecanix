@@ -51,6 +51,25 @@ export function useKpiDashboard(months = 6) {
   });
 }
 
+export interface ManagerKpis {
+  bay_utilization: { busy: number; total: number; pct: number };
+  first_time_right_pct: number;
+  comeback_pct: number;
+  retention: {
+    m6: { active: number; repeat: number };
+    m12: { active: number; repeat: number };
+    m24: { active: number; repeat: number };
+  };
+}
+
+export function useManagerKpis() {
+  return useQuery<ManagerKpis>({
+    queryKey: ['report-manager-kpis'],
+    queryFn: () => api.get<ManagerKpis>('/reports/manager-kpis'),
+    refetchInterval: 60_000,
+  });
+}
+
 export function useOutstandingBills() {
   return useQuery({
     queryKey: ['report-outstanding-bills'],

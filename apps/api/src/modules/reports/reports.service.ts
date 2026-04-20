@@ -1533,4 +1533,100 @@ export class ReportsService {
       })),
     };
   }
+
+  /**
+   * Manager-grade v2 KPIs that don't fit the monthly kpi_monthly view:
+   *   - Bay utilisation right now (how many bays are occupied).
+   *   - First-time-right % for the current month (100 − comeback %).
+   *   - Retention cohort: distinct customers with at least one job in
+   *     the last 6 / 12 / 24 months, plus each period's repeat count
+   *     (customers with ≥2 jobs in the window).
+   *
+   * All three answer questions that *change the day* — bay utilisation
+   * tells the service writer whether to schedule another walk-in now,
+   * FTR flags comeback drift before it eats margin, and the cohort
+   * totals tell an owner whether their base is growing or churning.
+   */
+  async managerKpis(tenantId: string) {
+    const client = this.supabase.getClient();
+    const now = Date.now();
+    const todayIso = new Date(now).toISOString();
+
+    // ── 1. Bay utilisation ─────────────────────────────────────────
+    const [{ count: totalBays }, { count: busyBays }] = await Promise.all([
+      client
+        .from('bays')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true),
+      client
+        .from('job_cards')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .not('bay_id', 'is', null)
+        .not('status', 'eq', 'invoiced')
+        .not('status', 'eq', 'cancelled')
+        .is('deleted_at', null),
+    ]);
+
+    const bayTotal = totalBays ?? 0;
+    const bayBusy = Math.min(busyBays ?? 0, bayTotal); // shouldn't exceed but defensive
+    const bayPct = bayTotal > 0 ? Math.round((bayBusy / bayTotal) * 100) : 0;
+
+    // ── 2. First-time-right % this month ───────────────────────────
+    // Derived from the same monthly KPI view the Phase 1 card uses.
+    const { data: kpi } = await client
+      .from('kpi_monthly')
+      .select('comeback_rate_pct, job_count')
+      .eq('tenant_id', tenantId)
+      .order('month', { ascending: false })
+      .limit(1);
+    const currentKpi = (kpi ?? [])[0];
+    const comebackPct = Number(currentKpi?.comeback_rate_pct ?? 0);
+    const firstTimeRightPct = Math.max(0, Math.min(100, Math.round((100 - comebackPct) * 10) / 10));
+
+    // ── 3. Retention cohorts ───────────────────────────────────────
+    const iso = (days: number) =>
+      new Date(now - days * 24 * 60 * 60 * 1000).toISOString();
+    const cohort = async (days: number) => {
+      const from = iso(days);
+      const { data } = await client
+        .from('job_cards')
+        .select('customer_id')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .gte('created_at', from)
+        .lte('created_at', todayIso);
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const id = row.customer_id as string | null;
+        if (!id) continue;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      let active = 0;
+      let repeat = 0;
+      for (const n of counts.values()) {
+        active++;
+        if (n >= 2) repeat++;
+      }
+      return { active, repeat };
+    };
+
+    const [m6, m12, m24] = await Promise.all([
+      cohort(183),
+      cohort(365),
+      cohort(730),
+    ]);
+
+    return {
+      bay_utilization: { busy: bayBusy, total: bayTotal, pct: bayPct },
+      first_time_right_pct: firstTimeRightPct,
+      comeback_pct: Math.round(comebackPct * 10) / 10,
+      retention: {
+        m6,
+        m12,
+        m24,
+      },
+    };
+  }
 }

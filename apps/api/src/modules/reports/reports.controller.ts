@@ -275,6 +275,11 @@ export class ReportsController {
     return this.reportsService.kpiDashboard(tenantId, Number(months) || 6);
   }
 
+  @Get('manager-kpis')
+  async managerKpis(@TenantId() tenantId: string) {
+    return this.reportsService.managerKpis(tenantId);
+  }
+
   @Get('vat-summary')
   async vatSummary(
     @TenantId() tenantId: string,

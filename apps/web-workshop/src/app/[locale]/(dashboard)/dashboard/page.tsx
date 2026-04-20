@@ -9,7 +9,7 @@ import { useLowStock } from '@/hooks/use-parts';
 import { useDueReminders } from '@/hooks/use-reminders';
 import { useFormat } from '@/hooks/use-format';
 import { useDeferredSummary } from '@/hooks/use-deferred';
-import { useKpiDashboard, useOutstandingInvoices, useTechnicianReport } from '@/hooks/use-reports';
+import { useKpiDashboard, useOutstandingInvoices, useTechnicianReport, useManagerKpis } from '@/hooks/use-reports';
 import { Link } from '@/i18n/navigation';
 
 export default function DashboardPage() {
@@ -52,6 +52,9 @@ export default function DashboardPage() {
   const topTechs = [...techRows]
     .sort((a, b) => Number(b.billedHours ?? 0) - Number(a.billedHours ?? 0))
     .slice(0, 5);
+
+  // v2 — Manager KPIs
+  const { data: managerKpis } = useManagerKpis();
 
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
@@ -246,6 +249,115 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Manager KPIs v2: bay utilisation, first-time-right, retention */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Bay utilisation */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Bay utilisation (now)
+            </h2>
+            <Link href="/floor" className="text-xs text-primary-600 hover:underline">
+              Floor &rarr;
+            </Link>
+          </div>
+          {managerKpis ? (
+            <>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-gray-900">
+                  {managerKpis.bay_utilization.pct}%
+                </span>
+                <span className="text-sm text-gray-500">
+                  {managerKpis.bay_utilization.busy} of {managerKpis.bay_utilization.total} busy
+                </span>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-gray-100">
+                <div
+                  className={`h-2 rounded-full ${
+                    managerKpis.bay_utilization.pct >= 80
+                      ? 'bg-red-500'
+                      : managerKpis.bay_utilization.pct >= 60
+                      ? 'bg-green-500'
+                      : 'bg-yellow-400'
+                  }`}
+                  style={{ width: `${managerKpis.bay_utilization.pct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                {managerKpis.bay_utilization.pct >= 80
+                  ? 'Near capacity — reschedule walk-ins.'
+                  : managerKpis.bay_utilization.pct >= 60
+                  ? 'Healthy flow.'
+                  : 'Room to take more work.'}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Loading…</p>
+          )}
+        </div>
+
+        {/* First-time-right */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            First-time-right
+          </h2>
+          {managerKpis ? (
+            <>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`text-4xl font-bold ${
+                    managerKpis.first_time_right_pct >= 95
+                      ? 'text-green-600'
+                      : managerKpis.first_time_right_pct >= 90
+                      ? 'text-gray-900'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {managerKpis.first_time_right_pct}%
+                </span>
+                <span className="text-sm text-gray-500">this month</span>
+              </div>
+              <dl className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-gray-600">Comeback rate</dt>
+                  <dd
+                    className={`font-medium ${
+                      managerKpis.comeback_pct > 5 ? 'text-red-600' : 'text-gray-900'
+                    }`}
+                  >
+                    {managerKpis.comeback_pct}%
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-gray-500">
+                Industry benchmark: 95%+. Track comebacks on the new-job form.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">Loading…</p>
+          )}
+        </div>
+
+        {/* Retention cohort */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Retention cohort
+          </h2>
+          {managerKpis ? (
+            <div className="space-y-2 text-sm">
+              <CohortRow label="Last 6 months" cohort={managerKpis.retention.m6} />
+              <CohortRow label="Last 12 months" cohort={managerKpis.retention.m12} />
+              <CohortRow label="Last 24 months" cohort={managerKpis.retention.m24} />
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Loading…</p>
+          )}
+          <p className="mt-3 text-xs text-gray-500">
+            Active = any job in window. Repeat = 2+ jobs.
+          </p>
         </div>
       </div>
 
@@ -445,6 +557,29 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CohortRow({
+  label,
+  cohort,
+}: {
+  label: string;
+  cohort: { active: number; repeat: number };
+}) {
+  const retention =
+    cohort.active > 0 ? Math.round((cohort.repeat / cohort.active) * 100) : 0;
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 py-1.5 last:border-0">
+      <span className="text-gray-700">{label}</span>
+      <div className="text-end">
+        <span className="font-medium text-gray-900">{cohort.active}</span>
+        <span className="ms-1 text-xs text-gray-500">active</span>
+        <span className="ms-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+          {retention}% repeat
+        </span>
+      </div>
     </div>
   );
 }
