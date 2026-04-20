@@ -109,6 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: 'Engagement',
       items: [
         { href: '/reminders', label: 'Reminders', icon: Calendar },
+        { href: '/deferred', label: 'Deferred work', icon: Layers },
         { href: '/surveys', label: 'Feedback', icon: ClipboardList },
       ],
     },

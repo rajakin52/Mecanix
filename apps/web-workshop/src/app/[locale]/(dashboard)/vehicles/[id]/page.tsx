@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkReminderSent } from '@/hooks/use-reminders';
 import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentReminder } from '@/hooks/use-document-reminders';
 import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
+import { useDeferredServices, useCreateDeferred } from '@/hooks/use-deferred';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -46,6 +47,14 @@ export default function VehicleDetailPage() {
   const updateMutation = useUpdateVehicle();
   const { data: reminders, isLoading: loadingReminders } = useVehicleReminders(id);
   const { data: warrantyCoverage } = useVehicleWarrantyCoverage(id);
+  const { data: deferredRows } = useDeferredServices(undefined, { vehicleId: id });
+  const createDeferred = useCreateDeferred();
+  const [deferredForm, setDeferredForm] = useState<{ description: string; cost: string; priority: 'red' | 'yellow' }>({
+    description: '',
+    cost: '',
+    priority: 'yellow',
+  });
+  const [deferredOpen, setDeferredOpen] = useState(false);
   const createReminder = useCreateReminder();
   const completeReminder = useCompleteReminder();
   const markSent = useMarkReminderSent();
@@ -370,6 +379,117 @@ export default function VehicleDetailPage() {
               ))}
             </ul>
           </div>
+        )}
+      </div>
+
+      {/* Deferred (recommended but declined) work */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Deferred work</h2>
+            <p className="text-xs text-gray-500">Recommended services the customer declined or postponed.</p>
+          </div>
+          <button
+            onClick={() => setDeferredOpen(!deferredOpen)}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {deferredOpen ? 'Cancel' : 'Add item'}
+          </button>
+        </div>
+
+        {deferredOpen && (
+          <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <input
+                  value={deferredForm.description}
+                  onChange={(e) => setDeferredForm({ ...deferredForm, description: e.target.value })}
+                  placeholder="e.g. Rear brake pads at 40% — replace within 3 months"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Estimated cost</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={deferredForm.cost}
+                  onChange={(e) => setDeferredForm({ ...deferredForm, cost: e.target.value })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Priority</label>
+                <select
+                  value={deferredForm.priority}
+                  onChange={(e) => setDeferredForm({ ...deferredForm, priority: e.target.value as 'red' | 'yellow' })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="yellow">Yellow — monitor</option>
+                  <option value="red">Red — urgent</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={async () => {
+                  if (!deferredForm.description.trim() || !vehicle.customer_id) return;
+                  await createDeferred.mutateAsync({
+                    customerId: vehicle.customer_id as string,
+                    vehicleId: id,
+                    description: deferredForm.description.trim(),
+                    estimatedCost: deferredForm.cost ? Number(deferredForm.cost) : undefined,
+                    priority: deferredForm.priority,
+                  });
+                  setDeferredForm({ description: '', cost: '', priority: 'yellow' });
+                  setDeferredOpen(false);
+                }}
+                disabled={createDeferred.isPending}
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {createDeferred.isPending ? 'Saving…' : 'Add deferred item'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!deferredRows || deferredRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-400">No deferred items on record.</p>
+        ) : (
+          <ul className="divide-y">
+            {deferredRows.map((d) => {
+              const row = d as unknown as Record<string, unknown>;
+              return (
+                <li key={row.id as string} className="flex items-start justify-between gap-3 py-2 text-sm">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span
+                      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${
+                        row.priority === 'red' ? 'bg-red-500' : 'bg-yellow-400'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900 truncate">{row.description as string}</div>
+                      <div className="text-xs text-gray-500">
+                        {row.follow_up_date ? `Follow-up: ${new Date(row.follow_up_date as string).toLocaleDateString()}` : 'No follow-up set'}
+                        <span className="ms-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
+                          {row.status as string}
+                        </span>
+                        {(row.reminder_count as number) > 0 ? (
+                          <span className="ms-2 text-gray-400">{row.reminder_count as number} reminders</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-end text-sm">
+                    {row.estimated_cost != null ? (
+                      <span className="font-medium text-gray-900">{Number(row.estimated_cost).toFixed(2)}</span>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
