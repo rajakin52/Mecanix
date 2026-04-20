@@ -161,6 +161,26 @@ export function useUpdatePartsLine() {
   });
 }
 
+export function useJobQc(jobId: string) {
+  return useQuery({
+    queryKey: ['job-qc', jobId],
+    queryFn: () => api.get<Record<string, unknown> | null>(`/jobs/${jobId}/qc`),
+    enabled: !!jobId,
+  });
+}
+
+export function useUpsertJobQc() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, ...data }: Record<string, unknown> & { jobId: string }) =>
+      api.put(`/jobs/${jobId}/qc`, data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['job-qc', v.jobId] });
+      qc.invalidateQueries({ queryKey: ['job', v.jobId] });
+    },
+  });
+}
+
 export function useChargeLabourLine() {
   const qc = useQueryClient();
   return useMutation({

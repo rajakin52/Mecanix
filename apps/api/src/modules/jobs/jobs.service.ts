@@ -324,6 +324,20 @@ export class JobsService {
           'Cannot mark as ready — there are planned work items that have not been completed. Charge or remove all planned items first.',
         );
       }
+
+      // QC gate: a passed QC record must exist before handover.
+      const { data: qc } = await client
+        .from('job_qc_checks')
+        .select('passed')
+        .eq('tenant_id', tenantId)
+        .eq('job_card_id', id)
+        .maybeSingle();
+
+      if (!qc?.passed) {
+        throw new BadRequestException(
+          'Cannot mark as ready — quality control has not been completed. Complete the QC checklist first.',
+        );
+      }
     }
 
     const updateData: Record<string, unknown> = {

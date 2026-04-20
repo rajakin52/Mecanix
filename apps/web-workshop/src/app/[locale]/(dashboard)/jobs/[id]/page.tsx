@@ -19,6 +19,8 @@ import {
   useUpdatePartsLine,
   useChargeLabourLine,
   useChargePartsLine,
+  useJobQc,
+  useUpsertJobQc,
   useTechnicians,
 } from '@/hooks/use-jobs';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
@@ -1070,6 +1072,42 @@ export default function JobDetailPage() {
   const createParts = useCreatePartsLine();
   const updateParts = useUpdatePartsLine();
   const chargeParts = useChargePartsLine();
+
+  // Quality Control (gates the transition to 'ready')
+  const { data: qcData } = useJobQc(id);
+  const upsertQc = useUpsertJobQc();
+  const qc = (qcData ?? {}) as Record<string, unknown>;
+  const [qcDraft, setQcDraft] = useState<Record<string, unknown>>({});
+  const qcField = <K extends string>(key: K) => (qcDraft[key] !== undefined ? qcDraft[key] : qc[key]);
+  const setQcField = (key: string, value: unknown) => setQcDraft((d) => ({ ...d, [key]: value }));
+  const qcBooleans = [
+    ['all_work_completed', 'allWorkCompleted', 'All work completed'],
+    ['test_drive_done', 'testDriveDone', 'Test drive performed'],
+    ['wash_done', 'washDone', 'Vehicle washed'],
+    ['fluid_levels_checked', 'fluidLevelsChecked', 'Fluid levels checked'],
+    ['torque_recheck_done', 'torqueRecheckDone', 'Torque re-checked'],
+    ['codes_cleared', 'codesCleared', 'Fault codes cleared'],
+    ['tools_removed', 'toolsRemoved', 'Tools removed from vehicle'],
+    ['personal_items_verified', 'personalItemsVerified', 'Personal items verified'],
+  ] as const;
+  const handleQcSave = async (markPassed: boolean) => {
+    const payload: Record<string, unknown> = {};
+    for (const [, camel] of qcBooleans) {
+      const v = qcField(camel) ?? qc[camel.replace(/([A-Z])/g, '_$1').toLowerCase()];
+      if (v !== undefined) payload[camel] = Boolean(v);
+    }
+    const testDriveNotes = qcField('testDriveNotes') ?? qc.test_drive_notes;
+    if (testDriveNotes !== undefined && testDriveNotes !== null) payload.testDriveNotes = testDriveNotes;
+    const notes = qcField('notes') ?? qc.notes;
+    if (notes !== undefined && notes !== null) payload.notes = notes;
+    const mileageOut = qcField('mileageOut') ?? qc.mileage_out;
+    if (mileageOut !== undefined && mileageOut !== null && mileageOut !== '') {
+      payload.mileageOut = Number(mileageOut);
+    }
+    if (markPassed) payload.passed = true;
+    await upsertQc.mutateAsync({ jobId: id, ...payload });
+    setQcDraft({});
+  };
   const [showPartsForm, setShowPartsForm] = useState(false);
   const [partSearch, setPartSearch] = useState('');
   const [partSearchResults, setPartSearchResults] = useState<Array<{ id: string; part_number: string; description: string; unit_cost: number; sell_price: number; stock_qty: number; category: string }>>([]);
@@ -2121,6 +2159,96 @@ export default function JobDetailPage() {
                 {createParts.isPending ? tc('loading') : tc('save')}
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Quality Control Checklist */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Quality Control</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              {qc.passed
+                ? `Passed ${qc.qc_performed_at ? new Date(qc.qc_performed_at as string).toLocaleString() : ''}`
+                : 'Complete this checklist before marking the job as Ready.'}
+            </p>
+          </div>
+          {qc.passed ? (
+            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+              Passed
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
+              Pending
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {qcBooleans.map(([snake, camel, label]) => (
+            <label key={snake} className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                disabled={isInvoiced || upsertQc.isPending}
+                checked={Boolean(qcField(camel) ?? qc[snake])}
+                onChange={(e) => setQcField(camel, e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Mileage out</label>
+            <input
+              type="number"
+              disabled={isInvoiced || upsertQc.isPending}
+              value={String(qcField('mileageOut') ?? qc.mileage_out ?? '')}
+              onChange={(e) => setQcField('mileageOut', e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Test drive notes</label>
+            <input
+              disabled={isInvoiced || upsertQc.isPending}
+              value={String(qcField('testDriveNotes') ?? qc.test_drive_notes ?? '')}
+              onChange={(e) => setQcField('testDriveNotes', e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700">QC notes</label>
+          <textarea
+            disabled={isInvoiced || upsertQc.isPending}
+            value={String(qcField('notes') ?? qc.notes ?? '')}
+            onChange={(e) => setQcField('notes', e.target.value)}
+            rows={3}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        {!isInvoiced && (
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={() => handleQcSave(false)}
+              disabled={upsertQc.isPending}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Save progress
+            </button>
+            <button
+              onClick={() => handleQcSave(true)}
+              disabled={upsertQc.isPending}
+              className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {qc.passed ? 'Re-sign' : 'Mark QC passed'}
+            </button>
           </div>
         )}
       </div>

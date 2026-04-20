@@ -107,3 +107,23 @@ export const updatePartsLineSchema = createPartsLineSchema.partial();
 
 export type CreatePartsLineInput = z.infer<typeof createPartsLineSchema>;
 export type UpdatePartsLineInput = z.infer<typeof updatePartsLineSchema>;
+
+// ---------- QC Checks ----------
+
+export const upsertJobQcSchema = z.object({
+  allWorkCompleted: z.boolean().optional(),
+  testDriveDone: z.boolean().optional(),
+  testDriveNotes: z.string().max(2000).optional(),
+  washDone: z.boolean().optional(),
+  fluidLevelsChecked: z.boolean().optional(),
+  torqueRecheckDone: z.boolean().optional(),
+  codesCleared: z.boolean().optional(),
+  toolsRemoved: z.boolean().optional(),
+  personalItemsVerified: z.boolean().optional(),
+  mileageOut: z.coerce.number().int().nonnegative().optional(),
+  notes: z.string().max(5000).optional(),
+  passed: z.boolean().optional(),
+  signatureUrl: z.string().url().max(2000).optional(),
+});
+
+export type UpsertJobQcInput = z.infer<typeof upsertJobQcSchema>;
