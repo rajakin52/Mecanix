@@ -7,8 +7,10 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   submitBookingRequestSchema,
   confirmBookingRequestSchema,
+  publicAdvisorSchema,
   type SubmitBookingRequestInput,
   type ConfirmBookingRequestInput,
+  type PublicAdvisorInput,
 } from '@mecanix/validators';
 
 /**
@@ -45,6 +47,14 @@ export class BookingController {
   ) {
     const workshop = await this.bookingService.getWorkshopBySlug(slug);
     return this.bookingService.submitBookingRequest(workshop.id, body as never);
+  }
+
+  @Post('public/:slug/advisor')
+  async advisor(
+    @Param('slug') slug: string,
+    @Body(new ZodValidationPipe(publicAdvisorSchema)) body: PublicAdvisorInput,
+  ) {
+    return this.bookingService.publicAdvisor(slug, body);
   }
 
   // ── Authenticated endpoints (workshop staff) ──

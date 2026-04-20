@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class BookingService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly aiService: AiService,
+  ) {}
 
   /** Get workshop info by booking slug (public) */
   async getWorkshopBySlug(slug: string) {
@@ -177,5 +181,69 @@ export class BookingService {
       .eq('id', requestId);
 
     return { request, appointment };
+  }
+
+  /**
+   * Public-facing AI service advisor. The customer describes the
+   * problem before booking; we match the workshop's catalog and
+   * return a draft set of suggested labour + parts + notes.
+   *
+   * Safety rails:
+   *   - workshop must have booking_enabled + booking_slug
+   *   - narrative + vehicle are required and capped at sane lengths
+   *   - returned estimate is *suggested*, not priced — it's a lead
+   *     into the real estimate the shop creates after intake
+   */
+  async publicAdvisor(
+    slug: string,
+    input: {
+      narrative: string;
+      vehicleMake?: string;
+      vehicleModel?: string;
+      vehicleYear?: number;
+    },
+  ) {
+    const workshop = await this.getWorkshopBySlug(slug);
+
+    const narrative = (input.narrative ?? '').trim().slice(0, 2000);
+    if (narrative.length < 10) {
+      throw new BadRequestException('Please describe the problem in a bit more detail.');
+    }
+
+    // Collect symptom codes that match the narrative keywords so the
+    // AI prompt has the workshop's vocabulary to anchor to.
+    const client = this.supabase.getClient();
+    const { data: symptomRows } = await client
+      .from('symptoms')
+      .select('code, label_en, label_pt, keywords')
+      .eq('is_active', true);
+    const lower = narrative.toLowerCase();
+    const matchedCodes = (symptomRows ?? [])
+      .filter((s) => {
+        const kws = (s.keywords as string[] | null) ?? [];
+        return (
+          kws.some((k) => lower.includes(String(k).toLowerCase())) ||
+          lower.includes(String(s.label_en ?? '').toLowerCase()) ||
+          lower.includes(String(s.label_pt ?? '').toLowerCase())
+        );
+      })
+      .map((s) => s.code as string)
+      .slice(0, 10);
+
+    const suggestions = await this.aiService.generateEstimate(workshop.id as string, {
+      reportedProblem: narrative,
+      symptomCodes: matchedCodes,
+      vehicleMake: input.vehicleMake ?? '',
+      vehicleModel: input.vehicleModel ?? '',
+      vehicleYear: input.vehicleYear,
+    });
+
+    return {
+      workshop: { name: workshop.name, slug: workshop.booking_slug },
+      matchedSymptoms: matchedCodes,
+      suggestions,
+      disclaimer:
+        'These suggestions are indicative. The final estimate is prepared after the vehicle is inspected at the workshop.',
+    };
   }
 }

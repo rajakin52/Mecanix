@@ -20,5 +20,13 @@ export const confirmBookingRequestSchema = z.object({
   technicianId: z.string().uuid().optional(),
 });
 
+export const publicAdvisorSchema = z.object({
+  narrative: z.string().min(10).max(2000),
+  vehicleMake: z.string().max(100).optional(),
+  vehicleModel: z.string().max(100).optional(),
+  vehicleYear: z.coerce.number().int().min(1950).max(2100).optional(),
+});
+
 export type SubmitBookingRequestInput = z.infer<typeof submitBookingRequestSchema>;
 export type ConfirmBookingRequestInput = z.infer<typeof confirmBookingRequestSchema>;
+export type PublicAdvisorInput = z.infer<typeof publicAdvisorSchema>;
