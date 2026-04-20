@@ -26,6 +26,11 @@ export class TechniciansController {
     return this.techniciansService.list(tenantId);
   }
 
+  @Get('live-board')
+  async liveBoard(@TenantId() tenantId: string) {
+    return this.techniciansService.liveBoard(tenantId);
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,
