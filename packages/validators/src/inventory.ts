@@ -13,6 +13,8 @@ export const createPartSchema = z.object({
   category: z.string().max(100).optional(),
   location: z.string().max(200).optional(),
   taxCodeId: z.string().uuid().optional(),
+  defaultWarrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
+  defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
 });
 
 export const updatePartSchema = createPartSchema.partial();

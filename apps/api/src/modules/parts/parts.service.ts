@@ -85,6 +85,8 @@ export class PartsService {
         category: input.category || null,
         location: input.location || null,
         tax_code_id: input.taxCodeId || null,
+        default_warranty_months: input.defaultWarrantyMonths ?? null,
+        default_warranty_km: input.defaultWarrantyKm ?? null,
         is_active: true,
         created_by: userId,
         updated_by: userId,
@@ -112,6 +114,8 @@ export class PartsService {
       category: 'category',
       location: 'location',
       taxCodeId: 'tax_code_id',
+      defaultWarrantyMonths: 'default_warranty_months',
+      defaultWarrantyKm: 'default_warranty_km',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

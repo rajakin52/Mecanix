@@ -72,6 +72,7 @@ export class PartsLinesService {
         partCategory = part?.category ?? null;
       }
 
+
       const resolved = await this.pricingService.resolveMarkup(
         tenantId,
         job?.customer_id ?? null,
@@ -134,6 +135,41 @@ export class PartsLinesService {
       throw new BadRequestException(error.message || 'Failed to create parts line');
     }
 
+    // Snapshot warranty terms on the line. Explicit input wins over
+    // the part master's default, so the receptionist can shorten or
+    // waive warranty per invoice when needed.
+    let warrantyMonths = input.warrantyMonths ?? null;
+    let warrantyKm = input.warrantyKm ?? null;
+    if ((warrantyMonths == null || warrantyKm == null) && input.partNumber) {
+      const { data: part } = await this.supabase
+        .getClient()
+        .from('parts')
+        .select('default_warranty_months, default_warranty_km')
+        .eq('tenant_id', tenantId)
+        .eq('part_number', input.partNumber)
+        .limit(1)
+        .maybeSingle();
+      if (part) {
+        if (warrantyMonths == null) warrantyMonths = (part.default_warranty_months as number | null) ?? null;
+        if (warrantyKm == null) warrantyKm = (part.default_warranty_km as number | null) ?? null;
+      }
+    }
+    if (warrantyMonths != null || warrantyKm != null) {
+      const { data: updated } = await this.supabase
+        .getClient()
+        .from('parts_lines')
+        .update({
+          warranty_months: warrantyMonths,
+          warranty_km: warrantyKm,
+          warranty_starts_at: new Date().toISOString(),
+        })
+        .eq('id', (line as { id: string }).id)
+        .eq('tenant_id', tenantId)
+        .select()
+        .single();
+      if (updated) Object.assign(line as Record<string, unknown>, updated);
+    }
+
     await this.jobsService.recalculateTotals(tenantId, jobCardId);
 
     return line;
@@ -177,6 +213,16 @@ export class PartsLinesService {
       // Track if user overrides the original resolved markup
       if (existing.original_markup_pct != null && input.markupPct !== Number(existing.original_markup_pct)) {
         updateData['price_overridden'] = true;
+      }
+    }
+
+    // Warranty-term override: capture starts_at the first time terms
+    // are set so a later edit doesn't keep pushing the expiry out.
+    if (input.warrantyMonths !== undefined || input.warrantyKm !== undefined) {
+      if (input.warrantyMonths !== undefined) updateData['warranty_months'] = input.warrantyMonths ?? null;
+      if (input.warrantyKm !== undefined) updateData['warranty_km'] = input.warrantyKm ?? null;
+      if (!existing.warranty_starts_at) {
+        updateData['warranty_starts_at'] = new Date().toISOString();
       }
     }
 

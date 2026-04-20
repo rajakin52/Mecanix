@@ -7,6 +7,7 @@ import { useVehicle, useUpdateVehicle } from '@/hooks/use-vehicles';
 import { api } from '@/lib/api';
 import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkReminderSent } from '@/hooks/use-reminders';
 import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentReminder } from '@/hooks/use-document-reminders';
+import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -44,6 +45,7 @@ export default function VehicleDetailPage() {
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const updateMutation = useUpdateVehicle();
   const { data: reminders, isLoading: loadingReminders } = useVehicleReminders(id);
+  const { data: warrantyCoverage } = useVehicleWarrantyCoverage(id);
   const createReminder = useCreateReminder();
   const completeReminder = useCompleteReminder();
   const markSent = useMarkReminderSent();
@@ -273,6 +275,101 @@ export default function VehicleDetailPage() {
           </div>
         ) : (
           <p className="py-8 text-center text-sm text-gray-500">{tv('noPhotos')}</p>
+        )}
+      </div>
+
+      {/* Warranty coverage */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Warranty coverage</h2>
+          {warrantyCoverage?.active_coverage?.length ? (
+            <span className="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              {warrantyCoverage.active_coverage.length} active
+            </span>
+          ) : null}
+        </div>
+        {!warrantyCoverage ? (
+          <p className="py-6 text-center text-sm text-gray-400">Loading…</p>
+        ) : warrantyCoverage.active_coverage.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-500">
+            No active warranty coverage on record.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Item</th>
+                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Job</th>
+                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Terms</th>
+                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Expires</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Days left</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {warrantyCoverage.active_coverage.map((row) => {
+                  const daysLeft = row.days_remaining;
+                  const colorClass =
+                    daysLeft == null
+                      ? 'text-gray-500'
+                      : daysLeft < 14
+                      ? 'text-red-600 font-semibold'
+                      : daysLeft < 30
+                      ? 'text-amber-600'
+                      : 'text-gray-700';
+                  return (
+                    <tr key={`${row.kind}-${row.id}`}>
+                      <td className="px-3 py-2 text-sm">
+                        <span className="mr-2 inline-flex rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                          {row.kind}
+                        </span>
+                        {row.description}
+                      </td>
+                      <td className="px-3 py-2 text-sm">
+                        <Link
+                          href={`/jobs/${row.job_card_id}`}
+                          className="text-primary-600 hover:underline"
+                        >
+                          {row.job_number ?? '—'}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-700">
+                        {row.warranty_months != null ? `${row.warranty_months} mo` : ''}
+                        {row.warranty_months != null && row.warranty_km != null ? ' / ' : ''}
+                        {row.warranty_km != null ? `${(row.warranty_km / 1000).toFixed(0)}k km` : ''}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-600">
+                        {row.expires_at ? new Date(row.expires_at).toLocaleDateString() : '—'}
+                      </td>
+                      <td className={`px-3 py-2 text-end text-sm ${colorClass}`}>
+                        {daysLeft == null ? '—' : daysLeft}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {warrantyCoverage?.comeback_candidates && warrantyCoverage.comeback_candidates.length > 0 && (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-800">Recent work on this vehicle (last 30 days)</p>
+            <p className="mt-1 text-xs text-amber-700">
+              Consider flagging a new job as a comeback if it relates to any of:
+            </p>
+            <ul className="mt-2 space-y-1 text-xs">
+              {warrantyCoverage.comeback_candidates.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/jobs/${c.id}`} className="text-primary-700 hover:underline">
+                    {c.job_number}
+                  </Link>
+                  <span className="ms-2 text-amber-700">
+                    {c.status} · {new Date(c.created_at).toLocaleDateString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

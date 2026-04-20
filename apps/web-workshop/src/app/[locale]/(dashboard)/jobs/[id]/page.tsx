@@ -1057,11 +1057,23 @@ export default function JobDetailPage() {
   });
   const taxCodes = (Array.isArray(taxCodesRaw) ? taxCodesRaw : []).filter((t) => t.is_active);
   const isInvoiced = ((job as Record<string, unknown> | undefined)?.status as string) === 'invoiced';
+
+  const formatWarranty = (line: Record<string, unknown>): string => {
+    const months = line.warranty_months as number | null;
+    const km = line.warranty_km as number | null;
+    if (months == null && km == null) return '—';
+    const parts: string[] = [];
+    if (months != null) parts.push(`${months} mo`);
+    if (km != null) parts.push(`${(km / 1000).toFixed(0)}k km`);
+    return parts.join(' / ');
+  };
   const [showLabourForm, setShowLabourForm] = useState(false);
   const [labourDesc, setLabourDesc] = useState('');
   const [labourHours, setLabourHours] = useState('');
   const [labourRate, setLabourRate] = useState('');
   const [labourTechId, setLabourTechId] = useState('');
+  const [labourWarrantyMonths, setLabourWarrantyMonths] = useState('');
+  const [partWarrantyMonths, setPartWarrantyMonths] = useState('');
 
   // Pricing
   const { data: pricingSettings } = usePricingSettings();
@@ -1273,12 +1285,14 @@ export default function JobDetailPage() {
         hours: parseFloat(labourHours),
         rate: parseFloat(labourRate),
         technicianId: labourTechId || undefined,
+        warrantyMonths: labourWarrantyMonths ? Number(labourWarrantyMonths) : undefined,
       });
       setShowLabourForm(false);
       setLabourDesc('');
       setLabourHours('');
       setLabourRate('');
       setLabourTechId('');
+      setLabourWarrantyMonths('');
     } catch (err) {
       setLabourError(err instanceof Error ? err.message : 'Failed to add labour line');
     }
@@ -1309,8 +1323,10 @@ export default function JobDetailPage() {
         quantity: parseInt(partQty, 10) || 1,
         unitCost: parseFloat(partUnitCost),
         markupPct: Math.max(0, finalMarkup),
+        warrantyMonths: partWarrantyMonths ? Number(partWarrantyMonths) : undefined,
       });
       setShowPartsForm(false);
+      setPartWarrantyMonths('');
       clearPartSelection();
       setPartQty('1');
       setPartMarkup('0');
@@ -1872,6 +1888,7 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('subtotal')}</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warranty</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
             </tr>
           </thead>
@@ -1903,6 +1920,7 @@ export default function JobDetailPage() {
                   </select>
                 </td>
                 <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(lineVat)}</td>
+                <td className="px-4 py-2 text-sm text-gray-600">{formatWarranty(line)}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">
                   {(line.technicians as Record<string, string> | null | undefined)?.full_name ?? '-'}
                 </td>
@@ -1910,7 +1928,7 @@ export default function JobDetailPage() {
             );})}
             {(!labourLines || (labourLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={7} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
@@ -1967,6 +1985,18 @@ export default function JobDetailPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Warranty (months)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="240"
+                  value={labourWarrantyMonths}
+                  onChange={(e) => setLabourWarrantyMonths(e.target.value)}
+                  placeholder="e.g. 3"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
               </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">
@@ -2032,6 +2062,7 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">{t('subtotal')}</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warranty</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -2065,11 +2096,12 @@ export default function JobDetailPage() {
                   </select>
                 </td>
                 <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(lineVat)}</td>
+                <td className="px-4 py-2 text-sm text-gray-600">{formatWarranty(line)}</td>
               </tr>
             );})}
             {(!partsLines || (partsLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={9} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
@@ -2245,6 +2277,18 @@ export default function JobDetailPage() {
                 <span className="block text-xs font-medium text-primary-600">{t('subtotal')}</span>
                 <span className="text-lg font-bold text-primary-700">{formatCurrency(computedSubtotal)}</span>
               </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700">Warranty (months)</label>
+              <input
+                type="number"
+                min="0"
+                max="240"
+                value={partWarrantyMonths}
+                onChange={(e) => setPartWarrantyMonths(e.target.value)}
+                placeholder="Leave blank to use part default"
+                className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button

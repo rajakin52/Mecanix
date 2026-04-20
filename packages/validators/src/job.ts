@@ -85,6 +85,8 @@ export const createLabourLineSchema = z.object({
   rate: z.coerce.number().min(0),
   technicianId: z.string().uuid().optional(),
   taxCodeId: z.string().uuid().optional(),
+  warrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
+  warrantyKm: z.coerce.number().int().min(0).optional(),
 });
 
 export const updateLabourLineSchema = createLabourLineSchema.partial();
@@ -101,6 +103,8 @@ export const createPartsLineSchema = z.object({
   unitCost: z.coerce.number().min(0),
   markupPct: z.coerce.number().min(0).default(0),
   taxCodeId: z.string().uuid().optional(),
+  warrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
+  warrantyKm: z.coerce.number().int().min(0).optional(),
 });
 
 export const updatePartsLineSchema = createPartsLineSchema.partial();

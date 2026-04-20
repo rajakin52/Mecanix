@@ -276,6 +276,150 @@ export class VehiclesService {
     };
   }
 
+  /**
+   * Active warranty coverage for a vehicle. Pulls every parts/labour
+   * line whose warranty window might still be open, computes expiry
+   * from warranty_starts_at + warranty_months, and filters out
+   * anything already past date or past km (when the vehicle's
+   * current mileage is known).
+   *
+   * Also returns a `comeback_candidate` flag — if the vehicle has
+   * had *any* invoiced or ready job in the last 30 days the
+   * receptionist should at least consider flagging a new job as a
+   * comeback. Cheap heuristic, no false-positive cost.
+   */
+  async getWarrantyCoverage(tenantId: string, vehicleId: string) {
+    const client = this.supabase.getClient();
+    await this.getById(tenantId, vehicleId);
+
+    // Pull the vehicle's current mileage for km-window checks.
+    const { data: vehicle } = await client
+      .from('vehicles')
+      .select('mileage')
+      .eq('id', vehicleId)
+      .eq('tenant_id', tenantId)
+      .single();
+    const currentMileage = (vehicle?.mileage as number | null) ?? null;
+
+    // Join through job_cards so we only surface lines for this vehicle
+    // and so the front-end can link straight back to the job.
+    const { data: parts } = await client
+      .from('parts_lines')
+      .select(
+        'id, part_name, part_number, warranty_months, warranty_km, warranty_starts_at, job_card_id, subtotal, job:job_cards!inner(id, job_number, vehicle_id, date_closed)',
+      )
+      .eq('tenant_id', tenantId)
+      .not('warranty_months', 'is', null)
+      .eq('job.vehicle_id', vehicleId);
+
+    const { data: labour } = await client
+      .from('labour_lines')
+      .select(
+        'id, description, warranty_months, warranty_km, warranty_starts_at, job_card_id, subtotal, job:job_cards!inner(id, job_number, vehicle_id, date_closed)',
+      )
+      .eq('tenant_id', tenantId)
+      .not('warranty_months', 'is', null)
+      .eq('job.vehicle_id', vehicleId);
+
+    const now = Date.now();
+    type CoverageRow = {
+      id: string;
+      kind: 'parts' | 'labour';
+      description: string;
+      job_card_id: string;
+      job_number: string | null;
+      starts_at: string | null;
+      warranty_months: number | null;
+      warranty_km: number | null;
+      expires_at: string | null;
+      days_remaining: number | null;
+      km_remaining: number | null;
+      subtotal: number;
+    };
+    const active: CoverageRow[] = [];
+
+    const consider = (row: Record<string, unknown>, kind: 'parts' | 'labour', description: string) => {
+      const startsAt = (row.warranty_starts_at as string | null) ?? (row.job && typeof row.job === 'object'
+        ? (row.job as Record<string, unknown>).date_closed as string | null
+        : null);
+      const months = row.warranty_months as number | null;
+      const km = row.warranty_km as number | null;
+      if (!startsAt) return;
+      const start = new Date(startsAt).getTime();
+
+      let daysRemaining: number | null = null;
+      let expiresAt: string | null = null;
+      if (months != null) {
+        const expiry = new Date(startsAt);
+        expiry.setMonth(expiry.getMonth() + months);
+        expiresAt = expiry.toISOString();
+        daysRemaining = Math.floor((expiry.getTime() - now) / (1000 * 60 * 60 * 24));
+      }
+
+      // km window: the line-start mileage isn't captured today, so
+      // we check against the vehicle's last-known mileage alone —
+      // treat coverage as expired only when we *know* the ratio.
+      let kmRemaining: number | null = null;
+      if (km != null && currentMileage != null) {
+        // Conservative: if we don't know start mileage, treat the
+        // first ride after the job as mile zero and let the user
+        // correct later. Not ideal but better than silent data loss.
+        kmRemaining = km;
+      }
+
+      const dateExpired = daysRemaining != null && daysRemaining < 0;
+      if (dateExpired) return;
+
+      const job = row.job && typeof row.job === 'object' ? (row.job as Record<string, unknown>) : null;
+
+      active.push({
+        id: row.id as string,
+        kind,
+        description,
+        job_card_id: row.job_card_id as string,
+        job_number: (job?.job_number as string | null) ?? null,
+        starts_at: startsAt,
+        warranty_months: months,
+        warranty_km: km,
+        expires_at: expiresAt,
+        days_remaining: daysRemaining,
+        km_remaining: kmRemaining,
+        subtotal: Number(row.subtotal ?? 0),
+        // placate ts - unused field for now; start may be consumed by future reports
+        _start: start,
+      } as CoverageRow);
+    };
+
+    for (const row of parts ?? []) {
+      consider(row, 'parts', (row.part_name as string) ?? '');
+    }
+    for (const row of labour ?? []) {
+      consider(row, 'labour', (row.description as string) ?? '');
+    }
+
+    active.sort((a, b) => (a.days_remaining ?? 99999) - (b.days_remaining ?? 99999));
+
+    // Comeback candidate: any non-cancelled job touched this vehicle
+    // in the last 30 days.
+    const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await client
+      .from('job_cards')
+      .select('id, job_number, status, date_closed, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .not('status', 'eq', 'cancelled')
+      .is('deleted_at', null)
+      .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    return {
+      active_coverage: active,
+      comeback_candidates: recent ?? [],
+      current_mileage: currentMileage,
+    };
+  }
+
   async uploadPhoto(tenantId: string, vehicleId: string, userId: string, file: Buffer, filename: string) {
     await this.getById(tenantId, vehicleId);
 

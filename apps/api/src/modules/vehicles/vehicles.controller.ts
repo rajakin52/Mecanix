@@ -56,6 +56,14 @@ export class VehiclesController {
     return this.vehiclesService.getHistory(tenantId, id);
   }
 
+  @Get(':id/warranty-coverage')
+  async getWarrantyCoverage(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.vehiclesService.getWarrantyCoverage(tenantId, id);
+  }
+
   @Post()
   async create(
     @TenantId() tenantId: string,

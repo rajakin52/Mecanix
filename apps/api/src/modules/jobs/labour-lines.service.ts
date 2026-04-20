@@ -82,6 +82,10 @@ export class LabourLinesService {
         technician_id: input.technicianId || null,
         tax_code_id: taxCodeId,
         tax_rate: taxRate,
+        warranty_months: input.warrantyMonths ?? null,
+        warranty_km: input.warrantyKm ?? null,
+        warranty_starts_at:
+          input.warrantyMonths != null || input.warrantyKm != null ? new Date().toISOString() : null,
       })
       .select()
       .single();
@@ -124,6 +128,14 @@ export class LabourLinesService {
     if (input.hours !== undefined) updateData['hours'] = input.hours;
     if (input.rate !== undefined) updateData['rate'] = input.rate;
     if (input.technicianId !== undefined) updateData['technician_id'] = input.technicianId || null;
+
+    if (input.warrantyMonths !== undefined || input.warrantyKm !== undefined) {
+      if (input.warrantyMonths !== undefined) updateData['warranty_months'] = input.warrantyMonths ?? null;
+      if (input.warrantyKm !== undefined) updateData['warranty_km'] = input.warrantyKm ?? null;
+      if (!existing.warranty_starts_at) {
+        updateData['warranty_starts_at'] = new Date().toISOString();
+      }
+    }
 
     if (input.taxCodeId !== undefined) {
       const { data: tc, error: tcErr } = await this.supabase
