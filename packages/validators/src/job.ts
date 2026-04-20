@@ -145,3 +145,32 @@ export const pickupSignatureSchema = z.object({
 });
 
 export type PickupSignatureInput = z.infer<typeof pickupSignatureSchema>;
+
+// ---------- Line Photos ----------
+
+export const createLinePhotoSchema = z
+  .object({
+    lineKind: z.enum(['parts', 'labour']),
+    partsLineId: z.string().uuid().optional(),
+    labourLineId: z.string().uuid().optional(),
+    snapshot: z.enum(['before', 'after']),
+    base64Data: z
+      .string()
+      .min(20)
+      .max(5_000_000)
+      .refine((s) => s.startsWith('data:image/'), 'Must be a data URL image')
+      .optional(),
+    storageUrl: z.string().url().max(2000).optional(),
+    caption: z.string().max(500).optional(),
+  })
+  .refine(
+    (v) =>
+      (v.lineKind === 'parts' && !!v.partsLineId && !v.labourLineId) ||
+      (v.lineKind === 'labour' && !!v.labourLineId && !v.partsLineId),
+    { message: 'Exactly one of partsLineId or labourLineId must match lineKind' },
+  )
+  .refine((v) => Boolean(v.base64Data || v.storageUrl), {
+    message: 'Either base64Data or storageUrl is required',
+  });
+
+export type CreateLinePhotoInput = z.infer<typeof createLinePhotoSchema>;

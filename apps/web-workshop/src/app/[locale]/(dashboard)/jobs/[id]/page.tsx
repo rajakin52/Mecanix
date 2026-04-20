@@ -24,6 +24,12 @@ import {
   useRecordPickupSignature,
   useTechnicians,
 } from '@/hooks/use-jobs';
+import {
+  useLinePhotos,
+  useUploadLinePhoto,
+  useDeleteLinePhoto,
+  type LinePhoto,
+} from '@/hooks/use-line-photos';
 import { useInspection, useCreateInspection } from '@/hooks/use-inspections';
 import { useReception } from '@/hooks/use-receptions';
 import { useGatePasses, useCreateGatePass } from '@/hooks/use-gate-pass';
@@ -1058,6 +1064,12 @@ export default function JobDetailPage() {
   const taxCodes = (Array.isArray(taxCodesRaw) ? taxCodesRaw : []).filter((t) => t.is_active);
   const isInvoiced = ((job as Record<string, unknown> | undefined)?.status as string) === 'invoiced';
 
+  const [photoLine, setPhotoLine] = useState<{
+    kind: 'parts' | 'labour';
+    id: string;
+    label: string;
+  } | null>(null);
+
   const formatWarranty = (line: Record<string, unknown>): string => {
     const months = line.warranty_months as number | null;
     const km = line.warranty_km as number | null;
@@ -1890,6 +1902,7 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warranty</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">{t('assignedTo')}</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Photos</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -1924,11 +1937,25 @@ export default function JobDetailPage() {
                 <td className="px-4 py-2 text-sm text-gray-600">
                   {(line.technicians as Record<string, string> | null | undefined)?.full_name ?? '-'}
                 </td>
+                <td className="px-4 py-2 text-end text-sm">
+                  <button
+                    onClick={() =>
+                      setPhotoLine({
+                        kind: 'labour',
+                        id: String(line.id),
+                        label: String(line.description),
+                      })
+                    }
+                    className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Photos
+                  </button>
+                </td>
               </tr>
             );})}
             {(!labourLines || (labourLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={8} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
@@ -2063,6 +2090,7 @@ export default function JobDetailPage() {
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">IVA</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warranty</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Photos</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -2097,11 +2125,25 @@ export default function JobDetailPage() {
                 </td>
                 <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(lineVat)}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">{formatWarranty(line)}</td>
+                <td className="px-4 py-2 text-end text-sm">
+                  <button
+                    onClick={() =>
+                      setPhotoLine({
+                        kind: 'parts',
+                        id: String(line.id),
+                        label: String(line.part_name),
+                      })
+                    }
+                    className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Photos
+                  </button>
+                </td>
               </tr>
             );})}
             {(!partsLines || (partsLines as Array<unknown>).length === 0) && (
               <tr>
-                <td colSpan={10} className="px-4 py-4 text-center text-sm text-gray-400">
+                <td colSpan={11} className="px-4 py-4 text-center text-sm text-gray-400">
                   {tc('noResults')}
                 </td>
               </tr>
@@ -2516,6 +2558,16 @@ export default function JobDetailPage() {
         );
       })()}
 
+      {/* Before/after photo modal */}
+      {photoLine && (
+        <LinePhotoModal
+          jobId={id}
+          line={photoLine}
+          disabled={isInvoiced}
+          onClose={() => setPhotoLine(null)}
+        />
+      )}
+
       {/* Totals Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('grandTotal')}</h2>
@@ -2691,6 +2743,151 @@ export default function JobDetailPage() {
         </div>
       )}
       </>
+      )}
+    </div>
+  );
+}
+
+function LinePhotoModal({
+  jobId,
+  line,
+  disabled,
+  onClose,
+}: {
+  jobId: string;
+  line: { kind: 'parts' | 'labour'; id: string; label: string };
+  disabled: boolean;
+  onClose: () => void;
+}) {
+  const { data: photos } = useLinePhotos(jobId, line.kind, line.id);
+  const upload = useUploadLinePhoto(jobId);
+  const del = useDeleteLinePhoto(jobId);
+
+  const [uploading, setUploading] = useState<'before' | 'after' | null>(null);
+
+  const handleFile = (snapshot: 'before' | 'after') => async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(snapshot);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      await upload.mutateAsync({
+        lineKind: line.kind,
+        partsLineId: line.kind === 'parts' ? line.id : undefined,
+        labourLineId: line.kind === 'labour' ? line.id : undefined,
+        snapshot,
+        base64Data: base64,
+      });
+    } finally {
+      setUploading(null);
+      e.target.value = '';
+    }
+  };
+
+  const rows = (photos ?? []) as LinePhoto[];
+  const beforePhotos = rows.filter((p) => p.snapshot === 'before');
+  const afterPhotos = rows.filter((p) => p.snapshot === 'after');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Before / after — {line.label}</h2>
+            <p className="text-xs text-gray-500 capitalize">{line.kind} line</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            &#x2715;
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <PhotoColumn
+            label="Before"
+            color="bg-amber-100 text-amber-800"
+            photos={beforePhotos}
+            uploading={uploading === 'before'}
+            disabled={disabled}
+            onFile={handleFile('before')}
+            onDelete={(id) => del.mutate(id)}
+          />
+          <PhotoColumn
+            label="After"
+            color="bg-green-100 text-green-800"
+            photos={afterPhotos}
+            uploading={uploading === 'after'}
+            disabled={disabled}
+            onFile={handleFile('after')}
+            onDelete={(id) => del.mutate(id)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoColumn({
+  label,
+  color,
+  photos,
+  uploading,
+  disabled,
+  onFile,
+  onDelete,
+}: {
+  label: string;
+  color: string;
+  photos: LinePhoto[];
+  uploading: boolean;
+  disabled: boolean;
+  onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
+          {label}
+        </span>
+        {!disabled && (
+          <label className="cursor-pointer rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+            {uploading ? 'Uploading…' : 'Add photo'}
+            <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={uploading} />
+          </label>
+        )}
+      </div>
+      {photos.length === 0 ? (
+        <div className="flex h-40 items-center justify-center rounded-md border-2 border-dashed border-gray-200 text-sm text-gray-400">
+          No photos yet
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {photos.map((p) => (
+            <div key={p.id} className="group relative overflow-hidden rounded-md border border-gray-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.storage_url}
+                alt={p.caption ?? label}
+                className="h-40 w-full object-cover"
+              />
+              {!disabled && (
+                <button
+                  onClick={() => {
+                    if (confirm('Delete this photo?')) onDelete(p.id);
+                  }}
+                  className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
