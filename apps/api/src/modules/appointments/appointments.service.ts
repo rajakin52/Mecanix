@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { CreateAppointmentInput, UpdateAppointmentInput } from '@mecanix/validators';
+
+const RESCHEDULE_TTL_DAYS = 90; // token lives 90 days past appointment date
 
 interface AppointmentFilters {
   date?: string;
@@ -299,5 +302,110 @@ export class AppointmentsService {
     }
 
     return availableSlots;
+  }
+
+  /**
+   * Ensure the appointment has a public reschedule token. Called
+   * when the appointment is confirmed so the confirmation WhatsApp
+   * can embed the link. Idempotent — reuses an existing unexpired
+   * token rather than churning a new one.
+   */
+  async ensureRescheduleToken(tenantId: string, appointmentId: string) {
+    const client = this.supabase.getClient();
+    const { data: existing } = await client
+      .from('appointments')
+      .select('reschedule_token, reschedule_token_expires_at, scheduled_start')
+      .eq('id', appointmentId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!existing) throw new NotFoundException('Appointment not found');
+
+    const now = Date.now();
+    const stillValid =
+      existing.reschedule_token &&
+      existing.reschedule_token_expires_at &&
+      new Date(existing.reschedule_token_expires_at as string).getTime() > now;
+
+    if (stillValid) return { token: existing.reschedule_token as string };
+
+    const token = crypto.randomBytes(20).toString('hex');
+    const anchor = existing.scheduled_start
+      ? new Date(existing.scheduled_start as string).getTime()
+      : now;
+    const expiresAt = new Date(anchor + RESCHEDULE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    await client
+      .from('appointments')
+      .update({ reschedule_token: token, reschedule_token_expires_at: expiresAt })
+      .eq('id', appointmentId)
+      .eq('tenant_id', tenantId);
+
+    return { token, expiresAt };
+  }
+
+  /**
+   * Public-facing getter — token in, sanitised appointment out.
+   * No tenant scoping: the token IS the authorisation.
+   */
+  async getByRescheduleToken(token: string) {
+    const client = this.supabase.getClient();
+    const { data } = await client
+      .from('appointments')
+      .select(
+        'id, tenant_id, status, scheduled_start, scheduled_end, service_type, reschedule_token_expires_at, vehicle:vehicles(plate, make, model), tenant:tenants(name, booking_slot_minutes)',
+      )
+      .eq('reschedule_token', token)
+      .limit(1)
+      .maybeSingle();
+    if (!data) throw new NotFoundException('Reschedule link not found');
+    const expiresAt = data.reschedule_token_expires_at as string | null;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      throw new NotFoundException('Reschedule link has expired');
+    }
+    if (data.status === 'completed' || data.status === 'cancelled') {
+      throw new NotFoundException('Appointment can no longer be rescheduled');
+    }
+
+    const tenant = Array.isArray(data.tenant)
+      ? (data.tenant[0] as Record<string, unknown> | undefined)
+      : (data.tenant as Record<string, unknown> | null);
+    const vehicle = Array.isArray(data.vehicle)
+      ? (data.vehicle[0] as Record<string, unknown> | undefined)
+      : (data.vehicle as Record<string, unknown> | null);
+
+    return {
+      id: data.id,
+      tenant_id: data.tenant_id,
+      status: data.status,
+      scheduled_start: data.scheduled_start,
+      scheduled_end: data.scheduled_end,
+      service_type: data.service_type,
+      workshop: tenant ? { name: tenant.name, slot_minutes: tenant.booking_slot_minutes ?? 30 } : null,
+      vehicle,
+    };
+  }
+
+  /**
+   * Apply a new slot via the public reschedule token. Bumps
+   * reschedule_count so the shop can see how often this happens.
+   */
+  async applyReschedule(token: string, newStartIso: string, newEndIso: string) {
+    const client = this.supabase.getClient();
+    const record = await this.getByRescheduleToken(token);
+
+    const { data, error } = await client
+      .from('appointments')
+      .update({
+        scheduled_start: newStartIso,
+        scheduled_end: newEndIso,
+        reschedule_count: (record as unknown as { reschedule_count?: number }).reschedule_count
+          ? ((record as unknown as { reschedule_count: number }).reschedule_count ?? 0) + 1
+          : 1,
+      })
+      .eq('id', record.id as string)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   }
 }

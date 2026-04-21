@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -91,5 +92,46 @@ export class AppointmentsController {
     @Body(new ZodValidationPipe(changeAppointmentStatusSchema)) body: ChangeAppointmentStatusInput,
   ) {
     return this.appointmentsService.updateStatus(tenantId, id, body.status);
+  }
+
+  @Post(':id/reschedule-token')
+  async ensureRescheduleToken(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.appointmentsService.ensureRescheduleToken(tenantId, id);
+  }
+}
+
+// Public reschedule flow — token-authorised, no tenant guard.
+@Controller('public/reschedule')
+export class PublicRescheduleController {
+  constructor(private readonly appointmentsService: AppointmentsService) {}
+
+  @Get(':token')
+  async getByToken(@Param('token') token: string) {
+    return this.appointmentsService.getByRescheduleToken(token);
+  }
+
+  @Get(':token/slots/:date')
+  async getSlots(
+    @Param('token') token: string,
+    @Param('date') date: string,
+    @Query('duration') duration?: string,
+  ) {
+    const record = await this.appointmentsService.getByRescheduleToken(token);
+    const durationMinutes = duration ? parseInt(duration, 10) : 60;
+    return this.appointmentsService.getAvailableSlots(record.tenant_id as string, date, durationMinutes);
+  }
+
+  @Post(':token')
+  async apply(
+    @Param('token') token: string,
+    @Body() body: { scheduledStart: string; scheduledEnd: string },
+  ) {
+    if (!body.scheduledStart || !body.scheduledEnd) {
+      throw new BadRequestException('scheduledStart and scheduledEnd required');
+    }
+    return this.appointmentsService.applyReschedule(token, body.scheduledStart, body.scheduledEnd);
   }
 }
