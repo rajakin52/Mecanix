@@ -84,3 +84,87 @@ export function useApproveEstimate() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['claims'] }),
   });
 }
+
+// ── Claim packets ──────────────────────────────────────────────
+
+export interface ClaimPacket {
+  id: string;
+  claim_id: string;
+  storage_path: string;
+  public_url: string | null;
+  file_size: number;
+  submitted_at: string | null;
+  submitted_to: string | null;
+  submitted_via: 'email' | 'api' | 'manual_portal' | null;
+  response_at: string | null;
+  response_status: 'acknowledged' | 'approved' | 'rejected' | 'supplement_requested' | null;
+  response_notes: string | null;
+  generated_at: string;
+}
+
+export function useClaimPackets(claimId: string) {
+  return useQuery<ClaimPacket[]>({
+    queryKey: ['claim-packets', claimId],
+    queryFn: () => api.get<ClaimPacket[]>(`/insurance/claims/${claimId}/packets`),
+    enabled: !!claimId,
+  });
+}
+
+export function useGenerateClaimPacket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (claimId: string) =>
+      api.post<ClaimPacket>(`/insurance/claims/${claimId}/packets`, {}),
+    onSuccess: (_d, claimId) => {
+      qc.invalidateQueries({ queryKey: ['claim-packets', claimId] });
+      qc.invalidateQueries({ queryKey: ['claim', claimId] });
+    },
+  });
+}
+
+export function useSubmitClaimPacket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      claimId,
+      packetId,
+      channel,
+      recipient,
+    }: {
+      claimId: string;
+      packetId: string;
+      channel: 'email' | 'api' | 'manual_portal';
+      recipient?: string;
+    }) =>
+      api.post<{ packet: ClaimPacket; recipient: string | null }>(
+        `/insurance/claims/${claimId}/packets/${packetId}/submit`,
+        { channel, recipient },
+      ),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['claim-packets', v.claimId] });
+      qc.invalidateQueries({ queryKey: ['claim', v.claimId] });
+    },
+  });
+}
+
+export function useRecordPacketResponse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      claimId,
+      packetId,
+      status,
+      notes,
+    }: {
+      claimId: string;
+      packetId: string;
+      status: 'acknowledged' | 'approved' | 'rejected' | 'supplement_requested';
+      notes?: string;
+    }) =>
+      api.post<ClaimPacket>(
+        `/insurance/claims/${claimId}/packets/${packetId}/response`,
+        { status, notes },
+      ),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['claim-packets', v.claimId] }),
+  });
+}

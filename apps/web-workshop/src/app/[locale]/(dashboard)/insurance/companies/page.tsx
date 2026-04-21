@@ -19,6 +19,7 @@ export default function InsuranceCompaniesPage() {
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [submissionEmail, setSubmissionEmail] = useState('');
   const [slaHours, setSlaHours] = useState('');
 
   const handleCreate = async () => {
@@ -26,10 +27,11 @@ export default function InsuranceCompaniesPage() {
     await createMutation.mutateAsync({
       name,
       code: code || undefined,
-      contact_person: contactPerson || undefined,
+      contactName: contactPerson || undefined,
       phone: phone || undefined,
       email: email || undefined,
-      sla_hours: slaHours ? Number(slaHours) : undefined,
+      submissionEmail: submissionEmail || undefined,
+      slaHours: slaHours ? Number(slaHours) : undefined,
     });
     setShowModal(false);
     setName('');
@@ -37,6 +39,7 @@ export default function InsuranceCompaniesPage() {
     setContactPerson('');
     setPhone('');
     setEmail('');
+    setSubmissionEmail('');
     setSlaHours('');
     setSuccessMsg('Saved successfully!');
     setTimeout(() => setSuccessMsg(null), 3000);
@@ -165,6 +168,19 @@ export default function InsuranceCompaniesPage() {
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Submission email
+                  <span className="ms-1 text-xs font-normal text-gray-400">(for claim packets)</span>
+                </label>
+                <input
+                  type="email"
+                  value={submissionEmail}
+                  onChange={(e) => setSubmissionEmail(e.target.value)}
+                  placeholder="claims@insurer.com"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('slaHours')}</label>

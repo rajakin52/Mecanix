@@ -8,6 +8,8 @@ export const createInsuranceCompanySchema = z.object({
   contactName: z.string().max(200).optional(),
   phone: z.string().max(20).optional(),
   email: z.string().email().max(200).optional().or(z.literal('')),
+  submissionEmail: z.string().email().max(200).optional().or(z.literal('')),
+  submissionNotes: z.string().max(2000).optional(),
   address: z.string().max(500).optional(),
   slaHours: z.coerce.number().int().min(0).optional(),
 });

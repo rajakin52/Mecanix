@@ -56,6 +56,8 @@ export class InsuranceCompaniesService {
         contact_name: input.contactName || null,
         phone: input.phone || null,
         email: input.email || null,
+        submission_email: input.submissionEmail || null,
+        submission_notes: input.submissionNotes || null,
         address: input.address || null,
         sla_hours: input.slaHours ?? null,
         is_active: true,
@@ -79,6 +81,8 @@ export class InsuranceCompaniesService {
       contactName: 'contact_name',
       phone: 'phone',
       email: 'email',
+      submissionEmail: 'submission_email',
+      submissionNotes: 'submission_notes',
       address: 'address',
       slaHours: 'sla_hours',
     };

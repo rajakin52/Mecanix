@@ -3,7 +3,17 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { useClaim, useChangeClaimStatus, useCreateEstimate, useApproveEstimate } from '@/hooks/use-insurance';
+import {
+  useClaim,
+  useChangeClaimStatus,
+  useCreateEstimate,
+  useApproveEstimate,
+  useClaimPackets,
+  useGenerateClaimPacket,
+  useSubmitClaimPacket,
+  useRecordPacketResponse,
+  type ClaimPacket,
+} from '@/hooks/use-insurance';
 import { Link } from '@/i18n/navigation';
 import { formatNumber } from '@/lib/format';
 
@@ -379,6 +389,9 @@ export default function ClaimDetailPage() {
         ))}
       </div>
 
+      {/* Claim packet submission */}
+      <ClaimPacketsPanel claimId={id} insurer={c.insurance_company as Record<string, unknown> | null} />
+
       {/* Assessor Actions Timeline */}
       <div className="mb-6">
         <h2 className="mb-3 text-lg font-semibold text-gray-900">{t('assessorActions')}</h2>
@@ -503,6 +516,238 @@ export default function ClaimDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ClaimPacketsPanel({
+  claimId,
+  insurer,
+}: {
+  claimId: string;
+  insurer: Record<string, unknown> | null;
+}) {
+  const { data: packets, isLoading } = useClaimPackets(claimId);
+  const generate = useGenerateClaimPacket();
+  const submit = useSubmitClaimPacket();
+  const record = useRecordPacketResponse();
+
+  const [submitOpen, setSubmitOpen] = useState<string | null>(null);
+  const [responseOpen, setResponseOpen] = useState<string | null>(null);
+  const [recipient, setRecipient] = useState('');
+  const [responseStatus, setResponseStatus] = useState<'acknowledged' | 'approved' | 'rejected' | 'supplement_requested'>('acknowledged');
+  const [responseNotes, setResponseNotes] = useState('');
+
+  const rows = (packets ?? []) as ClaimPacket[];
+  const insurerSubmissionEmail = (insurer?.submission_email as string) || (insurer?.email as string) || '';
+
+  const buildMailto = (packet: ClaimPacket, to: string) => {
+    const subject = `Claim submission — ${(insurer?.name as string) ?? 'Claim'}`;
+    const body =
+      `Dear ${(insurer?.name as string) ?? 'adjuster'},\n\n` +
+      `Please find the claim packet at:\n${packet.public_url ?? '[no url]'}\n\n` +
+      `Submitted by MECANIX.`;
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
+  return (
+    <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Claim packet</h2>
+          <p className="text-xs text-gray-500">
+            Bundled PDF with claim, vehicle, DVI, labour, parts, totals and photo index. Submit
+            to the insurer by email; record their response when it arrives.
+          </p>
+        </div>
+        <button
+          onClick={() => generate.mutate(claimId)}
+          disabled={generate.isPending}
+          className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+        >
+          {generate.isPending ? 'Generating…' : 'Generate packet'}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <p className="py-4 text-center text-sm text-gray-400">Loading…</p>
+      ) : rows.length === 0 ? (
+        <p className="py-4 text-center text-sm text-gray-500">
+          No packets generated yet. Use Generate above when the estimate and photos are ready.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((p) => {
+            const mailTo = p.public_url && insurerSubmissionEmail
+              ? buildMailto(p, insurerSubmissionEmail)
+              : null;
+            const openSubmit = submitOpen === p.id;
+            const openResponse = responseOpen === p.id;
+            return (
+              <div key={p.id} className="rounded-md border border-gray-200 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="text-sm">
+                    <div className="font-medium text-gray-900">
+                      Packet — {new Date(p.generated_at).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {(p.file_size / 1024).toFixed(0)} KB
+                      {p.submitted_at ? (
+                        <span className="ms-2 text-green-700">
+                          submitted {new Date(p.submitted_at).toLocaleString()}
+                          {p.submitted_via ? ` via ${p.submitted_via}` : null}
+                          {p.submitted_to ? ` to ${p.submitted_to}` : null}
+                        </span>
+                      ) : null}
+                      {p.response_status ? (
+                        <span className="ms-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
+                          {p.response_status}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {p.public_url ? (
+                      <a
+                        href={p.public_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Download PDF
+                      </a>
+                    ) : null}
+                    {!p.submitted_at && mailTo ? (
+                      <a
+                        href={mailTo}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-md border border-primary-300 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                        onClick={() =>
+                          submit.mutate({
+                            claimId,
+                            packetId: p.id,
+                            channel: 'email',
+                            recipient: insurerSubmissionEmail,
+                          })
+                        }
+                      >
+                        Send by email
+                      </a>
+                    ) : null}
+                    {!p.submitted_at ? (
+                      <button
+                        onClick={() => setSubmitOpen(openSubmit ? null : p.id)}
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {openSubmit ? 'Cancel' : 'Other…'}
+                      </button>
+                    ) : !p.response_status ? (
+                      <button
+                        onClick={() => setResponseOpen(openResponse ? null : p.id)}
+                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        {openResponse ? 'Cancel' : 'Record response'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {openSubmit && !p.submitted_at ? (
+                  <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700">Recipient email</label>
+                        <input
+                          value={recipient || insurerSubmissionEmail}
+                          onChange={(e) => setRecipient(e.target.value)}
+                          placeholder={insurerSubmissionEmail || 'adjuster@insurer.com'}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <button
+                          onClick={async () => {
+                            await submit.mutateAsync({
+                              claimId,
+                              packetId: p.id,
+                              channel: 'manual_portal',
+                              recipient: recipient || insurerSubmissionEmail || undefined,
+                            });
+                            setSubmitOpen(null);
+                            setRecipient('');
+                          }}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Mark submitted via portal
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {openResponse && p.submitted_at && !p.response_status ? (
+                  <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">Insurer response</label>
+                      <select
+                        value={responseStatus}
+                        onChange={(e) =>
+                          setResponseStatus(
+                            e.target.value as 'acknowledged' | 'approved' | 'rejected' | 'supplement_requested',
+                          )
+                        }
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      >
+                        <option value="acknowledged">Acknowledged</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="supplement_requested">Supplement requested</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">Notes</label>
+                      <textarea
+                        value={responseNotes}
+                        onChange={(e) => setResponseNotes(e.target.value)}
+                        rows={2}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={async () => {
+                          await record.mutateAsync({
+                            claimId,
+                            packetId: p.id,
+                            status: responseStatus,
+                            notes: responseNotes || undefined,
+                          });
+                          setResponseOpen(null);
+                          setResponseNotes('');
+                        }}
+                        className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
+                      >
+                        Save response
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {p.response_notes ? (
+                  <p className="mt-2 text-xs text-gray-600">Insurer note: {p.response_notes}</p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!insurerSubmissionEmail ? (
+        <p className="mt-3 text-xs text-amber-700">
+          No insurer submission email on file — add one on the insurance company record to enable one-click email submission.
+        </p>
+      ) : null}
     </div>
   );
 }
