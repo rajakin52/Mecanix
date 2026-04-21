@@ -58,6 +58,7 @@ import { DataRequestsModule } from './modules/data-requests/data-requests.module
 import { TireStorageModule } from './modules/tire-storage/tire-storage.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { ReportBuilderModule } from './modules/report-builder/report-builder.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -121,6 +122,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     TireStorageModule,
     BranchesModule,
     AuditLogModule,
+    ReportBuilderModule,
   ],
   providers: [
     {

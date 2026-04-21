@@ -74,12 +74,20 @@ export default function ReportsPage() {
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
-        <Link
-          href="/reports/tax"
-          className="rounded-md border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
-        >
-          Tax Reports →
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/reports/builder"
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            Report builder &rarr;
+          </Link>
+          <Link
+            href="/reports/tax"
+            className="rounded-md border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
+          >
+            Tax Reports &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Controls */}
