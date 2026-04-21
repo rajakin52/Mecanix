@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   useAppointmentsByDate,
@@ -11,6 +11,7 @@ import {
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { useTechnicians } from '@/hooks/use-jobs';
+import { useMyBranches } from '@/hooks/use-branches';
 
 const STATUS_COLORS: Record<string, string> = {
   scheduled: 'bg-blue-100 text-blue-700',
@@ -92,6 +93,14 @@ export default function AppointmentsPage() {
   const { data: technicians } = useTechnicians();
 
   const createMutation = useCreateAppointment();
+  const { data: myBranchesData } = useMyBranches();
+  const availableBranches = myBranchesData?.branches ?? [];
+  const [formBranchId, setFormBranchId] = useState<string>('');
+  useEffect(() => {
+    if (!formBranchId && myBranchesData?.primaryBranchId) {
+      setFormBranchId(myBranchesData.primaryBranchId);
+    }
+  }, [myBranchesData?.primaryBranchId, formBranchId]);
   const statusMutation = useUpdateAppointmentStatus();
 
   const resetForm = () => {
@@ -133,6 +142,8 @@ export default function AppointmentsPage() {
       if (formCustomerId) payload.customerId = formCustomerId;
       if (formVehicleId) payload.vehicleId = formVehicleId;
     }
+
+    if (formBranchId) payload.branchId = formBranchId;
 
     await createMutation.mutateAsync(payload);
     setShowModal(false);
@@ -462,6 +473,25 @@ export default function AppointmentsPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Branch (only when tenant has multiple) */}
+              {availableBranches.length > 1 && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Branch</label>
+                  <select
+                    value={formBranchId}
+                    onChange={(e) => setFormBranchId(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    {availableBranches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.code} — {b.name}
+                        {b.is_default ? ' (default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Description */}
               <div>

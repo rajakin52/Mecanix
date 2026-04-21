@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useCustomers } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
@@ -10,6 +11,7 @@ import { useDueReminders } from '@/hooks/use-reminders';
 import { useFormat } from '@/hooks/use-format';
 import { useDeferredSummary } from '@/hooks/use-deferred';
 import { useKpiDashboard, useOutstandingInvoices, useTechnicianReport, useManagerKpis } from '@/hooks/use-reports';
+import { useMyBranches } from '@/hooks/use-branches';
 import { Link } from '@/i18n/navigation';
 
 export default function DashboardPage() {
@@ -54,7 +56,10 @@ export default function DashboardPage() {
     .slice(0, 5);
 
   // v2 — Manager KPIs
-  const { data: managerKpis } = useManagerKpis();
+  const { data: myBranchesData } = useMyBranches();
+  const availableBranches = myBranchesData?.branches ?? [];
+  const [managerBranchFilter, setManagerBranchFilter] = useState<string>('');
+  const { data: managerKpis } = useManagerKpis(managerBranchFilter || null);
 
   const summary = summaryData as Record<string, number> | undefined;
   const customerCount = customersData?.meta?.total ?? 0;
@@ -253,6 +258,30 @@ export default function DashboardPage() {
       </div>
 
       {/* Manager KPIs v2: bay utilisation, first-time-right, retention */}
+      {availableBranches.length > 1 ? (
+        <div className="mt-6 flex items-center gap-2 text-sm">
+          <span className="text-gray-500">Scope:</span>
+          <button
+            onClick={() => setManagerBranchFilter('')}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+              managerBranchFilter === '' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            All branches
+          </button>
+          {availableBranches.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => setManagerBranchFilter(b.id)}
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                managerBranchFilter === b.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {b.code}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Bay utilisation */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">

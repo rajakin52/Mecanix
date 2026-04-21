@@ -269,7 +269,11 @@ export default function PartsPage() {
                   return sorted.length > 0 ? (
                   sorted.map((part) => (
                     <tr key={part.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{part.part_number}</td>
+                      <td className="px-4 py-3 text-sm font-medium">
+                        <Link href={`/parts/${part.id as string}`} className="text-primary-600 hover:underline">
+                          {part.part_number}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{part.description}</td>
                       <td className="px-4 py-3 text-sm">
                         <span

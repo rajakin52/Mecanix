@@ -276,8 +276,11 @@ export class ReportsController {
   }
 
   @Get('manager-kpis')
-  async managerKpis(@TenantId() tenantId: string) {
-    return this.reportsService.managerKpis(tenantId);
+  async managerKpis(
+    @TenantId() tenantId: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.reportsService.managerKpis(tenantId, branchId || null);
   }
 
   @Get('vat-summary')

@@ -1547,27 +1547,32 @@ export class ReportsService {
    * FTR flags comeback drift before it eats margin, and the cohort
    * totals tell an owner whether their base is growing or churning.
    */
-  async managerKpis(tenantId: string) {
+  async managerKpis(tenantId: string, branchId?: string | null) {
     const client = this.supabase.getClient();
     const now = Date.now();
     const todayIso = new Date(now).toISOString();
 
     // ── 1. Bay utilisation ─────────────────────────────────────────
-    const [{ count: totalBays }, { count: busyBays }] = await Promise.all([
-      client
-        .from('bays')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true),
-      client
-        .from('job_cards')
-        .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .not('bay_id', 'is', null)
-        .not('status', 'eq', 'invoiced')
-        .not('status', 'eq', 'cancelled')
-        .is('deleted_at', null),
-    ]);
+    // When a branch filter is active, bays + the active-job count
+    // are both scoped to that branch. When no filter, whole tenant.
+    let baysQ = client
+      .from('bays')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+    if (branchId) baysQ = baysQ.eq('branch_id', branchId);
+
+    let busyQ = client
+      .from('job_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .not('bay_id', 'is', null)
+      .not('status', 'eq', 'invoiced')
+      .not('status', 'eq', 'cancelled')
+      .is('deleted_at', null);
+    if (branchId) busyQ = busyQ.eq('branch_id', branchId);
+
+    const [{ count: totalBays }, { count: busyBays }] = await Promise.all([baysQ, busyQ]);
 
     const bayTotal = totalBays ?? 0;
     const bayBusy = Math.min(busyBays ?? 0, bayTotal); // shouldn't exceed but defensive
@@ -1590,13 +1595,15 @@ export class ReportsService {
       new Date(now - days * 24 * 60 * 60 * 1000).toISOString();
     const cohort = async (days: number) => {
       const from = iso(days);
-      const { data } = await client
+      let q = client
         .from('job_cards')
         .select('customer_id')
         .eq('tenant_id', tenantId)
         .is('deleted_at', null)
         .gte('created_at', from)
         .lte('created_at', todayIso);
+      if (branchId) q = q.eq('branch_id', branchId);
+      const { data } = await q;
       const counts = new Map<string, number>();
       for (const row of data ?? []) {
         const id = row.customer_id as string | null;

@@ -62,10 +62,13 @@ export interface ManagerKpis {
   };
 }
 
-export function useManagerKpis() {
+export function useManagerKpis(branchId?: string | null) {
   return useQuery<ManagerKpis>({
-    queryKey: ['report-manager-kpis'],
-    queryFn: () => api.get<ManagerKpis>('/reports/manager-kpis'),
+    queryKey: ['report-manager-kpis', branchId ?? null],
+    queryFn: () =>
+      api.get<ManagerKpis>(
+        `/reports/manager-kpis${branchId ? `?branchId=${branchId}` : ''}`,
+      ),
     refetchInterval: 60_000,
   });
 }
