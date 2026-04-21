@@ -1,8 +1,24 @@
 # Module 19 — Phase 4: Operational Intelligence
 
-> **Status:** Planned — starts 2026-04-21.
+> **Status:** COMPLETE — shipped 2026-04-21.
 > **Predecessor:** Module 18 (Phases 1–3). Phases 1 & 2 complete; Phase 3 four-of-six shipped.
 > **Theme:** Phases 1–3 were about exposing the basics. Phase 4 is about **reasoning over the data the shop already has** — turning a CRUD system into one that proactively suggests the next action.
+
+## Shipped commits
+
+- #1 Smart reorder (`2b89c69`)
+- #2 Expense OCR (`7dfeaa4`)
+- #3 Vehicle health score (`6f1d485`)
+- #4 OEM service intervals (`1d9044f`)
+- #5 Review flywheel (`ba3178c`)
+- #6 Self-reschedule (`dea9d31`)
+
+## Deploy checklist (Phase 4)
+
+- Migrations 00080 → 00083 applied.
+- New tenant_settings key: `google_review_url` (shop-configurable via the Settings page).
+- New cron endpoint: `POST /surveys/process/review-prompts` — add to the scheduler alongside `payment-reminders` and `appointment-reminders`.
+- Appointment confirmations should call `POST /appointments/:id/reschedule-token` to mint the public link and embed `/public/reschedule/:token` in the WhatsApp template.
 
 ---
 
