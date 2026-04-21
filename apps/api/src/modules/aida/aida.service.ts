@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import sharp from 'sharp';
 import { SupabaseService } from '../supabase/supabase.service';
+import { JobsService } from '../jobs/jobs.service';
 import type {
   CreateAssessmentInput,
   UpdateAssessmentInput,
@@ -26,7 +27,10 @@ async function compress(raw: Buffer): Promise<{ buffer: Buffer; width: number; h
 
 @Injectable()
 export class AidaService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly jobsService: JobsService,
+  ) {}
 
   // ─── assessments ─────────────────────────────────────────────
   async list(
@@ -140,22 +144,206 @@ export class AidaService {
 
   async finalise(tenantId: string, id: string, userId: string, input: FinaliseAssessmentInput) {
     await this.recalculateTotals(tenantId, id);
-    const { data, error } = await this.supabase
-      .getClient()
+
+    const client = this.supabase.getClient();
+
+    const { data: current } = await client
       .from('damage_assessments')
-      .update({
-        status: input.approve ? 'approved' : 'rejected',
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: userId,
-        review_notes: input.notes ?? null,
-        updated_at: new Date().toISOString(),
-      })
+      .select('id, job_card_id, pushed_to_job_at')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!current) throw new NotFoundException('Assessment not found');
+
+    const pushLines =
+      input.approve && current.job_card_id && !current.pushed_to_job_at;
+
+    let pushedLineIds: string[] = [];
+    if (pushLines) {
+      pushedLineIds = await this.pushOperationsToJob(
+        tenantId,
+        id,
+        current.job_card_id as string,
+      );
+    }
+
+    const patch: Record<string, unknown> = {
+      status: input.approve ? 'approved' : 'rejected',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+      review_notes: input.notes ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    if (pushLines) {
+      patch.pushed_to_job_at = new Date().toISOString();
+      patch.pushed_line_ids = pushedLineIds;
+    }
+
+    const { data, error } = await client
+      .from('damage_assessments')
+      .update(patch)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
       .single();
     if (error || !data) throw new NotFoundException('Assessment not found');
     return data;
+  }
+
+  // Convert each assessment_operation into labour / parts / paint
+  // lines on the linked job card. Idempotent via pushed_to_job_at
+  // (the caller checks it before invoking this).
+  //
+  // Rate resolution for labour: re-use the most recent labour_line
+  // rate on this job; fall back to the tenant_settings
+  // `labour.default_hourly_rate`; fall back to 0 (shop can edit).
+  private async pushOperationsToJob(
+    tenantId: string,
+    assessmentId: string,
+    jobCardId: string,
+  ): Promise<string[]> {
+    const client = this.supabase.getClient();
+
+    const { data: ops } = await client
+      .from('assessment_operations')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId);
+    if (!ops || ops.length === 0) return [];
+
+    const labourRate = await this.resolveLabourRate(tenantId, jobCardId);
+
+    const { data: defaultTax } = await client
+      .from('tax_codes')
+      .select('id, rate')
+      .eq('tenant_id', tenantId)
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    const taxCodeId = (defaultTax?.id as string | undefined) ?? null;
+    const taxRate = defaultTax?.rate != null ? Number(defaultTax.rate) : null;
+
+    const labourRows: Array<Record<string, unknown>> = [];
+    const partsRows: Array<Record<string, unknown>> = [];
+
+    for (const op of ops as Array<Record<string, unknown>>) {
+      const panel = String(op.panel ?? 'panel');
+      const operation = String(op.operation ?? 'repair');
+      const hours = Number(op.labour_hours ?? 0);
+      const partsCost = Number(op.parts_cost ?? 0);
+      const paintCost = Number(op.paint_cost ?? 0);
+      const oem = op.oem_part_number as string | null;
+      const prettyPanel = panel.replace(/_/g, ' ');
+
+      if (hours > 0) {
+        labourRows.push({
+          tenant_id: tenantId,
+          job_card_id: jobCardId,
+          description: `${prettyPanel} — ${operation} (AIDA)`,
+          hours,
+          rate: labourRate,
+          subtotal: Math.round(hours * labourRate * 100) / 100,
+          tax_code_id: taxCodeId,
+          tax_rate: taxRate,
+        });
+      }
+
+      if (partsCost > 0) {
+        partsRows.push({
+          tenant_id: tenantId,
+          job_card_id: jobCardId,
+          part_name: `${prettyPanel}${oem ? ` (${oem})` : ''}`,
+          part_number: oem,
+          quantity: 1,
+          unit_cost: partsCost,
+          markup_pct: 0,
+          sell_price: partsCost,
+          subtotal: partsCost,
+          tax_code_id: taxCodeId,
+          tax_rate: taxRate,
+        });
+      }
+
+      if (paintCost > 0) {
+        partsRows.push({
+          tenant_id: tenantId,
+          job_card_id: jobCardId,
+          part_name: `${prettyPanel} — paint material`,
+          part_number: null,
+          quantity: 1,
+          unit_cost: paintCost,
+          markup_pct: 0,
+          sell_price: paintCost,
+          subtotal: paintCost,
+          tax_code_id: taxCodeId,
+          tax_rate: taxRate,
+        });
+      }
+    }
+
+    const insertedIds: string[] = [];
+
+    if (labourRows.length > 0) {
+      const { data: inserted, error } = await client
+        .from('labour_lines')
+        .insert(labourRows)
+        .select('id');
+      if (error) throw new BadRequestException(`Failed to add labour lines: ${error.message}`);
+      for (const row of inserted ?? []) insertedIds.push(String(row.id));
+    }
+
+    if (partsRows.length > 0) {
+      const { data: inserted, error } = await client
+        .from('parts_lines')
+        .insert(partsRows)
+        .select('id');
+      if (error) throw new BadRequestException(`Failed to add parts lines: ${error.message}`);
+      for (const row of inserted ?? []) insertedIds.push(String(row.id));
+    }
+
+    // Refresh job totals so the detail view shows the new lines.
+    await this.jobsService.recalculateTotals(tenantId, jobCardId);
+
+    return insertedIds;
+  }
+
+  private async resolveLabourRate(tenantId: string, jobCardId: string): Promise<number> {
+    const client = this.supabase.getClient();
+
+    const { data: existing } = await client
+      .from('labour_lines')
+      .select('rate')
+      .eq('tenant_id', tenantId)
+      .eq('job_card_id', jobCardId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing?.rate != null) return Number(existing.rate);
+
+    const { data: setting } = await client
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'labour.default_hourly_rate')
+      .maybeSingle();
+    if (setting?.value != null) {
+      const n = Number(setting.value);
+      if (Number.isFinite(n)) return n;
+    }
+
+    const { data: tech } = await client
+      .from('technicians')
+      .select('hourly_rate')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .not('hourly_rate', 'is', null)
+      .order('hourly_rate', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (tech?.hourly_rate != null) return Number(tech.hourly_rate);
+
+    return 0;
   }
 
   async delete(tenantId: string, id: string) {

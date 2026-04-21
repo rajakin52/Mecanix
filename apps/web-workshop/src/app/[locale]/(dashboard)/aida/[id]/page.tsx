@@ -85,6 +85,9 @@ export default function AssessmentDetailPage() {
     return <div className="text-sm text-gray-500">Loading…</div>;
   }
 
+  const canPushToJob = Boolean(assessment.job_card_id) && !assessment.pushed_to_job_at;
+  const alreadyPushed = Boolean(assessment.pushed_to_job_at);
+
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = '';
@@ -117,8 +120,17 @@ export default function AssessmentDetailPage() {
               <button
                 type="button"
                 disabled={finalise.isPending}
-                onClick={() => finalise.mutate({ approve: true })}
+                onClick={() => {
+                  if (canPushToJob) {
+                    const ok = window.confirm(
+                      `Approve and push ${assessment.operations.length} operation(s) to job ${assessment.job_card?.job_number ?? ''}?`,
+                    );
+                    if (!ok) return;
+                  }
+                  finalise.mutate({ approve: true });
+                }}
                 className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                title={canPushToJob ? 'Lines will be added to the linked job card' : undefined}
               >
                 Approve
               </button>
@@ -141,6 +153,16 @@ export default function AssessmentDetailPage() {
         <Kpi label="Labour hours" value={Number(assessment.total_hours || 0).toFixed(1)} />
         <Kpi label="Estimate (parts + paint)" value={formatCurrency(Number(assessment.total_estimate || 0))} />
       </div>
+
+      {alreadyPushed && assessment.job_card && (
+        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Operations were pushed to job{' '}
+          <Link href={`/jobs/${assessment.job_card_id}`} className="font-semibold underline">
+            {assessment.job_card.job_number}
+          </Link>{' '}
+          on {formatDate(assessment.pushed_to_job_at as string)}.
+        </div>
+      )}
 
       {/* Capture */}
       <section className="rounded-lg bg-white p-5 shadow ring-1 ring-gray-200">

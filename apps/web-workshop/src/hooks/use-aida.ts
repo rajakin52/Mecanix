@@ -35,6 +35,7 @@ export interface AssessmentSummary {
   total_paint_cost: number;
   total_estimate: number;
   confidence_avg: number | null;
+  pushed_to_job_at: string | null;
   created_at: string;
   vehicle?: { id: string; plate: string; make: string; model: string; year: number | null };
   job_card?: { id: string; job_number: string } | null;
