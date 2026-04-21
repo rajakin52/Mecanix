@@ -76,6 +76,17 @@ export default function SettingsPage() {
   const [savingStockPolicy, setSavingStockPolicy] = useState(false);
   const [stockPolicyMessage, setStockPolicyMessage] = useState('');
 
+  // Workshop defaults (scalar tenant_settings)
+  const [labourRate, setLabourRate] = useState<string>('');
+  const [labourRateMessage, setLabourRateMessage] = useState<string>('');
+  const [savingLabourRate, setSavingLabourRate] = useState(false);
+  const [autoApproveThreshold, setAutoApproveThreshold] = useState<string>('');
+  const [autoApproveMessage, setAutoApproveMessage] = useState<string>('');
+  const [savingAutoApprove, setSavingAutoApprove] = useState(false);
+  const [loyaltyPointsPerCurrency, setLoyaltyPointsPerCurrency] = useState<string>('');
+  const [loyaltyMessage, setLoyaltyMessage] = useState<string>('');
+  const [savingLoyalty, setSavingLoyalty] = useState(false);
+
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
       .then((data) => {
@@ -125,6 +136,17 @@ export default function SettingsPage() {
         setAllowNegativeStock(data.allowNegativeStock);
         setNegativeStockRoles(data.overrideRoles);
       })
+      .catch(() => {});
+
+    // Workshop defaults
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/labour.default_hourly_rate')
+      .then((data) => { if (data.value) setLabourRate(data.value); })
+      .catch(() => {});
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/purchase_request_auto_approve_threshold')
+      .then((data) => { if (data.value) setAutoApproveThreshold(data.value); })
+      .catch(() => {});
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/loyalty_points_per_currency')
+      .then((data) => { if (data.value) setLoyaltyPointsPerCurrency(data.value); })
       .catch(() => {});
   }, []);
 
@@ -206,6 +228,45 @@ export default function SettingsPage() {
       setStockPolicyMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSavingStockPolicy(false);
+    }
+  };
+
+  const handleSaveLabourRate = async () => {
+    setSavingLabourRate(true);
+    setLabourRateMessage('');
+    try {
+      await api.put('/tenants/me/settings/labour.default_hourly_rate', { value: labourRate });
+      setLabourRateMessage('Saved');
+    } catch (err) {
+      setLabourRateMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingLabourRate(false);
+    }
+  };
+
+  const handleSaveAutoApprove = async () => {
+    setSavingAutoApprove(true);
+    setAutoApproveMessage('');
+    try {
+      await api.put('/tenants/me/settings/purchase_request_auto_approve_threshold', { value: autoApproveThreshold });
+      setAutoApproveMessage('Saved');
+    } catch (err) {
+      setAutoApproveMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingAutoApprove(false);
+    }
+  };
+
+  const handleSaveLoyalty = async () => {
+    setSavingLoyalty(true);
+    setLoyaltyMessage('');
+    try {
+      await api.put('/tenants/me/settings/loyalty_points_per_currency', { value: loyaltyPointsPerCurrency });
+      setLoyaltyMessage('Saved');
+    } catch (err) {
+      setLoyaltyMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingLoyalty(false);
     }
   };
 
@@ -369,6 +430,115 @@ export default function SettingsPage() {
           </div>
           <span className="text-gray-400 text-xl">→</span>
         </Link>
+
+        {/* Workshop Defaults */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Workshop defaults</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Scalar defaults the system falls back to when a specific value isn't set on a job, PO, or customer.
+          </p>
+
+          <div className="space-y-4">
+            {/* Default labour hourly rate */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Default labour hourly rate</label>
+              <p className="text-xs text-gray-500 mb-1">
+                Used when approving an AIDA damage assessment or adding labour with no prior line on the job. Falls through to
+                the last labour rate on the job, then to the highest technician hourly_rate, then to 0.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={labourRate}
+                  onChange={(e) => setLabourRate(e.target.value)}
+                  placeholder="e.g. 5000"
+                  className="block w-40 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-500">{(tenant?.currency as string) ?? ''} / hour</span>
+                <button
+                  onClick={handleSaveLabourRate}
+                  disabled={savingLabourRate}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingLabourRate ? t('loading') : t('save')}
+                </button>
+              </div>
+              {labourRateMessage && (
+                <p className={`mt-1 text-sm ${labourRateMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {labourRateMessage}
+                </p>
+              )}
+            </div>
+
+            {/* Purchase request auto-approve threshold */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700">Auto-approve purchase requests under</label>
+              <p className="text-xs text-gray-500 mb-1">
+                Technician parts requests with an estimated cost below this threshold are approved automatically. Above it,
+                a manager must confirm (WhatsApp approval flow). Leave blank to require approval on every PO.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={autoApproveThreshold}
+                  onChange={(e) => setAutoApproveThreshold(e.target.value)}
+                  placeholder="e.g. 10000"
+                  className="block w-40 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-500">{(tenant?.currency as string) ?? ''}</span>
+                <button
+                  onClick={handleSaveAutoApprove}
+                  disabled={savingAutoApprove}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingAutoApprove ? t('loading') : t('save')}
+                </button>
+              </div>
+              {autoApproveMessage && (
+                <p className={`mt-1 text-sm ${autoApproveMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {autoApproveMessage}
+                </p>
+              )}
+            </div>
+
+            {/* Loyalty points per currency */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700">Loyalty points per currency unit</label>
+              <p className="text-xs text-gray-500 mb-1">
+                How many points a customer earns per 1 {(tenant?.currency as string) ?? ''} spent on a paid invoice. Example:
+                0.01 = 1 point per 100 {(tenant?.currency as string) ?? ''}.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={loyaltyPointsPerCurrency}
+                  onChange={(e) => setLoyaltyPointsPerCurrency(e.target.value)}
+                  placeholder="e.g. 0.01"
+                  className="block w-40 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-500">points / {(tenant?.currency as string) ?? ''}</span>
+                <button
+                  onClick={handleSaveLoyalty}
+                  disabled={savingLoyalty}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingLoyalty ? t('loading') : t('save')}
+                </button>
+              </div>
+              {loyaltyMessage && (
+                <p className={`mt-1 text-sm ${loyaltyMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {loyaltyMessage}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Review Flywheel */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
