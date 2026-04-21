@@ -40,4 +40,5 @@ export * from './parts-request';
 export * from './warehouse';
 export * from './tire-storage';
 export * from './branch';
+export * from './aida';
 export * from './misc';

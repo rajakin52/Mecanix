@@ -59,6 +59,7 @@ import { TireStorageModule } from './modules/tire-storage/tire-storage.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { ReportBuilderModule } from './modules/report-builder/report-builder.module';
+import { AidaModule } from './modules/aida/aida.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -123,6 +124,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     BranchesModule,
     AuditLogModule,
     ReportBuilderModule,
+    AidaModule,
   ],
   providers: [
     {

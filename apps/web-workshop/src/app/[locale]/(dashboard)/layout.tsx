@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   Menu,
   X,
+  Camera,
 } from 'lucide-react';
 
 interface NavItem {
@@ -74,6 +75,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { href: '/jobs', label: t('jobs'), icon: Wrench },
         { href: '/estimates', label: t('estimates'), icon: FileText },
+        { href: '/aida', label: 'Damage assessments', icon: Camera },
         { href: '/floor', label: t('floor'), icon: Layers },
         { href: '/timesheets', label: t('timesheets'), icon: Clock },
       ],

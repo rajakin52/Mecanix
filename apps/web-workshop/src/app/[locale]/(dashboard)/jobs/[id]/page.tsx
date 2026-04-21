@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 import {
@@ -37,6 +37,7 @@ import { useAiDiagnose } from '@/hooks/use-ai';
 import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
 import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
+import { useAssessments, useCreateAssessment } from '@/hooks/use-aida';
 import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
 
 // Must match backend VALID_TRANSITIONS in jobs.service.ts
@@ -1381,6 +1382,10 @@ export default function JobDetailPage() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">{typedJob.job_number as string}</h1>
           <StatusBadge status={currentStatus} />
+          <AidaJobLink
+            jobCardId={typedJob.id as string}
+            vehicleId={typedJob.vehicle_id as string}
+          />
         </div>
         {nextStatuses.length > 0 && (
           <div className="flex items-center gap-2">
@@ -2890,5 +2895,38 @@ function PhotoColumn({
         </div>
       )}
     </div>
+  );
+}
+
+function AidaJobLink({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: string }) {
+  const router = useRouter();
+  const { data } = useAssessments({ jobCardId });
+  const create = useCreateAssessment();
+
+  const existing = (data ?? [])[0];
+
+  if (existing) {
+    return (
+      <Link
+        href={`/aida/${existing.id}`}
+        className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+      >
+        Open damage assessment
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={create.isPending}
+      onClick={async () => {
+        const row = await create.mutateAsync({ jobCardId, vehicleId });
+        router.push(`/aida/${row.id}`);
+      }}
+      className="rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+    >
+      Start damage assessment
+    </button>
   );
 }
