@@ -1,11 +1,27 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useExpenses, useCreateExpense, useDeleteExpense, useExpenseSummary } from '@/hooks/use-expenses';
+import { api } from '@/lib/api';
 import { useToast, EmptyState } from '@mecanix/ui-web';
 
 const EXPENSE_CATEGORIES = ['Rent', 'Utilities', 'Tools', 'Consumables', 'Transport', 'Other'];
+
+// Claude returns a free-form category string; snap it to the closed
+// list the expenses table accepts. Anything it doesn't recognise
+// falls through to 'Other' so the form still saves.
+function normaliseCategory(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  if (lower.includes('rent')) return 'Rent';
+  if (lower.includes('util') || lower.includes('electric') || lower.includes('water')) return 'Utilities';
+  if (lower.includes('tool')) return 'Tools';
+  if (lower.includes('fuel') || lower.includes('gas')) return 'Transport';
+  if (lower.includes('consum') || lower.includes('supply') || lower.includes('supplies')) return 'Consumables';
+  if (lower.includes('travel') || lower.includes('transport')) return 'Transport';
+  return 'Other';
+}
 
 function getMonthRange(): { start: string; end: string } {
   const now = new Date();
@@ -49,6 +65,50 @@ export default function ExpensesPage() {
     notes: '',
   });
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+
+  const handleScanReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanning(true);
+    setFormError(null);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      const res = await api.post<{
+        vendor: string | null;
+        total: number | null;
+        taxAmount: number | null;
+        expenseDate: string | null;
+        category: string | null;
+        description: string | null;
+        currency: string | null;
+        confidence: number;
+      }>('/expenses/ocr', { base64Data: base64 });
+      setForm({
+        expenseDate: res.expenseDate ?? new Date().toISOString().slice(0, 10),
+        category: normaliseCategory(res.category) ?? 'Other',
+        description: res.description ?? res.vendor ?? '',
+        amount: res.total ?? 0,
+        receiptUrl: '',
+        notes: res.vendor ? `Vendor: ${res.vendor}` : '',
+      });
+      setOcrConfidence(res.confidence);
+      setShowModal(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'OCR failed');
+    } finally {
+      setScanning(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const handleCreate = async () => {
     try {
       setFormError(null);
@@ -74,12 +134,32 @@ export default function ExpensesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          {t('newExpense')}
-        </button>
+        <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleScanReceipt}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={scanning}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {scanning ? 'Scanning…' : 'Scan receipt'}
+          </button>
+          <button
+            onClick={() => {
+              setOcrConfidence(null);
+              setShowModal(true);
+            }}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {t('newExpense')}
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -223,6 +303,19 @@ export default function ExpensesPage() {
             <div className="space-y-4">
               {formError && (
                 <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{formError}</div>
+              )}
+              {ocrConfidence != null && (
+                <div
+                  className={`rounded-md p-3 text-sm ${
+                    ocrConfidence >= 0.75
+                      ? 'bg-green-50 text-green-800'
+                      : ocrConfidence >= 0.4
+                      ? 'bg-amber-50 text-amber-800'
+                      : 'bg-red-50 text-red-700'
+                  }`}
+                >
+                  Extracted from receipt (confidence {Math.round(ocrConfidence * 100)}%). Review every field before saving.
+                </div>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div>

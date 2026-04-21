@@ -380,4 +380,90 @@ Never make up information about job status or pricing.`;
     if (error) throw error;
     return data ?? [];
   }
+
+  /**
+   * Extract expense fields from a receipt photo via Claude vision.
+   * Returns best-effort fields with a confidence score; null fields
+   * mean the model wasn't sure and the user must fill them in.
+   */
+  async ocrReceipt(input: {
+    base64Data: string;
+  }): Promise<{
+    vendor: string | null;
+    total: number | null;
+    taxAmount: number | null;
+    expenseDate: string | null;
+    category: string | null;
+    description: string | null;
+    currency: string | null;
+    confidence: number;
+    rawText?: string;
+  }> {
+    const empty = {
+      vendor: null,
+      total: null,
+      taxAmount: null,
+      expenseDate: null,
+      category: null,
+      description: null,
+      currency: null,
+      confidence: 0,
+    } as const;
+    if (!this.isConfigured()) return { ...empty };
+
+    // Strip data-URL prefix and capture mime type.
+    const match = input.base64Data.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (!match) return { ...empty };
+    const mediaType = match[1]!;
+    const rawBase64 = match[2]!;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          system:
+            'You extract structured expense data from receipt photos for an automotive workshop in Angola / Portugal. Return ONLY a JSON object (no prose) with keys: vendor (string or null), total (number, the grand total), tax_amount (number or null, the IVA portion), expense_date (YYYY-MM-DD or null), currency (ISO code or null), category (one of: fuel, parts, tools, office, utilities, rent, marketing, subscription, meals, travel, other), description (short, one line), confidence (0-1). If any field is unclear, use null for that field and lower the overall confidence.',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: mediaType, data: rawBase64 },
+                },
+                {
+                  type: 'text',
+                  text: 'Extract the expense fields from this receipt.',
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      const data = await response.json();
+      const text: string = data.content?.[0]?.text ?? '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return { ...empty, rawText: text };
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      return {
+        vendor: (parsed.vendor as string) ?? null,
+        total: parsed.total != null ? Number(parsed.total) : null,
+        taxAmount: parsed.tax_amount != null ? Number(parsed.tax_amount) : null,
+        expenseDate: (parsed.expense_date as string) ?? null,
+        category: (parsed.category as string) ?? null,
+        description: (parsed.description as string) ?? null,
+        currency: (parsed.currency as string) ?? null,
+        confidence: parsed.confidence != null ? Number(parsed.confidence) : 0,
+      };
+    } catch {
+      return { ...empty };
+    }
+  }
 }

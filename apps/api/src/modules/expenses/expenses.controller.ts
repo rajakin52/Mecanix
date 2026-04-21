@@ -10,20 +10,41 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
+import { AiService } from '../ai/ai.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { createExpenseSchema, updateExpenseSchema, paginationSchema } from '@mecanix/validators';
-import type { CreateExpenseInput, UpdateExpenseInput, PaginationInput } from '@mecanix/validators';
+import {
+  createExpenseSchema,
+  updateExpenseSchema,
+  paginationSchema,
+  ocrReceiptSchema,
+} from '@mecanix/validators';
+import type {
+  CreateExpenseInput,
+  UpdateExpenseInput,
+  PaginationInput,
+  OcrReceiptInput,
+} from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('expenses')
 @UseGuards(TenantGuard, RolesGuard)
 @Roles('owner', 'manager')
 export class ExpensesController {
-  constructor(private readonly expensesService: ExpensesService) {}
+  constructor(
+    private readonly expensesService: ExpensesService,
+    private readonly aiService: AiService,
+  ) {}
+
+  @Post('ocr')
+  async ocr(
+    @Body(new ZodValidationPipe(ocrReceiptSchema)) body: OcrReceiptInput,
+  ) {
+    return this.aiService.ocrReceipt(body);
+  }
 
   @Get()
   async list(

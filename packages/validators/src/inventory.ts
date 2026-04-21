@@ -135,5 +135,14 @@ export const createExpenseSchema = z.object({
 
 export const updateExpenseSchema = createExpenseSchema.partial();
 
+export const ocrReceiptSchema = z.object({
+  base64Data: z
+    .string()
+    .min(20)
+    .max(10_000_000)
+    .refine((s) => s.startsWith('data:image/'), 'Must be a data URL image'),
+});
+
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
+export type OcrReceiptInput = z.infer<typeof ocrReceiptSchema>;
