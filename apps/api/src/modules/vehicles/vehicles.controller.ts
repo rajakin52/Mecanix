@@ -72,6 +72,14 @@ export class VehiclesController {
     return this.vehiclesService.computeHealthScore(tenantId, id, false);
   }
 
+  @Get(':id/due-services')
+  async getDueServices(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.vehiclesService.getDueServices(tenantId, id);
+  }
+
   @Post(':id/health-score/recompute')
   async recomputeHealthScore(
     @TenantId() tenantId: string,

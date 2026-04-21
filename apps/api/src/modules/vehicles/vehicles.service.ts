@@ -579,6 +579,151 @@ export class VehiclesService {
     return { score, updated_at, components, cached: false };
   }
 
+  /**
+   * OEM-interval-driven upcoming services for a vehicle.
+   *
+   * For every applicable oem_service_schedules row (tenant-specific
+   * takes precedence over global, then make+model > make-only >
+   * all-makes), compute km-since / months-since, next-due km / date,
+   * and classify urgency (overdue / soon / upcoming).
+   *
+   * Services are detected as performed via ILIKE match on labour-
+   * line descriptions. A future labour_lines.service_mileage column
+   * would make the km side exact; for MVP we use the crude
+   * "every interval_km while driven" heuristic.
+   */
+  async getDueServices(tenantId: string, vehicleId: string) {
+    const client = this.supabase.getClient();
+    const { data: vehicle } = await client
+      .from('vehicles')
+      .select('id, make, model, mileage, created_at')
+      .eq('id', vehicleId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    const make = (vehicle.make as string) ?? '';
+    const model = (vehicle.model as string) ?? '';
+    const currentMileage = (vehicle.mileage as number) ?? 0;
+    const now = Date.now();
+
+    const { data: schedules } = await client
+      .from('oem_service_schedules')
+      .select('*')
+      .eq('is_active', true)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+
+    const candidates = (schedules ?? []).filter((s) => {
+      const sMake = s.make as string | null;
+      const sModel = s.model as string | null;
+      if (sMake && sMake.toLowerCase() !== make.toLowerCase()) return false;
+      if (sModel && sModel.toLowerCase() !== model.toLowerCase()) return false;
+      return true;
+    });
+    // Prefer tenant-specific, then more-specific make/model rows.
+    candidates.sort((a, b) => {
+      const weight = (r: Record<string, unknown>) =>
+        (r.tenant_id ? 8 : 0) + (r.model ? 4 : 0) + (r.make ? 2 : 0);
+      return weight(b) - weight(a);
+    });
+    const seen = new Set<string>();
+    const applicable: Array<Record<string, unknown>> = [];
+    for (const s of candidates) {
+      const key = (s.service_name as string).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      applicable.push(s);
+    }
+
+    const { data: labourLines } = await client
+      .from('labour_lines')
+      .select('description, created_at, job:job_cards!inner(id, vehicle_id, date_closed, status)')
+      .eq('tenant_id', tenantId)
+      .eq('line_status', 'charged')
+      .eq('job.vehicle_id', vehicleId);
+
+    const results = applicable.map((s) => {
+      const serviceName = s.service_name as string;
+      const intervalKm = (s.interval_km as number | null) ?? null;
+      const intervalMonths = (s.interval_months as number | null) ?? null;
+
+      const lower = serviceName.toLowerCase();
+      const matches = (labourLines ?? [])
+        .filter((l) => ((l.description as string) ?? '').toLowerCase().includes(lower))
+        .sort((a, b) => {
+          const ta = new Date(a.created_at as string).getTime();
+          const tb = new Date(b.created_at as string).getTime();
+          return tb - ta;
+        });
+      const lastMatch = matches[0] ?? null;
+      const lastServiceDate = lastMatch
+        ? new Date(
+            ((lastMatch.job as unknown as { date_closed: string | null })?.date_closed) ??
+              (lastMatch.created_at as string),
+          )
+        : null;
+
+      const anchorDate = lastServiceDate ?? new Date(vehicle.created_at as string);
+      const monthsSince = (now - anchorDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000);
+
+      let kmSinceLast: number | null = null;
+      let nextDueKm: number | null = null;
+      if (intervalKm && currentMileage > 0) {
+        const intervalsElapsed = Math.floor(currentMileage / intervalKm);
+        nextDueKm = (intervalsElapsed + 1) * intervalKm;
+        kmSinceLast = currentMileage - intervalsElapsed * intervalKm;
+      }
+
+      let nextDueDate: string | null = null;
+      let daysUntilDue: number | null = null;
+      if (intervalMonths) {
+        const next = new Date(anchorDate);
+        next.setMonth(next.getMonth() + intervalMonths);
+        nextDueDate = next.toISOString().slice(0, 10);
+        daysUntilDue = Math.floor((next.getTime() - now) / (24 * 60 * 60 * 1000));
+      }
+
+      const kmUntilDue =
+        nextDueKm != null && currentMileage > 0 ? nextDueKm - currentMileage : null;
+
+      let urgency: 'overdue' | 'soon' | 'upcoming' = 'upcoming';
+      const overdueByDate = daysUntilDue != null && daysUntilDue < 0;
+      const overdueByKm = kmUntilDue != null && kmUntilDue < 0;
+      const soonByDate = daysUntilDue != null && daysUntilDue >= 0 && daysUntilDue <= 60;
+      const soonByKm = kmUntilDue != null && kmUntilDue >= 0 && kmUntilDue <= 2000;
+      if (overdueByDate || overdueByKm) urgency = 'overdue';
+      else if (soonByDate || soonByKm) urgency = 'soon';
+
+      return {
+        schedule_id: s.id,
+        service_name: serviceName,
+        interval_km: intervalKm,
+        interval_months: intervalMonths,
+        estimated_hours: s.estimated_hours,
+        typical_parts: s.typical_parts,
+        notes: s.notes,
+        last_service_at: lastServiceDate ? lastServiceDate.toISOString() : null,
+        months_since_last: Math.round(monthsSince * 10) / 10,
+        km_since_last: kmSinceLast,
+        next_due_km: nextDueKm,
+        next_due_date: nextDueDate,
+        km_until_due: kmUntilDue,
+        days_until_due: daysUntilDue,
+        urgency,
+      };
+    });
+
+    const rank = { overdue: 0, soon: 1, upcoming: 2 } as const;
+    results.sort((a, b) => {
+      const ra = rank[a.urgency];
+      const rb = rank[b.urgency];
+      if (ra !== rb) return ra - rb;
+      return (a.days_until_due ?? 99999) - (b.days_until_due ?? 99999);
+    });
+
+    return { vehicle: { id: vehicle.id, mileage: currentMileage }, services: results };
+  }
+
   async uploadPhoto(tenantId: string, vehicleId: string, userId: string, file: Buffer, filename: string) {
     await this.getById(tenantId, vehicleId);
 

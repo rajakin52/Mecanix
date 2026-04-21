@@ -10,6 +10,7 @@ import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentRemind
 import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
 import { useDeferredServices, useCreateDeferred } from '@/hooks/use-deferred';
 import { useVehicleHealthScore, useRecomputeHealthScore } from '@/hooks/use-health-score';
+import { useVehicleDueServices, type DueService } from '@/hooks/use-due-services';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -385,6 +386,9 @@ export default function VehicleDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Upcoming scheduled services */}
+      <DueServicesPanel vehicleId={id} />
 
       {/* Deferred (recommended but declined) work */}
       <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -945,6 +949,115 @@ export default function VehicleDetailPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DueServicesPanel({ vehicleId }: { vehicleId: string }) {
+  const { data, isLoading } = useVehicleDueServices(vehicleId);
+  const services = (data?.services ?? []) as DueService[];
+
+  const urgencyColor: Record<string, string> = {
+    overdue: 'bg-red-100 text-red-800 border-red-200',
+    soon: 'bg-amber-100 text-amber-800 border-amber-200',
+    upcoming: 'bg-gray-100 text-gray-700 border-gray-200',
+  };
+
+  const counts = services.reduce(
+    (a, s) => {
+      a[s.urgency] = (a[s.urgency] ?? 0) + 1;
+      return a;
+    },
+    {} as Record<string, number>,
+  );
+
+  return (
+    <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Upcoming scheduled services</h2>
+          <p className="text-xs text-gray-500">
+            Based on OEM intervals and this vehicle\u2019s service history.
+          </p>
+        </div>
+        <div className="flex gap-2 text-xs">
+          {counts.overdue ? (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800">{counts.overdue} overdue</span>
+          ) : null}
+          {counts.soon ? (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">{counts.soon} due soon</span>
+          ) : null}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="py-6 text-center text-sm text-gray-400">Loading\u2026</p>
+      ) : services.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-500">
+          No service schedules match this vehicle yet.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Service</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Interval</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Last done</th>
+                <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Due in</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {services.slice(0, 15).map((s) => {
+                const interval = [
+                  s.interval_km ? `${s.interval_km.toLocaleString()} km` : null,
+                  s.interval_months ? `${s.interval_months} mo` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' / ');
+                return (
+                  <tr key={s.schedule_id}>
+                    <td className="px-3 py-2 text-sm">
+                      <div className="font-medium text-gray-900">{s.service_name}</div>
+                      {s.typical_parts?.length ? (
+                        <div className="text-xs text-gray-500">{s.typical_parts.join(', ')}</div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-gray-600">{interval}</td>
+                    <td className="px-3 py-2 text-sm text-gray-600">
+                      {s.last_service_at
+                        ? new Date(s.last_service_at).toLocaleDateString()
+                        : 'Never / unknown'}
+                    </td>
+                    <td className="px-3 py-2 text-end text-sm">
+                      {s.days_until_due != null ? (
+                        <div className={s.days_until_due < 0 ? 'text-red-600' : 'text-gray-700'}>
+                          {s.days_until_due < 0 ? `${Math.abs(s.days_until_due)}d overdue` : `${s.days_until_due}d`}
+                        </div>
+                      ) : null}
+                      {s.km_until_due != null ? (
+                        <div className={`text-xs ${s.km_until_due < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                          {s.km_until_due < 0
+                            ? `${Math.abs(s.km_until_due).toLocaleString()} km overdue`
+                            : `${s.km_until_due.toLocaleString()} km`}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${urgencyColor[s.urgency]}`}
+                      >
+                        {s.urgency}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
