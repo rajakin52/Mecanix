@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
-import { SurveysController } from './surveys.controller';
+import { SurveysController, SurveysRedirectController } from './surveys.controller';
 import { SurveysService } from './surveys.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  controllers: [SurveysController],
+  imports: [NotificationsModule],
+  controllers: [SurveysController, SurveysRedirectController],
   providers: [SurveysService],
   exports: [SurveysService],
 })

@@ -64,6 +64,9 @@ export default function SettingsPage() {
 
   // Photo policy state
   const [photoPolicy, setPhotoPolicy] = useState<string>('strict');
+  const [googleReviewUrl, setGoogleReviewUrl] = useState<string>('');
+  const [savingReviewUrl, setSavingReviewUrl] = useState(false);
+  const [reviewUrlMessage, setReviewUrlMessage] = useState<string>('');
   const [savingPhotoPolicy, setSavingPhotoPolicy] = useState(false);
   const [photoPolicyMessage, setPhotoPolicyMessage] = useState('');
 
@@ -106,6 +109,13 @@ export default function SettingsPage() {
     api.get<{ key: string; value: string | null }>('/tenants/me/settings/job_card_photo_policy')
       .then((data) => {
         if (data.value) setPhotoPolicy(data.value);
+      })
+      .catch(() => {});
+
+    // Fetch Google review URL
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/google_review_url')
+      .then((data) => {
+        if (data.value) setGoogleReviewUrl(data.value);
       })
       .catch(() => {});
 
@@ -154,6 +164,19 @@ export default function SettingsPage() {
       setCostMethodMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSavingCostMethod(false);
+    }
+  };
+
+  const handleSaveReviewUrl = async () => {
+    setSavingReviewUrl(true);
+    setReviewUrlMessage('');
+    try {
+      await api.put('/tenants/me/settings/google_review_url', { value: googleReviewUrl });
+      setReviewUrlMessage('Review URL saved — promoter prompts will start firing.');
+    } catch (err) {
+      setReviewUrlMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingReviewUrl(false);
     }
   };
 
@@ -318,6 +341,38 @@ export default function SettingsPage() {
           </div>
           <span className="text-gray-400 text-xl">→</span>
         </Link>
+
+        {/* Review Flywheel */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-gray-900">Google review flywheel</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Customers who rate you NPS 9 or 10 automatically receive a WhatsApp 24h later with
+            the review link below. Detractors and passives are not prompted — asking them is
+            counter-productive.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-64">
+              <label className="block text-sm font-medium text-gray-700">Google review URL</label>
+              <input
+                type="url"
+                value={googleReviewUrl}
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                placeholder="https://g.page/r/your-review-id/review"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <button
+              onClick={handleSaveReviewUrl}
+              disabled={savingReviewUrl}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {savingReviewUrl ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          {reviewUrlMessage && (
+            <p className="mt-2 text-xs text-gray-500">{reviewUrlMessage}</p>
+          )}
+        </div>
 
         {/* Job Card Photos Policy */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
