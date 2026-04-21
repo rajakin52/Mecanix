@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
 export class TenantsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly audit: AuditLogService,
+  ) {}
 
   async getTenant(tenantId: string) {
     const { data, error } = await this.supabase
@@ -138,7 +142,15 @@ export class TenantsService {
     return data.value as string;
   }
 
-  async setSetting(tenantId: string, key: string, value: string): Promise<{ key: string; value: string }> {
+  async setSetting(
+    tenantId: string,
+    key: string,
+    value: string,
+    context?: { userId?: string; actorName?: string },
+  ): Promise<{ key: string; value: string }> {
+    // Capture previous value for the audit record.
+    const prev = await this.getSetting(tenantId, key);
+
     const { data, error } = await this.supabase
       .getClient()
       .from('tenant_settings')
@@ -151,6 +163,23 @@ export class TenantsService {
 
     if (error) {
       throw new BadRequestException('Failed to save setting');
+    }
+
+    // Log only when the value actually changed.
+    if (prev !== value) {
+      await this.audit.record(
+        tenantId,
+        context?.userId ?? null,
+        context?.actorName ?? null,
+        {
+          action: 'settings.updated',
+          entityType: 'tenant_setting',
+          summary: `Setting "${key}" updated`,
+          beforeState: { value: prev },
+          afterState: { value },
+          metadata: { key },
+        },
+      );
     }
 
     return { key: data.key as string, value: data.value as string };

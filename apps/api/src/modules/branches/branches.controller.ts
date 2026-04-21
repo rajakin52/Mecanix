@@ -71,18 +71,20 @@ export class BranchesController {
   @Patch(':id')
   async update(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateBranchSchema)) body: UpdateBranchInput,
   ) {
-    return this.service.update(tenantId, id, body);
+    return this.service.update(tenantId, id, body, user.id);
   }
 
   @Delete(':id')
   async deactivate(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
   ) {
-    return this.service.deactivate(tenantId, id);
+    return this.service.deactivate(tenantId, id, user.id);
   }
 
   @Post('transfer-stock')

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { CreateCreditNoteInput } from '@mecanix/validators';
 
 @Injectable()
 export class CreditNotesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly audit: AuditLogService,
+  ) {}
 
   async create(
     tenantId: string,
@@ -73,6 +77,19 @@ export class CreditNotesService {
       .eq('tenant_id', tenantId);
 
     if (updateError) throw updateError;
+
+    await this.audit.record(tenantId, userId, null, {
+      action: 'credit_note.issued',
+      entityType: 'credit_note',
+      entityId: creditNote.id as string,
+      summary: `Credit note ${creditNoteNumber} issued for ${input.amount}`,
+      metadata: {
+        credit_note_number: creditNoteNumber,
+        invoice_id: invoiceId,
+        amount: input.amount,
+        reason: input.reason,
+      },
+    });
 
     return creditNote;
   }

@@ -356,6 +356,20 @@ export default function SettingsPage() {
           <span className="text-gray-400 text-xl">→</span>
         </Link>
 
+        {/* Audit Log Link */}
+        <Link
+          href="/settings/audit-log"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Audit log</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Who changed what, and when — append-only record of settings, credit notes, branches, stock transfers
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* Review Flywheel */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-gray-900">Google review flywheel</h2>

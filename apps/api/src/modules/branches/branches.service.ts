@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type {
   CreateBranchInput,
   UpdateBranchInput,
@@ -8,7 +9,10 @@ import type {
 
 @Injectable()
 export class BranchesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly audit: AuditLogService,
+  ) {}
 
   async list(tenantId: string) {
     const { data, error } = await this.supabase
@@ -85,10 +89,19 @@ export class BranchesService {
       .select()
       .single();
     if (error) throw error;
+
+    await this.audit.record(tenantId, userId, null, {
+      action: 'branch.created',
+      entityType: 'branch',
+      entityId: data.id as string,
+      summary: `Branch created: ${input.name} (${input.code})`,
+      afterState: data as Record<string, unknown>,
+    });
+
     return data;
   }
 
-  async update(tenantId: string, id: string, input: UpdateBranchInput) {
+  async update(tenantId: string, id: string, input: UpdateBranchInput, userId?: string) {
     await this.getById(tenantId, id);
     const client = this.supabase.getClient();
 
@@ -118,10 +131,19 @@ export class BranchesService {
       .select()
       .single();
     if (error) throw error;
+
+    await this.audit.record(tenantId, userId ?? null, null, {
+      action: 'branch.updated',
+      entityType: 'branch',
+      entityId: id,
+      summary: `Branch ${data.code as string} updated`,
+      afterState: patch,
+    });
+
     return data;
   }
 
-  async deactivate(tenantId: string, id: string) {
+  async deactivate(tenantId: string, id: string, userId?: string) {
     const { error } = await this.supabase
       .getClient()
       .from('branches')
@@ -129,6 +151,14 @@ export class BranchesService {
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
+
+    await this.audit.record(tenantId, userId ?? null, null, {
+      action: 'branch.deactivated',
+      entityType: 'branch',
+      entityId: id,
+      summary: 'Branch deactivated',
+    });
+
     return { deactivated: true };
   }
 
@@ -290,6 +320,19 @@ export class BranchesService {
         adjusted_by: userId,
       },
     ]);
+
+    await this.audit.record(tenantId, userId, null, {
+      action: 'stock.transferred',
+      entityType: 'part',
+      entityId: input.partId,
+      summary: `${input.quantity} units transferred between warehouses`,
+      metadata: {
+        from_warehouse_id: input.fromWarehouseId,
+        to_warehouse_id: input.toWarehouseId,
+        quantity: input.quantity,
+        notes: input.notes,
+      },
+    });
 
     return { transferred: input.quantity };
   }

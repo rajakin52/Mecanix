@@ -2,7 +2,8 @@ import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nest
 import { TenantsService } from './tenants.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { TenantId } from '../../common/decorators/user.decorator';
+import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
+import type { RequestUser } from '../../common/guards/tenant.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -73,9 +74,13 @@ export class TenantsController {
   @Roles('owner')
   async setSetting(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('key') key: string,
     @Body(new ZodValidationPipe(setTenantSettingSchema)) body: SetTenantSettingInput,
   ) {
-    return this.tenantsService.setSetting(tenantId, key, body.value);
+    return this.tenantsService.setSetting(tenantId, key, body.value, {
+      userId: user.id,
+      actorName: user.email,
+    });
   }
 }
