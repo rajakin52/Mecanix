@@ -59,6 +59,11 @@ export class PartsController {
     return this.partsService.getLowStock(tenantId);
   }
 
+  @Get('reorder-suggestions')
+  async getReorderSuggestions(@TenantId() tenantId: string) {
+    return this.partsService.getReorderSuggestions(tenantId);
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,

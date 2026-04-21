@@ -137,6 +137,107 @@ export class PartsService {
     return data;
   }
 
+  /**
+   * Velocity-based reorder suggestions. For each active part with any
+   * issuance in the last 90 days, compute:
+   *
+   *   velocity_per_day   = issued qty / 90
+   *   available          = stock_qty - reserved_qty
+   *   days_of_cover      = available / velocity_per_day   (Inf if velocity 0)
+   *   suggested_qty      = max(0, round(velocity * 14 - available))   // aim for 2 weeks cover
+   *   priority           = 'critical' if days_of_cover < 7
+   *                        'warning'  if days_of_cover < 14
+   *                        'watch'    otherwise
+   *
+   * Only parts whose suggested_qty > 0 AND velocity > 0 are returned.
+   * The shop converts each suggestion into a purchase request with
+   * one click from the UI.
+   */
+  async getReorderSuggestions(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    // 1. All issued lines in last 90 days, grouped by part_number.
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: lines } = await client
+      .from('parts_lines')
+      .select('part_number, quantity')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', since)
+      .not('part_number', 'is', null);
+
+    const velocityByPartNumber = new Map<string, number>();
+    for (const line of lines ?? []) {
+      const key = (line.part_number as string | null) ?? '';
+      if (!key) continue;
+      velocityByPartNumber.set(
+        key,
+        (velocityByPartNumber.get(key) ?? 0) + (Number(line.quantity) || 0),
+      );
+    }
+
+    if (velocityByPartNumber.size === 0) return [];
+
+    // 2. Pull the matching part master rows in one shot.
+    const { data: parts } = await client
+      .from('parts')
+      .select('id, part_number, description, category, stock_qty, reserved_qty, reorder_point, unit_cost, supplier_id, vendor:vendors(id, name)')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .in('part_number', Array.from(velocityByPartNumber.keys()));
+
+    const suggestions: Array<Record<string, unknown>> = [];
+    for (const p of parts ?? []) {
+      const partNumber = p.part_number as string;
+      const issued90 = velocityByPartNumber.get(partNumber) ?? 0;
+      const velocity = issued90 / 90;
+      if (velocity <= 0) continue;
+
+      const available = Math.max(
+        0,
+        (Number(p.stock_qty) || 0) - (Number(p.reserved_qty) || 0),
+      );
+      const daysOfCover = velocity > 0 ? available / velocity : Number.POSITIVE_INFINITY;
+      const targetCoverDays = 14; // aim for two weeks of stock
+      const suggestedQty = Math.max(0, Math.ceil(velocity * targetCoverDays - available));
+      if (suggestedQty <= 0) continue;
+
+      const priority =
+        daysOfCover < 7 ? 'critical' : daysOfCover < 14 ? 'warning' : 'watch';
+
+      suggestions.push({
+        part_id: p.id,
+        part_number: partNumber,
+        description: p.description,
+        category: p.category,
+        stock_qty: Number(p.stock_qty) || 0,
+        reserved_qty: Number(p.reserved_qty) || 0,
+        available,
+        unit_cost: Number(p.unit_cost) || 0,
+        supplier_id: p.supplier_id,
+        vendor: p.vendor,
+        issued_last_90d: issued90,
+        velocity_per_day: Math.round(velocity * 100) / 100,
+        days_of_cover:
+          daysOfCover === Number.POSITIVE_INFINITY ? null : Math.round(daysOfCover * 10) / 10,
+        suggested_qty: suggestedQty,
+        estimated_cost: Math.round(suggestedQty * (Number(p.unit_cost) || 0) * 100) / 100,
+        priority,
+      });
+    }
+
+    // Most urgent first.
+    const rank = { critical: 0, warning: 1, watch: 2 } as const;
+    suggestions.sort((a, b) => {
+      const pa = rank[a.priority as keyof typeof rank];
+      const pb = rank[b.priority as keyof typeof rank];
+      if (pa !== pb) return pa - pb;
+      return (Number(a.days_of_cover) || 999) - (Number(b.days_of_cover) || 999);
+    });
+
+    return suggestions;
+  }
+
   async getLowStock(tenantId: string) {
     const client = this.supabase.getClient();
 
