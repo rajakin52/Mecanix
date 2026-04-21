@@ -64,6 +64,22 @@ export class VehiclesController {
     return this.vehiclesService.getWarrantyCoverage(tenantId, id);
   }
 
+  @Get(':id/health-score')
+  async getHealthScore(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.vehiclesService.computeHealthScore(tenantId, id, false);
+  }
+
+  @Post(':id/health-score/recompute')
+  async recomputeHealthScore(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.vehiclesService.computeHealthScore(tenantId, id, true);
+  }
+
   @Post()
   async create(
     @TenantId() tenantId: string,

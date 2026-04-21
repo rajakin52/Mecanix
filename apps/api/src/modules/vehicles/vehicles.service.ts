@@ -420,6 +420,165 @@ export class VehiclesService {
     };
   }
 
+  /**
+   * Composite vehicle health score (0-100) covering five signals.
+   * Weights chosen to make the score move visibly on the actions an
+   * owner cares about:
+   *
+   *   latest DVI           : 50 weight (already 0-100, the anchor)
+   *   deferred red items   : 15 weight, linear penalty, 3+ items = 0
+   *   recent comebacks 12m : 15 weight, 1 = 66%, 2 = 33%, 3+ = 0%
+   *   days since service   : 10 weight, 180d+ = 0%
+   *   active warranty      : 10 weight, any coverage = 100%
+   *
+   * A vehicle with no DVI on record gets a neutral 60 so it doesn't
+   * show up as a crisis.
+   */
+  async computeHealthScore(tenantId: string, vehicleId: string, force = false) {
+    const client = this.supabase.getClient();
+
+    // Cache-check unless caller forced a recompute.
+    if (!force) {
+      const { data: cached } = await client
+        .from('vehicles')
+        .select('health_score, health_score_updated_at, health_score_components')
+        .eq('id', vehicleId)
+        .eq('tenant_id', tenantId)
+        .single();
+      if (cached?.health_score != null && cached.health_score_updated_at) {
+        const ageMs = Date.now() - new Date(cached.health_score_updated_at as string).getTime();
+        if (ageMs < 60 * 60 * 1000) {
+          return {
+            score: cached.health_score as number,
+            updated_at: cached.health_score_updated_at as string,
+            components: (cached.health_score_components as Record<string, unknown>) ?? {},
+            cached: true,
+          };
+        }
+      }
+    }
+
+    const now = Date.now();
+
+    // 1. Latest DVI on any of this vehicle's jobs.
+    const { data: latestInspection } = await client
+      .from('vehicle_inspections')
+      .select('health_score, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const dviScore = latestInspection?.health_score != null
+      ? Number(latestInspection.health_score)
+      : null;
+
+    // 2. Deferred red items currently open.
+    const { data: deferredReds } = await client
+      .from('deferred_services')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .eq('priority', 'red')
+      .in('status', ['pending', 'reminded']);
+    const redCount = (deferredReds ?? []).length;
+    const deferredSub = Math.max(0, Math.min(100, 100 - redCount * 35));
+
+    // 3. Comebacks in last 12 months.
+    const twelveMonthsAgo = new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: comebacks } = await client
+      .from('job_cards')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .eq('is_comeback', true)
+      .is('deleted_at', null)
+      .gte('created_at', twelveMonthsAgo);
+    const comebackCount = (comebacks ?? []).length;
+    const comebackSub = Math.max(0, 100 - comebackCount * 33);
+
+    // 4. Days since last *invoiced* or *ready* job (the vehicle has
+    //    actually been serviced — open jobs don't count).
+    const { data: lastService } = await client
+      .from('job_cards')
+      .select('date_closed, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .in('status', ['invoiced', 'ready'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastServiceAt = lastService?.date_closed ?? lastService?.created_at ?? null;
+    let daysSinceSub = 50; // neutral when we don't know
+    let daysSinceService: number | null = null;
+    if (lastServiceAt) {
+      daysSinceService = Math.floor((now - new Date(lastServiceAt as string).getTime()) / (24 * 60 * 60 * 1000));
+      daysSinceSub = Math.max(0, Math.min(100, 100 - (daysSinceService / 180) * 100));
+    }
+
+    // 5. Active warranty lines — any coverage still open is positive.
+    const { data: warrantyParts } = await client
+      .from('parts_lines')
+      .select('warranty_months, warranty_starts_at, job:job_cards!inner(vehicle_id)')
+      .eq('tenant_id', tenantId)
+      .eq('job.vehicle_id', vehicleId)
+      .not('warranty_months', 'is', null);
+    const { data: warrantyLabour } = await client
+      .from('labour_lines')
+      .select('warranty_months, warranty_starts_at, job:job_cards!inner(vehicle_id)')
+      .eq('tenant_id', tenantId)
+      .eq('job.vehicle_id', vehicleId)
+      .not('warranty_months', 'is', null);
+
+    const hasActiveWarranty = (lines: Array<Record<string, unknown>> | null): boolean => {
+      if (!lines) return false;
+      for (const l of lines) {
+        const start = l.warranty_starts_at as string | null;
+        const months = l.warranty_months as number | null;
+        if (!start || months == null) continue;
+        const expiry = new Date(start);
+        expiry.setMonth(expiry.getMonth() + months);
+        if (expiry.getTime() > now) return true;
+      }
+      return false;
+    };
+    const anyWarranty = hasActiveWarranty(warrantyParts as Array<Record<string, unknown>> | null) ||
+      hasActiveWarranty(warrantyLabour as Array<Record<string, unknown>> | null);
+    const warrantySub = anyWarranty ? 100 : 50; // neutral when no coverage — not a negative signal
+
+    // Composite weighted average.
+    const dviAnchor = dviScore ?? 60;
+    const score = Math.round(
+      dviAnchor * 0.5 +
+      deferredSub * 0.15 +
+      comebackSub * 0.15 +
+      daysSinceSub * 0.10 +
+      warrantySub * 0.10,
+    );
+
+    const components = {
+      dvi: { value: dviScore, weight: 50 },
+      deferred_reds: { count: redCount, score: deferredSub, weight: 15 },
+      comebacks_12m: { count: comebackCount, score: comebackSub, weight: 15 },
+      days_since_service: { days: daysSinceService, score: daysSinceSub, weight: 10 },
+      active_warranty: { has_coverage: anyWarranty, score: warrantySub, weight: 10 },
+    };
+
+    const updated_at = new Date().toISOString();
+    await client
+      .from('vehicles')
+      .update({
+        health_score: score,
+        health_score_updated_at: updated_at,
+        health_score_components: components,
+      })
+      .eq('id', vehicleId)
+      .eq('tenant_id', tenantId);
+
+    return { score, updated_at, components, cached: false };
+  }
+
   async uploadPhoto(tenantId: string, vehicleId: string, userId: string, file: Buffer, filename: string) {
     await this.getById(tenantId, vehicleId);
 

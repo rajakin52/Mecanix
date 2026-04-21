@@ -9,6 +9,7 @@ import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkRem
 import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentReminder } from '@/hooks/use-document-reminders';
 import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
 import { useDeferredServices, useCreateDeferred } from '@/hooks/use-deferred';
+import { useVehicleHealthScore, useRecomputeHealthScore } from '@/hooks/use-health-score';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateVehicleSchema } from '@mecanix/validators';
@@ -186,12 +187,15 @@ export default function VehicleDetailPage() {
             {[vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')}
           </p>
         </div>
-        <button
-          onClick={() => setShowEditModal(true)}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          {t('edit')}
-        </button>
+        <div className="flex items-center gap-3">
+          <HealthScoreBadge vehicleId={id} />
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {t('edit')}
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -943,6 +947,99 @@ export default function VehicleDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function HealthScoreBadge({ vehicleId }: { vehicleId: string }) {
+  const { data, isLoading } = useVehicleHealthScore(vehicleId);
+  const recompute = useRecomputeHealthScore(vehicleId);
+  const [open, setOpen] = useState(false);
+
+  if (isLoading || !data) {
+    return (
+      <div className="rounded-full bg-gray-100 px-3 py-1.5 text-xs text-gray-500">
+        Health: …
+      </div>
+    );
+  }
+
+  const score = data.score;
+  const color =
+    score >= 80 ? 'bg-green-100 text-green-800 border-green-300'
+    : score >= 60 ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
+    : score >= 40 ? 'bg-orange-100 text-orange-800 border-orange-300'
+    : 'bg-red-100 text-red-800 border-red-300';
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${color}`}
+      >
+        <span>Health {score}/100</span>
+        <span className="text-[10px] opacity-60">{open ? '\u25B2' : '\u25BC'}</span>
+      </button>
+      {open ? (
+        <div className="absolute right-0 top-full z-20 mt-2 w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">Health breakdown</h3>
+            <button
+              onClick={() => recompute.mutate()}
+              disabled={recompute.isPending}
+              className="text-xs text-primary-600 hover:underline"
+            >
+              {recompute.isPending ? 'Refreshing\u2026' : 'Recompute'}
+            </button>
+          </div>
+          <div className="space-y-1.5 text-xs text-gray-700">
+            <Row
+              label="Latest DVI"
+              value={data.components.dvi.value != null ? `${data.components.dvi.value}/100` : 'No DVI on record'}
+              weight={data.components.dvi.weight}
+            />
+            <Row
+              label="Open red deferred items"
+              value={`${data.components.deferred_reds.count}`}
+              weight={data.components.deferred_reds.weight}
+            />
+            <Row
+              label="Comebacks (12mo)"
+              value={`${data.components.comebacks_12m.count}`}
+              weight={data.components.comebacks_12m.weight}
+            />
+            <Row
+              label="Days since service"
+              value={
+                data.components.days_since_service.days != null
+                  ? `${data.components.days_since_service.days}d`
+                  : 'Unknown'
+              }
+              weight={data.components.days_since_service.weight}
+            />
+            <Row
+              label="Active warranty"
+              value={data.components.active_warranty.has_coverage ? 'Yes' : 'No'}
+              weight={data.components.active_warranty.weight}
+            />
+          </div>
+          <p className="mt-3 text-[10px] text-gray-400">
+            Updated {new Date(data.updated_at).toLocaleString()}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Row({ label, value, weight }: { label: string; value: string; weight: number }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-gray-700">{label}</span>
+      <span className="flex items-center gap-2">
+        <span className="font-medium text-gray-900">{value}</span>
+        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{weight}%</span>
+      </span>
     </div>
   );
 }
