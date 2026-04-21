@@ -10,9 +10,9 @@ import { SupabaseService } from '../supabase/supabase.service';
  * otherwise ask for, consolidated into a single URL.
  *
  * This is the Phase 3 item 3 "foundation" — it's also the on-ramp
- * to module 20 (APAAS). When an insurer comes online with a real
- * submission API, the same service method just adds an `api`
- * branch beside the email one.
+ * to Module 21 (AIDA) insurer side. When an insurer comes online
+ * with a real submission API, the same service method just adds
+ * an `api` branch beside the email one.
  */
 @Injectable()
 export class ClaimPacketsService {

@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
--- Module 20 foundation (Phase 3 item 3 finisher) — claim packets.
+-- Module 21 (AIDA) insurer-side foundation / Phase 3 item 3 — claim packets.
 --
 -- Today every insurer submission is typed by hand into the insurer
 -- portal. This table tracks the generated packet bundle (PDF +
