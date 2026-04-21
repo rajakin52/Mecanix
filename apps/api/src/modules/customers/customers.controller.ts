@@ -40,6 +40,20 @@ export class CustomersController {
     return this.customersService.search(tenantId, q ?? '');
   }
 
+  @Get('find-duplicates')
+  async findDuplicates(
+    @TenantId() tenantId: string,
+    @Query('phone') phone?: string,
+    @Query('email') email?: string,
+    @Query('fullName') fullName?: string,
+  ) {
+    return this.customersService.findDuplicates(tenantId, {
+      phone,
+      email,
+      fullName,
+    });
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,

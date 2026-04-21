@@ -40,6 +40,15 @@ export class VehiclesController {
     return this.vinService.decode(vin);
   }
 
+  @Get('find-duplicates')
+  async findDuplicates(
+    @TenantId() tenantId: string,
+    @Query('plate') plate?: string,
+    @Query('vin') vin?: string,
+  ) {
+    return this.vehiclesService.findDuplicates(tenantId, { plate, vin });
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,

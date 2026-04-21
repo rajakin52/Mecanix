@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
 import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
 import { useMyBranches } from '@/hooks/use-branches';
+import { useVehicleDuplicates } from '@/hooks/use-duplicates';
 
 interface CaptureSession {
   id: string;
@@ -115,6 +116,10 @@ export default function NewJobWizard() {
   const [showNewVehicle, setShowNewVehicle] = useState(false);
   const [newVehicle, setNewVehicle] = useState({ plate: '', vin: '', makeId: '', make: '', model: '', year: '', color: '', fuelType: 'diesel' });
   const [selectedMakeId, setSelectedMakeId] = useState('');
+  const { data: vehicleDuplicates } = useVehicleDuplicates({
+    plate: showNewVehicle ? newVehicle.plate : '',
+    vin: showNewVehicle ? newVehicle.vin : '',
+  });
 
   // Inspection
   const [mileage, setMileage] = useState('');
@@ -785,6 +790,35 @@ export default function NewJobWizard() {
             {showNewVehicle && (
               <div className="rounded-xl bg-white p-6 shadow-sm border-2 border-primary-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Vehicle</h3>
+
+                {vehicleDuplicates && vehicleDuplicates.length > 0 ? (
+                  <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+                    <div className="text-xs font-semibold text-amber-900">
+                      Possible duplicate{vehicleDuplicates.length === 1 ? '' : 's'} already registered
+                    </div>
+                    <ul className="mt-2 space-y-1 text-xs text-amber-800">
+                      {vehicleDuplicates.slice(0, 3).map((d) => (
+                        <li key={d.id}>
+                          <span className="font-mono font-medium">{d.plate}</span>
+                          <span className="ms-2">
+                            {d.make} {d.model}
+                            {d.year ? ` (${d.year})` : ''}
+                          </span>
+                          {d.customer ? (
+                            <span className="ms-2 text-amber-700">owned by {d.customer.full_name}</span>
+                          ) : null}
+                          <span className="ms-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                            matched by {d.match_reason}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-amber-700">
+                      Pick the existing vehicle from the customer above instead of creating a split history.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Plate *</label>

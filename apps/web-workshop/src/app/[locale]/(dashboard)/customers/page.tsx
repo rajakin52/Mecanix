@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useCustomers, useCreateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
+import { useCustomerDuplicates } from '@/hooks/use-duplicates';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createCustomerSchema } from '@mecanix/validators';
@@ -50,8 +51,17 @@ export default function CustomersPage() {
 
   const [isCorporate, setIsCorporate] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm<CreateCustomerInput>({
+  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<CreateCustomerInput>({
     resolver: zodResolver(createCustomerSchema),
+  });
+
+  const watchedPhone = watch('phone');
+  const watchedEmail = watch('email');
+  const watchedName = watch('fullName');
+  const { data: duplicates } = useCustomerDuplicates({
+    phone: watchedPhone,
+    email: watchedEmail,
+    fullName: watchedName,
   });
 
   const onSubmit = async (formData: CreateCustomerInput) => {
@@ -184,6 +194,30 @@ export default function CustomersPage() {
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <form id="create-customer-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+
+                {/* Duplicate warning */}
+                {duplicates && duplicates.length > 0 ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                    <div className="text-xs font-semibold text-amber-900">
+                      Possible duplicate{duplicates.length === 1 ? '' : 's'} found
+                    </div>
+                    <ul className="mt-2 space-y-1 text-xs text-amber-800">
+                      {duplicates.slice(0, 5).map((d) => (
+                        <li key={d.id}>
+                          <span className="font-medium">{d.full_name}</span>
+                          {d.phone ? <span className="ms-2 text-amber-700">{d.phone}</span> : null}
+                          {d.email ? <span className="ms-2 text-amber-700">{d.email}</span> : null}
+                          <span className="ms-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                            matched by {d.match_reason}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-amber-700">
+                      Use an existing record if this is the same person — avoids split history.
+                    </p>
+                  </div>
+                ) : null}
 
                 {/* ── Contact Information ── */}
                 <div>

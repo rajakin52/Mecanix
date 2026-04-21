@@ -173,4 +173,118 @@ export class CustomersService {
     if (error) throw error;
     return data ?? [];
   }
+
+  /**
+   * Intake-time duplicate detector. Called from the new-customer
+   * form as the receptionist types. Three signals ranked by
+   * strength:
+   *   - phone exact (last 9 digits normalised) — strongest
+   *   - email exact (lowercased) — strong
+   *   - name similarity > 0.5 via pg_trgm — weak, noisy on common
+   *     first names, but catches "Joao Silva" vs "João Silva"
+   *
+   * Returns a deduped array with match_reason so the UI can show
+   * "matches by phone" vs "matches by name".
+   */
+  async findDuplicates(
+    tenantId: string,
+    input: { phone?: string; email?: string; fullName?: string },
+  ) {
+    const client = this.supabase.getClient();
+    const matches = new Map<
+      string,
+      { id: string; full_name: string; phone: string | null; email: string | null; tax_id: string | null; match_reason: string; match_score: number }
+    >();
+
+    const recordMatch = (
+      row: Record<string, unknown>,
+      reason: string,
+      score: number,
+    ) => {
+      const id = row.id as string;
+      const existing = matches.get(id);
+      if (!existing || score > existing.match_score) {
+        matches.set(id, {
+          id,
+          full_name: row.full_name as string,
+          phone: (row.phone as string | null) ?? null,
+          email: (row.email as string | null) ?? null,
+          tax_id: (row.tax_id as string | null) ?? null,
+          match_reason: reason,
+          match_score: score,
+        });
+      }
+    };
+
+    // Phone: normalise to last 9 digits (handles country-code variation).
+    if (input.phone) {
+      const normalised = input.phone.replace(/[^0-9]/g, '').slice(-9);
+      if (normalised.length >= 6) {
+        const { data } = await client
+          .from('customers')
+          .select('id, full_name, phone, email, tax_id')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .ilike('phone', `%${normalised}%`)
+          .limit(10);
+        for (const row of data ?? []) {
+          const rowNorm = ((row.phone as string | null) ?? '').replace(/[^0-9]/g, '').slice(-9);
+          if (rowNorm === normalised) {
+            recordMatch(row, 'phone', 1.0);
+          }
+        }
+      }
+    }
+
+    // Email: case-insensitive exact match.
+    if (input.email) {
+      const lower = input.email.trim().toLowerCase();
+      if (lower.includes('@')) {
+        const { data } = await client
+          .from('customers')
+          .select('id, full_name, phone, email, tax_id')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .ilike('email', lower)
+          .limit(10);
+        for (const row of data ?? []) {
+          recordMatch(row, 'email', 0.95);
+        }
+      }
+    }
+
+    // Name: trigram similarity ≥ 0.5 using a stored-proc-less raw
+    // query. Supabase's REST layer doesn't expose similarity()
+    // directly, so we use ilike + client-side rank as a proxy
+    // anchored on first/last-name tokens. Good enough to catch
+    // "João Silva" vs "Joao Silva" or "Maria Carvalho" vs "M.
+    // Carvalho" without a DB function.
+    if (input.fullName && input.fullName.trim().length >= 3) {
+      const tokens = input.fullName
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length >= 3)
+        .slice(0, 3);
+      if (tokens.length > 0) {
+        const { data } = await client
+          .from('customers')
+          .select('id, full_name, phone, email, tax_id')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .or(tokens.map((t) => `full_name.ilike.%${t}%`).join(','))
+          .limit(10);
+        for (const row of data ?? []) {
+          const rowLower = (row.full_name as string).toLowerCase();
+          const hits = tokens.filter((t) => rowLower.includes(t)).length;
+          const score = hits / tokens.length;
+          if (score >= 0.5) {
+            recordMatch(row, 'name', 0.5 + score * 0.4);
+          }
+        }
+      }
+    }
+
+    return Array.from(matches.values()).sort((a, b) => b.match_score - a.match_score);
+  }
 }

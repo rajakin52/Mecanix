@@ -761,4 +761,95 @@ export class VehiclesService {
 
     return { url: urlData.publicUrl };
   }
+
+  /**
+   * Intake-time duplicate detector for vehicles. Plate is the
+   * authoritative signal — normalise to uppercase stripped of
+   * spaces / dashes and treat exact matches as near-certain
+   * duplicates. VIN (when provided) is similarly uppercase-
+   * normalised. Returns newest-first so the receptionist sees
+   * active vehicles before historical ones.
+   */
+  async findDuplicates(
+    tenantId: string,
+    input: { plate?: string; vin?: string },
+  ) {
+    const client = this.supabase.getClient();
+    const matches = new Map<
+      string,
+      {
+        id: string;
+        plate: string;
+        make: string;
+        model: string;
+        year: number | null;
+        vin: string | null;
+        customer: { id: string; full_name: string } | null;
+        match_reason: string;
+        match_score: number;
+      }
+    >();
+
+    const recordMatch = (
+      row: Record<string, unknown>,
+      reason: string,
+      score: number,
+    ) => {
+      const id = row.id as string;
+      const existing = matches.get(id);
+      if (!existing || score > existing.match_score) {
+        const cust = row.customer as unknown;
+        const custObj = Array.isArray(cust)
+          ? (cust[0] as { id: string; full_name: string } | undefined)
+          : (cust as { id: string; full_name: string } | null);
+        matches.set(id, {
+          id,
+          plate: row.plate as string,
+          make: row.make as string,
+          model: row.model as string,
+          year: (row.year as number | null) ?? null,
+          vin: (row.vin as string | null) ?? null,
+          customer: custObj ?? null,
+          match_reason: reason,
+          match_score: score,
+        });
+      }
+    };
+
+    // Plate: uppercase, strip spaces + dashes.
+    if (input.plate) {
+      const normalised = input.plate.toUpperCase().replace(/[\s-]/g, '');
+      if (normalised.length >= 3) {
+        const { data } = await client
+          .from('vehicles')
+          .select('id, plate, make, model, year, vin, customer:customers(id, full_name)')
+          .eq('tenant_id', tenantId)
+          .ilike('plate', `%${normalised}%`)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        for (const row of data ?? []) {
+          const rowNorm = (row.plate as string).toUpperCase().replace(/[\s-]/g, '');
+          if (rowNorm === normalised) {
+            recordMatch(row, 'plate', 1.0);
+          }
+        }
+      }
+    }
+
+    // VIN: 17 chars, strict exact match.
+    if (input.vin) {
+      const normalised = input.vin.toUpperCase().trim();
+      if (normalised.length >= 11) {
+        const { data } = await client
+          .from('vehicles')
+          .select('id, plate, make, model, year, vin, customer:customers(id, full_name)')
+          .eq('tenant_id', tenantId)
+          .eq('vin', normalised)
+          .limit(10);
+        for (const row of data ?? []) recordMatch(row, 'vin', 0.98);
+      }
+    }
+
+    return Array.from(matches.values()).sort((a, b) => b.match_score - a.match_score);
+  }
 }
