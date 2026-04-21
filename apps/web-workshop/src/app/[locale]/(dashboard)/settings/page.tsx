@@ -342,6 +342,20 @@ export default function SettingsPage() {
           <span className="text-gray-400 text-xl">→</span>
         </Link>
 
+        {/* Branches Link */}
+        <Link
+          href="/settings/branches"
+          className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-6 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Branches</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Physical locations — customers and parts master shared, stock tracked per warehouse
+            </p>
+          </div>
+          <span className="text-gray-400 text-xl">→</span>
+        </Link>
+
         {/* Review Flywheel */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-gray-900">Google review flywheel</h2>

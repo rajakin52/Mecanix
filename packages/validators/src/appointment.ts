@@ -13,6 +13,7 @@ export const createAppointmentSchema = z.object({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   notes: z.string().optional(),
+  branchId: z.string().uuid().optional(),
 });
 
 export const updateAppointmentSchema = createAppointmentSchema.partial();

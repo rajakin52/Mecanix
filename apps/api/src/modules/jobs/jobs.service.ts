@@ -227,6 +227,7 @@ export class JobsService {
         warranty_claim_ref: input.warrantyClaimRef || null,
         warranty_supplier: input.warrantySupplier || null,
         priority_level: input.priorityLevel ?? 'normal',
+        branch_id: input.branchId || null,
         labour_total: 0,
         parts_total: 0,
         tax_amount: 0,

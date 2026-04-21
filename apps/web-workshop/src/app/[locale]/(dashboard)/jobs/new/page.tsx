@@ -8,6 +8,7 @@ import { normalizePhone } from '@/lib/phone';
 import { useQuery } from '@tanstack/react-query';
 import { useSymptoms, type SymptomCode } from '@/hooks/use-symptoms';
 import { useVehicleWarrantyCoverage } from '@/hooks/use-warranty';
+import { useMyBranches } from '@/hooks/use-branches';
 
 interface CaptureSession {
   id: string;
@@ -89,6 +90,17 @@ export default function NewJobWizard() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [plateSearch, setPlateSearch] = useState('');
+
+  // Branch picker (multi-location tenants). Defaults to the user's
+  // primary branch; single-branch tenants don't see the picker.
+  const { data: myBranchesData } = useMyBranches();
+  const availableBranches = myBranchesData?.branches ?? [];
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  useEffect(() => {
+    if (!selectedBranchId && myBranchesData?.primaryBranchId) {
+      setSelectedBranchId(myBranchesData.primaryBranchId);
+    }
+  }, [myBranchesData?.primaryBranchId, selectedBranchId]);
 
   // Comeback detection — fires whenever a vehicle is selected
   const [isComeback, setIsComeback] = useState(false);
@@ -467,6 +479,7 @@ export default function NewJobWizard() {
         isComeback: isComeback || undefined,
         comebackOriginalJobId: isComeback && comebackOriginalJobId ? comebackOriginalJobId : undefined,
         comebackReason: isComeback && comebackReason.trim() ? comebackReason.trim() : undefined,
+        branchId: selectedBranchId || undefined,
       });
 
       // 2. Create vehicle reception — MANDATORY. If this fails, delete the job card.
@@ -828,6 +841,23 @@ export default function NewJobWizard() {
             {/* Both selected */}
             {selectedCustomer && selectedVehicle && (
               <>
+                {availableBranches.length > 1 ? (
+                  <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+                    <label className="block text-xs font-semibold uppercase text-gray-500">Branch</label>
+                    <select
+                      value={selectedBranchId}
+                      onChange={(e) => setSelectedBranchId(e.target.value)}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      {availableBranches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.code} — {b.name}
+                          {b.is_default ? ' (default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-xl bg-green-50 border border-green-200 p-4">
                     <span className="text-xs text-green-600 font-semibold uppercase">Customer</span>

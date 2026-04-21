@@ -46,6 +46,7 @@ export const createJobCardSchema = z.object({
   warrantyClaimRef: z.string().max(100).optional(),
   warrantySupplier: z.string().max(200).optional(),
   priorityLevel: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  branchId: z.string().uuid().optional(),
 }).refine((data) => data.reportedProblem.trim().length > 0 || data.symptomCodes.length > 0, {
   message: 'Either a reported problem or at least one symptom must be provided',
   path: ['reportedProblem'],

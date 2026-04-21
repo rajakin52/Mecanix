@@ -101,6 +101,7 @@ export class AppointmentsService {
         customer_name: customerName,
         customer_phone: customerPhone,
         notes: input.notes || null,
+        branch_id: input.branchId || null,
         created_by: userId,
       })
       .select(
