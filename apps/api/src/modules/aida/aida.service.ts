@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import crypto from 'node:crypto';
 import sharp from 'sharp';
 import PDFDocument from 'pdfkit';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -18,6 +20,7 @@ import type {
 const BUCKET = 'aida-captures';
 const PACKET_BUCKET = 'aida-packets';
 const MODEL_VERSION = 'claude-opus-4-7-vision-v1';
+const CAPTURE_TOKEN_TTL_DAYS = 14;
 
 async function compress(raw: Buffer): Promise<{ buffer: Buffer; width: number; height: number }> {
   const pipeline = sharp(raw).rotate();
@@ -35,6 +38,7 @@ export class AidaService {
     private readonly supabase: SupabaseService,
     private readonly jobsService: JobsService,
     private readonly aiService: AiService,
+    private readonly config: ConfigService,
   ) {}
 
   // ─── assessments ─────────────────────────────────────────────
@@ -1288,6 +1292,164 @@ export class AidaService {
 
       doc.end();
     });
+  }
+
+  // ─── customer capture link ────────────────────────────────────
+  // Workshop issues a tokenised URL; customer opens it, takes photos,
+  // they land on the assessment. Token is single-per-assessment — reused
+  // if still valid to keep the share link stable.
+  async ensureCaptureToken(tenantId: string, assessmentId: string) {
+    const client = this.supabase.getClient();
+    const { data: existing } = await client
+      .from('damage_assessments')
+      .select('capture_token, capture_token_expires_at, status')
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!existing) throw new NotFoundException('Assessment not found');
+    if (existing.status === 'approved' || existing.status === 'rejected' || existing.status === 'cancelled') {
+      throw new BadRequestException('Assessment is closed — cannot issue a new capture link');
+    }
+
+    const now = Date.now();
+    const stillValid =
+      existing.capture_token &&
+      existing.capture_token_expires_at &&
+      new Date(existing.capture_token_expires_at as string).getTime() > now;
+
+    let token: string;
+    let expiresAt: string;
+    if (stillValid) {
+      token = existing.capture_token as string;
+      expiresAt = existing.capture_token_expires_at as string;
+    } else {
+      token = crypto.randomBytes(20).toString('hex');
+      expiresAt = new Date(now + CAPTURE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      await client
+        .from('damage_assessments')
+        .update({
+          capture_token: token,
+          capture_token_expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', assessmentId)
+        .eq('tenant_id', tenantId);
+    }
+
+    const base = this.config.get<string>('PUBLIC_APP_URL', '');
+    const url = base ? `${base.replace(/\/$/, '')}/public/aida/capture/${token}` : null;
+    return { token, expiresAt, url };
+  }
+
+  // Public-facing getter — token in, sanitised summary out. No
+  // tenant scoping: the token IS the authorisation.
+  async getByCaptureToken(token: string) {
+    const client = this.supabase.getClient();
+    const { data } = await client
+      .from('damage_assessments')
+      .select(
+        'id, tenant_id, status, capture_token_expires_at, vehicle:vehicles(plate, make, model, year), tenant:tenants(name)',
+      )
+      .eq('capture_token', token)
+      .limit(1)
+      .maybeSingle();
+    if (!data) throw new NotFoundException('Capture link not found');
+
+    const expiresAt = data.capture_token_expires_at as string | null;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      throw new NotFoundException('Capture link has expired');
+    }
+    if (data.status === 'approved' || data.status === 'rejected' || data.status === 'cancelled') {
+      throw new NotFoundException('This assessment is already closed');
+    }
+
+    const { count: photoCount } = await client
+      .from('assessment_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', data.tenant_id as string)
+      .eq('assessment_id', data.id as string);
+
+    const vehicle = Array.isArray(data.vehicle)
+      ? (data.vehicle[0] as Record<string, unknown> | undefined)
+      : (data.vehicle as Record<string, unknown> | null);
+    const tenant = Array.isArray(data.tenant)
+      ? (data.tenant[0] as Record<string, unknown> | undefined)
+      : (data.tenant as Record<string, unknown> | null);
+
+    return {
+      id: data.id as string,
+      status: data.status as string,
+      expiresAt,
+      vehicle: vehicle ?? null,
+      tenantName: (tenant?.name as string | undefined) ?? null,
+      photoCount: photoCount ?? 0,
+    };
+  }
+
+  // Customer-side photo upload. Validates token, then reuses the
+  // same compression + storage path as the workshop-side uploadPhoto.
+  async uploadPhotoByToken(
+    token: string,
+    input: { file: string; filename: string; viewAngle?: string },
+  ) {
+    const client = this.supabase.getClient();
+    const { data: assessment } = await client
+      .from('damage_assessments')
+      .select('id, tenant_id, status, capture_token_expires_at')
+      .eq('capture_token', token)
+      .limit(1)
+      .maybeSingle();
+    if (!assessment) throw new NotFoundException('Capture link not found');
+
+    const expiresAt = assessment.capture_token_expires_at as string | null;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      throw new BadRequestException('Capture link has expired');
+    }
+    if (assessment.status === 'approved' || assessment.status === 'rejected' || assessment.status === 'cancelled') {
+      throw new BadRequestException('Assessment is closed');
+    }
+
+    const tenantId = assessment.tenant_id as string;
+    const assessmentId = assessment.id as string;
+
+    const base64 = input.file.replace(/^data:image\/\w+;base64,/, '');
+    const raw = Buffer.from(base64, 'base64');
+    if (raw.length === 0) throw new BadRequestException('Empty image payload');
+
+    const { buffer, width, height } = await compress(raw);
+    const path = `${tenantId}/${assessmentId}/${Date.now()}-customer-${input.filename.replace(/[^\w.-]/g, '_')}.jpg`;
+
+    const { error: uploadError } = await client.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType: 'image/jpeg', upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = client.storage.from(BUCKET).getPublicUrl(path);
+
+    const { data, error } = await client
+      .from('assessment_photos')
+      .insert({
+        tenant_id: tenantId,
+        assessment_id: assessmentId,
+        storage_path: path,
+        public_url: urlData.publicUrl,
+        view_angle: input.viewAngle ?? null,
+        width_px: width,
+        height_px: height,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    // Bump the assessment updated_at so the workshop UI reflects
+    // the new customer upload.
+    await client
+      .from('damage_assessments')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    return data;
   }
 
   // ─── observability / cost cap ─────────────────────────────────

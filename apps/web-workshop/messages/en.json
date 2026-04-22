@@ -854,7 +854,14 @@
     "editAction_update": "updated",
     "editAction_delete": "deleted",
     "editEntity_finding": "finding",
-    "editEntity_operation": "operation"
+    "editEntity_operation": "operation",
+    "captureLink": "Send capture link",
+    "captureLinkWorking": "Working…",
+    "captureLinkTooltip": "Generate a shareable link so the customer can upload damage photos from their phone",
+    "captureLinkCopied": "Link copied — share it via WhatsApp / SMS / email",
+    "captureLinkCopyFallback": "Copy this link:",
+    "captureLinkNoUrl": "Set PUBLIC_APP_URL on the API to enable capture links",
+    "captureLinkFailed": "Could not generate link"
   },
   "vehicleHistory": {
     "tabTitle": "Service history",

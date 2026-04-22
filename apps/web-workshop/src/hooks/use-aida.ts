@@ -219,6 +219,16 @@ export function useAssessmentEdits(id: string | undefined) {
   });
 }
 
+export function useEnsureCaptureToken(id: string) {
+  return useMutation({
+    mutationFn: () =>
+      api.post<{ token: string; expiresAt: string; url: string | null }>(
+        `/aida/assessments/${id}/capture-link`,
+        {},
+      ),
+  });
+}
+
 export function useUploadAssessmentPhoto(id: string) {
   const qc = useQueryClient();
   return useMutation({

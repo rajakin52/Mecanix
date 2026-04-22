@@ -131,6 +131,14 @@ export class AidaController {
     return this.service.listEdits(tenantId, id);
   }
 
+  @Post(':id/capture-link')
+  async captureLink(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.service.ensureCaptureToken(tenantId, id);
+  }
+
   @Delete(':id')
   async delete(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);
@@ -218,5 +226,24 @@ export class AidaController {
     @Param('opId') opId: string,
   ) {
     return this.service.deleteOperation(tenantId, id, opId, user.id);
+  }
+}
+
+// Public capture flow — token-authorised, no tenant guard.
+@Controller('public/aida/capture')
+export class PublicAidaCaptureController {
+  constructor(private readonly service: AidaService) {}
+
+  @Get(':token')
+  async get(@Param('token') token: string) {
+    return this.service.getByCaptureToken(token);
+  }
+
+  @Post(':token/photos')
+  async uploadPhoto(
+    @Param('token') token: string,
+    @Body() body: { file: string; filename: string; viewAngle?: string },
+  ) {
+    return this.service.uploadPhotoByToken(token, body);
   }
 }

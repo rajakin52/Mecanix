@@ -19,6 +19,7 @@ import {
   useCreateJobFromAssessment,
   useGenerateAssessmentPacket,
   useAssessmentEdits,
+  useEnsureCaptureToken,
   type AssessmentFinding,
   type AssessmentOperation,
   type DamageType,
@@ -80,6 +81,7 @@ export default function AssessmentDetailPage() {
   const analyse = useAnalyseAssessment(id);
   const createJob = useCreateJobFromAssessment(id);
   const generatePacket = useGenerateAssessmentPacket(id);
+  const ensureCaptureToken = useEnsureCaptureToken(id);
   const { data: edits } = useAssessmentEdits(id);
   const [showEdits, setShowEdits] = useState(false);
   const router = useRouter();
@@ -375,6 +377,34 @@ export default function AssessmentDetailPage() {
                   {t('lastAnalysed', { date: formatDate(assessment.analysed_at) })}
                 </span>
               )}
+
+              <span className="mx-1 h-6 w-px bg-gray-200" aria-hidden />
+              <button
+                type="button"
+                disabled={ensureCaptureToken.isPending}
+                onClick={() => {
+                  ensureCaptureToken.mutate(undefined, {
+                    onSuccess: async (d) => {
+                      if (!d.url) {
+                        toast.error(t('captureLinkNoUrl'));
+                        return;
+                      }
+                      try {
+                        await navigator.clipboard.writeText(d.url);
+                        toast.success(t('captureLinkCopied'));
+                      } catch {
+                        window.prompt(t('captureLinkCopyFallback'), d.url);
+                      }
+                    },
+                    onError: (err) =>
+                      toast.error(err instanceof Error ? err.message : t('captureLinkFailed')),
+                  });
+                }}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                title={t('captureLinkTooltip')}
+              >
+                {ensureCaptureToken.isPending ? t('captureLinkWorking') : t('captureLink')}
+              </button>
             </>
           )}
         </div>

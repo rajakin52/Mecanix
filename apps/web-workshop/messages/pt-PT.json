@@ -782,7 +782,14 @@
     "editAction_update": "atualizada",
     "editAction_delete": "eliminada",
     "editEntity_finding": "constatação",
-    "editEntity_operation": "operação"
+    "editEntity_operation": "operação",
+    "captureLink": "Enviar link ao cliente",
+    "captureLinkWorking": "A processar…",
+    "captureLinkTooltip": "Gerar um link partilhável para o cliente carregar fotos dos danos a partir do telemóvel",
+    "captureLinkCopied": "Link copiado — partilhe via WhatsApp / SMS / email",
+    "captureLinkCopyFallback": "Copie este link:",
+    "captureLinkNoUrl": "Defina PUBLIC_APP_URL na API para ativar os links de captura",
+    "captureLinkFailed": "Não foi possível gerar o link"
   },
   "vehicleHistory": {
     "tabTitle": "Histórico de serviço",
