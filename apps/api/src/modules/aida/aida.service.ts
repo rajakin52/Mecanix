@@ -218,6 +218,17 @@ export class AidaService {
       return this.getById(tenantId, assessmentId);
     }
 
+    // Monthly cost cap. Default 200 analyses/month/tenant. Override
+    // via tenant_settings 'aida.monthly_analyses_max'. The cap counts
+    // analyses actually run this calendar month (re-analyses with
+    // force=true each count once).
+    const stats = await this.getMonthlyStats(tenantId);
+    if (stats.analysesThisMonth >= stats.monthlyAnalysesMax) {
+      throw new BadRequestException(
+        `Monthly AI-analysis cap reached (${stats.monthlyAnalysesMax}). Increase aida.monthly_analyses_max or wait until next month.`,
+      );
+    }
+
     const { data: photos } = await client
       .from('assessment_photos')
       .select('id, public_url, view_angle')
@@ -284,6 +295,22 @@ export class AidaService {
           }
         : undefined,
     });
+
+    // Parse failure surfaces as a real error rather than a silent
+    // empty analysis. `raw` is only set by the AI service when it
+    // couldn't extract a JSON block from the model's response.
+    // Legitimate "no damage detected" responses come back with
+    // empty arrays and no `raw`, which we treat as a valid analysis.
+    if (result.raw) {
+      await client
+        .from('damage_assessments')
+        .update({ status: 'capturing', updated_at: new Date().toISOString() })
+        .eq('id', assessmentId)
+        .eq('tenant_id', tenantId);
+      throw new BadRequestException(
+        'AI analysis failed to return structured output. Try Re-analyse, or add findings manually.',
+      );
+    }
 
     if (options.force) {
       // Clear previous model-sourced rows so we don't stack duplicates.
@@ -883,5 +910,78 @@ export class AidaService {
       })
       .eq('id', assessmentId)
       .eq('tenant_id', tenantId);
+  }
+
+  // ─── observability / cost cap ─────────────────────────────────
+  async getMonthlyStats(tenantId: string): Promise<{
+    analysesThisMonth: number;
+    monthlyAnalysesMax: number;
+    totalAnalyses: number;
+    avgConfidence: number | null;
+    editRate: number | null;   // fraction 0-1; null if no model-sourced findings yet
+  }> {
+    const client = this.supabase.getClient();
+    const startOfMonth = new Date();
+    startOfMonth.setUTCDate(1);
+    startOfMonth.setUTCHours(0, 0, 0, 0);
+
+    const { data: capSetting } = await client
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'aida.monthly_analyses_max')
+      .maybeSingle();
+    const monthlyAnalysesMax = (() => {
+      const parsed = Number(capSetting?.value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
+    })();
+
+    const { count: analysesThisMonth } = await client
+      .from('damage_assessments')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .not('analysed_at', 'is', null)
+      .gte('analysed_at', startOfMonth.toISOString());
+
+    const { count: totalAnalyses } = await client
+      .from('damage_assessments')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .not('analysed_at', 'is', null);
+
+    const { data: confRows } = await client
+      .from('damage_assessments')
+      .select('confidence_avg')
+      .eq('tenant_id', tenantId)
+      .not('analysed_at', 'is', null)
+      .not('confidence_avg', 'is', null);
+    const confs = (confRows ?? [])
+      .map((r) => Number((r as Record<string, unknown>).confidence_avg))
+      .filter((n) => Number.isFinite(n));
+    const avgConfidence =
+      confs.length > 0 ? confs.reduce((s, n) => s + n, 0) / confs.length : null;
+
+    const { count: modelFindings } = await client
+      .from('assessment_findings')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .in('source', ['model', 'reviewer_override']);
+    const { count: overriddenFindings } = await client
+      .from('assessment_findings')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('source', 'reviewer_override');
+    const editRate =
+      (modelFindings ?? 0) > 0
+        ? Math.min(1, (overriddenFindings ?? 0) / (modelFindings ?? 1))
+        : null;
+
+    return {
+      analysesThisMonth: analysesThisMonth ?? 0,
+      monthlyAnalysesMax,
+      totalAnalyses: totalAnalyses ?? 0,
+      avgConfidence,
+      editRate,
+    };
   }
 }

@@ -35,6 +35,17 @@ import type {
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
+@Controller('aida')
+@UseGuards(TenantGuard)
+export class AidaStatsController {
+  constructor(private readonly service: AidaService) {}
+
+  @Get('stats')
+  async stats(@TenantId() tenantId: string) {
+    return this.service.getMonthlyStats(tenantId);
+  }
+}
+
 @Controller('aida/assessments')
 @UseGuards(TenantGuard)
 export class AidaController {

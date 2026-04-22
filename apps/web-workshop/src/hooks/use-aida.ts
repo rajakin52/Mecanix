@@ -95,6 +95,22 @@ interface ListFilters {
   status?: AssessmentStatus;
 }
 
+export interface AidaStats {
+  analysesThisMonth: number;
+  monthlyAnalysesMax: number;
+  totalAnalyses: number;
+  avgConfidence: number | null;
+  editRate: number | null;
+}
+
+export function useAidaStats() {
+  return useQuery({
+    queryKey: ['aida-stats'],
+    queryFn: () => api.get<AidaStats>('/aida/stats'),
+    staleTime: 60_000,
+  });
+}
+
 export function useAssessments(filters: ListFilters = {}) {
   const qs = new URLSearchParams();
   if (filters.vehicleId) qs.set('vehicleId', filters.vehicleId);

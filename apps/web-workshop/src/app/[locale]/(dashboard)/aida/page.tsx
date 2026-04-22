@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { useAssessments, type AssessmentStatus } from '@/hooks/use-aida';
+import { useAssessments, useAidaStats, type AssessmentStatus } from '@/hooks/use-aida';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { SkeletonTable, EmptyState } from '@mecanix/ui-web';
 
@@ -30,6 +30,7 @@ export default function AidaListPage() {
   const { data, isLoading } = useAssessments({
     status: status === 'all' ? undefined : status,
   });
+  const { data: stats } = useAidaStats();
 
   const rows = data ?? [];
 
@@ -39,10 +40,80 @@ export default function AidaListPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Damage assessments</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Capture-driven inspections. AIDA model output drops in here once trained — manual entry today.
+            Capture vehicle damage and let Claude draft panel-level findings and operations for the estimator to review.
           </p>
         </div>
       </div>
+
+      {stats && (
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+          {(() => {
+            const pctUsed =
+              stats.monthlyAnalysesMax > 0
+                ? (stats.analysesThisMonth / stats.monthlyAnalysesMax) * 100
+                : 0;
+            const capColor =
+              pctUsed >= 90
+                ? 'text-red-600'
+                : pctUsed >= 70
+                  ? 'text-amber-600'
+                  : 'text-gray-900';
+            return (
+              <>
+                <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    This month
+                  </div>
+                  <div className={`mt-1 text-2xl font-semibold tabular-nums ${capColor}`}>
+                    {stats.analysesThisMonth}
+                    <span className="ms-1 text-sm text-gray-400">
+                      / {stats.monthlyAnalysesMax}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        pctUsed >= 90
+                          ? 'bg-red-500'
+                          : pctUsed >= 70
+                            ? 'bg-amber-500'
+                            : 'bg-purple-500'
+                      }`}
+                      style={{ width: `${Math.min(100, pctUsed)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    Total analyses
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
+                    {stats.totalAnalyses}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    Avg confidence
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
+                    {stats.avgConfidence != null
+                      ? `${Math.round(stats.avgConfidence * 100)}%`
+                      : '—'}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">
+                    Estimator edit rate
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
+                    {stats.editRate != null ? `${Math.round(stats.editRate * 100)}%` : '—'}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-2">
         {STATUSES.map((s) => (
