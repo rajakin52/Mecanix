@@ -1337,7 +1337,19 @@ export class AidaService {
     }
 
     const base = this.config.get<string>('PUBLIC_APP_URL', '');
-    const url = base ? `${base.replace(/\/$/, '')}/public/aida/capture/${token}` : null;
+    let url: string | null = null;
+    if (base) {
+      // Page lives at [locale]/public/aida/capture/[token] — next-intl's
+      // default localePrefix is 'always', so an unprefixed URL 404s.
+      // Use the tenant's configured locale; fall back to pt-PT.
+      const { data: tenant } = await client
+        .from('tenants')
+        .select('locale')
+        .eq('id', tenantId)
+        .single();
+      const locale = (tenant?.locale as string | null) ?? 'pt-PT';
+      url = `${base.replace(/\/$/, '')}/${locale}/public/aida/capture/${token}`;
+    }
     return { token, expiresAt, url };
   }
 
