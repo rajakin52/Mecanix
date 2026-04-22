@@ -13,10 +13,12 @@ import {
   useDeleteOperation,
   useFinaliseAssessment,
   useAnalyseAssessment,
+  useCreateJobFromAssessment,
   type DamageType,
   type Operation,
   type ViewAngle,
 } from '@/hooks/use-aida';
+import { useRouter } from '@/i18n/navigation';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@mecanix/ui-web';
 
@@ -66,6 +68,8 @@ export default function AssessmentDetailPage() {
   const deleteOperation = useDeleteOperation(id);
   const finalise = useFinaliseAssessment(id);
   const analyse = useAnalyseAssessment(id);
+  const createJob = useCreateJobFromAssessment(id);
+  const router = useRouter();
 
   const [viewAngle, setViewAngle] = useState<ViewAngle>('front');
   const [findingDraft, setFindingDraft] = useState({
@@ -119,6 +123,34 @@ export default function AssessmentDetailPage() {
         <div className="flex items-center gap-2">
           {assessment.status !== 'approved' && assessment.status !== 'rejected' && (
             <>
+              {!assessment.job_card_id && (
+                <button
+                  type="button"
+                  disabled={createJob.isPending || assessment.operations.length === 0}
+                  onClick={() => {
+                    const ok = window.confirm(
+                      `Create a new body-repair job card for ${assessment.vehicle?.plate ?? 'this vehicle'} and push ${assessment.operations.length} operation(s)?`,
+                    );
+                    if (!ok) return;
+                    createJob.mutate(undefined, {
+                      onSuccess: (d) => {
+                        toast.success(`Created job ${d.jobNumber}`);
+                        router.push(`/jobs/${d.jobId}`);
+                      },
+                      onError: (err) =>
+                        toast.error(err instanceof Error ? err.message : 'Could not create job card'),
+                    });
+                  }}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    assessment.operations.length === 0
+                      ? 'Add at least one operation (or run Analyse with AI) first'
+                      : 'Creates a body-repair job card and pushes operations as lines'
+                  }
+                >
+                  {createJob.isPending ? 'Creating…' : 'Create body-repair job'}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={finalise.isPending}

@@ -364,6 +364,91 @@ export class AidaService {
     return this.getById(tenantId, assessmentId);
   }
 
+  // ─── create a body-repair job from an assessment ────────────
+  // Creates a new job_card (job_type='body_repair'), links it back
+  // to the assessment (damage_assessments.job_card_id), and pushes
+  // the assessment's operations to it as labour + parts lines.
+  //
+  // Rejects if the assessment already has a linked job card — for
+  // that case the advisor should use finalise() to push into the
+  // existing job.
+  async createJobFromAssessment(tenantId: string, assessmentId: string, userId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: assessment } = await client
+      .from('damage_assessments')
+      .select('id, vehicle_id, job_card_id, branch_id, pushed_to_job_at')
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    if (assessment.job_card_id) {
+      throw new BadRequestException(
+        'Assessment is already linked to a job card. Use Approve to push operations to the linked job.',
+      );
+    }
+
+    const { data: vehicle } = await client
+      .from('vehicles')
+      .select('id, plate, customer_id')
+      .eq('id', assessment.vehicle_id as string)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (!vehicle.customer_id) {
+      throw new BadRequestException('Vehicle has no customer — assign a customer before creating a job card');
+    }
+
+    const { count: operationsCount } = await client
+      .from('assessment_operations')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId);
+    if ((operationsCount ?? 0) === 0) {
+      throw new BadRequestException(
+        'Add at least one operation to the assessment (or run Analyse with AI) before creating a job card',
+      );
+    }
+
+    const job = await this.jobsService.create(tenantId, userId, {
+      vehicleId: assessment.vehicle_id as string,
+      customerId: vehicle.customer_id as string,
+      jobType: 'body_repair',
+      reportedProblem: `Body repair from AIDA assessment (${operationsCount} operations)`,
+      symptomCodes: [],
+      isInsurance: false,
+      isTaxable: true,
+      requiresAuthorization: false,
+      labels: [],
+      partsIssuingMode: 'auto',
+      isComeback: false,
+      isWarranty: false,
+      priorityLevel: 'normal',
+      branchId: (assessment.branch_id as string | null) ?? undefined,
+    });
+
+    await client
+      .from('damage_assessments')
+      .update({ job_card_id: job.id, updated_at: new Date().toISOString() })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    const pushedLineIds = await this.pushOperationsToJob(tenantId, assessmentId, job.id);
+
+    await client
+      .from('damage_assessments')
+      .update({
+        pushed_to_job_at: new Date().toISOString(),
+        pushed_line_ids: pushedLineIds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    return { jobId: job.id as string, jobNumber: job.job_number as string };
+  }
+
   // Convert each assessment_operation into labour / parts / paint
   // lines on the linked job card. Idempotent via pushed_to_job_at
   // (the caller checks it before invoking this).

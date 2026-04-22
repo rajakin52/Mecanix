@@ -169,19 +169,23 @@ export class JobsService {
   async create(tenantId: string, userId: string, input: CreateJobCardInput) {
     const client = this.supabase.getClient();
 
-    // Validate: only one active job card per vehicle
+    // Validate: only one active job card per (vehicle, job_type). A
+    // mechanical job and a body-repair job can run in parallel on the
+    // same vehicle — they're distinct workflows in the shop.
+    const jobType = input.jobType ?? 'mechanical';
     const { data: existingJobs } = await client
       .from('job_cards')
       .select('id, job_number, status')
       .eq('tenant_id', tenantId)
       .eq('vehicle_id', input.vehicleId)
+      .eq('job_type', jobType)
       .is('deleted_at', null)
       .not('status', 'in', '("invoiced","cancelled")')
       .limit(1);
 
     if (existingJobs && existingJobs.length > 0) {
       throw new BadRequestException(
-        `Vehicle already has an active job card: ${existingJobs[0]!.job_number} (status: ${existingJobs[0]!.status}). Only one active job card per vehicle is allowed.`,
+        `Vehicle already has an active ${jobType.replace('_', ' ')} job card: ${existingJobs[0]!.job_number} (status: ${existingJobs[0]!.status}).`,
       );
     }
 

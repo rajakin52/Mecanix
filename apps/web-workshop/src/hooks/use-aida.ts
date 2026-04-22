@@ -161,6 +161,19 @@ export function useAnalyseAssessment(id: string) {
   });
 }
 
+export function useCreateJobFromAssessment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post<{ jobId: string; jobNumber: string }>(`/aida/assessments/${id}/create-job`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['aida-assessment', id] });
+      qc.invalidateQueries({ queryKey: ['aida-assessments'] });
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+    },
+  });
+}
+
 export function useUploadAssessmentPhoto(id: string) {
   const qc = useQueryClient();
   return useMutation({
