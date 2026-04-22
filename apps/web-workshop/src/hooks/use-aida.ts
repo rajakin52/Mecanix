@@ -190,6 +190,16 @@ export function useCreateJobFromAssessment(id: string) {
   });
 }
 
+export function useGenerateAssessmentPacket(id: string) {
+  return useMutation({
+    mutationFn: () =>
+      api.post<{ publicUrl: string; storagePath: string; fileSize: number; generatedAt: string }>(
+        `/aida/assessments/${id}/packet`,
+        {},
+      ),
+  });
+}
+
 export function useUploadAssessmentPhoto(id: string) {
   const qc = useQueryClient();
   return useMutation({

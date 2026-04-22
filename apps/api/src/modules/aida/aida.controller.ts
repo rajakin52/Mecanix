@@ -114,6 +114,15 @@ export class AidaController {
     return this.service.createJobFromAssessment(tenantId, id, user.id);
   }
 
+  @Post(':id/packet')
+  async packet(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+  ) {
+    return this.service.generatePacket(tenantId, id, user.id);
+  }
+
   @Delete(':id')
   async delete(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);

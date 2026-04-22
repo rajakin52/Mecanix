@@ -16,6 +16,7 @@ import {
   useFinaliseAssessment,
   useAnalyseAssessment,
   useCreateJobFromAssessment,
+  useGenerateAssessmentPacket,
   type AssessmentFinding,
   type AssessmentOperation,
   type DamageType,
@@ -75,6 +76,7 @@ export default function AssessmentDetailPage() {
   const finalise = useFinaliseAssessment(id);
   const analyse = useAnalyseAssessment(id);
   const createJob = useCreateJobFromAssessment(id);
+  const generatePacket = useGenerateAssessmentPacket(id);
   const router = useRouter();
 
   const [viewAngle, setViewAngle] = useState<ViewAngle>('front');
@@ -199,6 +201,24 @@ export default function AssessmentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={generatePacket.isPending}
+            onClick={() => {
+              generatePacket.mutate(undefined, {
+                onSuccess: (d) => {
+                  window.open(d.publicUrl, '_blank', 'noopener,noreferrer');
+                  toast.success('PDF ready');
+                },
+                onError: (err) =>
+                  toast.error(err instanceof Error ? err.message : 'Could not generate PDF'),
+              });
+            }}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            title="Generate a PDF summary of this assessment"
+          >
+            {generatePacket.isPending ? 'Generating…' : 'Download PDF'}
+          </button>
           {assessment.status !== 'approved' && assessment.status !== 'rejected' && (
             <>
               {!assessment.job_card_id && (

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import sharp from 'sharp';
+import PDFDocument from 'pdfkit';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from '../jobs/jobs.service';
 import { AiService } from '../ai/ai.service';
@@ -15,6 +16,7 @@ import type {
 } from '@mecanix/validators';
 
 const BUCKET = 'aida-captures';
+const PACKET_BUCKET = 'aida-packets';
 const MODEL_VERSION = 'claude-opus-4-7-vision-v1';
 
 async function compress(raw: Buffer): Promise<{ buffer: Buffer; width: number; height: number }> {
@@ -964,6 +966,222 @@ export class AidaService {
       })
       .eq('id', assessmentId)
       .eq('tenant_id', tenantId);
+  }
+
+  // ─── packet PDF ───────────────────────────────────────────────
+  // Renders an assessment as a single-page (or multi-page) PDF and
+  // uploads it to the aida-packets bucket. Returns the public URL.
+  // Generated on-demand; each call overwrites the last rendering.
+  async generatePacket(tenantId: string, assessmentId: string, userId: string) {
+    const client = this.supabase.getClient();
+
+    const detail = await this.getById(tenantId, assessmentId);
+    const vehicleId = (detail as Record<string, unknown>).vehicle_id as string;
+
+    // Fetch vehicle + customer (for customer block on the packet).
+    const { data: vehicle } = await client
+      .from('vehicles')
+      .select('plate, make, model, year, vin, customer_id')
+      .eq('id', vehicleId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    let customer: Record<string, unknown> | null = null;
+    if (vehicle?.customer_id) {
+      const { data } = await client
+        .from('customers')
+        .select('full_name, phone, email, tax_id')
+        .eq('id', vehicle.customer_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      customer = (data as Record<string, unknown>) ?? null;
+    }
+
+    const { data: tenant } = await client
+      .from('tenants')
+      .select('name, phone, email, address')
+      .eq('id', tenantId)
+      .single();
+
+    const pdfBuffer = await this.renderPacketPdf({
+      tenant: (tenant ?? {}) as Record<string, unknown>,
+      assessment: detail as Record<string, unknown>,
+      vehicle: (vehicle ?? {}) as Record<string, unknown>,
+      customer,
+    });
+
+    // Deterministic path so re-downloads update the same URL rather
+    // than leaving stale files around forever. Each generation
+    // overwrites. Storage-side audit: generated_by/at tracked via
+    // X-Metadata but not persisted to a dedicated table in v1.
+    const filename = `${tenantId}/${assessmentId}.pdf`;
+    const { error: upErr } = await client.storage
+      .from(PACKET_BUCKET)
+      .upload(filename, pdfBuffer, { contentType: 'application/pdf', upsert: true });
+    if (upErr) {
+      throw new BadRequestException(
+        `Failed to upload packet: ${upErr.message}. Ensure bucket ${PACKET_BUCKET} exists.`,
+      );
+    }
+
+    const { data: urlData } = client.storage.from(PACKET_BUCKET).getPublicUrl(filename);
+    return {
+      publicUrl: urlData.publicUrl,
+      storagePath: filename,
+      fileSize: pdfBuffer.length,
+      generatedBy: userId,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  private async renderPacketPdf(ctx: {
+    tenant: Record<string, unknown>;
+    assessment: Record<string, unknown>;
+    vehicle: Record<string, unknown>;
+    customer: Record<string, unknown> | null;
+  }): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const n = (v: unknown, dp = 2) => {
+        const x = Number(v ?? 0);
+        return Number.isFinite(x) ? x.toFixed(dp) : (0).toFixed(dp);
+      };
+      const s = (v: unknown) => (v == null ? '' : String(v));
+
+      const findings = ((ctx.assessment.findings as Array<Record<string, unknown>>) ?? []);
+      const operations = ((ctx.assessment.operations as Array<Record<string, unknown>>) ?? []);
+      const photos = ((ctx.assessment.photos as Array<Record<string, unknown>>) ?? []);
+
+      // ── Header ────────────────────────────────────────────────
+      doc.fontSize(18).text('Damage Assessment', { align: 'left' });
+      doc.moveDown(0.25);
+      doc
+        .fontSize(10)
+        .fillColor('#555')
+        .text(`Generated ${new Date().toLocaleString()}`);
+      doc.fillColor('#000');
+      if (ctx.tenant.name) {
+        doc.moveDown(0.25).fontSize(10).text(s(ctx.tenant.name));
+      }
+      doc.moveDown();
+
+      // ── Vehicle ───────────────────────────────────────────────
+      doc.fontSize(12).text('Vehicle', { underline: true });
+      doc
+        .fontSize(10)
+        .text(`Plate: ${s(ctx.vehicle.plate)}`)
+        .text(
+          `Make / Model: ${s(ctx.vehicle.make)} ${s(ctx.vehicle.model)}${ctx.vehicle.year ? ` (${s(ctx.vehicle.year)})` : ''}`,
+        );
+      if (ctx.vehicle.vin) doc.text(`VIN: ${s(ctx.vehicle.vin)}`);
+      doc.moveDown(0.5);
+
+      // ── Customer ──────────────────────────────────────────────
+      if (ctx.customer) {
+        doc.fontSize(12).text('Customer', { underline: true });
+        doc.fontSize(10).text(`Name: ${s(ctx.customer.full_name)}`);
+        if (ctx.customer.phone) doc.text(`Phone: ${s(ctx.customer.phone)}`);
+        if (ctx.customer.tax_id) doc.text(`Tax ID: ${s(ctx.customer.tax_id)}`);
+        doc.moveDown(0.5);
+      }
+
+      // ── Assessment meta ───────────────────────────────────────
+      doc.fontSize(12).text('Assessment', { underline: true });
+      doc
+        .fontSize(10)
+        .text(`Status: ${s(ctx.assessment.status)}`)
+        .text(`Source: ${s(ctx.assessment.source)}`);
+      if (ctx.assessment.analysed_at) {
+        doc.text(`AI analysed: ${new Date(String(ctx.assessment.analysed_at)).toLocaleString()}`);
+      }
+      if (ctx.assessment.analysed_by_model) {
+        doc.text(`Model: ${s(ctx.assessment.analysed_by_model)}`);
+      }
+      if (ctx.assessment.confidence_avg != null) {
+        const c = Number(ctx.assessment.confidence_avg);
+        doc.text(`Average confidence: ${Math.round(c * 100)}%`);
+      }
+      doc.moveDown();
+
+      // ── Findings ──────────────────────────────────────────────
+      if (findings.length > 0) {
+        doc.fontSize(12).text('Findings', { underline: true });
+        doc.fontSize(10);
+        for (const f of findings) {
+          const conf =
+            f.confidence != null ? ` (${Math.round(Number(f.confidence) * 100)}%)` : '';
+          const src =
+            f.source === 'reviewer_override'
+              ? ' [override]'
+              : f.source === 'model'
+                ? ' [AI]'
+                : '';
+          const notes = f.notes ? ` — ${s(f.notes)}` : '';
+          doc.text(
+            `• ${s(f.panel)} — ${s(f.damage_type)}, severity ${s(f.severity)}${conf}${src}${notes}`,
+          );
+        }
+        doc.moveDown();
+      }
+
+      // ── Operations ────────────────────────────────────────────
+      if (operations.length > 0) {
+        doc.fontSize(12).text('Proposed operations', { underline: true });
+        doc.fontSize(10);
+        for (const o of operations) {
+          const oem = o.oem_part_number ? ` [${s(o.oem_part_number)}]` : '';
+          const src = o.source === 'reviewer_override' ? ' [override]' : o.source === 'model' ? ' [AI]' : '';
+          doc.text(
+            `• ${s(o.panel)} — ${s(o.operation)}${oem}: ${n(o.labour_hours)}h, parts ${n(o.parts_cost)}, paint ${n(o.paint_cost)}${src}`,
+          );
+        }
+        doc.moveDown();
+      }
+
+      // ── Totals ────────────────────────────────────────────────
+      doc.fontSize(12).text('Totals', { underline: true });
+      doc
+        .fontSize(10)
+        .text(`Labour hours:     ${n(ctx.assessment.total_hours)}`)
+        .text(`Parts cost:       ${n(ctx.assessment.total_parts_cost)}`)
+        .text(`Paint cost:       ${n(ctx.assessment.total_paint_cost)}`)
+        .fontSize(12)
+        .text(`Estimate (parts + paint): ${n(ctx.assessment.total_estimate)}`);
+      doc.fontSize(9).fillColor('#555').text(
+        'Labour cost is calculated at the workshop’s hourly rate when the estimate is approved and pushed to a job card.',
+      );
+      doc.fillColor('#000');
+      doc.moveDown();
+
+      // ── Photos ────────────────────────────────────────────────
+      if (photos.length > 0) {
+        doc.addPage();
+        doc.fontSize(12).text('Evidence photos', { underline: true });
+        doc.moveDown(0.5);
+        doc.fontSize(10);
+        for (const p of photos) {
+          const url = s(p.public_url);
+          const angle = p.view_angle ? `[${s(p.view_angle)}] ` : '';
+          doc.text(`• ${angle}${url}`, { link: url });
+        }
+      }
+
+      // ── Footer ────────────────────────────────────────────────
+      doc.moveDown(2);
+      doc
+        .fontSize(8)
+        .fillColor('#555')
+        .text(
+          'Generated by MECANIX. Damage-assessment summary from workshop-side evidence. Financial assessment only — not a statutory expertise report.',
+          { align: 'left' },
+        );
+
+      doc.end();
+    });
   }
 
   // ─── observability / cost cap ─────────────────────────────────
