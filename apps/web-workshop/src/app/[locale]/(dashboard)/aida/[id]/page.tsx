@@ -12,6 +12,7 @@ import {
   useAddOperation,
   useDeleteOperation,
   useFinaliseAssessment,
+  useAnalyseAssessment,
   type DamageType,
   type Operation,
   type ViewAngle,
@@ -64,6 +65,7 @@ export default function AssessmentDetailPage() {
   const addOperation = useAddOperation(id);
   const deleteOperation = useDeleteOperation(id);
   const finalise = useFinaliseAssessment(id);
+  const analyse = useAnalyseAssessment(id);
 
   const [viewAngle, setViewAngle] = useState<ViewAngle>('front');
   const [findingDraft, setFindingDraft] = useState({
@@ -190,6 +192,57 @@ export default function AssessmentDetailPage() {
             />
           </label>
           {uploadPhoto.isPending && <span className="text-xs text-gray-500">Uploading…</span>}
+
+          {assessment.status !== 'approved' && assessment.status !== 'rejected' && assessment.status !== 'cancelled' && (
+            <>
+              <span className="mx-1 h-6 w-px bg-gray-200" aria-hidden />
+              <button
+                type="button"
+                disabled={
+                  analyse.isPending ||
+                  assessment.status === 'analysing' ||
+                  assessment.photos.length === 0
+                }
+                onClick={() => {
+                  const alreadyAnalysed = Boolean(assessment.analysed_at);
+                  if (alreadyAnalysed) {
+                    const ok = window.confirm(
+                      'Re-analyse with AI? Existing model-sourced findings and operations will be replaced. Manual edits are preserved.',
+                    );
+                    if (!ok) return;
+                  }
+                  analyse.mutate(
+                    { force: alreadyAnalysed },
+                    {
+                      onSuccess: () =>
+                        toast.success(
+                          alreadyAnalysed ? 'Re-analysed with AI' : 'AI analysis complete',
+                        ),
+                      onError: (err) =>
+                        toast.error(err instanceof Error ? err.message : 'Analysis failed'),
+                    },
+                  );
+                }}
+                className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  assessment.photos.length === 0
+                    ? 'Upload photos before analysing'
+                    : undefined
+                }
+              >
+                {analyse.isPending || assessment.status === 'analysing'
+                  ? 'Analysing…'
+                  : assessment.analysed_at
+                    ? 'Re-analyse with AI'
+                    : 'Analyse with AI'}
+              </button>
+              {assessment.analysed_at && !analyse.isPending && (
+                <span className="text-xs text-gray-500">
+                  Last analysed {formatDate(assessment.analysed_at)}
+                </span>
+              )}
+            </>
+          )}
         </div>
 
         {assessment.photos.length > 0 && (

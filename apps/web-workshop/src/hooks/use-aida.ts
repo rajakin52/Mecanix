@@ -35,6 +35,8 @@ export interface AssessmentSummary {
   total_paint_cost: number;
   total_estimate: number;
   confidence_avg: number | null;
+  analysed_at: string | null;
+  analysed_by_model: string | null;
   pushed_to_job_at: string | null;
   created_at: string;
   vehicle?: { id: string; plate: string; make: string; model: string; year: number | null };
@@ -139,6 +141,18 @@ export function useFinaliseAssessment(id: string) {
   return useMutation({
     mutationFn: (input: { approve: boolean; notes?: string }) =>
       api.post(`/aida/assessments/${id}/finalise`, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['aida-assessment', id] });
+      qc.invalidateQueries({ queryKey: ['aida-assessments'] });
+    },
+  });
+}
+
+export function useAnalyseAssessment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ force }: { force?: boolean } = {}) =>
+      api.post<AssessmentDetail>(`/aida/assessments/${id}/analyse${force ? '?force=true' : ''}`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['aida-assessment', id] });
       qc.invalidateQueries({ queryKey: ['aida-assessments'] });
