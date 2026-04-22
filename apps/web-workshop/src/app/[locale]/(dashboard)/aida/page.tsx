@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useAssessments, useAidaStats, type AssessmentStatus } from '@/hooks/use-aida';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -25,6 +26,7 @@ const STATUS_BADGE: Record<AssessmentStatus, string> = {
 };
 
 export default function AidaListPage() {
+  const t = useTranslations('aida');
   const [status, setStatus] = useState<AssessmentStatus | 'all'>('all');
 
   const { data, isLoading } = useAssessments({
@@ -38,10 +40,8 @@ export default function AidaListPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Damage assessments</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Capture vehicle damage and let Claude draft panel-level findings and operations for the estimator to review.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('pageTitle')}</h1>
+          <p className="mt-1 text-sm text-gray-600">{t('pageSubtitle')}</p>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export default function AidaListPage() {
               <>
                 <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
                   <div className="text-xs uppercase tracking-wide text-gray-500">
-                    This month
+                    {t('statsThisMonth')}
                   </div>
                   <div className={`mt-1 text-2xl font-semibold tabular-nums ${capColor}`}>
                     {stats.analysesThisMonth}
@@ -85,7 +85,7 @@ export default function AidaListPage() {
                 </div>
                 <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
                   <div className="text-xs uppercase tracking-wide text-gray-500">
-                    Total analyses
+                    {t('statsTotalAnalyses')}
                   </div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
                     {stats.totalAnalyses}
@@ -93,7 +93,7 @@ export default function AidaListPage() {
                 </div>
                 <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
                   <div className="text-xs uppercase tracking-wide text-gray-500">
-                    Avg confidence
+                    {t('statsAvgConfidence')}
                   </div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
                     {stats.avgConfidence != null
@@ -103,7 +103,7 @@ export default function AidaListPage() {
                 </div>
                 <div className="rounded-lg bg-white p-4 shadow ring-1 ring-gray-200">
                   <div className="text-xs uppercase tracking-wide text-gray-500">
-                    Estimator edit rate
+                    {t('statsEditRate')}
                   </div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
                     {stats.editRate != null ? `${Math.round(stats.editRate * 100)}%` : '—'}

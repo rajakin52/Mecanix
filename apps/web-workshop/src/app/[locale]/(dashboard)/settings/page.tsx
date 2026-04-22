@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const t = useTranslations('common');
   const tc = useTranslations('currency');
   const tn = useTranslations('notifications');
+  const taida = useTranslations('aida');
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -559,11 +560,8 @@ export default function SettingsPage() {
 
             {/* AIDA monthly analyses cap */}
             <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700">AIDA — monthly analyses cap</label>
-              <p className="text-xs text-gray-500 mb-1">
-                Maximum AI damage-analyses per month for this workshop. Protects against runaway Claude vision costs.
-                Default 200. Re-analyses each count once. Usage and remaining quota visible on the AIDA page.
-              </p>
+              <label className="block text-sm font-medium text-gray-700">{taida('monthlyCap')}</label>
+              <p className="text-xs text-gray-500 mb-1">{taida('monthlyCapHelp')}</p>
               <div className="mt-1 flex items-center gap-2">
                 <input
                   type="number"
@@ -574,7 +572,7 @@ export default function SettingsPage() {
                   placeholder="200"
                   className="block w-40 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-500">analyses / month</span>
+                <span className="text-sm text-gray-500">{taida('analysesPerMonth')}</span>
                 <button
                   onClick={handleSaveAidaCap}
                   disabled={savingAidaCap}

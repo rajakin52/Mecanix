@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import {
@@ -62,6 +63,7 @@ async function fileToBase64(file: File): Promise<string> {
 export default function AssessmentDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
+  const t = useTranslations('aida');
   const toast = useToast();
 
   const { data: assessment, isLoading } = useAssessment(id);
@@ -208,16 +210,16 @@ export default function AssessmentDetailPage() {
               generatePacket.mutate(undefined, {
                 onSuccess: (d) => {
                   window.open(d.publicUrl, '_blank', 'noopener,noreferrer');
-                  toast.success('PDF ready');
+                  toast.success(t('pdfReady'));
                 },
                 onError: (err) =>
-                  toast.error(err instanceof Error ? err.message : 'Could not generate PDF'),
+                  toast.error(err instanceof Error ? err.message : t('pdfFailed')),
               });
             }}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            title="Generate a PDF summary of this assessment"
+            title={t('pdfTooltip')}
           >
-            {generatePacket.isPending ? 'Generating…' : 'Download PDF'}
+            {generatePacket.isPending ? t('generatingPdf') : t('downloadPdf')}
           </button>
           {assessment.status !== 'approved' && assessment.status !== 'rejected' && (
             <>
@@ -227,26 +229,29 @@ export default function AssessmentDetailPage() {
                   disabled={createJob.isPending || assessment.operations.length === 0}
                   onClick={() => {
                     const ok = window.confirm(
-                      `Create a new body-repair job card for ${assessment.vehicle?.plate ?? 'this vehicle'} and push ${assessment.operations.length} operation(s)?`,
+                      t('createJobConfirm', {
+                        plate: assessment.vehicle?.plate ?? '',
+                        count: assessment.operations.length,
+                      }),
                     );
                     if (!ok) return;
                     createJob.mutate(undefined, {
                       onSuccess: (d) => {
-                        toast.success(`Created job ${d.jobNumber}`);
+                        toast.success(t('createJobSuccess', { jobNumber: d.jobNumber }));
                         router.push(`/jobs/${d.jobId}`);
                       },
                       onError: (err) =>
-                        toast.error(err instanceof Error ? err.message : 'Could not create job card'),
+                        toast.error(err instanceof Error ? err.message : t('createJobFailed')),
                     });
                   }}
                   className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   title={
                     assessment.operations.length === 0
-                      ? 'Add at least one operation (or run Analyse with AI) first'
-                      : 'Creates a body-repair job card and pushes operations as lines'
+                      ? t('createJobNeedsOperations')
+                      : t('createJobTooltip')
                   }
                 >
-                  {createJob.isPending ? 'Creating…' : 'Create body-repair job'}
+                  {createJob.isPending ? t('creatingJob') : t('createJob')}
                 </button>
               )}
               <button
@@ -336,39 +341,35 @@ export default function AssessmentDetailPage() {
                 onClick={() => {
                   const alreadyAnalysed = Boolean(assessment.analysed_at);
                   if (alreadyAnalysed) {
-                    const ok = window.confirm(
-                      'Re-analyse with AI? Existing model-sourced findings and operations will be replaced. Manual edits are preserved.',
-                    );
+                    const ok = window.confirm(t('reanalyseConfirm'));
                     if (!ok) return;
                   }
                   analyse.mutate(
                     { force: alreadyAnalysed },
                     {
                       onSuccess: () =>
-                        toast.success(
-                          alreadyAnalysed ? 'Re-analysed with AI' : 'AI analysis complete',
-                        ),
+                        toast.success(alreadyAnalysed ? t('reanalysed') : t('analysed')),
                       onError: (err) =>
-                        toast.error(err instanceof Error ? err.message : 'Analysis failed'),
+                        toast.error(err instanceof Error ? err.message : t('analyseFailed')),
                     },
                   );
                 }}
                 className="rounded-md bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   assessment.photos.length === 0
-                    ? 'Upload photos before analysing'
+                    ? t('uploadBeforeAnalysing')
                     : undefined
                 }
               >
                 {analyse.isPending || assessment.status === 'analysing'
-                  ? 'Analysing…'
+                  ? t('analysing')
                   : assessment.analysed_at
-                    ? 'Re-analyse with AI'
-                    : 'Analyse with AI'}
+                    ? t('reanalyse')
+                    : t('analyse')}
               </button>
               {assessment.analysed_at && !analyse.isPending && (
                 <span className="text-xs text-gray-500">
-                  Last analysed {formatDate(assessment.analysed_at)}
+                  {t('lastAnalysed', { date: formatDate(assessment.analysed_at) })}
                 </span>
               )}
             </>
@@ -495,7 +496,7 @@ export default function AssessmentDetailPage() {
                             <a
                               href={`#aida-photo-${f.photo_id}`}
                               className="text-purple-600 hover:text-purple-800"
-                              title="View evidence photo"
+                              title={t('viewEvidencePhoto')}
                             >
                               📷
                             </a>
@@ -555,9 +556,7 @@ export default function AssessmentDetailPage() {
                               ? 'bg-amber-50 text-amber-700 ring-amber-200'
                               : 'bg-green-50 text-green-700 ring-green-200'
                           }`}
-                          title={
-                            isLowConf ? 'AI unsure — please verify this finding' : undefined
-                          }
+                          title={isLowConf ? t('confidenceUnsure') : undefined}
                         >
                           {Math.round(conf * 100)}%
                           {isLowConf && <span className="ms-1">⚠︎</span>}
@@ -570,9 +569,9 @@ export default function AssessmentDetailPage() {
                       {f.source === 'reviewer_override' ? (
                         <span
                           className="inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-200"
-                          title="Model output edited by an estimator"
+                          title={t('overrideTooltip')}
                         >
-                          override
+                          {t('overrideBadge')}
                         </span>
                       ) : (
                         f.source

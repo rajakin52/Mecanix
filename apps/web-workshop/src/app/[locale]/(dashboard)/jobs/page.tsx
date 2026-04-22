@@ -26,6 +26,7 @@ export default function JobsPage() {
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
   const tStatus = useTranslations('jobs.statuses');
+  const tjc = useTranslations('jobCard');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
@@ -180,7 +181,7 @@ export default function JobsPage() {
                           {(job as unknown as { job_type?: string }).job_type === 'body_repair' && (
                             <span
                               className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-100 text-[9px] font-bold text-red-700 ring-1 ring-inset ring-red-200"
-                              title="Body Repair"
+                              title={tjc('typeBodyRepair')}
                             >
                               B
                             </span>

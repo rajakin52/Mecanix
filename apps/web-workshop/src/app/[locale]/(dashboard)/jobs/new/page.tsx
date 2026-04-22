@@ -77,6 +77,7 @@ const DEFAULT_DVI: DviItem[] = [
 // ── Component ────────────────────────────────────────────────
 export default function NewJobWizard() {
   const tc = useTranslations('common');
+  const tjc = useTranslations('jobCard');
   const router = useRouter();
 
   // Step management
@@ -650,7 +651,7 @@ export default function NewJobWizard() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Mechanical
+                {tjc('typeMechanical')}
               </button>
               <button
                 type="button"
@@ -661,7 +662,7 @@ export default function NewJobWizard() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Body Repair
+                {tjc('typeBodyRepair')}
               </button>
             </div>
           </div>

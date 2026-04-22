@@ -984,6 +984,7 @@ export default function JobDetailPage() {
   const id = params.id as string;
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
+  const tjc = useTranslations('jobCard');
 
   const tg = useTranslations('gatePass');
   const { data: job, isLoading } = useJob(id);
@@ -1113,14 +1114,14 @@ export default function JobDetailPage() {
   const setBodyField = (key: string, value: unknown) =>
     setBodyStagesDraft((d) => ({ ...d, [key]: value }));
   const BODY_STAGES = [
-    ['disassembly_done', 'disassemblyDone', 'Disassembly'],
-    ['frame_check_done', 'frameCheckDone', 'Frame check'],
-    ['body_repair_done', 'bodyRepairDone', 'Body repair'],
-    ['paint_prep_done', 'paintPrepDone', 'Paint prep'],
-    ['refinish_done', 'refinishDone', 'Refinish'],
-    ['bake_done', 'bakeDone', 'Bake / cure'],
-    ['reassembly_done', 'reassemblyDone', 'Reassembly'],
-    ['polish_done', 'polishDone', 'Polish / detail'],
+    ['disassembly_done', 'disassemblyDone', tjc('bodyStage_disassembly')],
+    ['frame_check_done', 'frameCheckDone', tjc('bodyStage_frameCheck')],
+    ['body_repair_done', 'bodyRepairDone', tjc('bodyStage_bodyRepair')],
+    ['paint_prep_done', 'paintPrepDone', tjc('bodyStage_paintPrep')],
+    ['refinish_done', 'refinishDone', tjc('bodyStage_refinish')],
+    ['bake_done', 'bakeDone', tjc('bodyStage_bake')],
+    ['reassembly_done', 'reassemblyDone', tjc('bodyStage_reassembly')],
+    ['polish_done', 'polishDone', tjc('bodyStage_polish')],
   ] as const;
 
   // Quality Control (gates the transition to 'ready')
@@ -1408,23 +1409,26 @@ export default function JobDetailPage() {
           <StatusBadge status={currentStatus} />
           {(typedJob.job_type as string) === 'body_repair' && (
             <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
-              Body Repair
+              {tjc('typeBodyRepair')}
             </span>
           )}
           <button
             type="button"
             onClick={() => {
               const nextType = (typedJob.job_type as string) === 'body_repair' ? 'mechanical' : 'body_repair';
-              const label = nextType === 'body_repair' ? 'body repair' : 'mechanical';
-              if (window.confirm(`Convert this job card to ${label}?`)) {
+              const typeLabel =
+                nextType === 'body_repair' ? tjc('typeBodyRepair') : tjc('typeMechanical');
+              if (window.confirm(tjc('convertConfirm', { type: typeLabel.toLowerCase() }))) {
                 convertTypeMutation.mutate({ id: typedJob.id as string, jobType: nextType });
               }
             }}
             disabled={convertTypeMutation.isPending || currentStatus === 'invoiced'}
             className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2 disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
-            title={currentStatus === 'invoiced' ? 'Cannot change type after invoicing' : undefined}
+            title={currentStatus === 'invoiced' ? tjc('convertBlockedInvoiced') : undefined}
           >
-            {(typedJob.job_type as string) === 'body_repair' ? 'Convert to mechanical' : 'Convert to body repair'}
+            {(typedJob.job_type as string) === 'body_repair'
+              ? tjc('convertToMechanical')
+              : tjc('convertToBodyRepair')}
           </button>
           <AidaJobLink
             jobCardId={typedJob.id as string}
@@ -2406,17 +2410,15 @@ export default function JobDetailPage() {
         <div className="rounded-lg border border-red-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Body-Repair Stages</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Physical workflow stages. Informational — does not block status transitions.
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900">{tjc('bodyStagesTitle')}</h2>
+              <p className="text-xs text-gray-500 mt-1">{tjc('bodyStagesSubtitle')}</p>
             </div>
             {(() => {
               const done = BODY_STAGES.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length;
               const pct = Math.round((done / BODY_STAGES.length) * 100);
               return (
                 <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
-                  {done}/{BODY_STAGES.length} complete · {pct}%
+                  {tjc('bodyStagesProgress', { done, total: BODY_STAGES.length, pct })}
                 </span>
               );
             })()}
@@ -2458,7 +2460,7 @@ export default function JobDetailPage() {
                 disabled={upsertBodyStages.isPending}
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                Discard
+                {tjc('discardStages')}
               </button>
               <button
                 type="button"
@@ -2471,7 +2473,7 @@ export default function JobDetailPage() {
                 disabled={upsertBodyStages.isPending}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {upsertBodyStages.isPending ? 'Saving…' : 'Save stages'}
+                {upsertBodyStages.isPending ? tc('loading') : tjc('saveStages')}
               </button>
             </div>
           )}
@@ -3029,6 +3031,7 @@ function AidaJobLink({
   vehicleId: string;
   isBodyRepair: boolean;
 }) {
+  const t = useTranslations('aida');
   const router = useRouter();
   const { data } = useAssessments({ jobCardId });
   const create = useCreateAssessment();
@@ -3045,7 +3048,7 @@ function AidaJobLink({
             : 'rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100'
         }
       >
-        Open damage assessment
+        {t('openAssessment')}
       </Link>
     );
   }
@@ -3064,7 +3067,7 @@ function AidaJobLink({
           : 'rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50'
       }
     >
-      Start damage assessment
+      {t('startAssessment')}
     </button>
   );
 }
