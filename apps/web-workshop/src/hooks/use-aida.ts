@@ -200,6 +200,25 @@ export function useGenerateAssessmentPacket(id: string) {
   });
 }
 
+export interface AssessmentEdit {
+  id: string;
+  entity_kind: 'finding' | 'operation';
+  entity_id: string;
+  action: 'update' | 'delete';
+  before: Record<string, unknown>;
+  after: Record<string, unknown> | null;
+  created_at: string;
+  editor: { id: string; full_name: string; email: string } | null;
+}
+
+export function useAssessmentEdits(id: string | undefined) {
+  return useQuery({
+    queryKey: ['aida-assessment-edits', id],
+    queryFn: () => api.get<AssessmentEdit[]>(`/aida/assessments/${id}/edits`),
+    enabled: Boolean(id),
+  });
+}
+
 export function useUploadAssessmentPhoto(id: string) {
   const qc = useQueryClient();
   return useMutation({

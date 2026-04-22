@@ -772,7 +772,17 @@
     "openAssessment": "Abrir avaliação de danos",
     "monthlyCap": "AIDA — limite de análises mensais",
     "monthlyCapHelp": "Número máximo de análises IA de danos por mês para esta oficina. Protege contra custos excessivos do Claude vision. Predefinição: 200. Reanálises contam uma vez cada. Utilização e quota restante visíveis na página AIDA.",
-    "analysesPerMonth": "análises / mês"
+    "analysesPerMonth": "análises / mês",
+    "editHistoryTitle": "Histórico de correções",
+    "editHistorySubtitle": "Cada correção que um avaliador faz numa constatação ou operação é registada aqui. As linhas do modelo permanecem rastreáveis.",
+    "editHistoryNone": "Sem correções ainda.",
+    "editHistoryCount": "{count, plural, =0 {Sem correções} =1 {1 correção} other {# correções}}",
+    "editHistoryExpand": "Mostrar",
+    "editHistoryCollapse": "Ocultar",
+    "editAction_update": "atualizada",
+    "editAction_delete": "eliminada",
+    "editEntity_finding": "constatação",
+    "editEntity_operation": "operação"
   },
   "jobCard": {
     "typeMechanical": "Mecânica",

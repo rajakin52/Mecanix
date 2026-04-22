@@ -985,6 +985,18 @@ export class AidaService {
     return { deleted: true };
   }
 
+  async listEdits(tenantId: string, assessmentId: string) {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('assessment_edits')
+      .select('*, editor:users(id, full_name, email)')
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  }
+
   // Append-only audit log. Swallows insert errors so an audit-table
   // outage never blocks a user edit — the underlying row mutation
   // is the source of truth, this is observation only.

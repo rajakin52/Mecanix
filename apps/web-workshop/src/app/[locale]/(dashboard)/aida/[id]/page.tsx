@@ -18,6 +18,7 @@ import {
   useAnalyseAssessment,
   useCreateJobFromAssessment,
   useGenerateAssessmentPacket,
+  useAssessmentEdits,
   type AssessmentFinding,
   type AssessmentOperation,
   type DamageType,
@@ -79,6 +80,8 @@ export default function AssessmentDetailPage() {
   const analyse = useAnalyseAssessment(id);
   const createJob = useCreateJobFromAssessment(id);
   const generatePacket = useGenerateAssessmentPacket(id);
+  const { data: edits } = useAssessmentEdits(id);
+  const [showEdits, setShowEdits] = useState(false);
   const router = useRouter();
 
   const [viewAngle, setViewAngle] = useState<ViewAngle>('front');
@@ -882,6 +885,99 @@ export default function AssessmentDetailPage() {
           </table>
         )}
       </section>
+
+      {/* Edit history */}
+      <section className="rounded-lg bg-white p-5 shadow ring-1 ring-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">{t('editHistoryTitle')}</h2>
+            <p className="text-xs text-gray-500 mt-1">{t('editHistorySubtitle')}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">
+              {t('editHistoryCount', { count: edits?.length ?? 0 })}
+            </span>
+            {(edits?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowEdits((v) => !v)}
+                className="text-xs text-gray-600 hover:text-gray-900 underline underline-offset-2"
+              >
+                {showEdits ? t('editHistoryCollapse') : t('editHistoryExpand')}
+              </button>
+            )}
+          </div>
+        </div>
+        {showEdits && edits && edits.length > 0 && (
+          <div className="mt-4 divide-y divide-gray-100 text-xs">
+            {edits.map((e) => (
+              <div key={e.id} className="py-2">
+                <div className="text-gray-500">
+                  {formatDate(e.created_at)} · {e.editor?.full_name ?? e.editor?.email ?? '—'} ·{' '}
+                  <span className="font-medium text-gray-700">
+                    {t(`editEntity_${e.entity_kind}` as 'editEntity_finding' | 'editEntity_operation')}
+                  </span>{' '}
+                  <span className="italic">
+                    {t(`editAction_${e.action}` as 'editAction_update' | 'editAction_delete')}
+                  </span>
+                </div>
+                {e.action === 'update' && e.after && (
+                  <EditDiff before={e.before} after={e.after} />
+                )}
+                {e.action === 'delete' && (
+                  <div className="mt-1 rounded bg-red-50 p-2 font-mono text-[11px] text-red-800">
+                    {summarizeRow(e.before)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function summarizeRow(row: Record<string, unknown>): string {
+  const interesting: Array<keyof typeof row> = [
+    'panel',
+    'damage_type',
+    'severity',
+    'operation',
+    'labour_hours',
+    'parts_cost',
+    'paint_cost',
+    'oem_part_number',
+    'notes',
+  ];
+  const parts: string[] = [];
+  for (const k of interesting) {
+    const v = row[k];
+    if (v != null && v !== '') parts.push(`${String(k)}=${String(v)}`);
+  }
+  return parts.join(' · ');
+}
+
+function EditDiff({
+  before,
+  after,
+}: {
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+}) {
+  const keys = ['panel', 'damage_type', 'severity', 'operation', 'labour_hours', 'parts_cost', 'paint_cost', 'oem_part_number', 'notes'];
+  const changed = keys.filter((k) => String(before[k] ?? '') !== String(after[k] ?? ''));
+  if (changed.length === 0) return null;
+  return (
+    <div className="mt-1 space-y-0.5 font-mono text-[11px]">
+      {changed.map((k) => (
+        <div key={k} className="text-gray-700">
+          <span className="font-semibold">{k}:</span>{' '}
+          <span className="bg-red-50 text-red-800 px-1">{String(before[k] ?? '')}</span>
+          {' → '}
+          <span className="bg-green-50 text-green-800 px-1">{String(after[k] ?? '')}</span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -844,7 +844,17 @@
     "openAssessment": "Open damage assessment",
     "monthlyCap": "AIDA — monthly analyses cap",
     "monthlyCapHelp": "Maximum AI damage-analyses per month for this workshop. Protects against runaway Claude vision costs. Default 200. Re-analyses each count once. Usage and remaining quota visible on the AIDA page.",
-    "analysesPerMonth": "analyses / month"
+    "analysesPerMonth": "analyses / month",
+    "editHistoryTitle": "Edit history",
+    "editHistorySubtitle": "Every correction an estimator makes to a finding or operation is logged here. Model-sourced rows stay traceable.",
+    "editHistoryNone": "No edits yet.",
+    "editHistoryCount": "{count, plural, =0 {No edits yet} =1 {1 edit} other {# edits}}",
+    "editHistoryExpand": "Show",
+    "editHistoryCollapse": "Hide",
+    "editAction_update": "updated",
+    "editAction_delete": "deleted",
+    "editEntity_finding": "finding",
+    "editEntity_operation": "operation"
   },
   "jobCard": {
     "typeMechanical": "Mechanical",

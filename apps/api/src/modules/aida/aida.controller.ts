@@ -123,6 +123,14 @@ export class AidaController {
     return this.service.generatePacket(tenantId, id, user.id);
   }
 
+  @Get(':id/edits')
+  async edits(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.service.listEdits(tenantId, id);
+  }
+
   @Delete(':id')
   async delete(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);
