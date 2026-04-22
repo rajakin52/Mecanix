@@ -193,6 +193,25 @@ export function useUpsertJobQc() {
   });
 }
 
+export function useJobBodyStages(jobId: string) {
+  return useQuery({
+    queryKey: ['job-body-stages', jobId],
+    queryFn: () => api.get<Record<string, unknown> | null>(`/jobs/${jobId}/body-stages`),
+    enabled: !!jobId,
+  });
+}
+
+export function useUpsertJobBodyStages() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, ...data }: Record<string, unknown> & { jobId: string }) =>
+      api.put(`/jobs/${jobId}/body-stages`, data),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['job-body-stages', v.jobId] });
+    },
+  });
+}
+
 export function useRecordPickupSignature() {
   const qc = useQueryClient();
   return useMutation({

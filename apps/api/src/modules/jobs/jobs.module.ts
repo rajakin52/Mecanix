@@ -7,6 +7,8 @@ import { PartsLinesController } from './parts-lines.controller';
 import { PartsLinesService } from './parts-lines.service';
 import { QcChecksController } from './qc-checks.controller';
 import { QcChecksService } from './qc-checks.service';
+import { BodyStagesController } from './body-stages.controller';
+import { BodyStagesService } from './body-stages.service';
 import { LinePhotosController } from './line-photos.controller';
 import { LinePhotosService } from './line-photos.service';
 import { PricingModule } from '../pricing/pricing.module';
@@ -16,8 +18,8 @@ import { PartsModule } from '../parts/parts.module';
 
 @Module({
   imports: [PricingModule, InspectionsModule, SymptomsModule, PartsModule],
-  controllers: [JobsController, LabourLinesController, PartsLinesController, QcChecksController, LinePhotosController],
-  providers: [JobsService, LabourLinesService, PartsLinesService, QcChecksService, LinePhotosService],
+  controllers: [JobsController, LabourLinesController, PartsLinesController, QcChecksController, BodyStagesController, LinePhotosController],
+  providers: [JobsService, LabourLinesService, PartsLinesService, QcChecksService, BodyStagesService, LinePhotosService],
   exports: [JobsService, PartsLinesService, QcChecksService, LinePhotosService],
 })
 export class JobsModule {}

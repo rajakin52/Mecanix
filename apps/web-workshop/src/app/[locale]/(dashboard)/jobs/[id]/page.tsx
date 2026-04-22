@@ -22,6 +22,8 @@ import {
   useChargePartsLine,
   useJobQc,
   useUpsertJobQc,
+  useJobBodyStages,
+  useUpsertJobBodyStages,
   useRecordPickupSignature,
   useTechnicians,
 } from '@/hooks/use-jobs';
@@ -1100,6 +1102,26 @@ export default function JobDetailPage() {
   const createParts = useCreatePartsLine();
   const updateParts = useUpdatePartsLine();
   const chargeParts = useChargePartsLine();
+
+  // Body-repair stages (body_repair jobs only; informational, not gating)
+  const { data: bodyStagesData } = useJobBodyStages(id);
+  const upsertBodyStages = useUpsertJobBodyStages();
+  const bodyStages = (bodyStagesData ?? {}) as Record<string, unknown>;
+  const [bodyStagesDraft, setBodyStagesDraft] = useState<Record<string, unknown>>({});
+  const bodyField = <K extends string>(key: K) =>
+    bodyStagesDraft[key] !== undefined ? bodyStagesDraft[key] : bodyStages[key];
+  const setBodyField = (key: string, value: unknown) =>
+    setBodyStagesDraft((d) => ({ ...d, [key]: value }));
+  const BODY_STAGES = [
+    ['disassembly_done', 'disassemblyDone', 'Disassembly'],
+    ['frame_check_done', 'frameCheckDone', 'Frame check'],
+    ['body_repair_done', 'bodyRepairDone', 'Body repair'],
+    ['paint_prep_done', 'paintPrepDone', 'Paint prep'],
+    ['refinish_done', 'refinishDone', 'Refinish'],
+    ['bake_done', 'bakeDone', 'Bake / cure'],
+    ['reassembly_done', 'reassemblyDone', 'Reassembly'],
+    ['polish_done', 'polishDone', 'Polish / detail'],
+  ] as const;
 
   // Quality Control (gates the transition to 'ready')
   const { data: qcData } = useJobQc(id);
@@ -2377,6 +2399,83 @@ export default function JobDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Body-Repair Stages (body_repair jobs only) */}
+      {(typedJob.job_type as string) === 'body_repair' && (
+        <div className="rounded-lg border border-red-200 bg-white p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Body-Repair Stages</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Physical workflow stages. Informational — does not block status transitions.
+              </p>
+            </div>
+            {(() => {
+              const done = BODY_STAGES.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length;
+              const pct = Math.round((done / BODY_STAGES.length) * 100);
+              return (
+                <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
+                  {done}/{BODY_STAGES.length} complete · {pct}%
+                </span>
+              );
+            })()}
+          </div>
+
+          <div className="mb-4 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-red-500 rounded-full transition-all duration-300"
+              style={{
+                width: `${
+                  (BODY_STAGES.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length /
+                    BODY_STAGES.length) *
+                  100
+                }%`,
+              }}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {BODY_STAGES.map(([snake, camel, label]) => (
+              <label key={snake} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  disabled={isInvoiced || upsertBodyStages.isPending}
+                  checked={Boolean(bodyField(camel) ?? bodyStages[snake])}
+                  onChange={(e) => setBodyField(camel, e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:opacity-50"
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+
+          {Object.keys(bodyStagesDraft).length > 0 && (
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBodyStagesDraft({})}
+                disabled={upsertBodyStages.isPending}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  upsertBodyStages.mutate(
+                    { jobId: id, ...bodyStagesDraft },
+                    { onSuccess: () => setBodyStagesDraft({}) },
+                  );
+                }}
+                disabled={upsertBodyStages.isPending}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {upsertBodyStages.isPending ? 'Saving…' : 'Save stages'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quality Control Checklist */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

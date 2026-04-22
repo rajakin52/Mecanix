@@ -142,6 +142,29 @@ export const upsertJobQcSchema = z.object({
 
 export type UpsertJobQcInput = z.infer<typeof upsertJobQcSchema>;
 
+// ---------- Body-Repair Stages (job_type='body_repair' only) ----------
+
+export const upsertJobBodyStagesSchema = z.object({
+  disassemblyDone:   z.boolean().optional(),
+  frameCheckDone:    z.boolean().optional(),
+  bodyRepairDone:    z.boolean().optional(),
+  paintPrepDone:     z.boolean().optional(),
+  refinishDone:      z.boolean().optional(),
+  bakeDone:          z.boolean().optional(),
+  reassemblyDone:    z.boolean().optional(),
+  polishDone:        z.boolean().optional(),
+  disassemblyNotes:  z.string().max(2000).optional(),
+  frameCheckNotes:   z.string().max(2000).optional(),
+  bodyRepairNotes:   z.string().max(2000).optional(),
+  paintPrepNotes:    z.string().max(2000).optional(),
+  refinishNotes:     z.string().max(2000).optional(),
+  bakeNotes:         z.string().max(2000).optional(),
+  reassemblyNotes:   z.string().max(2000).optional(),
+  polishNotes:       z.string().max(2000).optional(),
+});
+
+export type UpsertJobBodyStagesInput = z.infer<typeof upsertJobBodyStagesSchema>;
+
 // ---------- Pickup Signature ----------
 
 export const pickupSignatureSchema = z.object({
