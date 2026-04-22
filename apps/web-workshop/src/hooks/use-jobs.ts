@@ -88,6 +88,18 @@ export function useUpdateJob() {
   });
 }
 
+export function useConvertJobType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, jobType }: { id: string; jobType: 'mechanical' | 'body_repair' }) =>
+      api.post<JobCard>(`/jobs/${id}/convert-type`, { jobType }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      qc.invalidateQueries({ queryKey: ['job', v.id] });
+    },
+  });
+}
+
 export function useTechnicians() {
   return useQuery({
     queryKey: ['technicians'],

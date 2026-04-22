@@ -17,9 +17,12 @@ export type UpdateTechnicianInput = z.infer<typeof updateTechnicianSchema>;
 
 // ---------- Job Cards ----------
 
+export const jobTypeEnum = z.enum(['mechanical', 'body_repair']);
+
 export const createJobCardSchema = z.object({
   vehicleId: z.string().uuid(),
   customerId: z.string().uuid(),
+  jobType: jobTypeEnum.default('mechanical'),
   reportedProblem: z.string().max(5000).default(''),
   symptomCodes: z.array(z.string()).default([]),
   internalNotes: z.string().max(5000).optional(),
@@ -74,9 +77,15 @@ export const changeStatusSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+export const convertJobTypeSchema = z.object({
+  jobType: jobTypeEnum,
+});
+
 export type CreateJobCardInput = z.infer<typeof createJobCardSchema>;
 export type UpdateJobCardInput = z.infer<typeof updateJobCardSchema>;
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
+export type ConvertJobTypeInput = z.infer<typeof convertJobTypeSchema>;
+export type JobType = z.infer<typeof jobTypeEnum>;
 
 // ---------- Labour Lines ----------
 

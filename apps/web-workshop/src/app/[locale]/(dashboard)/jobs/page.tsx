@@ -175,8 +175,16 @@ export default function JobsPage() {
                   sortedJobs.map((job) => (
                     <tr key={job.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700">
-                        <Link href={`/jobs/${job.id}`}>
+                        <Link href={`/jobs/${job.id}`} className="inline-flex items-center gap-1.5">
                           {job.job_number}
+                          {(job as unknown as { job_type?: string }).job_type === 'body_repair' && (
+                            <span
+                              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-100 text-[9px] font-bold text-red-700 ring-1 ring-inset ring-red-200"
+                              title="Body Repair"
+                            >
+                              B
+                            </span>
+                          )}
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm">

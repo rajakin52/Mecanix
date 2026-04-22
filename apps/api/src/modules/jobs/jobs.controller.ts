@@ -17,6 +17,7 @@ import {
   createJobCardSchema,
   updateJobCardSchema,
   changeStatusSchema,
+  convertJobTypeSchema,
   paginationSchema,
   splitJobSchema,
   pickupSignatureSchema,
@@ -25,6 +26,7 @@ import type {
   CreateJobCardInput,
   UpdateJobCardInput,
   ChangeStatusInput,
+  ConvertJobTypeInput,
   PaginationInput,
   SplitJobInput,
   PickupSignatureInput,
@@ -94,6 +96,16 @@ export class JobsController {
       body.status,
       body.notes,
     );
+  }
+
+  @Post(':id/convert-type')
+  async convertType(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(convertJobTypeSchema)) body: ConvertJobTypeInput,
+  ) {
+    return this.jobsService.convertType(tenantId, id, user.id, body.jobType);
   }
 
   @Post(':id/pickup-signature')

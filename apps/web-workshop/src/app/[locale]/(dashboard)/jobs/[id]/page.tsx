@@ -11,6 +11,7 @@ import {
   useJob,
   useUpdateJob,
   useUpdateJobStatus,
+  useConvertJobType,
   useLabourLines,
   useCreateLabourLine,
   useUpdateLabourLine,
@@ -985,6 +986,7 @@ export default function JobDetailPage() {
   const tg = useTranslations('gatePass');
   const { data: job, isLoading } = useJob(id);
   const statusMutation = useUpdateJobStatus();
+  const convertTypeMutation = useConvertJobType();
   const updateJobMutation = useUpdateJob();
   const { data: techData } = useTechnicians();
   const { data: gatePasses } = useGatePasses(id);
@@ -1382,6 +1384,26 @@ export default function JobDetailPage() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">{typedJob.job_number as string}</h1>
           <StatusBadge status={currentStatus} />
+          {(typedJob.job_type as string) === 'body_repair' && (
+            <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
+              Body Repair
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              const nextType = (typedJob.job_type as string) === 'body_repair' ? 'mechanical' : 'body_repair';
+              const label = nextType === 'body_repair' ? 'body repair' : 'mechanical';
+              if (window.confirm(`Convert this job card to ${label}?`)) {
+                convertTypeMutation.mutate({ id: typedJob.id as string, jobType: nextType });
+              }
+            }}
+            disabled={convertTypeMutation.isPending || currentStatus === 'invoiced'}
+            className="text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2 disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+            title={currentStatus === 'invoiced' ? 'Cannot change type after invoicing' : undefined}
+          >
+            {(typedJob.job_type as string) === 'body_repair' ? 'Convert to mechanical' : 'Convert to body repair'}
+          </button>
           <AidaJobLink
             jobCardId={typedJob.id as string}
             vehicleId={typedJob.vehicle_id as string}

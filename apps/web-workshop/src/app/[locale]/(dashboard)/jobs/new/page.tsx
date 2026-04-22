@@ -83,6 +83,12 @@ export default function NewJobWizard() {
   const [step, setStep] = useState<Step>('entry');
   const stepIndex = STEPS.findIndex((s) => s.key === step);
 
+  // Job type: mechanical (default) vs body_repair. Body-repair jobs
+  // are created from the AIDA capture flow or when the advisor picks
+  // it up front for a known accident / panel damage job. Convertible
+  // later via /jobs/:id/convert-type.
+  const [jobType, setJobType] = useState<'mechanical' | 'body_repair'>('mechanical');
+
   // Entry mode
   const [entryMode, setEntryMode] = useState<'vehicle' | 'customer' | null>(null);
 
@@ -476,6 +482,7 @@ export default function NewJobWizard() {
       const job = await api.post<{ id: string; job_number: string }>('/jobs', {
         customerId: selectedCustomer.id,
         vehicleId: selectedVehicle.id,
+        jobType,
         reportedProblem: reportedProblem.trim() || selectedSymptoms.map((s) => s.label_en).join('; '),
         symptomCodes: selectedSymptoms.map((s) => s.code),
         internalNotes: internalNotes.trim() || undefined,
@@ -629,10 +636,36 @@ export default function NewJobWizard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <Link href="/jobs" className="text-sm text-gray-500 hover:text-gray-700">&larr; Back to Jobs</Link>
-          <h1 className="text-xl font-bold text-gray-900">New Job Card</h1>
-          <div className="w-20" />
+        <div className="flex items-center justify-between max-w-4xl mx-auto gap-4">
+          <Link href="/jobs" className="text-sm text-gray-500 hover:text-gray-700 shrink-0">&larr; Back to Jobs</Link>
+          <div className="flex items-center gap-3 flex-1 justify-center">
+            <h1 className="text-xl font-bold text-gray-900">New Job Card</h1>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setJobType('mechanical')}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  jobType === 'mechanical'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Mechanical
+              </button>
+              <button
+                type="button"
+                onClick={() => setJobType('body_repair')}
+                className={`px-3 py-1.5 rounded-md transition-colors ${
+                  jobType === 'body_repair'
+                    ? 'bg-white text-red-700 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Body Repair
+              </button>
+            </div>
+          </div>
+          <div className="w-20 shrink-0" />
         </div>
       </div>
 

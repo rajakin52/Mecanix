@@ -200,6 +200,7 @@ export class JobsService {
         job_number: jobNumber,
         vehicle_id: input.vehicleId,
         customer_id: input.customerId,
+        job_type: input.jobType ?? 'mechanical',
         reported_problem: input.reportedProblem || '',
         symptom_codes: input.symptomCodes ?? [],
         internal_notes: input.internalNotes || null,
@@ -255,6 +256,36 @@ export class JobsService {
       await this.symptomsService.incrementUsageSimple(tenantId, input.symptomCodes);
     }
 
+    return data;
+  }
+
+  // Flip job_type between 'mechanical' and 'body_repair'. Allowed
+  // in either direction until the job card is invoiced.
+  async convertType(
+    tenantId: string,
+    id: string,
+    userId: string,
+    jobType: 'mechanical' | 'body_repair',
+  ) {
+    const job = await this.getById(tenantId, id);
+    if (job.status === 'invoiced') {
+      throw new BadRequestException('Cannot change job type after invoicing');
+    }
+    if (job.job_type === jobType) return job;
+
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('job_cards')
+      .update({
+        job_type: jobType,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Update failed');
     return data;
   }
 
