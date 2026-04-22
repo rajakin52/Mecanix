@@ -3,10 +3,20 @@
 import { useParams } from 'next/navigation';
 import { useInvoice } from '@/hooks/use-invoices';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
+import { useVehicle } from '@/hooks/use-vehicles';
+import { useReception } from '@/hooks/use-receptions';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTenant } from '@/hooks/use-tenant';
 import { useEffect } from 'react';
 import { formatCurrency as formatCurrencyLib, formatDate as formatDateLib } from '@/lib/format';
+
+const FUEL_LEVEL_LABELS: Record<string, string> = {
+  empty: 'Vazio',
+  quarter: '1/4',
+  half: '1/2',
+  three_quarter: '3/4',
+  full: 'Cheio',
+};
 
 export default function PrintInvoicePage() {
   const params = useParams();
@@ -15,15 +25,32 @@ export default function PrintInvoicePage() {
   const { data: tenant } = useTenant();
 
   const jobCardId = invoice?.job_card_id ?? '';
-  const { data: labourLines } = useLabourLines(jobCardId || '');
-  const { data: partsLines } = usePartsLines(jobCardId || '');
+  const { data: labourLines, isLoading: labourLoading } = useLabourLines(jobCardId || '');
+  const { data: partsLines, isLoading: partsLoading } = usePartsLines(jobCardId || '');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invForVehicle = invoice as Record<string, any> | undefined;
+  const vehicleId =
+    (invForVehicle?.job_card?.vehicle_id as string | undefined) ??
+    (invForVehicle?.job_cards?.vehicle_id as string | undefined) ??
+    '';
+  const { data: vehicle, isLoading: vehicleLoading } = useVehicle(vehicleId);
+  const { data: reception, isLoading: receptionLoading } = useReception(jobCardId || '');
 
-  // Auto-trigger print dialog when data loads
+  // Auto-trigger print dialog only once all dependent queries have resolved,
+  // otherwise parts/labour/vehicle sections would be missing from the print.
+  const allLoaded =
+    !isLoading &&
+    !!invoice &&
+    (!jobCardId || (!labourLoading && !partsLoading && !receptionLoading)) &&
+    (!vehicleId || !vehicleLoading);
+
   useEffect(() => {
-    if (invoice && !isLoading) {
-      setTimeout(() => window.print(), 500);
+    if (allLoaded) {
+      const t = setTimeout(() => window.print(), 500);
+      return () => clearTimeout(t);
     }
-  }, [invoice, isLoading]);
+    return undefined;
+  }, [allLoaded]);
 
   if (isLoading || !invoice) {
     return <div className="p-8 text-center">Loading invoice...</div>;
@@ -31,9 +58,14 @@ export default function PrintInvoicePage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inv = invoice as Record<string, any>;
-  const customer = (inv.customer ?? inv.customers) as { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string } | undefined;
+  const customer = (inv.customer ?? inv.customers) as { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string; is_corporate?: boolean; company_name?: string } | undefined;
   const jobCard = (inv.job_card ?? inv.job_cards) as { job_number: string } | undefined;
   const tenantData = tenant as Record<string, unknown> | undefined;
+  const veh = vehicle as { plate?: string; make?: string; model?: string; year?: number | null; color?: string | null; fuel_type?: string | null; mileage?: number | null } | undefined;
+  const rec = reception as { odometer_km?: number; fuel_level?: string } | null | undefined;
+  const odometer = rec?.odometer_km ?? veh?.mileage ?? null;
+  const fuelLevelLabel = rec?.fuel_level ? FUEL_LEVEL_LABELS[rec.fuel_level] ?? rec.fuel_level : null;
+  const isCorporate = !!customer?.is_corporate;
 
   const currency = (tenantData?.currency as string) ?? 'AOA';
   const formatCurrency = (val: number | string | null | undefined) => formatCurrencyLib(val, currency, 'pt-PT');
@@ -106,14 +138,53 @@ export default function PrintInvoicePage() {
         </div>
 
         {/* Customer info */}
-        <div className="mb-8 rounded-md border border-gray-200 p-4">
+        <div className="mb-4 rounded-md border border-gray-200 p-4">
           <h3 className="text-xs font-semibold uppercase text-gray-500 mb-2">Cliente</h3>
-          <p className="font-semibold text-lg">{customer?.full_name ?? '-'}</p>
+          <p className="font-semibold text-lg">
+            {isCorporate && customer?.company_name ? customer.company_name : customer?.full_name ?? '-'}
+          </p>
           {customer?.phone && <p className="text-sm text-gray-600">Tel: {customer.phone}</p>}
           {customer?.email && <p className="text-sm text-gray-600">{customer.email}</p>}
-          {customer?.tax_id && <p className="text-sm text-gray-600">NIF: {customer.tax_id}</p>}
+          {/* NIF is a corporate tax number in Angola — only shown for corporate customers */}
+          {isCorporate && customer?.tax_id && <p className="text-sm text-gray-600">NIF: {customer.tax_id}</p>}
           {customer?.address && <p className="text-sm text-gray-600">{customer.address}</p>}
         </div>
+
+        {/* Vehicle info */}
+        {veh && (
+          <div className="mb-8 rounded-md border border-gray-200 p-4">
+            <h3 className="text-xs font-semibold uppercase text-gray-500 mb-2">Viatura</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-700">
+              {veh.plate && (
+                <p>
+                  <span className="text-gray-500">Matrícula:</span>{' '}
+                  <span className="font-semibold">{veh.plate}</span>
+                </p>
+              )}
+              {(veh.make || veh.model) && (
+                <p>
+                  <span className="text-gray-500">Marca/Modelo:</span>{' '}
+                  <span className="font-semibold">
+                    {[veh.make, veh.model].filter(Boolean).join(' ')}
+                    {veh.year ? ` (${veh.year})` : ''}
+                  </span>
+                </p>
+              )}
+              {odometer != null && (
+                <p>
+                  <span className="text-gray-500">Km:</span>{' '}
+                  <span className="font-semibold">{odometer.toLocaleString('pt-PT')}</span>
+                </p>
+              )}
+              {fuelLevelLabel && (
+                <p>
+                  <span className="text-gray-500">Combustível:</span>{' '}
+                  <span className="font-semibold">{fuelLevelLabel}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Labour lines */}
         {labour.length > 0 && (
