@@ -258,6 +258,16 @@ export class VehiclesService {
       costByCategory[category]!.count += 1;
     }
 
+    // AIDA damage assessments for this vehicle — newest first.
+    const { data: assessments } = await client
+      .from('damage_assessments')
+      .select(
+        'id, status, source, created_at, analysed_at, confidence_avg, total_estimate, job_card_id, job_card:job_cards(id, job_number)',
+      )
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', vehicleId)
+      .order('created_at', { ascending: false });
+
     return {
       jobs: (jobs ?? []).map((j: Record<string, unknown>) => ({
         ...j,
@@ -266,6 +276,7 @@ export class VehiclesService {
       parts_history: Object.values(partsHistory).sort(
         (a, b) => b.last_installed.localeCompare(a.last_installed),
       ),
+      assessments: assessments ?? [],
       cost_summary: {
         total_spent: Math.round(totalSpent * 100) / 100,
         labour_total: Math.round(totalLabour * 100) / 100,

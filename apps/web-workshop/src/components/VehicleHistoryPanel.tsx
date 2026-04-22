@@ -25,6 +25,7 @@ export function VehicleHistoryPanel({ history, loading, compact }: Props) {
   const cs = history.cost_summary;
   const jobs = compact ? history.jobs.slice(0, 5) : history.jobs;
   const parts = compact ? history.parts_history.slice(0, 5) : history.parts_history;
+  const assessments = compact ? history.assessments.slice(0, 3) : history.assessments;
   const categoryEntries = Object.entries(cs.by_category).filter(([, v]) => v.count > 0);
 
   return (
@@ -110,6 +111,57 @@ export function VehicleHistoryPanel({ history, loading, compact }: Props) {
           )}
         </div>
       </div>
+
+      {/* AIDA assessments */}
+      {assessments.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            {compact ? t('recentAssessments') : t('allAssessments')}
+          </h3>
+          <div className="divide-y divide-gray-100 rounded-lg ring-1 ring-gray-200 bg-white">
+            {assessments.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-4 px-4 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/aida/${a.id}`}
+                      className="text-sm font-medium text-purple-600 hover:underline"
+                    >
+                      {formatDate(a.created_at)}
+                    </Link>
+                    <span className="inline-flex items-center rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
+                      {a.status}
+                    </span>
+                    {a.source !== 'manual' && (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                        AI
+                      </span>
+                    )}
+                    {a.job_card && (
+                      <Link
+                        href={`/jobs/${a.job_card_id}`}
+                        className="text-xs text-gray-500 hover:underline"
+                      >
+                        → {a.job_card.job_number}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold tabular-nums text-gray-900">
+                    {formatCurrency(a.total_estimate)}
+                  </div>
+                  {a.confidence_avg != null && (
+                    <div className="text-xs text-gray-400">
+                      {Math.round(a.confidence_avg * 100)}% {t('confidenceShort')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Parts-installed history */}
       {parts.length > 0 && (

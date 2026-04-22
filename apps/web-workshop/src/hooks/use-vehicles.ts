@@ -61,9 +61,22 @@ export interface VehicleHistoryPart {
   jobs: string[];
 }
 
+export interface VehicleHistoryAssessment {
+  id: string;
+  status: string;
+  source: string;
+  created_at: string;
+  analysed_at: string | null;
+  confidence_avg: number | null;
+  total_estimate: number;
+  job_card_id: string | null;
+  job_card: { id: string; job_number: string } | null;
+}
+
 export interface VehicleHistory {
   jobs: VehicleHistoryJob[];
   parts_history: VehicleHistoryPart[];
+  assessments: VehicleHistoryAssessment[];
   cost_summary: {
     total_spent: number;
     labour_total: number;

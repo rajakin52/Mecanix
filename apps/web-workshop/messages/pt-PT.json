@@ -809,7 +809,10 @@
     "installCount": "{count, plural, =1 {1 instalação} other {# instalações}}",
     "viewFullHistory": "Abrir página do veículo",
     "close": "Fechar",
-    "openHistory": "Histórico do veículo"
+    "openHistory": "Histórico do veículo",
+    "recentAssessments": "Avaliações recentes",
+    "allAssessments": "Avaliações de danos",
+    "confidenceShort": "conf"
   },
   "jobCard": {
     "typeMechanical": "Mecânica",

@@ -881,7 +881,10 @@
     "installCount": "{count, plural, =1 {1 install} other {# installs}}",
     "viewFullHistory": "Open full vehicle page",
     "close": "Close",
-    "openHistory": "Vehicle history"
+    "openHistory": "Vehicle history",
+    "recentAssessments": "Recent assessments",
+    "allAssessments": "Damage assessments",
+    "confidenceShort": "conf"
   },
   "jobCard": {
     "typeMechanical": "Mechanical",
