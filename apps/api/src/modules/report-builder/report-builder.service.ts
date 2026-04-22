@@ -5,7 +5,7 @@ export interface ReportTemplate {
   type: string;
   name: string;
   description: string;
-  filters: Array<{ key: string; label: string; type: 'date' | 'string' | 'branch' }>;
+  filters: Array<{ key: string; label: string; type: 'date' | 'string' | 'branch' | 'job_type' }>;
   columns: Array<{ key: string; label: string; format?: 'currency' | 'integer' | 'date' | 'percent' }>;
 }
 
@@ -35,6 +35,7 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
       { key: 'startDate', label: 'From', type: 'date' },
       { key: 'endDate', label: 'To', type: 'date' },
       { key: 'branchId', label: 'Branch', type: 'branch' },
+      { key: 'jobType', label: 'Job type', type: 'job_type' },
     ],
     columns: [
       { key: 'month', label: 'Month' },
@@ -153,6 +154,7 @@ export class ReportBuilderService {
       }
 
       case 'jobs_by_status_by_month': {
+        const jobType = (filters.jobType as string) || null;
         let q = client
           .from('job_cards')
           .select('created_at, status, branch_id')
@@ -161,6 +163,9 @@ export class ReportBuilderService {
         if (start) q = q.gte('created_at', start);
         if (end) q = q.lte('created_at', end);
         if (branchId) q = q.eq('branch_id', branchId);
+        if (jobType && (jobType === 'mechanical' || jobType === 'body_repair')) {
+          q = q.eq('job_type', jobType);
+        }
         const { data, error } = await q;
         if (error) throw error;
 

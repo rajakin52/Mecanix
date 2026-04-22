@@ -13,7 +13,7 @@ export interface ReportTemplate {
   type: string;
   name: string;
   description: string;
-  filters: Array<{ key: string; label: string; type: 'date' | 'string' | 'branch' }>;
+  filters: Array<{ key: string; label: string; type: 'date' | 'string' | 'branch' | 'job_type' }>;
   columns: ReportColumn[];
 }
 

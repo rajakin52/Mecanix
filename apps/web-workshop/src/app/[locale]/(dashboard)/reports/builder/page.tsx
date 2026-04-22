@@ -189,6 +189,16 @@ export default function ReportBuilderPage() {
                           </option>
                         ))}
                       </select>
+                    ) : f.type === 'job_type' ? (
+                      <select
+                        value={filters[f.key] ?? ''}
+                        onChange={(e) => setFilters({ ...filters, [f.key]: e.target.value })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      >
+                        <option value="">All types</option>
+                        <option value="mechanical">Mechanical</option>
+                        <option value="body_repair">Body repair</option>
+                      </select>
                     ) : (
                       <input
                         value={filters[f.key] ?? ''}
