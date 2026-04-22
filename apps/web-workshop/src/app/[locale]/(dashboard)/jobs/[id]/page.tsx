@@ -1429,6 +1429,7 @@ export default function JobDetailPage() {
           <AidaJobLink
             jobCardId={typedJob.id as string}
             vehicleId={typedJob.vehicle_id as string}
+            isBodyRepair={(typedJob.job_type as string) === 'body_repair'}
           />
         </div>
         {nextStatuses.length > 0 && (
@@ -3019,7 +3020,15 @@ function PhotoColumn({
   );
 }
 
-function AidaJobLink({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: string }) {
+function AidaJobLink({
+  jobCardId,
+  vehicleId,
+  isBodyRepair,
+}: {
+  jobCardId: string;
+  vehicleId: string;
+  isBodyRepair: boolean;
+}) {
   const router = useRouter();
   const { data } = useAssessments({ jobCardId });
   const create = useCreateAssessment();
@@ -3030,7 +3039,11 @@ function AidaJobLink({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: s
     return (
       <Link
         href={`/aida/${existing.id}`}
-        className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+        className={
+          isBodyRepair
+            ? 'rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100'
+            : 'rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100'
+        }
       >
         Open damage assessment
       </Link>
@@ -3045,7 +3058,11 @@ function AidaJobLink({ jobCardId, vehicleId }: { jobCardId: string; vehicleId: s
         const row = await create.mutateAsync({ jobCardId, vehicleId });
         router.push(`/aida/${row.id}`);
       }}
-      className="rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      className={
+        isBodyRepair
+          ? 'rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50'
+          : 'rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50'
+      }
     >
       Start damage assessment
     </button>

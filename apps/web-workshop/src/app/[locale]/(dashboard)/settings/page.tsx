@@ -86,6 +86,9 @@ export default function SettingsPage() {
   const [loyaltyPointsPerCurrency, setLoyaltyPointsPerCurrency] = useState<string>('');
   const [loyaltyMessage, setLoyaltyMessage] = useState<string>('');
   const [savingLoyalty, setSavingLoyalty] = useState(false);
+  const [aidaCap, setAidaCap] = useState<string>('');
+  const [aidaCapMessage, setAidaCapMessage] = useState<string>('');
+  const [savingAidaCap, setSavingAidaCap] = useState(false);
 
   useEffect(() => {
     api.get<Record<string, unknown>>('/tenants/me')
@@ -147,6 +150,9 @@ export default function SettingsPage() {
       .catch(() => {});
     api.get<{ key: string; value: string | null }>('/tenants/me/settings/loyalty_points_per_currency')
       .then((data) => { if (data.value) setLoyaltyPointsPerCurrency(data.value); })
+      .catch(() => {});
+    api.get<{ key: string; value: string | null }>('/tenants/me/settings/aida.monthly_analyses_max')
+      .then((data) => { if (data.value) setAidaCap(data.value); })
       .catch(() => {});
   }, []);
 
@@ -267,6 +273,19 @@ export default function SettingsPage() {
       setLoyaltyMessage(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSavingLoyalty(false);
+    }
+  };
+
+  const handleSaveAidaCap = async () => {
+    setSavingAidaCap(true);
+    setAidaCapMessage('');
+    try {
+      await api.put('/tenants/me/settings/aida.monthly_analyses_max', { value: aidaCap });
+      setAidaCapMessage('Saved');
+    } catch (err) {
+      setAidaCapMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingAidaCap(false);
     }
   };
 
@@ -534,6 +553,39 @@ export default function SettingsPage() {
               {loyaltyMessage && (
                 <p className={`mt-1 text-sm ${loyaltyMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
                   {loyaltyMessage}
+                </p>
+              )}
+            </div>
+
+            {/* AIDA monthly analyses cap */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700">AIDA — monthly analyses cap</label>
+              <p className="text-xs text-gray-500 mb-1">
+                Maximum AI damage-analyses per month for this workshop. Protects against runaway Claude vision costs.
+                Default 200. Re-analyses each count once. Usage and remaining quota visible on the AIDA page.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={aidaCap}
+                  onChange={(e) => setAidaCap(e.target.value)}
+                  placeholder="200"
+                  className="block w-40 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-500">analyses / month</span>
+                <button
+                  onClick={handleSaveAidaCap}
+                  disabled={savingAidaCap}
+                  className="rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {savingAidaCap ? t('loading') : t('save')}
+                </button>
+              </div>
+              {aidaCapMessage && (
+                <p className={`mt-1 text-sm ${aidaCapMessage.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
+                  {aidaCapMessage}
                 </p>
               )}
             </div>
