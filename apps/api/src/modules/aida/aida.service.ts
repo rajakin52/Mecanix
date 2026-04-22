@@ -755,6 +755,19 @@ export class AidaService {
     findingId: string,
     input: UpdateAssessmentFindingInput,
   ) {
+    const client = this.supabase.getClient();
+
+    // Fetch current row so we can detect edits to model-sourced rows
+    // and flip source -> 'reviewer_override' automatically.
+    const { data: current } = await client
+      .from('assessment_findings')
+      .select('source, panel, damage_type, severity, area_pct, notes')
+      .eq('id', findingId)
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .single();
+    if (!current) throw new NotFoundException('Finding not found');
+
     const patch: Record<string, unknown> = {};
     if (input.panel !== undefined) patch.panel = input.panel;
     if (input.damageType !== undefined) patch.damage_type = input.damageType;
@@ -765,8 +778,23 @@ export class AidaService {
     if (input.modelVersion !== undefined) patch.model_version = input.modelVersion;
     if (input.notes !== undefined) patch.notes = input.notes;
 
-    const { data, error } = await this.supabase
-      .getClient()
+    // Auto-flip: a human editing a model-sourced row is an override.
+    // Skipped when the caller explicitly sets source (e.g. restoring).
+    if (
+      current.source === 'model' &&
+      input.source === undefined &&
+      (
+        (input.panel !== undefined && input.panel !== current.panel) ||
+        (input.damageType !== undefined && input.damageType !== current.damage_type) ||
+        (input.severity !== undefined && input.severity !== current.severity) ||
+        (input.areaPct !== undefined && input.areaPct !== current.area_pct) ||
+        (input.notes !== undefined && input.notes !== current.notes)
+      )
+    ) {
+      patch.source = 'reviewer_override';
+    }
+
+    const { data, error } = await client
       .from('assessment_findings')
       .update(patch)
       .eq('id', findingId)
@@ -829,6 +857,17 @@ export class AidaService {
     opId: string,
     input: UpdateAssessmentOperationInput,
   ) {
+    const client = this.supabase.getClient();
+
+    const { data: current } = await client
+      .from('assessment_operations')
+      .select('source, panel, operation, labour_hours, parts_cost, paint_cost, oem_part_number, notes')
+      .eq('id', opId)
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .single();
+    if (!current) throw new NotFoundException('Operation not found');
+
     const patch: Record<string, unknown> = {};
     if (input.findingId !== undefined) patch.finding_id = input.findingId;
     if (input.panel !== undefined) patch.panel = input.panel;
@@ -840,8 +879,23 @@ export class AidaService {
     if (input.source !== undefined) patch.source = input.source;
     if (input.notes !== undefined) patch.notes = input.notes;
 
-    const { data, error } = await this.supabase
-      .getClient()
+    if (
+      current.source === 'model' &&
+      input.source === undefined &&
+      (
+        (input.panel !== undefined && input.panel !== current.panel) ||
+        (input.operation !== undefined && input.operation !== current.operation) ||
+        (input.labourHours !== undefined && input.labourHours !== Number(current.labour_hours)) ||
+        (input.partsCost !== undefined && input.partsCost !== Number(current.parts_cost)) ||
+        (input.paintCost !== undefined && input.paintCost !== Number(current.paint_cost)) ||
+        (input.oemPartNumber !== undefined && input.oemPartNumber !== current.oem_part_number) ||
+        (input.notes !== undefined && input.notes !== current.notes)
+      )
+    ) {
+      patch.source = 'reviewer_override';
+    }
+
+    const { data, error } = await client
       .from('assessment_operations')
       .update(patch)
       .eq('id', opId)

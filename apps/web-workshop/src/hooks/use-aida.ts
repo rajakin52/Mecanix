@@ -225,6 +225,24 @@ export function useAddFinding(id: string) {
   });
 }
 
+export function useUpdateFinding(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      findingId,
+      ...patch
+    }: {
+      findingId: string;
+      panel?: string;
+      damageType?: DamageType;
+      severity?: number;
+      areaPct?: number;
+      notes?: string;
+    }) => api.patch(`/aida/assessments/${id}/findings/${findingId}`, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['aida-assessment', id] }),
+  });
+}
+
 export function useDeleteFinding(id: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -246,6 +264,26 @@ export function useAddOperation(id: string) {
       oemPartNumber?: string;
       notes?: string;
     }) => api.post(`/aida/assessments/${id}/operations`, { ...input, source: 'manual' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['aida-assessment', id] }),
+  });
+}
+
+export function useUpdateOperation(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      opId,
+      ...patch
+    }: {
+      opId: string;
+      panel?: string;
+      operation?: Operation;
+      labourHours?: number;
+      partsCost?: number;
+      paintCost?: number;
+      oemPartNumber?: string;
+      notes?: string;
+    }) => api.patch(`/aida/assessments/${id}/operations/${opId}`, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['aida-assessment', id] }),
   });
 }

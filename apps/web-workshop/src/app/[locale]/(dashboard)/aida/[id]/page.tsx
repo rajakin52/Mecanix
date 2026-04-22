@@ -8,12 +8,16 @@ import {
   useUploadAssessmentPhoto,
   useDeleteAssessmentPhoto,
   useAddFinding,
+  useUpdateFinding,
   useDeleteFinding,
   useAddOperation,
+  useUpdateOperation,
   useDeleteOperation,
   useFinaliseAssessment,
   useAnalyseAssessment,
   useCreateJobFromAssessment,
+  type AssessmentFinding,
+  type AssessmentOperation,
   type DamageType,
   type Operation,
   type ViewAngle,
@@ -63,8 +67,10 @@ export default function AssessmentDetailPage() {
   const uploadPhoto = useUploadAssessmentPhoto(id);
   const deletePhoto = useDeleteAssessmentPhoto(id);
   const addFinding = useAddFinding(id);
+  const updateFinding = useUpdateFinding(id);
   const deleteFinding = useDeleteFinding(id);
   const addOperation = useAddOperation(id);
+  const updateOperation = useUpdateOperation(id);
   const deleteOperation = useDeleteOperation(id);
   const finalise = useFinaliseAssessment(id);
   const analyse = useAnalyseAssessment(id);
@@ -86,6 +92,78 @@ export default function AssessmentDetailPage() {
     paintCost: 0,
     oemPartNumber: '',
   });
+  const [editingFindingId, setEditingFindingId] = useState<string | null>(null);
+  const [findingEdit, setFindingEdit] = useState<{
+    panel: string;
+    damageType: DamageType;
+    severity: number;
+    notes: string;
+  } | null>(null);
+  const [editingOpId, setEditingOpId] = useState<string | null>(null);
+  const [opEdit, setOpEdit] = useState<{
+    panel: string;
+    operation: Operation;
+    labourHours: number;
+    partsCost: number;
+    paintCost: number;
+    oemPartNumber: string;
+  } | null>(null);
+  const startEditFinding = (f: AssessmentFinding) => {
+    setEditingFindingId(f.id);
+    setFindingEdit({
+      panel: f.panel,
+      damageType: f.damage_type,
+      severity: f.severity,
+      notes: f.notes ?? '',
+    });
+  };
+  const cancelEditFinding = () => {
+    setEditingFindingId(null);
+    setFindingEdit(null);
+  };
+  const saveEditFinding = () => {
+    if (!editingFindingId || !findingEdit) return;
+    updateFinding.mutate(
+      {
+        findingId: editingFindingId,
+        panel: findingEdit.panel,
+        damageType: findingEdit.damageType,
+        severity: findingEdit.severity,
+        notes: findingEdit.notes || undefined,
+      },
+      { onSuccess: cancelEditFinding },
+    );
+  };
+  const startEditOp = (o: AssessmentOperation) => {
+    setEditingOpId(o.id);
+    setOpEdit({
+      panel: o.panel,
+      operation: o.operation,
+      labourHours: Number(o.labour_hours),
+      partsCost: Number(o.parts_cost),
+      paintCost: Number(o.paint_cost),
+      oemPartNumber: o.oem_part_number ?? '',
+    });
+  };
+  const cancelEditOp = () => {
+    setEditingOpId(null);
+    setOpEdit(null);
+  };
+  const saveEditOp = () => {
+    if (!editingOpId || !opEdit) return;
+    updateOperation.mutate(
+      {
+        opId: editingOpId,
+        panel: opEdit.panel,
+        operation: opEdit.operation,
+        labourHours: opEdit.labourHours,
+        partsCost: opEdit.partsCost,
+        paintCost: opEdit.paintCost,
+        oemPartNumber: opEdit.oemPartNumber || undefined,
+      },
+      { onSuccess: cancelEditOp },
+    );
+  };
 
   if (isLoading || !assessment) {
     return <div className="text-sm text-gray-500">Loading…</div>;
@@ -369,24 +447,86 @@ export default function AssessmentDetailPage() {
               {assessment.findings.map((f) => {
                 const conf = f.confidence;
                 const isLowConf = conf != null && conf < 0.7;
+                const isEditing = editingFindingId === f.id && findingEdit !== null;
                 return (
                   <tr key={f.id} className={isLowConf ? 'bg-amber-50/50' : undefined}>
                     <td className="py-2">
-                      <span className="inline-flex items-center gap-1.5">
-                        {f.panel}
-                        {f.photo_id && (
-                          <a
-                            href={`#aida-photo-${f.photo_id}`}
-                            className="text-purple-600 hover:text-purple-800"
-                            title="View evidence photo"
-                          >
-                            📷
-                          </a>
-                        )}
-                      </span>
+                      {isEditing ? (
+                        <select
+                          value={findingEdit.panel}
+                          onChange={(e) =>
+                            setFindingEdit({ ...findingEdit, panel: e.target.value })
+                          }
+                          className="rounded-md border-gray-300 text-xs"
+                        >
+                          {(PANELS.includes(findingEdit.panel)
+                            ? PANELS
+                            : [findingEdit.panel, ...PANELS]
+                          ).map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          {f.panel}
+                          {f.photo_id && (
+                            <a
+                              href={`#aida-photo-${f.photo_id}`}
+                              className="text-purple-600 hover:text-purple-800"
+                              title="View evidence photo"
+                            >
+                              📷
+                            </a>
+                          )}
+                        </span>
+                      )}
                     </td>
-                    <td className="py-2">{f.damage_type}</td>
-                    <td className="py-2">{f.severity}</td>
+                    <td className="py-2">
+                      {isEditing ? (
+                        <select
+                          value={findingEdit.damageType}
+                          onChange={(e) =>
+                            setFindingEdit({
+                              ...findingEdit,
+                              damageType: e.target.value as DamageType,
+                            })
+                          }
+                          className="rounded-md border-gray-300 text-xs"
+                        >
+                          {DAMAGE_TYPES.map((d) => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        f.damage_type
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {isEditing ? (
+                        <select
+                          value={findingEdit.severity}
+                          onChange={(e) =>
+                            setFindingEdit({
+                              ...findingEdit,
+                              severity: Number(e.target.value),
+                            })
+                          }
+                          className="rounded-md border-gray-300 text-xs"
+                        >
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        f.severity
+                      )}
+                    </td>
                     <td className="py-2">
                       {conf != null ? (
                         <span
@@ -406,16 +546,70 @@ export default function AssessmentDetailPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="py-2 text-gray-500">{f.source}</td>
-                    <td className="py-2 text-gray-500">{f.notes ?? ''}</td>
+                    <td className="py-2 text-gray-500">
+                      {f.source === 'reviewer_override' ? (
+                        <span
+                          className="inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-200"
+                          title="Model output edited by an estimator"
+                        >
+                          override
+                        </span>
+                      ) : (
+                        f.source
+                      )}
+                    </td>
+                    <td className="py-2 text-gray-500">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={findingEdit.notes}
+                          onChange={(e) =>
+                            setFindingEdit({ ...findingEdit, notes: e.target.value })
+                          }
+                          className="w-full rounded-md border-gray-300 text-xs"
+                        />
+                      ) : (
+                        f.notes ?? ''
+                      )}
+                    </td>
                     <td className="py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => deleteFinding.mutate(f.id)}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        Remove
-                      </button>
+                      {isEditing ? (
+                        <span className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            onClick={saveEditFinding}
+                            disabled={updateFinding.isPending}
+                            className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditFinding}
+                            disabled={updateFinding.isPending}
+                            className="text-xs text-gray-500 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditFinding(f)}
+                            className="text-xs text-gray-600 hover:text-gray-900 hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteFinding.mutate(f.id)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -509,25 +703,162 @@ export default function AssessmentDetailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {assessment.operations.map((o) => (
-                <tr key={o.id}>
-                  <td className="py-2">{o.panel}</td>
-                  <td className="py-2">{o.operation}</td>
-                  <td className="py-2 text-right tabular-nums">{Number(o.labour_hours || 0).toFixed(1)}</td>
-                  <td className="py-2 text-right tabular-nums">{formatCurrency(Number(o.parts_cost || 0))}</td>
-                  <td className="py-2 text-right tabular-nums">{formatCurrency(Number(o.paint_cost || 0))}</td>
-                  <td className="py-2 text-gray-500">{o.oem_part_number ?? ''}</td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => deleteOperation.mutate(o.id)}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {assessment.operations.map((o) => {
+                const isEditing = editingOpId === o.id && opEdit !== null;
+                return (
+                  <tr key={o.id}>
+                    <td className="py-2">
+                      {isEditing ? (
+                        <select
+                          value={opEdit.panel}
+                          onChange={(e) => setOpEdit({ ...opEdit, panel: e.target.value })}
+                          className="rounded-md border-gray-300 text-xs"
+                        >
+                          {(PANELS.includes(opEdit.panel) ? PANELS : [opEdit.panel, ...PANELS]).map(
+                            (p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      ) : (
+                        o.panel
+                      )}
+                    </td>
+                    <td className="py-2">
+                      {isEditing ? (
+                        <select
+                          value={opEdit.operation}
+                          onChange={(e) =>
+                            setOpEdit({ ...opEdit, operation: e.target.value as Operation })
+                          }
+                          className="rounded-md border-gray-300 text-xs"
+                        >
+                          {OPERATIONS.map((op) => (
+                            <option key={op} value={op}>
+                              {op}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        o.operation
+                      )}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          value={opEdit.labourHours}
+                          onChange={(e) =>
+                            setOpEdit({ ...opEdit, labourHours: Number(e.target.value) })
+                          }
+                          className="w-20 rounded-md border-gray-300 text-right text-xs"
+                        />
+                      ) : (
+                        Number(o.labour_hours || 0).toFixed(1)
+                      )}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={opEdit.partsCost}
+                          onChange={(e) =>
+                            setOpEdit({ ...opEdit, partsCost: Number(e.target.value) })
+                          }
+                          className="w-24 rounded-md border-gray-300 text-right text-xs"
+                        />
+                      ) : (
+                        formatCurrency(Number(o.parts_cost || 0))
+                      )}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={opEdit.paintCost}
+                          onChange={(e) =>
+                            setOpEdit({ ...opEdit, paintCost: Number(e.target.value) })
+                          }
+                          className="w-24 rounded-md border-gray-300 text-right text-xs"
+                        />
+                      ) : (
+                        formatCurrency(Number(o.paint_cost || 0))
+                      )}
+                    </td>
+                    <td className="py-2 text-gray-500">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={opEdit.oemPartNumber}
+                          onChange={(e) =>
+                            setOpEdit({ ...opEdit, oemPartNumber: e.target.value })
+                          }
+                          className="w-28 rounded-md border-gray-300 text-xs"
+                        />
+                      ) : (
+                        <span className="inline-flex items-center gap-2">
+                          <span>{o.oem_part_number ?? ''}</span>
+                          {o.source === 'reviewer_override' && (
+                            <span
+                              className="inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 ring-1 ring-inset ring-purple-200"
+                              title="Model output edited by an estimator"
+                            >
+                              override
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right">
+                      {isEditing ? (
+                        <span className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            onClick={saveEditOp}
+                            disabled={updateOperation.isPending}
+                            className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditOp}
+                            disabled={updateOperation.isPending}
+                            className="text-xs text-gray-500 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="inline-flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditOp(o)}
+                            className="text-xs text-gray-600 hover:text-gray-900 hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteOperation.mutate(o.id)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
