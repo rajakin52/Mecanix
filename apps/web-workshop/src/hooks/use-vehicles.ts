@@ -29,6 +29,58 @@ export function useVehicle(id: string) {
   });
 }
 
+export interface VehicleHistoryJob {
+  id: string;
+  job_number: string;
+  status: string;
+  created_at: string;
+  date_closed: string | null;
+  job_type: 'mechanical' | 'body_repair';
+  labour_total: number;
+  parts_total: number;
+  grand_total: number;
+  reported_problem: string | null;
+  labels: string[];
+  customer: { id: string; full_name: string } | null;
+  primary_technician: { id: string; full_name: string } | null;
+  parts_lines: Array<{
+    id: string;
+    part_name: string;
+    part_number: string | null;
+    quantity: number;
+    sell_price: number;
+    subtotal: number;
+  }>;
+}
+
+export interface VehicleHistoryPart {
+  part_name: string;
+  part_number: string | null;
+  last_installed: string;
+  install_count: number;
+  jobs: string[];
+}
+
+export interface VehicleHistory {
+  jobs: VehicleHistoryJob[];
+  parts_history: VehicleHistoryPart[];
+  cost_summary: {
+    total_spent: number;
+    labour_total: number;
+    parts_total: number;
+    job_count: number;
+    by_category: Record<string, { labour: number; parts: number; total: number; count: number }>;
+  };
+}
+
+export function useVehicleHistory(id: string | undefined) {
+  return useQuery({
+    queryKey: ['vehicle-history', id],
+    queryFn: () => api.get<VehicleHistory>(`/vehicles/${id}/history`),
+    enabled: !!id,
+  });
+}
+
 export function useCreateVehicle() {
   const queryClient = useQueryClient();
   return useMutation({

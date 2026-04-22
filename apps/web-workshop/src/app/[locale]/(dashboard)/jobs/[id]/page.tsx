@@ -41,6 +41,7 @@ import { usePricingSettings, useResolveMarkup } from '@/hooks/use-pricing';
 import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks/use-catalog';
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
 import { useAssessments, useCreateAssessment } from '@/hooks/use-aida';
+import { VehicleHistoryModal } from '@/components/VehicleHistoryModal';
 import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
 
 // Must match backend VALID_TRANSITIONS in jobs.service.ts
@@ -985,9 +986,24 @@ export default function JobDetailPage() {
   const t = useTranslations('jobs');
   const tc = useTranslations('common');
   const tjc = useTranslations('jobCard');
+  const tvh = useTranslations('vehicleHistory');
 
   const tg = useTranslations('gatePass');
   const { data: job, isLoading } = useJob(id);
+  const [vehicleHistoryOpen, setVehicleHistoryOpen] = useState(false);
+
+  // Auto-open vehicle history once per session per job — first time
+  // an advisor lands on a job card, they see the vehicle's service
+  // history; subsequent visits skip the popup (they can still reopen
+  // it via the button in the header).
+  useEffect(() => {
+    if (!id) return;
+    const key = `jc-vehicle-history-shown:${id}`;
+    if (typeof window === 'undefined') return;
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, '1');
+    setVehicleHistoryOpen(true);
+  }, [id]);
   const statusMutation = useUpdateJobStatus();
   const convertTypeMutation = useConvertJobType();
   const updateJobMutation = useUpdateJob();
@@ -1435,6 +1451,13 @@ export default function JobDetailPage() {
             vehicleId={typedJob.vehicle_id as string}
             isBodyRepair={(typedJob.job_type as string) === 'body_repair'}
           />
+          <button
+            type="button"
+            onClick={() => setVehicleHistoryOpen(true)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {tvh('openHistory')}
+          </button>
         </div>
         {nextStatuses.length > 0 && (
           <div className="flex items-center gap-2">
@@ -2873,6 +2896,12 @@ export default function JobDetailPage() {
       )}
       </>
       )}
+
+      <VehicleHistoryModal
+        vehicleId={typedJob.vehicle_id as string}
+        open={vehicleHistoryOpen}
+        onClose={() => setVehicleHistoryOpen(false)}
+      />
     </div>
   );
 }

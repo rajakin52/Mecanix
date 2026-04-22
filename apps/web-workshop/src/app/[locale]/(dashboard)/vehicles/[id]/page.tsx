@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useVehicle, useUpdateVehicle } from '@/hooks/use-vehicles';
+import { useVehicle, useUpdateVehicle, useVehicleHistory } from '@/hooks/use-vehicles';
+import { VehicleHistoryPanel } from '@/components/VehicleHistoryPanel';
 import { api } from '@/lib/api';
 import { useVehicleReminders, useCreateReminder, useCompleteReminder, useMarkReminderSent } from '@/hooks/use-reminders';
 import { useDocumentReminders, useCreateDocumentReminder, useRenewDocumentReminder } from '@/hooks/use-document-reminders';
@@ -46,7 +47,9 @@ export default function VehicleDetailPage() {
   });
 
   const { data: vehicle, isLoading, error } = useVehicle(id);
+  const { data: vehicleHistory, isLoading: loadingHistory } = useVehicleHistory(id);
   const updateMutation = useUpdateVehicle();
+  const tvh = useTranslations('vehicleHistory');
   const { data: reminders, isLoading: loadingReminders } = useVehicleReminders(id);
   const { data: warrantyCoverage } = useVehicleWarrantyCoverage(id);
   const { data: deferredRows } = useDeferredServices(undefined, { vehicleId: id });
@@ -290,6 +293,15 @@ export default function VehicleDetailPage() {
         ) : (
           <p className="py-8 text-center text-sm text-gray-500">{tv('noPhotos')}</p>
         )}
+      </div>
+
+      {/* Service history */}
+      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">{tvh('tabTitle')}</h2>
+          <p className="mt-0.5 text-xs text-gray-500">{tvh('tabSubtitle')}</p>
+        </div>
+        <VehicleHistoryPanel history={vehicleHistory} loading={loadingHistory} />
       </div>
 
       {/* Warranty coverage */}
