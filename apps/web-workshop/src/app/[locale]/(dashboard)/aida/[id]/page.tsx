@@ -248,7 +248,11 @@ export default function AssessmentDetailPage() {
         {assessment.photos.length > 0 && (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             {assessment.photos.map((p) => (
-              <div key={p.id} className="group relative overflow-hidden rounded-md ring-1 ring-gray-200">
+              <div
+                key={p.id}
+                id={`aida-photo-${p.id}`}
+                className="group relative overflow-hidden rounded-md ring-1 ring-gray-200 transition-all target:ring-2 target:ring-purple-500 target:ring-offset-2"
+              >
                 {p.public_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.public_url} alt={p.view_angle ?? ''} className="h-32 w-full object-cover" />
@@ -323,30 +327,67 @@ export default function AssessmentDetailPage() {
                 <th className="py-2">Panel</th>
                 <th className="py-2">Damage</th>
                 <th className="py-2">Severity</th>
+                <th className="py-2">Confidence</th>
                 <th className="py-2">Source</th>
                 <th className="py-2">Notes</th>
                 <th />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {assessment.findings.map((f) => (
-                <tr key={f.id}>
-                  <td className="py-2">{f.panel}</td>
-                  <td className="py-2">{f.damage_type}</td>
-                  <td className="py-2">{f.severity}</td>
-                  <td className="py-2 text-gray-500">{f.source}</td>
-                  <td className="py-2 text-gray-500">{f.notes ?? ''}</td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => deleteFinding.mutate(f.id)}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {assessment.findings.map((f) => {
+                const conf = f.confidence;
+                const isLowConf = conf != null && conf < 0.7;
+                return (
+                  <tr key={f.id} className={isLowConf ? 'bg-amber-50/50' : undefined}>
+                    <td className="py-2">
+                      <span className="inline-flex items-center gap-1.5">
+                        {f.panel}
+                        {f.photo_id && (
+                          <a
+                            href={`#aida-photo-${f.photo_id}`}
+                            className="text-purple-600 hover:text-purple-800"
+                            title="View evidence photo"
+                          >
+                            📷
+                          </a>
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-2">{f.damage_type}</td>
+                    <td className="py-2">{f.severity}</td>
+                    <td className="py-2">
+                      {conf != null ? (
+                        <span
+                          className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                            isLowConf
+                              ? 'bg-amber-50 text-amber-700 ring-amber-200'
+                              : 'bg-green-50 text-green-700 ring-green-200'
+                          }`}
+                          title={
+                            isLowConf ? 'AI unsure — please verify this finding' : undefined
+                          }
+                        >
+                          {Math.round(conf * 100)}%
+                          {isLowConf && <span className="ms-1">⚠︎</span>}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 text-gray-500">{f.source}</td>
+                    <td className="py-2 text-gray-500">{f.notes ?? ''}</td>
+                    <td className="py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => deleteFinding.mutate(f.id)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

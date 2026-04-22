@@ -243,7 +243,10 @@ export class AidaService {
 
     // Download each photo and convert to base64. Photos are uploaded
     // as JPEG by uploadPhoto() above, so media type is always image/jpeg.
+    // photoIdsInOrder aligns with the index the model sees, so we can
+    // map its photo_index back to the real assessment_photos.id.
     const photoPayloads: Array<{ base64: string; mediaType: string; viewAngle?: string }> = [];
+    const photoIdsInOrder: string[] = [];
     for (const p of photos) {
       const url = p.public_url as string | null;
       if (!url) continue;
@@ -256,6 +259,7 @@ export class AidaService {
           mediaType: 'image/jpeg',
           viewAngle: (p.view_angle as string | null) ?? undefined,
         });
+        photoIdsInOrder.push(p.id as string);
       } catch {
         // Skip unreadable photo; analysis proceeds on the rest.
       }
@@ -297,19 +301,26 @@ export class AidaService {
         .eq('source', 'model');
     }
 
-    const findingRows = result.findings.map((f) => ({
-      tenant_id: tenantId,
-      assessment_id: assessmentId,
-      panel: f.panel,
-      damage_type: f.damageType,
-      severity: f.severity,
-      area_pct: f.areaPct ?? null,
-      confidence: f.confidence,
-      source: 'model',
-      model_version: MODEL_VERSION,
-      notes: f.notes ?? null,
-      created_by: userId,
-    }));
+    const findingRows = result.findings.map((f) => {
+      const photoId =
+        f.photoIndex != null && f.photoIndex >= 0 && f.photoIndex < photoIdsInOrder.length
+          ? (photoIdsInOrder[f.photoIndex] ?? null)
+          : null;
+      return {
+        tenant_id: tenantId,
+        assessment_id: assessmentId,
+        panel: f.panel,
+        damage_type: f.damageType,
+        severity: f.severity,
+        area_pct: f.areaPct ?? null,
+        confidence: f.confidence,
+        source: 'model',
+        model_version: MODEL_VERSION,
+        notes: f.notes ?? null,
+        photo_id: photoId,
+        created_by: userId,
+      };
+    });
 
     const operationRows = result.operations.map((o) => ({
       tenant_id: tenantId,

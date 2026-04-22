@@ -66,6 +66,7 @@ export interface AssessmentFinding {
   source: 'manual' | 'model' | 'reviewer_override';
   model_version: string | null;
   notes: string | null;
+  photo_id: string | null;
 }
 
 export interface AssessmentOperation {
