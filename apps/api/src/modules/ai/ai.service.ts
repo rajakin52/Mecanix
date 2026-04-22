@@ -365,6 +365,158 @@ Never make up information about job status or pricing.`;
   }
 
   /**
+   * Analyse vehicle damage from a set of photos (base64) using Claude vision.
+   * Returns findings (per-panel damage observations) and operations
+   * (proposed repairs). Panel values are free-text strings matching the
+   * convention already used by the manual assessment UI.
+   *
+   * Model: Opus 4.7 — damage assessment drives real money decisions
+   * (repair vs replace, parts orders); the quality headroom matters.
+   * Cost per assessment at 3 photos ≈ $0.08. Monthly cap enforced
+   * at the service level in Sprint C.
+   */
+  async analyseDamage(input: {
+    photos: Array<{ base64: string; mediaType: string; viewAngle?: string }>;
+    vehicle?: { make?: string; model?: string; year?: number };
+  }): Promise<{
+    findings: Array<{
+      panel: string;
+      damageType:
+        | 'dent' | 'scratch' | 'tear' | 'crack'
+        | 'misalignment' | 'paint_blemish' | 'missing' | 'other';
+      severity: number;
+      areaPct?: number;
+      confidence: number;
+      notes?: string;
+      photoIndex?: number;
+    }>;
+    operations: Array<{
+      panel: string;
+      operation: 'replace' | 'repair' | 'paint' | 'blend' | 'r_and_i';
+      labourHours: number;
+      partsCost: number;
+      paintCost: number;
+      oemPartNumber?: string;
+      notes?: string;
+    }>;
+    overallConfidence: number;
+    raw?: string;
+  }> {
+    const empty = { findings: [], operations: [], overallConfidence: 0 };
+    if (!this.isConfigured() || input.photos.length === 0) return empty;
+
+    const vehicleLine = input.vehicle
+      ? `${input.vehicle.make ?? ''} ${input.vehicle.model ?? ''}${input.vehicle.year ? ` (${input.vehicle.year})` : ''}`.trim()
+      : '';
+
+    const systemPrompt = `You are an automotive damage assessor for a workshop management platform. You analyse photographs of vehicle exterior damage and return a structured assessment.
+
+You MUST return ONLY a JSON object, no prose, no markdown fences. The shape is:
+{
+  "findings": [
+    {
+      "panel": string,              // e.g. "front_bumper", "left_front_door", "hood", "rear_right_quarter"
+      "damage_type": "dent" | "scratch" | "tear" | "crack" | "misalignment" | "paint_blemish" | "missing" | "other",
+      "severity": 1 | 2 | 3 | 4 | 5, // 1 = minor cosmetic; 5 = structural / unsafe
+      "area_pct": number,           // 0-100, optional; approximate % of panel affected
+      "confidence": number,          // 0-1, how certain you are
+      "notes": string,               // brief, ≤ 120 chars
+      "photo_index": number          // which photo (0-based) supports this finding
+    }
+  ],
+  "operations": [
+    {
+      "panel": string,
+      "operation": "replace" | "repair" | "paint" | "blend" | "r_and_i",
+      "labour_hours": number,        // estimate; can be fractional
+      "parts_cost": number,          // approx market cost in local currency; 0 if unknown
+      "paint_cost": number,          // approx refinish material cost; 0 for non-paint operations
+      "oem_part_number": string,     // optional; only if you're confident about the exact OEM part
+      "notes": string                // brief justification, ≤ 120 chars
+    }
+  ],
+  "overall_confidence": number       // 0-1
+}
+
+Rules:
+- Use snake_case panel names matching common automotive conventions.
+- Never invent damage not visible in the photos.
+- If the photos are of poor quality, return empty arrays with overall_confidence < 0.3.
+- Each operation must correspond to at least one finding on the same panel.
+- Prefer "repair" + "paint" over "replace" for severity ≤ 3 on steel panels.
+- Use "replace" for severity ≥ 4 or any "tear" / "crack" / "missing" on structural panels.
+- Use "r_and_i" (remove and install) only when a panel must be detached to access damage elsewhere.`;
+
+    const userContent: Array<
+      | { type: 'text'; text: string }
+      | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+    > = [];
+
+    userContent.push({
+      type: 'text',
+      text: `Vehicle: ${vehicleLine || 'unknown'}\nPhotos attached in order (index 0 first).`,
+    });
+    for (const photo of input.photos) {
+      userContent.push({
+        type: 'image',
+        source: { type: 'base64', media_type: photo.mediaType, data: photo.base64 },
+      });
+    }
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-7',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user' as const, content: userContent }],
+        }),
+      });
+      const data = await response.json();
+      const text: string = data.content?.[0]?.text ?? '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return { ...empty, raw: text };
+
+      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+      const findings = Array.isArray(parsed.findings) ? (parsed.findings as Array<Record<string, unknown>>) : [];
+      const operations = Array.isArray(parsed.operations) ? (parsed.operations as Array<Record<string, unknown>>) : [];
+
+      return {
+        findings: findings.map((f) => ({
+          panel: String(f.panel ?? 'unknown'),
+          damageType: (f.damage_type as
+            | 'dent' | 'scratch' | 'tear' | 'crack'
+            | 'misalignment' | 'paint_blemish' | 'missing' | 'other') ?? 'other',
+          severity: Math.max(1, Math.min(5, Math.round(Number(f.severity ?? 3)))),
+          areaPct: f.area_pct != null ? Number(f.area_pct) : undefined,
+          confidence: Math.max(0, Math.min(1, Number(f.confidence ?? 0))),
+          notes: f.notes != null ? String(f.notes) : undefined,
+          photoIndex: f.photo_index != null ? Number(f.photo_index) : undefined,
+        })),
+        operations: operations.map((o) => ({
+          panel: String(o.panel ?? 'unknown'),
+          operation: (o.operation as
+            | 'replace' | 'repair' | 'paint' | 'blend' | 'r_and_i') ?? 'repair',
+          labourHours: Math.max(0, Number(o.labour_hours ?? 0)),
+          partsCost: Math.max(0, Number(o.parts_cost ?? 0)),
+          paintCost: Math.max(0, Number(o.paint_cost ?? 0)),
+          oemPartNumber: o.oem_part_number != null ? String(o.oem_part_number) : undefined,
+          notes: o.notes != null ? String(o.notes) : undefined,
+        })),
+        overallConfidence: Math.max(0, Math.min(1, Number(parsed.overall_confidence ?? 0))),
+      };
+    } catch {
+      return { ...empty };
+    }
+  }
+
+  /**
    * Get chat history for a phone number
    */
   async getChatHistory(tenantId: string, customerPhone: string) {

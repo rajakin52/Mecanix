@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import sharp from 'sharp';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from '../jobs/jobs.service';
+import { AiService } from '../ai/ai.service';
 import type {
   CreateAssessmentInput,
   UpdateAssessmentInput,
@@ -14,6 +15,7 @@ import type {
 } from '@mecanix/validators';
 
 const BUCKET = 'aida-captures';
+const MODEL_VERSION = 'claude-opus-4-7-vision-v1';
 
 async function compress(raw: Buffer): Promise<{ buffer: Buffer; width: number; height: number }> {
   const pipeline = sharp(raw).rotate();
@@ -30,6 +32,7 @@ export class AidaService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly jobsService: JobsService,
+    private readonly aiService: AiService,
   ) {}
 
   // ─── assessments ─────────────────────────────────────────────
@@ -188,6 +191,166 @@ export class AidaService {
       .single();
     if (error || !data) throw new NotFoundException('Assessment not found');
     return data;
+  }
+
+  // ─── analyse (Claude vision) ─────────────────────────────────
+  // Pull every photo on the assessment, send to Claude, write the
+  // returned findings + operations as model-sourced rows. Idempotent:
+  // if the assessment already has an analysed_at and force=false,
+  // returns the existing rows without re-billing the API.
+  async analyse(
+    tenantId: string,
+    assessmentId: string,
+    userId: string,
+    options: { force?: boolean } = {},
+  ) {
+    const client = this.supabase.getClient();
+
+    const { data: assessment } = await client
+      .from('damage_assessments')
+      .select('id, status, analysed_at, vehicle_id')
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    if (assessment.analysed_at && !options.force) {
+      return this.getById(tenantId, assessmentId);
+    }
+
+    const { data: photos } = await client
+      .from('assessment_photos')
+      .select('id, public_url, view_angle')
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .order('uploaded_at', { ascending: true });
+    if (!photos || photos.length === 0) {
+      throw new BadRequestException('Upload at least one photo before analysing');
+    }
+
+    const { data: vehicle } = await client
+      .from('vehicles')
+      .select('make, model, year')
+      .eq('id', assessment.vehicle_id as string)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    await client
+      .from('damage_assessments')
+      .update({ status: 'analysing', updated_at: new Date().toISOString() })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    // Download each photo and convert to base64. Photos are uploaded
+    // as JPEG by uploadPhoto() above, so media type is always image/jpeg.
+    const photoPayloads: Array<{ base64: string; mediaType: string; viewAngle?: string }> = [];
+    for (const p of photos) {
+      const url = p.public_url as string | null;
+      if (!url) continue;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        photoPayloads.push({
+          base64: buf.toString('base64'),
+          mediaType: 'image/jpeg',
+          viewAngle: (p.view_angle as string | null) ?? undefined,
+        });
+      } catch {
+        // Skip unreadable photo; analysis proceeds on the rest.
+      }
+    }
+
+    if (photoPayloads.length === 0) {
+      await client
+        .from('damage_assessments')
+        .update({ status: 'capturing', updated_at: new Date().toISOString() })
+        .eq('id', assessmentId)
+        .eq('tenant_id', tenantId);
+      throw new BadRequestException('Could not read any photos from storage');
+    }
+
+    const result = await this.aiService.analyseDamage({
+      photos: photoPayloads,
+      vehicle: vehicle
+        ? {
+            make: (vehicle.make as string | null) ?? undefined,
+            model: (vehicle.model as string | null) ?? undefined,
+            year: (vehicle.year as number | null) ?? undefined,
+          }
+        : undefined,
+    });
+
+    if (options.force) {
+      // Clear previous model-sourced rows so we don't stack duplicates.
+      await client
+        .from('assessment_operations')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('assessment_id', assessmentId)
+        .eq('source', 'model');
+      await client
+        .from('assessment_findings')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('assessment_id', assessmentId)
+        .eq('source', 'model');
+    }
+
+    const findingRows = result.findings.map((f) => ({
+      tenant_id: tenantId,
+      assessment_id: assessmentId,
+      panel: f.panel,
+      damage_type: f.damageType,
+      severity: f.severity,
+      area_pct: f.areaPct ?? null,
+      confidence: f.confidence,
+      source: 'model',
+      model_version: MODEL_VERSION,
+      notes: f.notes ?? null,
+      created_by: userId,
+    }));
+
+    const operationRows = result.operations.map((o) => ({
+      tenant_id: tenantId,
+      assessment_id: assessmentId,
+      panel: o.panel,
+      operation: o.operation,
+      labour_hours: o.labourHours,
+      parts_cost: o.partsCost,
+      paint_cost: o.paintCost,
+      oem_part_number: o.oemPartNumber ?? null,
+      source: 'model',
+      notes: o.notes ?? null,
+      created_by: userId,
+    }));
+
+    if (findingRows.length > 0) {
+      const { error } = await client.from('assessment_findings').insert(findingRows);
+      if (error) throw new BadRequestException(`Failed to save findings: ${error.message}`);
+    }
+    if (operationRows.length > 0) {
+      const { error } = await client.from('assessment_operations').insert(operationRows);
+      if (error) throw new BadRequestException(`Failed to save operations: ${error.message}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    await client
+      .from('damage_assessments')
+      .update({
+        status: 'ready',
+        source: 'aida_v0',
+        analysed_at: nowIso,
+        analysed_by_model: MODEL_VERSION,
+        capture_ended_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    await this.recalculateTotals(tenantId, assessmentId);
+
+    return this.getById(tenantId, assessmentId);
   }
 
   // Convert each assessment_operation into labour / parts / paint

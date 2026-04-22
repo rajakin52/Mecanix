@@ -84,6 +84,16 @@ export class AidaController {
     return this.service.finalise(tenantId, id, user.id, body);
   }
 
+  @Post(':id/analyse')
+  async analyse(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Query('force') force?: string,
+  ) {
+    return this.service.analyse(tenantId, id, user.id, { force: force === 'true' });
+  }
+
   @Delete(':id')
   async delete(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);
