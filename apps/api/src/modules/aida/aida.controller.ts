@@ -162,20 +162,22 @@ export class AidaController {
   @Patch(':id/findings/:findingId')
   async updateFinding(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Param('findingId') findingId: string,
     @Body(new ZodValidationPipe(updateFindingSchema)) body: UpdateAssessmentFindingInput,
   ) {
-    return this.service.updateFinding(tenantId, id, findingId, body);
+    return this.service.updateFinding(tenantId, id, findingId, user.id, body);
   }
 
   @Delete(':id/findings/:findingId')
   async deleteFinding(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Param('findingId') findingId: string,
   ) {
-    return this.service.deleteFinding(tenantId, id, findingId);
+    return this.service.deleteFinding(tenantId, id, findingId, user.id);
   }
 
   // ─── operations ──────────────────────────────────────────────
@@ -192,19 +194,21 @@ export class AidaController {
   @Patch(':id/operations/:opId')
   async updateOperation(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Param('opId') opId: string,
     @Body(new ZodValidationPipe(updateOperationSchema)) body: UpdateAssessmentOperationInput,
   ) {
-    return this.service.updateOperation(tenantId, id, opId, body);
+    return this.service.updateOperation(tenantId, id, opId, user.id, body);
   }
 
   @Delete(':id/operations/:opId')
   async deleteOperation(
     @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
     @Param('id') id: string,
     @Param('opId') opId: string,
   ) {
-    return this.service.deleteOperation(tenantId, id, opId);
+    return this.service.deleteOperation(tenantId, id, opId, user.id);
   }
 }

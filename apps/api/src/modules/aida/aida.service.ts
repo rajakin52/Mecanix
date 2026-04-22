@@ -785,15 +785,16 @@ export class AidaService {
     tenantId: string,
     assessmentId: string,
     findingId: string,
+    userId: string,
     input: UpdateAssessmentFindingInput,
   ) {
     const client = this.supabase.getClient();
 
-    // Fetch current row so we can detect edits to model-sourced rows
-    // and flip source -> 'reviewer_override' automatically.
+    // Fetch full current row — used both for the source-flip diff
+    // and for the assessment_edits audit log.
     const { data: current } = await client
       .from('assessment_findings')
-      .select('source, panel, damage_type, severity, area_pct, notes')
+      .select('*')
       .eq('id', findingId)
       .eq('tenant_id', tenantId)
       .eq('assessment_id', assessmentId)
@@ -835,19 +836,34 @@ export class AidaService {
       .select()
       .single();
     if (error || !data) throw new NotFoundException('Finding not found');
+
+    await this.logEdit(tenantId, assessmentId, 'finding', findingId, userId, 'update', current, data);
     await this.recalculateTotals(tenantId, assessmentId);
     return data;
   }
 
-  async deleteFinding(tenantId: string, assessmentId: string, findingId: string) {
-    const { error } = await this.supabase
-      .getClient()
+  async deleteFinding(tenantId: string, assessmentId: string, findingId: string, userId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: current } = await client
+      .from('assessment_findings')
+      .select('*')
+      .eq('id', findingId)
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .maybeSingle();
+
+    const { error } = await client
       .from('assessment_findings')
       .delete()
       .eq('id', findingId)
       .eq('tenant_id', tenantId)
       .eq('assessment_id', assessmentId);
     if (error) throw error;
+
+    if (current) {
+      await this.logEdit(tenantId, assessmentId, 'finding', findingId, userId, 'delete', current, null);
+    }
     await this.recalculateTotals(tenantId, assessmentId);
     return { deleted: true };
   }
@@ -887,13 +903,14 @@ export class AidaService {
     tenantId: string,
     assessmentId: string,
     opId: string,
+    userId: string,
     input: UpdateAssessmentOperationInput,
   ) {
     const client = this.supabase.getClient();
 
     const { data: current } = await client
       .from('assessment_operations')
-      .select('source, panel, operation, labour_hours, parts_cost, paint_cost, oem_part_number, notes')
+      .select('*')
       .eq('id', opId)
       .eq('tenant_id', tenantId)
       .eq('assessment_id', assessmentId)
@@ -936,21 +953,68 @@ export class AidaService {
       .select()
       .single();
     if (error || !data) throw new NotFoundException('Operation not found');
+
+    await this.logEdit(tenantId, assessmentId, 'operation', opId, userId, 'update', current, data);
     await this.recalculateTotals(tenantId, assessmentId);
     return data;
   }
 
-  async deleteOperation(tenantId: string, assessmentId: string, opId: string) {
-    const { error } = await this.supabase
-      .getClient()
+  async deleteOperation(tenantId: string, assessmentId: string, opId: string, userId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: current } = await client
+      .from('assessment_operations')
+      .select('*')
+      .eq('id', opId)
+      .eq('tenant_id', tenantId)
+      .eq('assessment_id', assessmentId)
+      .maybeSingle();
+
+    const { error } = await client
       .from('assessment_operations')
       .delete()
       .eq('id', opId)
       .eq('tenant_id', tenantId)
       .eq('assessment_id', assessmentId);
     if (error) throw error;
+
+    if (current) {
+      await this.logEdit(tenantId, assessmentId, 'operation', opId, userId, 'delete', current, null);
+    }
     await this.recalculateTotals(tenantId, assessmentId);
     return { deleted: true };
+  }
+
+  // Append-only audit log. Swallows insert errors so an audit-table
+  // outage never blocks a user edit — the underlying row mutation
+  // is the source of truth, this is observation only.
+  private async logEdit(
+    tenantId: string,
+    assessmentId: string,
+    entityKind: 'finding' | 'operation',
+    entityId: string,
+    userId: string,
+    action: 'update' | 'delete',
+    before: Record<string, unknown>,
+    after: Record<string, unknown> | null,
+  ): Promise<void> {
+    try {
+      await this.supabase
+        .getClient()
+        .from('assessment_edits')
+        .insert({
+          tenant_id: tenantId,
+          assessment_id: assessmentId,
+          entity_kind: entityKind,
+          entity_id: entityId,
+          action,
+          before,
+          after,
+          editor_id: userId,
+        });
+    } catch {
+      /* noop — audit is best-effort */
+    }
   }
 
   // ─── totals rollup ───────────────────────────────────────────
