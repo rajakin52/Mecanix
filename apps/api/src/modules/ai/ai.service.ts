@@ -378,6 +378,7 @@ Never make up information about job status or pricing.`;
   async analyseDamage(input: {
     photos: Array<{ base64: string; mediaType: string; viewAngle?: string }>;
     vehicle?: { make?: string; model?: string; year?: number };
+    priorDamage?: Array<{ panel: string; damageType: string; severity: number }>;
   }): Promise<{
     findings: Array<{
       panel: string;
@@ -408,6 +409,25 @@ Never make up information about job status or pricing.`;
     const vehicleLine = input.vehicle
       ? `${input.vehicle.make ?? ''} ${input.vehicle.model ?? ''}${input.vehicle.year ? ` (${input.vehicle.year})` : ''}`.trim()
       : '';
+
+    // Pre-existing damage known from prior assessments on this vehicle.
+    // Dedupe by (panel, damageType) — if the same damage was re-severity'd
+    // across multiple prior visits, keep the most-severe record so we
+    // don't tell the model "scratch 2 on door" and "scratch 3 on door"
+    // as separate pre-existing items.
+    const priorByKey = new Map<string, { panel: string; damageType: string; severity: number }>();
+    for (const p of input.priorDamage ?? []) {
+      const key = `${p.panel}|${p.damageType}`;
+      const prev = priorByKey.get(key);
+      if (!prev || p.severity > prev.severity) priorByKey.set(key, p);
+    }
+    const priorList = [...priorByKey.values()];
+    const priorDamageBlock =
+      priorList.length > 0
+        ? `\n\nKNOWN PRE-EXISTING DAMAGE on this vehicle (from earlier assessments):\n${priorList
+            .map((p) => `- ${p.panel} — ${p.damageType}, severity ${p.severity}`)
+            .join('\n')}\n\nDo NOT re-report pre-existing damage unless the photos clearly show it has worsened (higher severity) or a different damage_type has been added to the same panel. In those cases, report only the delta — a new finding only for the new damage or the additional severity.`
+        : '';
 
     const systemPrompt = `You are an automotive damage assessor for a workshop management platform. You analyse photographs of vehicle exterior damage and return a structured assessment.
 
@@ -445,7 +465,7 @@ Rules:
 - Each operation must correspond to at least one finding on the same panel.
 - Prefer "repair" + "paint" over "replace" for severity ≤ 3 on steel panels.
 - Use "replace" for severity ≥ 4 or any "tear" / "crack" / "missing" on structural panels.
-- Use "r_and_i" (remove and install) only when a panel must be detached to access damage elsewhere.`;
+- Use "r_and_i" (remove and install) only when a panel must be detached to access damage elsewhere.${priorDamageBlock}`;
 
     const userContent: Array<
       | { type: 'text'; text: string }

@@ -248,6 +248,35 @@ export class AidaService {
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
+    // Pre-existing damage: pull findings from this vehicle's prior
+    // approved assessments so the model doesn't double-count scratches
+    // that were there last time. Scoped to the same tenant via the
+    // damage_assessments.tenant_id eq. 'ready' status is included
+    // because an analysed-but-not-yet-approved assessment still
+    // represents damage we've already recorded.
+    const { data: priorAssessments } = await client
+      .from('damage_assessments')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('vehicle_id', assessment.vehicle_id as string)
+      .in('status', ['ready', 'approved'])
+      .neq('id', assessmentId);
+
+    let priorDamage: Array<{ panel: string; damageType: string; severity: number }> = [];
+    const priorIds = (priorAssessments ?? []).map((r) => r.id as string);
+    if (priorIds.length > 0) {
+      const { data: priorFindings } = await client
+        .from('assessment_findings')
+        .select('panel, damage_type, severity')
+        .eq('tenant_id', tenantId)
+        .in('assessment_id', priorIds);
+      priorDamage = (priorFindings ?? []).map((f) => ({
+        panel: String(f.panel ?? ''),
+        damageType: String(f.damage_type ?? ''),
+        severity: Number(f.severity ?? 0),
+      }));
+    }
+
     await client
       .from('damage_assessments')
       .update({ status: 'analysing', updated_at: new Date().toISOString() })
@@ -296,6 +325,7 @@ export class AidaService {
             year: (vehicle.year as number | null) ?? undefined,
           }
         : undefined,
+      priorDamage: priorDamage.length > 0 ? priorDamage : undefined,
     });
 
     // Parse failure surfaces as a real error rather than a silent
