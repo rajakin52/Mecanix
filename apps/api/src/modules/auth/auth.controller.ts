@@ -6,6 +6,10 @@ import type { LoginInput, SignUpInput, InviteUserInput, CustomerSignUpInput } fr
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
+import { BlockedWhenImpersonating } from '../../common/decorators/blocked-when-impersonating.decorator';
+import { ImpersonationBlockGuard } from '../../common/guards/impersonation-block.guard';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 import { RateLimitGuard, RateLimit } from '../../common/guards/rate-limit.guard';
@@ -43,8 +47,12 @@ export class AuthController {
   }
 
   @Post('invite')
-  @UseGuards(TenantGuard, RolesGuard)
+  @UseGuards(TenantGuard, ImpersonationBlockGuard, RolesGuard, CapabilityGuard)
   @Roles('owner', 'manager')
+  @RequiresCapability('users.invite')
+  @BlockedWhenImpersonating(
+    'Support staff cannot invite users into a workshop. Ask the owner to send the invite themselves.',
+  )
   async invite(
     @CurrentUser() user: RequestUser,
     @Body(new ZodValidationPipe(inviteUserSchema)) body: InviteUserInput,
@@ -55,6 +63,6 @@ export class AuthController {
   @Get('profile')
   @UseGuards(TenantGuard)
   async profile(@CurrentUser() user: RequestUser) {
-    return this.authService.getProfile(user.authId);
+    return this.authService.getProfile(user.authId, user.tenantId);
   }
 }

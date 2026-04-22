@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { SupabaseModule } from './modules/supabase/supabase.module';
+import { PermissionsModule } from './common/permissions/permissions.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { TaxCodesModule } from './modules/tax-codes/tax-codes.module';
@@ -67,6 +68,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     SupabaseModule,
+    PermissionsModule,
     AuthModule,
     TenantsModule,
     TaxCodesModule,

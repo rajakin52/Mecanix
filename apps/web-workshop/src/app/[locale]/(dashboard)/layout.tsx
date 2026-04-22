@@ -4,6 +4,8 @@ import { useRouter, Link, usePathname } from '@/i18n/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { TenantProvider } from '@/lib/tenant-context';
+import { clearImpersonation } from '@/lib/impersonation';
+import { TenantSwitcher, DesktopTopBar, ImpersonationBanner } from '@/components/TenantSwitcher';
 import { ToastProvider } from '@mecanix/ui-web';
 // Using <img> instead of next/image for static assets compatibility
 import {
@@ -75,9 +77,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { href: '/jobs', label: t('jobs'), icon: Wrench },
         { href: '/estimates', label: t('estimates'), icon: FileText },
-        { href: '/aida', label: 'Damage assessments', icon: Camera },
         { href: '/floor', label: t('floor'), icon: Layers },
         { href: '/timesheets', label: t('timesheets'), icon: Clock },
+      ],
+    },
+    {
+      title: t('navAida'),
+      items: [
+        { href: '/aida', label: t('damageAssessments'), icon: Camera },
       ],
     },
     {
@@ -129,6 +136,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!window.confirm(t('logoutConfirm'))) return;
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    // Never carry impersonation across sessions.
+    clearImpersonation();
     router.push('/login');
   };
 
@@ -256,6 +265,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
+        <ImpersonationBanner />
+
         {/* Top bar (mobile) */}
         <header className="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
           <button
@@ -266,7 +277,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
           <img src="/logo-small.png" alt="MECANIX" width={24} height={24} className="rounded" />
           <span className="text-sm font-bold text-secondary-800">MECANIX</span>
+          <div className="ml-auto">
+            <TenantSwitcher />
+          </div>
         </header>
+
+        {/* Top bar (desktop) — only renders when the caller is a super-admin */}
+        <DesktopTopBar />
 
         <main id="main-content" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <TenantProvider>

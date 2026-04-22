@@ -5,11 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { PermissionsService } from '../../common/permissions/permissions.service';
 import type { SignUpInput, LoginInput, CustomerSignUpInput } from '@mecanix/validators';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   async signUp(input: SignUpInput) {
     const client = this.supabase.getClient();
@@ -346,12 +350,12 @@ export class AuthService {
     };
   }
 
-  async getProfile(authId: string) {
+  async getProfile(authId: string, activeTenantId?: string) {
     const client = this.supabase.getClient();
 
     const { data: user, error } = await client
       .from('users')
-      .select('id, tenant_id, email, full_name, role, phone, avatar_url, is_active')
+      .select('id, tenant_id, email, full_name, role, custom_role_id, phone, avatar_url, is_active, is_super_admin')
       .eq('auth_id', authId)
       .single();
 
@@ -359,7 +363,26 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    return user;
+    const homeTenantId = user.tenant_id as string;
+    const currentTenantId = activeTenantId ?? homeTenantId;
+
+    // Ship the effective capability set so the UI can hide/disable
+    // controls without a round trip per action. Super-admins get the
+    // full list — CapabilityGuard also bypasses them server-side.
+    const capabilities = user.is_super_admin
+      ? ['*']
+      : await this.permissions.capabilityKeysFor({
+          role: user.role as string,
+          customRoleId: (user.custom_role_id as string | null) ?? null,
+        });
+
+    return {
+      ...user,
+      home_tenant_id: homeTenantId,
+      current_tenant_id: currentTenantId,
+      is_impersonating: currentTenantId !== homeTenantId,
+      capabilities,
+    };
   }
 
   async inviteUser(tenantId: string, email: string, fullName: string, role: string, invitedBy: string) {

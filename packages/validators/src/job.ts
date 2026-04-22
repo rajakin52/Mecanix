@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { titleCase, sentenceCase } from './_case';
 
 // ---------- Technicians ----------
 
 export const createTechnicianSchema = z.object({
-  fullName: z.string().min(2).max(200),
+  fullName: z.string().min(2).max(200).transform(titleCase),
   phone: z.string().min(7).max(20).optional(),
   specializations: z.array(z.string()).default([]),
   hourlyRate: z.coerce.number().min(0).optional(),
@@ -23,9 +24,9 @@ export const createJobCardSchema = z.object({
   vehicleId: z.string().uuid(),
   customerId: z.string().uuid(),
   jobType: jobTypeEnum.default('mechanical'),
-  reportedProblem: z.string().max(5000).default(''),
+  reportedProblem: z.string().max(5000).default('').transform(sentenceCase),
   symptomCodes: z.array(z.string()).default([]),
-  internalNotes: z.string().max(5000).optional(),
+  internalNotes: z.string().max(5000).optional().transform((v) => (v ? sentenceCase(v) : v)),
   primaryTechnicianId: z.string().uuid().optional(),
   isInsurance: z.boolean().default(false),
   isTaxable: z.boolean().default(true),
@@ -33,11 +34,11 @@ export const createJobCardSchema = z.object({
   labels: z.array(z.string()).default([]),
   estimatedCompletion: z.string().optional(),
   partsIssuingMode: z.enum(['auto', 'manual']).default('auto'),
-  insuranceCompany: z.string().max(200).optional(),
+  insuranceCompany: z.string().max(200).optional().transform((v) => (v ? titleCase(v) : v)),
   policyNumber: z.string().max(100).optional(),
   claimReference: z.string().max(100).optional(),
   excessAmount: z.coerce.number().min(0).optional(),
-  customerRemarks: z.string().max(5000).optional(),
+  customerRemarks: z.string().max(5000).optional().transform((v) => (v ? sentenceCase(v) : v)),
   estimateFooter: z.string().max(2000).optional(),
   isComeback: z.boolean().default(false),
   comebackOriginalJobId: z.string().uuid().optional(),
@@ -56,17 +57,17 @@ export const createJobCardSchema = z.object({
 });
 
 export const updateJobCardSchema = z.object({
-  reportedProblem: z.string().min(1).max(5000).optional(),
-  internalNotes: z.string().max(5000).optional(),
+  reportedProblem: z.string().min(1).max(5000).optional().transform((v) => (v ? sentenceCase(v) : v)),
+  internalNotes: z.string().max(5000).optional().transform((v) => (v ? sentenceCase(v) : v)),
   primaryTechnicianId: z.string().uuid().nullable().optional(),
   labels: z.array(z.string()).optional(),
   estimatedCompletion: z.string().nullable().optional(),
   isInsurance: z.boolean().optional(),
   isTaxable: z.boolean().optional(),
   requiresAuthorization: z.boolean().optional(),
-  customerRemarks: z.string().max(5000).optional(),
+  customerRemarks: z.string().max(5000).optional().transform((v) => (v ? sentenceCase(v) : v)),
   estimateFooter: z.string().max(2000).optional(),
-  insuranceCompany: z.string().max(200).optional(),
+  insuranceCompany: z.string().max(200).optional().transform((v) => (v ? titleCase(v) : v)),
   policyNumber: z.string().max(100).optional(),
   claimReference: z.string().max(100).optional(),
   excessAmount: z.coerce.number().min(0).optional(),

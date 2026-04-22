@@ -43,6 +43,7 @@ import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } 
 import { useAssessments, useCreateAssessment } from '@/hooks/use-aida';
 import { VehicleHistoryModal } from '@/components/VehicleHistoryModal';
 import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
+import { Camera } from 'lucide-react';
 
 // Must match backend VALID_TRANSITIONS in jobs.service.ts
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -3073,11 +3074,12 @@ function AidaJobLink({
         href={`/aida/${existing.id}`}
         className={
           isBodyRepair
-            ? 'rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100'
-            : 'rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100'
+            ? 'inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100'
+            : 'inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100'
         }
       >
-        {t('openAssessment')}
+        <Camera className="h-4 w-4" />
+        AIDA — {t('openAssessment')}
       </Link>
     );
   }
@@ -3092,11 +3094,12 @@ function AidaJobLink({
       }}
       className={
         isBodyRepair
-          ? 'rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50'
-          : 'rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50'
+          ? 'inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50'
+          : 'inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50'
       }
     >
-      {t('startAssessment')}
+      <Camera className="h-4 w-4" />
+      AIDA — {t('startAssessment')}
     </button>
   );
 }

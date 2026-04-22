@@ -18,12 +18,17 @@ export interface AuditLogRow {
   user_agent: string | null;
   created_at: string;
   user: { id: string; full_name?: string; email?: string } | null;
+  /** Actor's home tenant — differs from tenant_id when a super-admin impersonated. */
+  actor_home_tenant_id: string | null;
+  is_cross_tenant: boolean;
+  home_tenant: { id: string; name: string } | null;
 }
 
 export function useAuditLog(filters: {
   action?: string;
   entityType?: string;
   userId?: string;
+  crossTenantOnly?: boolean;
   startDate?: string;
   endDate?: string;
 } = {}) {
@@ -34,6 +39,7 @@ export function useAuditLog(filters: {
       if (filters.action) qs.set('action', filters.action);
       if (filters.entityType) qs.set('entityType', filters.entityType);
       if (filters.userId) qs.set('userId', filters.userId);
+      if (filters.crossTenantOnly) qs.set('crossTenantOnly', 'true');
       if (filters.startDate) qs.set('startDate', filters.startDate);
       if (filters.endDate) qs.set('endDate', filters.endDate);
       const q = qs.toString();

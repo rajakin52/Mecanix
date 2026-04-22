@@ -13,7 +13,9 @@ import { InvoicesService } from './invoices.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -27,7 +29,7 @@ import type {
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('invoices')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard, CapabilityGuard)
 export class InvoicesController {
   constructor(
     private readonly invoicesService: InvoicesService,
@@ -59,6 +61,7 @@ export class InvoicesController {
 
   @Post('generate')
   @Roles('owner', 'manager', 'receptionist')
+  @RequiresCapability('invoices.generate')
   async generate(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
@@ -69,6 +72,7 @@ export class InvoicesController {
 
   @Post(':id/send')
   @Roles('owner', 'manager', 'receptionist')
+  @RequiresCapability('invoices.generate')
   async send(
     @TenantId() tenantId: string,
     @Param('id') id: string,
@@ -78,6 +82,7 @@ export class InvoicesController {
 
   @Post(':id/payment-link')
   @Roles('owner', 'manager', 'receptionist')
+  @RequiresCapability('invoices.generate')
   async createPaymentLink(
     @TenantId() tenantId: string,
     @Param('id') id: string,
@@ -87,6 +92,7 @@ export class InvoicesController {
 
   @Delete(':id/payment-link')
   @Roles('owner', 'manager')
+  @RequiresCapability('invoices.refund')
   async revokePaymentLink(
     @TenantId() tenantId: string,
     @Param('id') id: string,
@@ -96,6 +102,7 @@ export class InvoicesController {
 
   @Post(':id/payment-reminder')
   @Roles('owner', 'manager', 'receptionist')
+  @RequiresCapability('invoices.generate')
   async sendPaymentReminder(
     @TenantId() tenantId: string,
     @Param('id') id: string,

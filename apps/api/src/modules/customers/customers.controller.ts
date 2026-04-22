@@ -12,7 +12,11 @@ import {
 import { CustomersService } from './customers.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
+import { ImpersonationBlockGuard } from '../../common/guards/impersonation-block.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
+import { BlockedWhenImpersonating } from '../../common/decorators/blocked-when-impersonating.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { createCustomerSchema, updateCustomerSchema, paginationSchema } from '@mecanix/validators';
@@ -20,7 +24,7 @@ import type { CreateCustomerInput, UpdateCustomerInput, PaginationInput } from '
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('customers')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, ImpersonationBlockGuard, RolesGuard, CapabilityGuard)
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
@@ -63,6 +67,7 @@ export class CustomersController {
   }
 
   @Post()
+  @RequiresCapability('customers.manage')
   async create(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
@@ -72,6 +77,7 @@ export class CustomersController {
   }
 
   @Patch(':id')
+  @RequiresCapability('customers.manage')
   async update(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,
@@ -83,6 +89,10 @@ export class CustomersController {
 
   @Delete(':id')
   @Roles('owner', 'manager')
+  @RequiresCapability('customers.manage')
+  @BlockedWhenImpersonating(
+    'Deleting a customer is irreversible and must be initiated by the workshop owner, not by support.',
+  )
   async delete(
     @TenantId() tenantId: string,
     @CurrentUser() user: RequestUser,

@@ -8,18 +8,30 @@
  * CSRF protection) and is tracked as a Phase 3 security hardening task.
  */
 
+import { getImpersonatedTenantId } from './impersonation';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
-async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> {
+/**
+ * Pull the super-admin impersonation tenant and attach it as X-Tenant-Id.
+ * The backend ignores this header for non-super-admin users, so non-admin
+ * callers are unaffected even if the header accidentally leaks.
+ */
+function buildHeaders(extra: HeadersInit | undefined, withJson = true): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  const impersonateId = getImpersonatedTenantId();
+  return {
+    ...(withJson ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(impersonateId ? { 'X-Tenant-Id': impersonateId } : {}),
+    ...extra,
+  };
+}
 
+async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
+    headers: buildHeaders(options.headers),
   });
 
   const json = await res.json();
@@ -39,14 +51,11 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
           if (refreshJson.success && refreshJson.data?.accessToken) {
             localStorage.setItem('access_token', refreshJson.data.accessToken);
             localStorage.setItem('refresh_token', refreshJson.data.refreshToken);
-            // Retry the original request with new token
+            // Retry the original request with new token — re-run buildHeaders
+            // so the new access token AND any current impersonation header are used.
             const retryRes = await fetch(`${API_URL}${path}`, {
               ...options,
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${refreshJson.data.accessToken}`,
-                ...options.headers,
-              },
+              headers: buildHeaders(options.headers),
             });
             const retryJson = await retryRes.json();
             if (retryJson.success) return retryJson.data;
@@ -68,13 +77,9 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 async function uploadApi<T>(path: string, formData: FormData): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: buildHeaders(undefined, false),
     body: formData,
   });
 

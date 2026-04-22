@@ -19,11 +19,13 @@ export default function AuditLogPage() {
   const [entityType, setEntityType] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [crossTenantOnly, setCrossTenantOnly] = useState<boolean>(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data, isLoading } = useAuditLog({
     action: action || undefined,
     entityType: entityType || undefined,
+    crossTenantOnly: crossTenantOnly || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
   });
@@ -91,6 +93,15 @@ export default function AuditLogPage() {
             className="mt-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
           />
         </div>
+        <label className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900">
+          <input
+            type="checkbox"
+            checked={crossTenantOnly}
+            onChange={(e) => setCrossTenantOnly(e.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          Show only cross-tenant (support) actions
+        </label>
       </div>
 
       {isLoading ? (
@@ -122,7 +133,21 @@ export default function AuditLogPage() {
                       <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
                         {new Date(r.created_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{actor}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {actor}
+                        {r.is_cross_tenant && (
+                          <span
+                            className="ms-2 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800"
+                            title={
+                              r.home_tenant?.name
+                                ? `Cross-tenant action by ${r.home_tenant.name}`
+                                : 'Cross-tenant action (support / super-admin)'
+                            }
+                          >
+                            support
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge}`}>
                           {r.action}
@@ -159,6 +184,19 @@ export default function AuditLogPage() {
                               <div>
                                 <dt className="font-semibold text-gray-500">IP</dt>
                                 <dd className="font-mono">{r.ip_address}</dd>
+                              </div>
+                            ) : null}
+                            {r.is_cross_tenant ? (
+                              <div>
+                                <dt className="font-semibold text-amber-700">Support actor</dt>
+                                <dd>
+                                  {r.home_tenant?.name ?? 'Unknown'}
+                                  {r.actor_home_tenant_id && (
+                                    <span className="ms-2 font-mono text-[11px] text-gray-400">
+                                      {r.actor_home_tenant_id}
+                                    </span>
+                                  )}
+                                </dd>
                               </div>
                             ) : null}
                           </dl>

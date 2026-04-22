@@ -15,13 +15,16 @@ import type { FastifyReply } from 'fastify';
 import { ReportBuilderService } from './report-builder.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('report-builder')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard, CapabilityGuard)
 @Roles('owner', 'manager')
+@RequiresCapability('reports.builder')
 export class ReportBuilderController {
   constructor(private readonly service: ReportBuilderService) {}
 

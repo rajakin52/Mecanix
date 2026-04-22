@@ -3,7 +3,9 @@ import { ReportsService } from './reports.service';
 import { StatementsService } from './statements.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
 import { TenantId } from '../../common/decorators/user.decorator';
 
 function getDefaultDateRange(): { startDate: string; endDate: string } {
@@ -16,8 +18,9 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
 }
 
 @Controller('reports')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard, CapabilityGuard)
 @Roles('owner', 'manager')
+@RequiresCapability('reports.view')
 export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,

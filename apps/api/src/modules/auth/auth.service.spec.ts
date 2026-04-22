@@ -8,11 +8,17 @@ const mockSupabaseService = {
   createAnonClient: vi.fn(),
 };
 
+const mockPermissionsService = {
+  hasCapability: vi.fn().mockResolvedValue(true),
+  capabilitiesFor: vi.fn().mockResolvedValue([]),
+  invalidate: vi.fn(),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(() => {
-    service = new AuthService(mockSupabaseService as never);
+    service = new AuthService(mockSupabaseService as never, mockPermissionsService as never);
     vi.clearAllMocks();
   });
 

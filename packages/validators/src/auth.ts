@@ -21,6 +21,32 @@ export const inviteUserSchema = z.object({
   role: z.enum(['manager', 'technician', 'receptionist']),  // NOT owner — can't invite owners
 });
 
+export const updateWorkshopUserSchema = z.object({
+  fullName: z.string().min(2).max(100).optional(),
+  phone: z.string().max(20).optional(),
+  role: z.enum(['owner', 'manager', 'technician', 'receptionist']).optional(),
+  /** UUID of a public.custom_roles row. null removes the override. */
+  customRoleId: z.string().uuid().nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ── Custom roles ─────────────────────────────────────────────────
+
+const capabilityKey = z.string().min(1).max(100).regex(/^[a-z0-9_.]+$/);
+
+export const createCustomRoleSchema = z.object({
+  key: capabilityKey,                              // e.g. 'workshop_admin'
+  label: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  capabilities: z.array(capabilityKey).default([]),
+});
+
+export const updateCustomRoleSchema = z.object({
+  label: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  capabilities: z.array(capabilityKey).optional(),
+});
+
 export const updateTenantSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   phone: z.string().max(20).optional(),
@@ -53,6 +79,9 @@ export const customerSignUpSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
+export type UpdateWorkshopUserInput = z.infer<typeof updateWorkshopUserSchema>;
+export type CreateCustomRoleInput = z.infer<typeof createCustomRoleSchema>;
+export type UpdateCustomRoleInput = z.infer<typeof updateCustomRoleSchema>;
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
 export type CustomerSignUpInput = z.infer<typeof customerSignUpSchema>;
 export type SetExchangeRateInput = z.infer<typeof setExchangeRateSchema>;

@@ -13,7 +13,9 @@ import { ExpensesService } from './expenses.service';
 import { AiService } from '../ai/ai.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CapabilityGuard } from '../../common/guards/capability.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
 import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -31,8 +33,9 @@ import type {
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('expenses')
-@UseGuards(TenantGuard, RolesGuard)
+@UseGuards(TenantGuard, RolesGuard, CapabilityGuard)
 @Roles('owner', 'manager')
+@RequiresCapability('expenses.manage')
 export class ExpensesController {
   constructor(
     private readonly expensesService: ExpensesService,
