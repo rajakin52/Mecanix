@@ -64,10 +64,13 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
           // Refresh failed — fall through to redirect
         }
       }
-      // Refresh failed — redirect to login
+      // Refresh failed — redirect to login, preserving the current locale prefix
+      // (otherwise `/login` gets routed as `[locale=login]` and the page breaks).
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      window.location.href = '/login';
+      const localeMatch = window.location.pathname.match(/^\/(pt-PT|pt-BR|en)(?=\/|$)/);
+      const localePrefix = localeMatch ? localeMatch[0] : '/pt-PT';
+      window.location.href = `${localePrefix}/login`;
       throw new Error('Session expired');
     }
     throw new Error(json.error?.message ?? 'Request failed');
