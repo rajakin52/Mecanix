@@ -533,7 +533,13 @@ export class AidaService {
       .eq('assessment_id', assessmentId);
     if (!ops || ops.length === 0) return [];
 
-    const labourRate = await this.resolveLabourRate(tenantId, jobCardId);
+    // Rate resolution: AIDA-specific body-work rate wins for every
+    // operation (AIDA only generates body-work ops). Falls through to
+    // the job's most recent labour rate, tenant default, then 0.
+    const bodyRate = await this.resolveAidaBodyLabourRate(tenantId);
+    const labourRate =
+      bodyRate ?? (await this.resolveLabourRate(tenantId, jobCardId));
+    const defaultPaintPerPanel = await this.resolveAidaPaintMaterialRate(tenantId);
 
     const { data: defaultTax } = await client
       .from('tax_codes')
@@ -554,7 +560,17 @@ export class AidaService {
       const operation = String(op.operation ?? 'repair');
       const hours = Number(op.labour_hours ?? 0);
       const partsCost = Number(op.parts_cost ?? 0);
-      const paintCost = Number(op.paint_cost ?? 0);
+      // Paint material: prefer the per-op cost the AI produced; if the
+      // op is a paint / blend and the AI left it at 0, apply the tenant's
+      // configured default (aida.default_paint_material_rate).
+      const rawPaintCost = Number(op.paint_cost ?? 0);
+      const isPaintishOp = operation === 'paint' || operation === 'blend';
+      const paintCost =
+        rawPaintCost > 0
+          ? rawPaintCost
+          : isPaintishOp && defaultPaintPerPanel != null
+            ? defaultPaintPerPanel
+            : 0;
       const oem = op.oem_part_number as string | null;
       const prettyPanel = panel.replace(/_/g, ' ');
 
@@ -666,6 +682,40 @@ export class AidaService {
     if (tech?.hourly_rate != null) return Number(tech.hourly_rate);
 
     return 0;
+  }
+
+  /**
+   * AIDA-specific body-work hourly rate override. Returns null if the
+   * tenant hasn't set one — caller then falls back to the general rate.
+   */
+  private async resolveAidaBodyLabourRate(tenantId: string): Promise<number | null> {
+    const { data } = await this.supabase
+      .getClient()
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'aida.default_body_labour_rate')
+      .maybeSingle();
+    if (data?.value == null || data.value === '') return null;
+    const n = Number(data.value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /**
+   * Per-panel paint material cost used when the AI emits a paint/blend op
+   * with paint_cost=0. Returns null if the tenant hasn't configured it.
+   */
+  private async resolveAidaPaintMaterialRate(tenantId: string): Promise<number | null> {
+    const { data } = await this.supabase
+      .getClient()
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'aida.default_paint_material_rate')
+      .maybeSingle();
+    if (data?.value == null || data.value === '') return null;
+    const n = Number(data.value);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
 
   async delete(tenantId: string, id: string) {
