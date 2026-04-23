@@ -30,6 +30,7 @@ import {
 import { useRouter } from '@/i18n/navigation';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@mecanix/ui-web';
+import { ClaimPanel } from '../ClaimPanel';
 
 const VIEW_ANGLES: ViewAngle[] = [
   'front', 'front_left', 'front_right',
@@ -290,6 +291,11 @@ export default function AssessmentDetailPage() {
           )}
         </div>
       </div>
+
+      <ClaimPanel
+        assessmentId={assessment.id}
+        claim={assessment.claim as Parameters<typeof ClaimPanel>[0]['claim']}
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Kpi label="Photos" value={String(assessment.photos.length)} />

@@ -22,6 +22,7 @@ import {
   createOperationSchema,
   updateOperationSchema,
   finaliseAssessmentSchema,
+  createClaimFromAssessmentSchema,
 } from '@mecanix/validators';
 import type {
   CreateAssessmentInput,
@@ -32,6 +33,7 @@ import type {
   CreateAssessmentOperationInput,
   UpdateAssessmentOperationInput,
   FinaliseAssessmentInput,
+  CreateClaimFromAssessmentInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
@@ -117,6 +119,17 @@ export class AidaController {
     @Param('id') id: string,
   ) {
     return this.service.createJobFromAssessment(tenantId, id, user.id);
+  }
+
+  @Post(':id/create-claim')
+  async createClaim(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(createClaimFromAssessmentSchema))
+    body: CreateClaimFromAssessmentInput,
+  ) {
+    return this.service.createClaimFromAssessment(tenantId, id, user.id, body);
   }
 
   @Post(':id/packet')

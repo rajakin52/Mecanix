@@ -25,6 +25,17 @@ export const createAssessmentSchema = z.object({
 export const updateAssessmentSchema = z.object({
   status: z.enum(['capturing', 'analysing', 'ready', 'approved', 'rejected', 'cancelled']).optional(),
   reviewNotes: z.string().max(4000).optional(),
+  /**
+   * Link / unlink to an existing insurance claim. Send null to clear.
+   * undefined leaves the value untouched.
+   */
+  claimId: z.string().uuid().nullable().optional(),
+});
+
+export const createClaimFromAssessmentSchema = z.object({
+  insuranceCompanyId: z.string().uuid(),
+  policyNumber: z.string().max(120).optional(),
+  excessAmount: z.coerce.number().min(0).optional(),
 });
 
 export const uploadPhotoSchema = z.object({
@@ -77,3 +88,4 @@ export type UpdateAssessmentFindingInput = z.infer<typeof updateFindingSchema>;
 export type CreateAssessmentOperationInput = z.infer<typeof createOperationSchema>;
 export type UpdateAssessmentOperationInput = z.infer<typeof updateOperationSchema>;
 export type FinaliseAssessmentInput = z.infer<typeof finaliseAssessmentSchema>;
+export type CreateClaimFromAssessmentInput = z.infer<typeof createClaimFromAssessmentSchema>;

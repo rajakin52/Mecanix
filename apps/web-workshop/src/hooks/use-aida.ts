@@ -159,8 +159,30 @@ export function useCreateAssessment() {
 export function useUpdateAssessment(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (patch: { status?: AssessmentStatus; reviewNotes?: string }) =>
-      api.patch(`/aida/assessments/${id}`, patch),
+    mutationFn: (patch: {
+      status?: AssessmentStatus;
+      reviewNotes?: string;
+      claimId?: string | null;
+    }) => api.patch(`/aida/assessments/${id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['aida-assessment', id] });
+      qc.invalidateQueries({ queryKey: ['aida-assessments'] });
+    },
+  });
+}
+
+export function useCreateClaimFromAssessment(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      insuranceCompanyId: string;
+      policyNumber?: string;
+      excessAmount?: number;
+    }) =>
+      api.post<{ claimId: string; claimNumber: string }>(
+        `/aida/assessments/${id}/create-claim`,
+        body,
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['aida-assessment', id] });
       qc.invalidateQueries({ queryKey: ['aida-assessments'] });

@@ -44,6 +44,11 @@ export class ClaimPacketsService {
       .eq('tenant_id', tenantId)
       .single();
     if (!claim) throw new NotFoundException('Claim not found');
+    if (!claim.job_card_id) {
+      throw new BadRequestException(
+        'This claim is not linked to a job card yet. Create or link a job card first — the packet needs the invoice lines and inspection data that live on the job.',
+      );
+    }
 
     const jobCard = claim.job_card as Record<string, unknown> | null;
     const insurer = claim.insurance_company as Record<string, unknown> | null;

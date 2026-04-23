@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
@@ -18,6 +18,12 @@ export class EstimatesService {
 
     if (claimError || !claim) {
       throw new NotFoundException('Insurance claim not found');
+    }
+
+    if (!claim.job_card_id) {
+      throw new BadRequestException(
+        'This claim is not linked to a job card yet. Create or link a job card from the claim page first.',
+      );
     }
 
     const jobCardId = claim.job_card_id as string;
@@ -289,6 +295,12 @@ export class EstimatesService {
 
     if (claimError || !claim) {
       throw new NotFoundException('Insurance claim not found');
+    }
+
+    if (!claim.job_card_id) {
+      throw new BadRequestException(
+        'This claim is not linked to a job card yet. Create or link a job card from the claim page first.',
+      );
     }
 
     const jobCardId = claim.job_card_id as string;

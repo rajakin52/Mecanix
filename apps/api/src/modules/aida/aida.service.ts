@@ -15,6 +15,7 @@ import type {
   CreateAssessmentOperationInput,
   UpdateAssessmentOperationInput,
   FinaliseAssessmentInput,
+  CreateClaimFromAssessmentInput,
 } from '@mecanix/validators';
 
 const BUCKET = 'aida-captures';
@@ -69,7 +70,7 @@ export class AidaService {
     const { data, error } = await client
       .from('damage_assessments')
       .select(
-        '*, vehicle:vehicles(id, plate, make, model, year, vin), job_card:job_cards(id, job_number), claim:insurance_claims(id, claim_number)',
+        '*, vehicle:vehicles(id, plate, make, model, year, vin), job_card:job_cards(id, job_number), claim:insurance_claims(id, claim_number, status, insurance_company:insurance_companies(id, name))',
       )
       .eq('id', id)
       .eq('tenant_id', tenantId)
@@ -139,6 +140,25 @@ export class AidaService {
     if (input.status !== undefined) patch.status = input.status;
     if (input.reviewNotes !== undefined) patch.review_notes = input.reviewNotes;
 
+    // Link / unlink to an existing insurance claim. Null clears, undefined
+    // leaves the value alone. When setting, verify the claim belongs to
+    // the same tenant to prevent cross-tenant leakage.
+    if (input.claimId !== undefined) {
+      if (input.claimId === null) {
+        patch.claim_id = null;
+      } else {
+        const { data: claim } = await this.supabase
+          .getClient()
+          .from('insurance_claims')
+          .select('id, tenant_id')
+          .eq('id', input.claimId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (!claim) throw new NotFoundException('Claim not found');
+        patch.claim_id = input.claimId;
+      }
+    }
+
     const { data, error } = await this.supabase
       .getClient()
       .from('damage_assessments')
@@ -149,6 +169,79 @@ export class AidaService {
       .single();
     if (error || !data) throw new NotFoundException('Assessment not found');
     return data;
+  }
+
+  /**
+   * Create a new insurance claim from the assessment and link them.
+   * The claim is created with no job_card_id (supported since migration
+   * 00102) so the workshop can run insurance work standalone. Totals
+   * from the assessment are copied into workshop_estimate as a starting
+   * figure — the estimator can revise on the claim detail page.
+   */
+  async createClaimFromAssessment(
+    tenantId: string,
+    assessmentId: string,
+    userId: string,
+    input: CreateClaimFromAssessmentInput,
+  ): Promise<{ claimId: string; claimNumber: string }> {
+    const client = this.supabase.getClient();
+
+    const { data: assessment } = await client
+      .from('damage_assessments')
+      .select('id, claim_id, total_estimate')
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (!assessment) throw new NotFoundException('Assessment not found');
+    if (assessment.claim_id) {
+      throw new BadRequestException('Assessment is already linked to a claim');
+    }
+
+    // Verify the insurer belongs to the tenant.
+    const { data: insurer } = await client
+      .from('insurance_companies')
+      .select('id')
+      .eq('id', input.insuranceCompanyId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (!insurer) throw new NotFoundException('Insurance company not found');
+
+    const { data: claimNumber, error: rpcError } = await client.rpc('generate_claim_number', {
+      p_tenant_id: tenantId,
+    });
+    if (rpcError || !claimNumber) {
+      throw new BadRequestException('Failed to generate claim number');
+    }
+
+    const { data: claim, error: insertError } = await client
+      .from('insurance_claims')
+      .insert({
+        tenant_id: tenantId,
+        job_card_id: null,
+        insurance_company_id: input.insuranceCompanyId,
+        claim_number: claimNumber,
+        policy_number: input.policyNumber ?? null,
+        excess_amount: input.excessAmount ?? 0,
+        workshop_estimate: Number(assessment.total_estimate ?? 0),
+        status: 'initiated',
+        created_by: userId,
+      })
+      .select('id, claim_number')
+      .single();
+    if (insertError || !claim) {
+      throw new BadRequestException(
+        `Failed to create claim: ${insertError?.message ?? 'unknown error'}`,
+      );
+    }
+
+    // Link the assessment to the new claim.
+    await client
+      .from('damage_assessments')
+      .update({ claim_id: claim.id, updated_at: new Date().toISOString() })
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId);
+
+    return { claimId: claim.id as string, claimNumber: claim.claim_number as string };
   }
 
   async finalise(tenantId: string, id: string, userId: string, input: FinaliseAssessmentInput) {
