@@ -34,6 +34,13 @@ export const changeClaimStatusSchema = z.object({
   assessorName: z.string().max(200).optional(),
 });
 
+export const updateClaimSchema = z.object({
+  /** Link / unlink to a job card. Null clears, undefined leaves untouched. */
+  jobCardId: z.string().uuid().nullable().optional(),
+  policyNumber: z.string().max(100).nullable().optional(),
+  excessAmount: z.coerce.number().min(0).optional(),
+});
+
 export const addClaimPhotoSchema = z.object({
   photoUrl: z.string().min(1).max(2000),
   stage: z.enum(['damage', 'repair', 'completion']),
@@ -44,6 +51,7 @@ export const addClaimPhotoSchema = z.object({
 
 export type InitiateClaimInput = z.infer<typeof initiateClaimSchema>;
 export type ChangeClaimStatusInput = z.infer<typeof changeClaimStatusSchema>;
+export type UpdateClaimInput = z.infer<typeof updateClaimSchema>;
 export type AddClaimPhotoInput = z.infer<typeof addClaimPhotoSchema>;
 
 // ---------- Estimates ----------

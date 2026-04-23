@@ -48,6 +48,21 @@ export function useInitiateClaim() {
   });
 }
 
+export function useUpdateClaim(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: {
+      jobCardId?: string | null;
+      policyNumber?: string | null;
+      excessAmount?: number;
+    }) => api.patch(`/insurance/claims/${id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['claim', id] });
+      qc.invalidateQueries({ queryKey: ['claims'] });
+    },
+  });
+}
+
 export function useChangeClaimStatus() {
   const qc = useQueryClient();
   return useMutation({

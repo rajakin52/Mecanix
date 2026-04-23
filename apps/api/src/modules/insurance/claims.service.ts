@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { InitiateClaimInput, AddClaimPhotoInput, PaginationInput } from '@mecanix/validators';
+import type {
+  InitiateClaimInput,
+  AddClaimPhotoInput,
+  PaginationInput,
+  UpdateClaimInput,
+} from '@mecanix/validators';
 
 const VALID_CLAIM_TRANSITIONS: Record<string, string[]> = {
   initiated: ['documented'],
@@ -148,6 +153,59 @@ export class ClaimsService {
       .eq('id', input.jobCardId)
       .eq('tenant_id', tenantId);
 
+    return data;
+  }
+
+  /**
+   * Partial update for a claim. Currently covers job-card linking
+   * (forward or reverse from what Aida does), policy number and
+   * excess tweaks. Status transitions stay on the dedicated
+   * updateStatus endpoint because they have workflow side-effects.
+   */
+  async update(tenantId: string, claimId: string, input: UpdateClaimInput) {
+    const client = this.supabase.getClient();
+
+    const { data: claim } = await client
+      .from('insurance_claims')
+      .select('id, job_card_id')
+      .eq('id', claimId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+    if (input.jobCardId !== undefined) {
+      if (input.jobCardId === null) {
+        patch.job_card_id = null;
+      } else {
+        // Verify the job belongs to the same tenant before linking.
+        const { data: job } = await client
+          .from('job_cards')
+          .select('id')
+          .eq('id', input.jobCardId)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (!job) throw new NotFoundException('Job card not found');
+        patch.job_card_id = input.jobCardId;
+      }
+    }
+
+    if (input.policyNumber !== undefined) {
+      patch.policy_number = input.policyNumber;
+    }
+    if (input.excessAmount !== undefined) {
+      patch.excess_amount = input.excessAmount;
+    }
+
+    const { data, error } = await client
+      .from('insurance_claims')
+      .update(patch)
+      .eq('id', claimId)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error) throw new BadRequestException(error.message);
     return data;
   }
 

@@ -1208,6 +1208,22 @@
     "modelProvider": "Anthropic Claude · multimodal",
     "modelNote": "Used for damage-photo analysis. API key is set on the server — no action needed."
   },
+  "claimJobLink": {
+    "jobCardLabel": "Job card",
+    "notLinkedHint": "No job card linked yet. Link an existing job or create one from this claim.",
+    "linkJob": "Link job card",
+    "unlink": "Unlink",
+    "confirmUnlink": "Unlink this job card from the claim?",
+    "linked": "Job card linked to the claim",
+    "unlinked": "Job card unlinked from the claim",
+    "pickerTitle": "Link job card",
+    "pickerSubtitle": "Search by job number and pick one to link to this claim.",
+    "searchPlaceholder": "Search by job number…",
+    "loading": "Loading…",
+    "noResults": "No jobs found.",
+    "cancel": "Cancel",
+    "genericError": "Operation failed"
+  },
   "aidaClaim": {
     "linkedTitle": "LINKED CLAIM",
     "notLinkedTitle": "No claim linked",

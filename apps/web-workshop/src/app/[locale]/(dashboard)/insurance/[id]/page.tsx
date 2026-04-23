@@ -16,6 +16,7 @@ import {
 } from '@/hooks/use-insurance';
 import { Link } from '@/i18n/navigation';
 import { formatNumber } from '@/lib/format';
+import { JobCardLinkPanel } from '../JobCardLinkPanel';
 
 const STATUS_COLORS: Record<string, string> = {
   initiated: 'bg-gray-100 text-gray-700',
@@ -172,16 +173,24 @@ export default function ClaimDetailPage() {
 
       {/* Info Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase text-gray-500">Job #</p>
-          <Link
-            href={`/jobs/${(c.job_card_id ?? c.jobCardId) as string}`}
-            className="mt-1 block text-sm font-medium text-primary-600 hover:underline"
-          >
-            {(c.job_cards as Record<string, string> | undefined)?.job_number ??
-             (c.job_card as Record<string, string> | undefined)?.job_number ?? '-'}
-          </Link>
-        </div>
+        <JobCardLinkPanel
+          claimId={String(c.id)}
+          linkedJob={
+            c.job_card_id
+              ? {
+                  id: String(c.job_card_id),
+                  job_number:
+                    ((c.job_cards as Record<string, string> | undefined)?.job_number ??
+                      (c.job_card as Record<string, string> | undefined)?.job_number ??
+                      null),
+                  status:
+                    ((c.job_cards as Record<string, string> | undefined)?.status ??
+                      (c.job_card as Record<string, string> | undefined)?.status ??
+                      null),
+                }
+              : null
+          }
+        />
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <p className="text-xs font-semibold uppercase text-gray-500">Vehicle</p>
           <p className="mt-1 text-sm font-medium text-gray-900">

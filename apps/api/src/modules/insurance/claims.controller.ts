@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -14,6 +15,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   initiateClaimSchema,
   changeClaimStatusSchema,
+  updateClaimSchema,
   addClaimPhotoSchema,
   paginationSchema,
   checkTotalLossSchema,
@@ -21,6 +23,7 @@ import {
 import type {
   InitiateClaimInput,
   ChangeClaimStatusInput,
+  UpdateClaimInput,
   AddClaimPhotoInput,
   PaginationInput,
   CheckTotalLossInput,
@@ -60,6 +63,15 @@ export class ClaimsController {
     @Body(new ZodValidationPipe(initiateClaimSchema)) body: InitiateClaimInput,
   ) {
     return this.claimsService.initiate(tenantId, user.id, body);
+  }
+
+  @Patch(':id')
+  async update(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateClaimSchema)) body: UpdateClaimInput,
+  ) {
+    return this.claimsService.update(tenantId, id, body);
   }
 
   @Post(':id/status')

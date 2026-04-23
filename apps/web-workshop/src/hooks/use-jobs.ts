@@ -36,13 +36,19 @@ interface JobsResponse {
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
-export function useJobs(page = 1, search = '', status?: string) {
+export function useJobs(
+  page = 1,
+  search = '',
+  status?: string,
+  filters: { vehicleId?: string } = {},
+) {
   return useQuery({
-    queryKey: ['jobs', page, search, status],
+    queryKey: ['jobs', page, search, status, filters.vehicleId ?? null],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '20' });
       if (search) params.set('search', search);
       if (status) params.set('status', status);
+      if (filters.vehicleId) params.set('vehicleId', filters.vehicleId);
       return api.get<JobsResponse>(`/jobs?${params}`);
     },
   });

@@ -1136,6 +1136,22 @@
     "modelProvider": "Anthropic Claude · multimodal",
     "modelNote": "Usado para análise de fotografias de danos. Chave de API configurada no servidor — nenhuma acção necessária."
   },
+  "claimJobLink": {
+    "jobCardLabel": "Ficha de trabalho",
+    "notLinkedHint": "Ainda sem ficha associada. Ligue a uma ficha existente ou crie uma nova a partir deste sinistro.",
+    "linkJob": "Ligar a ficha",
+    "unlink": "Desligar",
+    "confirmUnlink": "Desligar esta ficha do sinistro?",
+    "linked": "Ficha ligada ao sinistro",
+    "unlinked": "Ficha desligada do sinistro",
+    "pickerTitle": "Ligar a ficha de trabalho",
+    "pickerSubtitle": "Procure por número de ficha e escolha qual associar a este sinistro.",
+    "searchPlaceholder": "Pesquisar por número de ficha…",
+    "loading": "A carregar…",
+    "noResults": "Nenhuma ficha encontrada.",
+    "cancel": "Cancelar",
+    "genericError": "Operação falhou"
+  },
   "aidaClaim": {
     "linkedTitle": "SINISTRO LIGADO",
     "notLinkedTitle": "Sem sinistro associado",
