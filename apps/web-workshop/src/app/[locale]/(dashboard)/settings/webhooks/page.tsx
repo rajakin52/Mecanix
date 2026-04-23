@@ -57,13 +57,7 @@ export default function WebhooksPage() {
       <SettingsPageHeader
         eyebrow="INTEGRATIONS"
         title="Webhooks"
-        description={
-          <>
-            HTTP callbacks for job, invoice, customer and estimate events. Each request carries an
-            <code className="mx-1 rounded bg-gray-100 px-1 py-0.5 font-mono text-[11px]">X-Mecanix-Signature</code>
-            header with the HMAC-SHA256 of the body signed by your secret.
-          </>
-        }
+        description="HTTP callbacks for job, invoice, customer and estimate events. Each request carries an X-Mecanix-Signature header with the HMAC-SHA256 of the body signed by your secret."
       />
 
       <p className="-mt-4 mb-6 text-xs text-gray-500">

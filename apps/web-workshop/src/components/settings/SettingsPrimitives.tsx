@@ -8,11 +8,14 @@ export function SettingsPageHeader({
   eyebrow,
   title,
   description,
+  descriptionNode,
   actions,
 }: {
   eyebrow?: string;
   title: string;
-  description?: ReactNode;
+  description?: string;
+  /** Use when the description needs inline formatting (code, bold). `description` takes priority if both are set. */
+  descriptionNode?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -26,9 +29,9 @@ export function SettingsPageHeader({
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[28px]">
           {title}
         </h1>
-        {description && (
+        {(description || descriptionNode) && (
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-gray-500">
-            {description}
+            {description ?? descriptionNode}
           </p>
         )}
       </div>
