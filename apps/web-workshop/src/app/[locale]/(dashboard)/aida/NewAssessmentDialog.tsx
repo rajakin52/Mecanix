@@ -7,6 +7,8 @@ import { Button, Modal } from '@mecanix/ui-web';
 import { Car, Loader2, Search, X } from 'lucide-react';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { useCreateAssessment } from '@/hooks/use-aida';
+import { useClaims } from '@/hooks/use-insurance';
+import { Link } from '@/i18n/navigation';
 import type { Vehicle } from '@mecanix/types';
 
 export function NewAssessmentDialog({
@@ -23,11 +25,24 @@ export function NewAssessmentDialog({
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [picked, setPicked] = useState<Vehicle | null>(null);
+  const [claimId, setClaimId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: vehiclesResp, isLoading } = useVehicles(1, debounced);
   const vehicles = useMemo(() => vehiclesResp?.data ?? [], [vehiclesResp]);
+
+  // Load the first page of claims only once a vehicle has been picked —
+  // saves an unnecessary fetch if the user abandons the dialog early.
+  const { data: claimsResp } = useClaims(1);
+  const claims = useMemo(() => {
+    const list = (claimsResp?.data ?? []) as Array<{
+      id: string;
+      claim_number?: string | null;
+      insurance_company?: { name?: string | null } | null;
+    }>;
+    return list;
+  }, [claimsResp]);
 
   const create = useCreateAssessment();
 
@@ -45,6 +60,7 @@ export function NewAssessmentDialog({
       setSearch('');
       setDebounced('');
       setPicked(null);
+      setClaimId('');
       setError(null);
     }
   }, [open]);
@@ -53,7 +69,10 @@ export function NewAssessmentDialog({
     if (!picked) return;
     setError(null);
     try {
-      const created = await create.mutateAsync({ vehicleId: picked.id });
+      const created = await create.mutateAsync({
+        vehicleId: picked.id,
+        ...(claimId ? { claimId } : {}),
+      });
       onClose();
       router.push(`/aida/${created.id}`);
     } catch (e) {
@@ -142,6 +161,48 @@ export function NewAssessmentDialog({
                 </ul>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Optional claim link — only shown once a vehicle is chosen so
+            it doesn't distract from the primary action. */}
+        {picked && (
+          <div>
+            <label
+              htmlFor="new-assessment-claim"
+              className="block text-xs font-medium text-gray-700"
+            >
+              {tn('claimLabel')}
+            </label>
+            {claims.length > 0 ? (
+              <select
+                id="new-assessment-claim"
+                value={claimId}
+                onChange={(e) => setClaimId(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              >
+                <option value="">{tn('claimNone')}</option>
+                {claims.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.claim_number ?? '—'}
+                    {c.insurance_company?.name ? ` · ${c.insurance_company.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="mt-1 text-xs text-gray-500">
+                {tn('noClaimsHint')}{' '}
+                <Link
+                  href="/insurance/companies"
+                  className="font-medium text-gray-900 underline"
+                  onClick={onClose}
+                >
+                  {tn('openInsurersLink')}
+                </Link>
+                .
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-400">{tn('claimHelp')}</p>
           </div>
         )}
 

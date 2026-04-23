@@ -1196,6 +1196,11 @@
     "cancel": "Cancelar",
     "start": "Iniciar avaliação",
     "createFailed": "Não foi possível criar a avaliação",
+    "claimLabel": "Vincular a sinistro (opcional)",
+    "claimNone": "Sem sinistro",
+    "claimHelp": "Escolha um sinistro existente para já vincular, ou deixe em branco e vincule depois a partir da página da avaliação.",
+    "noClaimsHint": "Ainda não há sinistros — crie primeiro as seguradoras em",
+    "openInsurersLink": "Seguradoras",
     "emptyTitle": "Ainda sem avaliações",
     "emptyDescription": "Clique em “Nova avaliação” para começar — também é possível iniciar a partir de uma ficha de trabalho ou de um veículo."
   },

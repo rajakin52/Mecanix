@@ -1268,6 +1268,11 @@
     "cancel": "Cancel",
     "start": "Start assessment",
     "createFailed": "Could not create assessment",
+    "claimLabel": "Link to claim (optional)",
+    "claimNone": "No claim",
+    "claimHelp": "Pick an existing claim to link up front, or leave empty and link later from the assessment page.",
+    "noClaimsHint": "No claims yet — start by adding insurers under",
+    "openInsurersLink": "Insurance companies",
     "emptyTitle": "No assessments yet",
     "emptyDescription": "Click “New assessment” to start — you can also begin one from a job card or vehicle page."
   },
