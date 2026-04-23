@@ -1065,5 +1065,90 @@
     "capabilityCategory_settings": "Settings",
     "capabilityCategory_admin": "Administration",
     "assignCustomRole": "Assign custom role"
+  },
+  "settings": {
+    "eyebrow": "SETTINGS",
+    "saveChanges": "Save changes",
+    "legacyLink": "the legacy settings page"
+  },
+  "settingsNav": {
+    "ariaLabel": "Settings navigation",
+    "heading": "Settings",
+    "subheading": "Configure your workshop",
+    "backToDashboard": "Back to dashboard",
+    "workshop": "Workshop",
+    "financial": "Financial",
+    "pricing": "Pricing & loyalty",
+    "numbering": "Document numbering",
+    "integrations": "Integrations",
+    "operational": "Operational",
+    "users": "Users & access",
+    "branches": "Branches",
+    "notifications": "Notifications",
+    "audit": "Audit log",
+    "legacy": "Legacy page (transition)"
+  },
+  "settingsWorkshop": {
+    "title": "Workshop profile",
+    "description": "Identity, contacts, language and currencies for your workshop. These appear on invoices, estimates and customer communications.",
+    "identityTitle": "Identity",
+    "identityDescription": "Public information shown on documents and portals.",
+    "fieldName": "Workshop name",
+    "fieldNameHelp": "Shown on invoices, estimates and public pages.",
+    "fieldEmail": "Contact email",
+    "fieldEmailHelp": "For customer replies and copies of sent documents.",
+    "fieldPhone": "Phone",
+    "fieldPhoneHelp": "Include the international code (e.g. +244). Shown on documents.",
+    "fieldAddress": "Address",
+    "fieldAddressHelp": "Full workshop address as it should appear on invoices.",
+    "fieldTaxId": "Tax ID",
+    "fieldTaxIdHelp": "Company tax identification number. Required for e-invoicing.",
+    "localeTitle": "Region & language",
+    "localeDescription": "Language applies to your session. Country and primary currency are set when the workshop is created.",
+    "fieldLanguage": "Language",
+    "fieldLanguageHelp": "App language for the current user.",
+    "fieldCountry": "Country",
+    "fieldCountryHelp": "Set when the workshop was created. Contact support to change.",
+    "fieldPrimaryCurrency": "Primary currency",
+    "fieldPrimaryCurrencyHelp": "Currency for prices, invoices and reports.",
+    "secondaryCurrencyTitle": "Secondary currency (optional)",
+    "secondaryCurrencyDescription": "Display prices in a secondary currency next to the primary one. Used in Angola for AOA + USD.",
+    "fieldSecondaryCurrencyHelp": "Choose 'None' to hide the secondary currency.",
+    "fieldExchangeRateHelp": "How many {primary} equal 1 {secondary}. Update whenever needed."
+  },
+  "settingsFinancial": {
+    "title": "Financial settings",
+    "description": "Tax rates, valuation methods and approval thresholds.",
+    "comingSoonTitle": "Coming soon",
+    "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
+  },
+  "settingsNumbering": {
+    "title": "Document numbering",
+    "description": "Format, prefixes and yearly reset for every document the system generates.",
+    "comingSoonTitle": "Coming soon",
+    "comingSoonDescription": "This page will unify fiscal (AGT) numbering with operational numbering (job cards, estimates, orders). For now, fiscal config is at",
+    "agtLink": "AGT settings"
+  },
+  "settingsIntegrations": {
+    "title": "Integrations",
+    "description": "External systems your workshop talks to.",
+    "agtTitle": "AGT — E-invoicing",
+    "agtDescription": "Environment, software certificate, taxpayer NIF and document series for Angola.",
+    "erpTitle": "ERP — Primavera V10",
+    "erpDescription": "ERP connection, account mapping and automatic document export.",
+    "webhooksTitle": "Webhooks",
+    "webhooksDescription": "HTTP notifications for job, invoice, customer and estimate events."
+  },
+  "settingsOperational": {
+    "title": "Operational policies",
+    "description": "How job cards, photos, stock and AIDA behave in your workshop.",
+    "comingSoonTitle": "Coming soon",
+    "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
+  },
+  "settingsNotifications": {
+    "title": "Notifications & communication",
+    "description": "Message templates and delivery rules for WhatsApp, SMS and email.",
+    "comingSoonTitle": "Coming soon",
+    "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
   }
 }

@@ -993,5 +993,90 @@
     "capabilityCategory_settings": "Definições",
     "capabilityCategory_admin": "Administração",
     "assignCustomRole": "Atribuir perfil personalizado"
+  },
+  "settings": {
+    "eyebrow": "DEFINIÇÕES",
+    "saveChanges": "Guardar alterações",
+    "legacyLink": "definições antigas"
+  },
+  "settingsNav": {
+    "ariaLabel": "Navegação de definições",
+    "heading": "Definições",
+    "subheading": "Configure a sua oficina",
+    "backToDashboard": "Voltar ao painel",
+    "workshop": "Oficina",
+    "financial": "Financeiro",
+    "pricing": "Preços e fidelidade",
+    "numbering": "Numeração de documentos",
+    "integrations": "Integrações",
+    "operational": "Operacional",
+    "users": "Utilizadores e acessos",
+    "branches": "Filiais",
+    "notifications": "Notificações",
+    "audit": "Registo de auditoria",
+    "legacy": "Página antiga (transição)"
+  },
+  "settingsWorkshop": {
+    "title": "Perfil da oficina",
+    "description": "Identidade, contactos, idioma e moedas da sua oficina. Aparecem em facturas, orçamentos e comunicações com clientes.",
+    "identityTitle": "Identidade",
+    "identityDescription": "Informação pública apresentada em documentos e portais.",
+    "fieldName": "Nome da oficina",
+    "fieldNameHelp": "Apresentado em facturas, orçamentos e páginas públicas.",
+    "fieldEmail": "Email de contacto",
+    "fieldEmailHelp": "Para respostas de clientes e cópia de documentos enviados.",
+    "fieldPhone": "Telefone",
+    "fieldPhoneHelp": "Incluir código internacional (ex. +244). Apresentado em documentos.",
+    "fieldAddress": "Morada",
+    "fieldAddressHelp": "Morada completa da oficina, tal como deve aparecer em facturas.",
+    "fieldTaxId": "NIF / Número fiscal",
+    "fieldTaxIdHelp": "Número de identificação fiscal da empresa. Obrigatório para facturação electrónica.",
+    "localeTitle": "Região e idioma",
+    "localeDescription": "O idioma aplica-se à sua sessão. País e moeda principal são definidos na criação da conta.",
+    "fieldLanguage": "Idioma",
+    "fieldLanguageHelp": "Idioma da aplicação para o utilizador actual.",
+    "fieldCountry": "País",
+    "fieldCountryHelp": "Definido na criação da oficina. Para alterar contacte o suporte.",
+    "fieldPrimaryCurrency": "Moeda principal",
+    "fieldPrimaryCurrencyHelp": "Moeda dos preços, facturas e relatórios.",
+    "secondaryCurrencyTitle": "Moeda secundária (opcional)",
+    "secondaryCurrencyDescription": "Mostra preços numa moeda secundária ao lado da principal. Usado em Angola para AOA + USD.",
+    "fieldSecondaryCurrencyHelp": "Escolha 'Nenhuma' para ocultar a moeda secundária.",
+    "fieldExchangeRateHelp": "Quantos {primary} correspondem a 1 {secondary}. Actualize sempre que necessário."
+  },
+  "settingsFinancial": {
+    "title": "Definições financeiras",
+    "description": "Taxas de impostos, métodos de valorização e limites de aprovação.",
+    "comingSoonTitle": "Em preparação",
+    "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
+  },
+  "settingsNumbering": {
+    "title": "Numeração de documentos",
+    "description": "Formato, prefixos e reinício anual para todos os documentos gerados pelo sistema.",
+    "comingSoonTitle": "Em preparação",
+    "comingSoonDescription": "Esta página vai unificar a numeração fiscal (AGT) com a numeração operacional (fichas, orçamentos, encomendas). Entretanto a configuração fiscal está em",
+    "agtLink": "Definições AGT"
+  },
+  "settingsIntegrations": {
+    "title": "Integrações",
+    "description": "Sistemas externos com que a sua oficina comunica.",
+    "agtTitle": "AGT — Facturação electrónica",
+    "agtDescription": "Configuração de ambiente, certificado de software, NIF do sujeito passivo e séries documentais para Angola.",
+    "erpTitle": "ERP — Primavera V10",
+    "erpDescription": "Ligação ao ERP, mapeamento de contas e exportação automática de documentos.",
+    "webhooksTitle": "Webhooks",
+    "webhooksDescription": "Notificações HTTP para eventos de fichas, facturas, clientes e orçamentos."
+  },
+  "settingsOperational": {
+    "title": "Políticas operacionais",
+    "description": "Como as fichas de trabalho, fotografias, stock e AIDA se comportam na oficina.",
+    "comingSoonTitle": "Em preparação",
+    "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
+  },
+  "settingsNotifications": {
+    "title": "Notificações e comunicação",
+    "description": "Modelos de mensagens e regras de envio para WhatsApp, SMS e email.",
+    "comingSoonTitle": "Em preparação",
+    "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
   }
 }
