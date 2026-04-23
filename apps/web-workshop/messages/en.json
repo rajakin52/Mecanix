@@ -1068,8 +1068,40 @@
   },
   "settings": {
     "eyebrow": "SETTINGS",
+    "eyebrowFinancial": "FINANCIAL",
+    "eyebrowIntegrations": "INTEGRATIONS",
     "saveChanges": "Save changes",
     "legacyLink": "the legacy settings page"
+  },
+  "settingsPricing": {
+    "title": "Pricing & loyalty",
+    "description": "Pricing modes, price groups, markup rules by category, and the customer loyalty program."
+  },
+  "settingsTaxCodes": {
+    "title": "Tax codes (VAT)",
+    "description": "VAT classifications used across parts, services and invoicing. Set the default code new items inherit; mark a code inactive to hide it without losing history.",
+    "newTaxCode": "New tax code",
+    "backToFinancial": "Financial"
+  },
+  "settingsCatalog": {
+    "title": "Repair catalog",
+    "description": "Standard repair packages and quick-access items used when creating job cards and estimates."
+  },
+  "settingsAgt": {
+    "title": "AGT — Electronic invoicing",
+    "description": "Angolan tax authority e-invoicing: environment, software certificate, RSA key pair, taxpayer NIF and document series.",
+    "backToIntegrations": "Integrations"
+  },
+  "settingsErp": {
+    "title": "ERP — Primavera V10",
+    "description": "Export invoices, credit notes and payments to your Primavera V10 installation.",
+    "saveConfig": "Save configuration",
+    "backToIntegrations": "Integrations"
+  },
+  "settingsWebhooks": {
+    "title": "Webhooks",
+    "description": "HTTP callbacks for job, invoice, customer and estimate events. Each request carries an X-Mecanix-Signature header with the HMAC-SHA256 of the body signed by your secret.",
+    "backToIntegrations": "Integrations"
   },
   "settingsNav": {
     "ariaLabel": "Settings navigation",

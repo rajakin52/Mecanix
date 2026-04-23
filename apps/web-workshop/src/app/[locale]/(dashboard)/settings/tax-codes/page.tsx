@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { useToast, Button } from '@mecanix/ui-web';
@@ -33,6 +34,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function TaxCodesPage() {
+  const ts = useTranslations('settings');
+  const ttx = useTranslations('settingsTaxCodes');
   const toast = useToast();
   const [list, setList] = useState<TaxCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,19 +120,19 @@ export default function TaxCodesPage() {
   return (
     <div className="max-w-5xl pb-16">
       <SettingsPageHeader
-        eyebrow="FINANCIAL"
-        title="Tax codes (IVA)"
-        description="VAT classifications used across parts, services and invoicing. Set the default code new items inherit; mark a code inactive to hide it without losing history."
+        eyebrow={ts('eyebrowFinancial')}
+        title={ttx('title')}
+        description={ttx('description')}
         actions={
           <Button variant="primary" size="sm" onClick={onNew}>
-            + New tax code
+            + {ttx('newTaxCode')}
           </Button>
         }
       />
 
       <p className="-mt-4 mb-6 text-xs text-gray-500">
         <Link href="/settings/financial" className="hover:text-gray-900 hover:underline">
-          ← Financial
+          ← {ttx('backToFinancial')}
         </Link>
       </p>
 

@@ -38,6 +38,8 @@ const DOC_TYPES: Record<string, string> = {
 
 export default function AgtSettingsPage() {
   const tc = useTranslations('common');
+  const ts = useTranslations('settings');
+  const tagt = useTranslations('settingsAgt');
   const [config, setConfig] = useState<AgtConfig | null>(null);
   const [series, setSeries] = useState<DocumentSeries[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,14 +151,14 @@ export default function AgtSettingsPage() {
   return (
     <div className="pb-16">
       <SettingsPageHeader
-        eyebrow="INTEGRATIONS"
-        title="AGT — Electronic invoicing"
-        description="Angolan tax authority e-invoicing: environment, software certificate, RSA key pair, company NIF and document series."
+        eyebrow={ts('eyebrowIntegrations')}
+        title={tagt('title')}
+        description={tagt('description')}
       />
 
       <p className="-mt-4 mb-6 text-xs text-gray-500">
         <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
-          ← Integrations
+          ← {tagt('backToIntegrations')}
         </Link>
       </p>
 

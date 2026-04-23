@@ -28,6 +28,8 @@ function safe(val: unknown): number {
 
 export default function PricingSettingsPage() {
   const tc = useTranslations('common');
+  const ts = useTranslations('settings');
+  const tpg = useTranslations('settingsPricing');
 
   // Settings
   const { data: settings, isLoading: loadingSettings } = usePricingSettings();
@@ -188,9 +190,9 @@ export default function PricingSettingsPage() {
       <InventoryTabs />
 
       <SettingsPageHeader
-        eyebrow="SETTINGS"
-        title="Pricing & loyalty"
-        description="Pricing modes, price groups, markup rules by category, and the customer loyalty program."
+        eyebrow={ts('eyebrow')}
+        title={tpg('title')}
+        description={tpg('description')}
       />
 
       <div className="mb-8 max-w-3xl">

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useWebhooks, useWebhookLogs, useCreateWebhook, useUpdateWebhook, useDeleteWebhook } from '@/hooks/use-webhooks';
 import { formatDate } from '@/lib/format';
 import { useToast } from '@mecanix/ui-web';
+import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
@@ -19,6 +20,8 @@ const EVENT_OPTIONS = [
 ];
 
 export default function WebhooksPage() {
+  const ts = useTranslations('settings');
+  const twh = useTranslations('settingsWebhooks');
   const toast = useToast();
   const { data, isLoading } = useWebhooks();
   const create = useCreateWebhook();
@@ -55,14 +58,14 @@ export default function WebhooksPage() {
   return (
     <div className="max-w-5xl pb-16">
       <SettingsPageHeader
-        eyebrow="INTEGRATIONS"
-        title="Webhooks"
-        description="HTTP callbacks for job, invoice, customer and estimate events. Each request carries an X-Mecanix-Signature header with the HMAC-SHA256 of the body signed by your secret."
+        eyebrow={ts('eyebrowIntegrations')}
+        title={twh('title')}
+        description={twh('description')}
       />
 
       <p className="-mt-4 mb-6 text-xs text-gray-500">
         <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
-          ← Integrations
+          ← {twh('backToIntegrations')}
         </Link>
       </p>
 

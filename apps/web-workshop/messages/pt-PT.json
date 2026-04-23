@@ -996,8 +996,40 @@
   },
   "settings": {
     "eyebrow": "DEFINIÇÕES",
+    "eyebrowFinancial": "FINANCEIRO",
+    "eyebrowIntegrations": "INTEGRAÇÕES",
     "saveChanges": "Guardar alterações",
     "legacyLink": "definições antigas"
+  },
+  "settingsPricing": {
+    "title": "Preços e fidelidade",
+    "description": "Modos de preço, grupos de preços, regras de margem por categoria e programa de fidelidade."
+  },
+  "settingsTaxCodes": {
+    "title": "Códigos de IVA",
+    "description": "Classificações de IVA usadas em peças, serviços e facturação. Defina o código predefinido que novos artigos herdam; marque um código inactivo para o ocultar sem perder o histórico.",
+    "newTaxCode": "Novo código",
+    "backToFinancial": "Financeiro"
+  },
+  "settingsCatalog": {
+    "title": "Catálogo de reparações",
+    "description": "Pacotes de reparação predefinidos e artigos de acesso rápido usados ao criar fichas e orçamentos."
+  },
+  "settingsAgt": {
+    "title": "AGT — Facturação electrónica",
+    "description": "Facturação electrónica para a Administração Geral Tributária (AGT): ambiente, certificado de software, par de chaves RSA, NIF do sujeito passivo e séries documentais.",
+    "backToIntegrations": "Integrações"
+  },
+  "settingsErp": {
+    "title": "ERP — Primavera V10",
+    "description": "Exportar facturas, notas de crédito e pagamentos para a sua instalação Primavera V10.",
+    "saveConfig": "Guardar configuração",
+    "backToIntegrations": "Integrações"
+  },
+  "settingsWebhooks": {
+    "title": "Webhooks",
+    "description": "Chamadas HTTP para eventos de fichas, facturas, clientes e orçamentos. Cada pedido traz um cabeçalho X-Mecanix-Signature com o HMAC-SHA256 do corpo assinado pela sua chave secreta.",
+    "backToIntegrations": "Integrações"
   },
   "settingsNav": {
     "ariaLabel": "Navegação de definições",

@@ -19,6 +19,8 @@ const CATEGORIES = [
 
 export default function CatalogPage() {
   const tc = useTranslations('common');
+  const ts = useTranslations('settings');
+  const tcat = useTranslations('settingsCatalog');
   const { data: items, isLoading } = useCatalogItems();
   const createMutation = useCreateCatalogItem();
   const updateMutation = useUpdateCatalogItem();
@@ -86,9 +88,9 @@ export default function CatalogPage() {
       <InventoryTabs />
 
       <SettingsPageHeader
-        eyebrow="SETTINGS"
-        title="Repair catalog"
-        description="Standard repair packages and quick-access items used when creating job cards and estimates."
+        eyebrow={ts('eyebrow')}
+        title={tcat('title')}
+        description={tcat('description')}
       />
 
       <div className="flex items-center justify-end mb-6">

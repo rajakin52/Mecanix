@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@mecanix/ui-web';
@@ -80,6 +81,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function ErpConfigPage() {
+  const ts = useTranslations('settings');
+  const terp = useTranslations('settingsErp');
   const [config, setConfig] = useState<ErpConfig>({
     provider: 'primavera_v10',
     is_active: false,
@@ -208,19 +211,19 @@ export default function ErpConfigPage() {
   return (
     <div className="max-w-4xl space-y-8 pb-16">
       <SettingsPageHeader
-        eyebrow="INTEGRATIONS"
-        title="ERP — Primavera V10"
-        description="Export invoices, credit notes and payments to your Primavera V10 installation."
+        eyebrow={ts('eyebrowIntegrations')}
+        title={terp('title')}
+        description={terp('description')}
         actions={
           <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
-            Save configuration
+            {terp('saveConfig')}
           </Button>
         }
       />
 
       <p className="-mt-4 text-xs text-gray-500">
         <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
-          ← Integrations
+          ← {terp('backToIntegrations')}
         </Link>
       </p>
 

@@ -996,8 +996,40 @@
   },
   "settings": {
     "eyebrow": "CONFIGURAÇÕES",
+    "eyebrowFinancial": "FINANCEIRO",
+    "eyebrowIntegrations": "INTEGRAÇÕES",
     "saveChanges": "Salvar alterações",
     "legacyLink": "configurações antigas"
+  },
+  "settingsPricing": {
+    "title": "Preços e fidelidade",
+    "description": "Modos de preço, grupos de preços, regras de margem por categoria e programa de fidelidade."
+  },
+  "settingsTaxCodes": {
+    "title": "Códigos de imposto",
+    "description": "Classificações de imposto usadas em peças, serviços e nota fiscal. Defina o código padrão que novos itens herdam; marque um código inativo para ocultar sem perder histórico.",
+    "newTaxCode": "Novo código",
+    "backToFinancial": "Financeiro"
+  },
+  "settingsCatalog": {
+    "title": "Catálogo de reparos",
+    "description": "Pacotes de reparo padronizados e itens de acesso rápido usados ao criar fichas e orçamentos."
+  },
+  "settingsAgt": {
+    "title": "AGT — Faturação eletrônica",
+    "description": "Faturação eletrônica AGT (Angola): ambiente, certificado de software, par de chaves RSA, NIF do sujeito passivo e séries documentais.",
+    "backToIntegrations": "Integrações"
+  },
+  "settingsErp": {
+    "title": "ERP — Primavera V10",
+    "description": "Exportar notas fiscais, notas de crédito e pagamentos para sua instalação Primavera V10.",
+    "saveConfig": "Salvar configuração",
+    "backToIntegrations": "Integrações"
+  },
+  "settingsWebhooks": {
+    "title": "Webhooks",
+    "description": "Chamadas HTTP para eventos de fichas, notas fiscais, clientes e orçamentos. Cada requisição traz um cabeçalho X-Mecanix-Signature com o HMAC-SHA256 do corpo assinado pela sua chave secreta.",
+    "backToIntegrations": "Integrações"
   },
   "settingsNav": {
     "ariaLabel": "Navegação de configurações",
