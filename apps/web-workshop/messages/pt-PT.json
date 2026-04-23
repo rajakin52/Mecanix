@@ -1107,6 +1107,24 @@
     "comingSoonTitle": "Em preparação",
     "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
   },
+  "aidaNew": {
+    "button": "Nova avaliação",
+    "title": "Nova avaliação de danos",
+    "subtitle": "Escolha o veículo a inspeccionar. Pode ser uma avaliação para uma seguradora sem abrir ficha de trabalho — a ficha pode ser criada mais tarde a partir da avaliação.",
+    "vehicleLabel": "Veículo",
+    "searchPlaceholder": "Pesquisar por matrícula, marca ou modelo…",
+    "typeToSearch": "Comece a escrever para procurar um veículo.",
+    "loading": "A carregar…",
+    "noMatches": "Sem resultados para \"{search}\". Crie o veículo primeiro em Veículos → Novo veículo.",
+    "changeVehicle": "Alterar veículo",
+    "noteTitle": "Independente de fichas",
+    "note": "Esta avaliação fica associada ao veículo. Pode ligá-la a um sinistro ou converter num trabalho mais tarde, a partir da página da avaliação.",
+    "cancel": "Cancelar",
+    "start": "Iniciar avaliação",
+    "createFailed": "Não foi possível criar a avaliação",
+    "emptyTitle": "Ainda sem avaliações",
+    "emptyDescription": "Clique em “Nova avaliação” para começar — também pode iniciá-la a partir de uma ficha de trabalho ou de um veículo."
+  },
   "settingsNumbering": {
     "title": "Numeração de documentos",
     "description": "Formato, prefixos e reinício anual para todos os documentos gerados pelo sistema.",

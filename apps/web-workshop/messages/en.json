@@ -1179,6 +1179,24 @@
     "comingSoonTitle": "Coming soon",
     "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
   },
+  "aidaNew": {
+    "button": "New assessment",
+    "title": "New damage assessment",
+    "subtitle": "Pick the vehicle to inspect. You can run an assessment for an insurance company without opening a job card — the job card can be created later from the assessment.",
+    "vehicleLabel": "Vehicle",
+    "searchPlaceholder": "Search by plate, make or model…",
+    "typeToSearch": "Start typing to find a vehicle.",
+    "loading": "Loading…",
+    "noMatches": "No results for \"{search}\". Create the vehicle first under Vehicles → New vehicle.",
+    "changeVehicle": "Change vehicle",
+    "noteTitle": "Standalone",
+    "note": "This assessment is tied to the vehicle. You can link it to a claim or convert it into a job card later from the assessment page.",
+    "cancel": "Cancel",
+    "start": "Start assessment",
+    "createFailed": "Could not create assessment",
+    "emptyTitle": "No assessments yet",
+    "emptyDescription": "Click “New assessment” to start — you can also begin one from a job card or vehicle page."
+  },
   "settingsNumbering": {
     "title": "Document numbering",
     "description": "Format, prefixes and yearly reset for every document the system generates.",

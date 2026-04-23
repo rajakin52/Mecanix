@@ -5,7 +5,9 @@ import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useAssessments, useAidaStats, type AssessmentStatus } from '@/hooks/use-aida';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { SkeletonTable, EmptyState } from '@mecanix/ui-web';
+import { SkeletonTable, EmptyState, Button } from '@mecanix/ui-web';
+import { Plus } from 'lucide-react';
+import { NewAssessmentDialog } from './NewAssessmentDialog';
 
 const STATUSES: Array<{ v: AssessmentStatus | 'all'; label: string }> = [
   { v: 'all', label: 'All' },
@@ -27,7 +29,9 @@ const STATUS_BADGE: Record<AssessmentStatus, string> = {
 
 export default function AidaListPage() {
   const t = useTranslations('aida');
+  const tn = useTranslations('aidaNew');
   const [status, setStatus] = useState<AssessmentStatus | 'all'>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data, isLoading } = useAssessments({
     status: status === 'all' ? undefined : status,
@@ -38,12 +42,23 @@ export default function AidaListPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{t('pageTitle')}</h1>
           <p className="mt-1 text-sm text-gray-600">{t('pageSubtitle')}</p>
         </div>
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => setDialogOpen(true)}
+          className="self-start"
+        >
+          <Plus className="mr-1.5 h-4 w-4" strokeWidth={2} />
+          {tn('button')}
+        </Button>
       </div>
+
+      <NewAssessmentDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
 
       {stats && (
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -136,8 +151,8 @@ export default function AidaListPage() {
         <SkeletonTable rows={5} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="No assessments yet"
-          description="Start an assessment from a job card or vehicle page."
+          title={tn('emptyTitle')}
+          description={tn('emptyDescription')}
         />
       ) : (
         <div className="overflow-hidden rounded-lg bg-white shadow ring-1 ring-gray-200">
