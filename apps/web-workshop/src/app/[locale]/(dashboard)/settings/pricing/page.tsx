@@ -19,6 +19,7 @@ import {
 } from '@/hooks/use-pricing';
 import { useCatalogCategories } from '@/hooks/use-catalog';
 import { useToast } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 function safe(val: unknown): number {
   return typeof val === 'number' ? val : Number(val) || 0;
@@ -182,10 +183,14 @@ export default function PricingSettingsPage() {
   const groupList = Array.isArray(groups) ? groups : [];
 
   return (
-    <div>
+    <div className="pb-16">
       <InventoryTabs />
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Pricing &amp; Markup</h1>
+      <SettingsPageHeader
+        eyebrow="SETTINGS"
+        title="Pricing & markup"
+        description="Pricing modes, price groups, markup rules by category and bulk recalculation tools."
+      />
 
       <div className="max-w-3xl space-y-8">
         {/* ── Pricing Mode Settings ─────────────────────── */}

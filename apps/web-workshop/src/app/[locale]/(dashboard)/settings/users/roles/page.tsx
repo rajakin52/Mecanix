@@ -13,6 +13,8 @@ import {
   type Role,
 } from '@/hooks/use-roles';
 import { Plus, Shield, Trash2, X } from 'lucide-react';
+import { Button } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 const CATEGORY_ORDER = [
   'operations',
@@ -45,33 +47,31 @@ export default function CustomRolesPage() {
   }, [capabilities]);
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <Link href="/settings/users" className="text-sm text-indigo-600 hover:underline">
+    <div className="max-w-5xl space-y-6 pb-16">
+      <SettingsPageHeader
+        eyebrow={ts('eyebrow')}
+        title={ts('customRolesTitle')}
+        description={ts('customRolesDesc')}
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              setEditing(null);
+              setCreating(true);
+            }}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            {ts('newRole')}
+          </Button>
+        }
+      />
+
+      <p className="-mt-2 text-xs text-gray-500">
+        <Link href="/settings/users" className="hover:text-gray-900 hover:underline">
           ← {ts('usersTitle')}
         </Link>
-      </div>
-
-      <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gradient-to-br from-indigo-50 to-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-gray-900">
-            <Shield className="h-7 w-7 text-indigo-600" />
-            {ts('customRolesTitle')}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">{ts('customRolesDesc')}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setCreating(true);
-          }}
-          className="inline-flex items-center gap-2 self-start rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-        >
-          <Plus className="h-4 w-4" />
-          {ts('newRole')}
-        </button>
-      </div>
+      </p>
 
       {toast && (
         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">

@@ -1206,5 +1206,14 @@
     "description": "Message templates and delivery rules for WhatsApp, SMS and email.",
     "comingSoonTitle": "Coming soon",
     "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
+  },
+  "settingsBranches": {
+    "title": "Branches",
+    "description": "Physical locations within your workshop. Customers, vehicles and the parts master are shared across branches; stock is tracked per warehouse.",
+    "newBranch": "New branch"
+  },
+  "settingsAudit": {
+    "title": "Audit log",
+    "description": "Append-only record of high-value mutations. Every settings change, credit note, branch change and stock transfer is captured here with the actor, timestamp and before/after snapshot when relevant."
   }
 }

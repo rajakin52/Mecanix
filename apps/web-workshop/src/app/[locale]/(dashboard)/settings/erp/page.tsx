@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
+import { Button } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 interface ErpConfig {
   id?: string;
@@ -204,26 +206,23 @@ export default function ErpConfigPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">
-            ← Settings
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-1">ERP Integration</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Connect to Primavera V10 to export invoices, credit notes, and payments
-          </p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Configuration'}
-        </button>
-      </div>
+    <div className="max-w-4xl space-y-8 pb-16">
+      <SettingsPageHeader
+        eyebrow="INTEGRATIONS"
+        title="ERP — Primavera V10"
+        description="Export invoices, credit notes and payments to your Primavera V10 installation."
+        actions={
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>
+            Save configuration
+          </Button>
+        }
+      />
+
+      <p className="-mt-4 text-xs text-gray-500">
+        <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
+          ← Integrations
+        </Link>
+      </p>
 
       {/* Status message */}
       {message && (

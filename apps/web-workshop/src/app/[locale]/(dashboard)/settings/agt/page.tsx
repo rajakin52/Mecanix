@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 interface AgtConfig {
   environment: string;
@@ -146,12 +147,18 @@ export default function AgtSettingsPage() {
   const hasKeys = !!(config?.certificate_private_key);
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link href="/settings" className="text-sm text-primary-600 hover:text-primary-700">&larr; {tc('back')}</Link>
-      </div>
+    <div className="pb-16">
+      <SettingsPageHeader
+        eyebrow="INTEGRATIONS"
+        title="AGT — Electronic invoicing"
+        description="Angolan tax authority e-invoicing: environment, software certificate, RSA key pair, company NIF and document series."
+      />
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">AGT Electronic Invoicing</h1>
+      <p className="-mt-4 mb-6 text-xs text-gray-500">
+        <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
+          ← Integrations
+        </Link>
+      </p>
 
       <div className="max-w-3xl space-y-8">
         {/* Status indicator */}

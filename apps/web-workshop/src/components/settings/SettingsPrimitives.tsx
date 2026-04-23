@@ -12,7 +12,7 @@ export function SettingsPageHeader({
 }: {
   eyebrow?: string;
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (

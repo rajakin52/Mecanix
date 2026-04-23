@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
-import { useToast } from '@mecanix/ui-web';
+import { useToast, Button } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 interface TaxCode {
   id: string;
@@ -114,22 +115,22 @@ export default function TaxCodesPage() {
   };
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/settings" className="text-sm text-gray-500 hover:text-gray-700">&larr; Settings</Link>
-          <h1 className="text-2xl font-bold text-gray-900">Tax Codes (IVA)</h1>
-        </div>
-        <button
-          onClick={onNew}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          + New Tax Code
-        </button>
-      </div>
+    <div className="max-w-5xl pb-16">
+      <SettingsPageHeader
+        eyebrow="FINANCIAL"
+        title="Tax codes (IVA)"
+        description="VAT classifications used across parts, services and invoicing. Set the default code new items inherit; mark a code inactive to hide it without losing history."
+        actions={
+          <Button variant="primary" size="sm" onClick={onNew}>
+            + New tax code
+          </Button>
+        }
+      />
 
-      <p className="mb-6 text-sm text-gray-600 max-w-2xl">
-        VAT classifications used across parts, services and invoicing. Set the default code that new items inherit. Mark a code inactive to stop it appearing in dropdowns without deleting history.
+      <p className="-mt-4 mb-6 text-xs text-gray-500">
+        <Link href="/settings/financial" className="hover:text-gray-900 hover:underline">
+          ← Financial
+        </Link>
       </p>
 
       {loading ? (

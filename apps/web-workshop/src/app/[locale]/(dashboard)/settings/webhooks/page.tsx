@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useWebhooks, useWebhookLogs, useCreateWebhook, useUpdateWebhook, useDeleteWebhook } from '@/hooks/use-webhooks';
 import { formatDate } from '@/lib/format';
 import { useToast } from '@mecanix/ui-web';
+import { Link } from '@/i18n/navigation';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 const EVENT_OPTIONS = [
   'job.created',
@@ -51,11 +53,23 @@ export default function WebhooksPage() {
   };
 
   return (
-    <div>
-      <h1 className="mb-1 text-3xl font-bold text-gray-900">Webhooks</h1>
-      <p className="mb-6 text-sm text-gray-600">
-        Receive HTTP callbacks when events fire in your workshop. Add a <code>X-Mecanix-Signature</code> header
-        with the HMAC-SHA256 of the body using your secret.
+    <div className="max-w-5xl pb-16">
+      <SettingsPageHeader
+        eyebrow="INTEGRATIONS"
+        title="Webhooks"
+        description={
+          <>
+            HTTP callbacks for job, invoice, customer and estimate events. Each request carries an
+            <code className="mx-1 rounded bg-gray-100 px-1 py-0.5 font-mono text-[11px]">X-Mecanix-Signature</code>
+            header with the HMAC-SHA256 of the body signed by your secret.
+          </>
+        }
+      />
+
+      <p className="-mt-4 mb-6 text-xs text-gray-500">
+        <Link href="/settings/integrations" className="hover:text-gray-900 hover:underline">
+          ← Integrations
+        </Link>
       </p>
 
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">

@@ -8,6 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { formatDate } from '@/lib/format';
 import { Check, X, Shield, UserPlus, UserX, UserCheck, Settings2 } from 'lucide-react';
 import { useRoles } from '@/hooks/use-roles';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 
 type Role = 'owner' | 'manager' | 'receptionist' | 'technician';
 
@@ -139,22 +140,12 @@ export default function UsersSettingsPage() {
   };
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <Link href="/settings" className="text-sm text-indigo-600 hover:underline">
-          {ts('backToSettings')}
-        </Link>
-      </div>
-
-      <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gradient-to-br from-indigo-50 to-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-gray-900">
-            <Shield className="h-7 w-7 text-indigo-600" />
-            {ts('usersTitle')}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">{ts('usersDesc')}</p>
-        </div>
-      </div>
+    <div className="max-w-5xl space-y-6 pb-16">
+      <SettingsPageHeader
+        eyebrow={ts('eyebrow')}
+        title={ts('usersTitle')}
+        description={ts('usersDesc')}
+      />
 
       {/* Invite form */}
       <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">

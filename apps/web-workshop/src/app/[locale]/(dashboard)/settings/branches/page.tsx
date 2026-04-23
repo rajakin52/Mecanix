@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useBranches, useCreateBranch, useUpdateBranch, type Branch } from '@/hooks/use-branches';
-import { useToast } from '@mecanix/ui-web';
+import { useToast, Button } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
+import { useTranslations } from 'next-intl';
 
 export default function BranchesSettingsPage() {
+  const ts = useTranslations('settings');
+  const tb = useTranslations('settingsBranches');
   const toast = useToast();
   const { data, isLoading } = useBranches();
   const create = useCreateBranch();
@@ -62,29 +66,17 @@ export default function BranchesSettingsPage() {
   };
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/settings" className="text-sm text-primary-600 hover:underline">
-          &larr; Settings
-        </Link>
-      </div>
-
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Branches</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Physical locations within your workshop. Customers, vehicles, and the parts master are
-            shared across all branches. Stock is tracked per warehouse — a branch can have one or
-            many warehouses.
-          </p>
-        </div>
-        <button
-          onClick={openNew}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          New branch
-        </button>
-      </div>
+    <div className="max-w-5xl pb-16">
+      <SettingsPageHeader
+        eyebrow={ts('eyebrow')}
+        title={tb('title')}
+        description={tb('description')}
+        actions={
+          <Button variant="primary" size="sm" onClick={openNew}>
+            {tb('newBranch')}
+          </Button>
+        }
+      />
 
       {isLoading ? (
         <p className="text-sm text-gray-400">Loading…</p>

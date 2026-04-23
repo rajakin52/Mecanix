@@ -1134,5 +1134,14 @@
     "description": "Modelos de mensagens e regras de envio para WhatsApp, SMS e email.",
     "comingSoonTitle": "Em preparação",
     "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
+  },
+  "settingsBranches": {
+    "title": "Filiais",
+    "description": "Localizações físicas da sua oficina. Clientes, veículos e catálogo de peças são partilhados entre filiais; o stock é seguido por armazém.",
+    "newBranch": "Nova filial"
+  },
+  "settingsAudit": {
+    "title": "Registo de auditoria",
+    "description": "Registo imutável de alterações sensíveis. Cada alteração em definições, notas de crédito, filiais e transferências de stock é registada aqui com o autor, momento e estado anterior/posterior quando relevante."
   }
 }

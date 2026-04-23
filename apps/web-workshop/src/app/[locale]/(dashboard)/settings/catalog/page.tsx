@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../parts/inventory-tabs';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 import {
   useCatalogItems,
   useCreateCatalogItem,
@@ -81,11 +82,16 @@ export default function CatalogPage() {
   if (isLoading) return <p className="text-gray-500">{tc('loading')}</p>;
 
   return (
-    <div>
+    <div className="pb-16">
       <InventoryTabs />
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Repair Catalog</h1>
+      <SettingsPageHeader
+        eyebrow="SETTINGS"
+        title="Repair catalog"
+        description="Standard repair packages and quick-access items used when creating job cards and estimates."
+      />
+
+      <div className="flex items-center justify-end mb-6">
         <div className="flex gap-2">
           {catalogItems.length === 0 && (
             <button

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useAuditLog, useAuditActions, type AuditLogRow } from '@/hooks/use-audit-log';
 import { SkeletonTable } from '@mecanix/ui-web';
+import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
+import { useTranslations } from 'next-intl';
 
 const ACTION_BADGES: Record<string, string> = {
   'settings.updated':    'bg-blue-100 text-blue-700',
@@ -15,6 +17,8 @@ const ACTION_BADGES: Record<string, string> = {
 };
 
 export default function AuditLogPage() {
+  const ts = useTranslations('settings');
+  const ta = useTranslations('settingsAudit');
   const [action, setAction] = useState<string>('');
   const [entityType, setEntityType] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
@@ -34,21 +38,12 @@ export default function AuditLogPage() {
   const rows = (data ?? []) as AuditLogRow[];
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link href="/settings" className="text-sm text-primary-600 hover:underline">
-          &larr; Settings
-        </Link>
-      </div>
-
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Audit log</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Append-only record of high-value mutations. Every settings change, credit note,
-          branch change, and stock transfer is captured here with the actor, timestamp, and
-          before/after snapshot when relevant.
-        </p>
-      </div>
+    <div className="max-w-6xl pb-16">
+      <SettingsPageHeader
+        eyebrow={ts('eyebrow')}
+        title={ta('title')}
+        description={ta('description')}
+      />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
