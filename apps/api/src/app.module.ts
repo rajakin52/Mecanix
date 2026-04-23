@@ -61,6 +61,7 @@ import { BranchesModule } from './modules/branches/branches.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { ReportBuilderModule } from './modules/report-builder/report-builder.module';
 import { AidaModule } from './modules/aida/aida.module';
+import { DocumentNumberingModule } from './modules/document-numbering/document-numbering.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -127,6 +128,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     AuditLogModule,
     ReportBuilderModule,
     AidaModule,
+    DocumentNumberingModule,
   ],
   providers: [
     {
