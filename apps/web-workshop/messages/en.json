@@ -1064,9 +1064,7 @@
     "capabilityCategory_reports": "Reports",
     "capabilityCategory_settings": "Settings",
     "capabilityCategory_admin": "Administration",
-    "assignCustomRole": "Assign custom role"
-  },
-  "settings": {
+    "assignCustomRole": "Assign custom role",
     "eyebrow": "SETTINGS",
     "eyebrowFinancial": "FINANCIAL",
     "eyebrowIntegrations": "INTEGRATIONS",
