@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/format';
 import { Check, X, Shield, UserPlus, UserX, UserCheck, Settings2 } from 'lucide-react';
 import { useRoles } from '@/hooks/use-roles';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
+import { UsersSubNav } from '@/components/settings/UsersSubNav';
 
 type Role = 'owner' | 'manager' | 'receptionist' | 'technician';
 
@@ -146,6 +147,8 @@ export default function UsersSettingsPage() {
         title={ts('usersTitle')}
         description={ts('usersDesc')}
       />
+
+      <UsersSubNav />
 
       {/* Invite form */}
       <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">

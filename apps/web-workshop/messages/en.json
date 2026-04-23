@@ -1203,9 +1203,42 @@
   },
   "settingsNotifications": {
     "title": "Notifications & communication",
-    "description": "Message templates and delivery rules for WhatsApp, SMS and email.",
+    "description": "Control which notifications go out to customers. The templates shown in preview are managed by the platform.",
+    "channelTitle": "WhatsApp notification channel",
+    "channelDescription": "Turn each notification type on or off. Changes are saved automatically.",
+    "showPreview": "Show template",
+    "hidePreview": "Hide template",
+    "backendNote": "Note: preferences save instantly. The notification sender will respect these settings once the next backend release ships.",
     "comingSoonTitle": "Coming soon",
     "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
+  },
+  "settingsUsersNav": {
+    "ariaLabel": "Users sub-navigation",
+    "users": "Users",
+    "roles": "Roles",
+    "permissions": "Permissions"
+  },
+  "settingsPermissions": {
+    "title": "Permissions",
+    "description": "Capability matrix by role. System roles are read-only; custom roles are edited on the Roles page.",
+    "matrixTitle": "Capability matrix",
+    "matrixDescription": "Each capability governs one action in the system (e.g. create invoice, void payment). A checkmark means the role is allowed to perform it.",
+    "capability": "Capability",
+    "editHint": "To edit capabilities for a custom role, open",
+    "editLink": "Roles"
+  },
+  "settingsLoyalty": {
+    "title": "Loyalty program",
+    "description": "Points accrual rate and tier thresholds. Active only when the loyalty module is enabled on customers.",
+    "pointsPerCurrencyLabel": "Points earned per {currency}",
+    "pointsPerCurrencyHelp": "Points awarded for each unit of {currency} on a paid invoice.",
+    "pointsPerCurrencyHint": "Example: 0.01 = 1 point per 100 {currency}",
+    "pointsPerUnit": "points / {currency}",
+    "tierThresholdsLabel": "Tier thresholds",
+    "tierThresholdsHelp": "Accumulated points needed to reach each tier. Customers move up when they cross the threshold.",
+    "tierSilver": "Silver",
+    "tierGold": "Gold",
+    "tierPlatinum": "Platinum"
   },
   "settingsBranches": {
     "title": "Branches",

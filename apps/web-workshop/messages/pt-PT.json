@@ -1131,9 +1131,42 @@
   },
   "settingsNotifications": {
     "title": "Notificações e comunicação",
-    "description": "Modelos de mensagens e regras de envio para WhatsApp, SMS e email.",
+    "description": "Controlo de quais notificações são enviadas aos clientes. Modelos exibidos em pré-visualização são geridos pela plataforma.",
+    "channelTitle": "Canal de notificação WhatsApp",
+    "channelDescription": "Active ou desactive cada tipo de notificação. As alterações são guardadas automaticamente.",
+    "showPreview": "Mostrar modelo",
+    "hidePreview": "Ocultar modelo",
+    "backendNote": "Nota: estas preferências são guardadas de imediato. O serviço de envio de notificações respeitará estas definições assim que a próxima versão do backend for publicada.",
     "comingSoonTitle": "Em preparação",
     "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
+  },
+  "settingsUsersNav": {
+    "ariaLabel": "Sub-navegação de utilizadores",
+    "users": "Utilizadores",
+    "roles": "Perfis",
+    "permissions": "Permissões"
+  },
+  "settingsPermissions": {
+    "title": "Permissões",
+    "description": "Matriz de capacidades por perfil. Os perfis do sistema são só de leitura; perfis personalizados editam-se na página de Perfis.",
+    "matrixTitle": "Matriz de capacidades",
+    "matrixDescription": "Cada capacidade governa uma acção no sistema (ex. criar factura, estornar pagamento). Cruzamento com o perfil indica se é permitido.",
+    "capability": "Capacidade",
+    "editHint": "Para editar capacidades de um perfil personalizado, abra",
+    "editLink": "Perfis"
+  },
+  "settingsLoyalty": {
+    "title": "Programa de fidelidade",
+    "description": "Taxa de acumulação de pontos e limiares dos escalões. Activo apenas quando o módulo de fidelidade está ligado nos clientes.",
+    "pointsPerCurrencyLabel": "Pontos ganhos por {currency}",
+    "pointsPerCurrencyHelp": "Pontos atribuídos por cada unidade de {currency} numa factura paga.",
+    "pointsPerCurrencyHint": "Exemplo: 0,01 = 1 ponto por cada 100 {currency}",
+    "pointsPerUnit": "pontos / {currency}",
+    "tierThresholdsLabel": "Limiares dos escalões",
+    "tierThresholdsHelp": "Pontos acumulados necessários para atingir cada escalão. Clientes sobem quando ultrapassam o limiar.",
+    "tierSilver": "Prata",
+    "tierGold": "Ouro",
+    "tierPlatinum": "Platina"
   },
   "settingsBranches": {
     "title": "Filiais",

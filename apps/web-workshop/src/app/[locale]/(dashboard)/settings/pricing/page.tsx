@@ -20,6 +20,7 @@ import {
 import { useCatalogCategories } from '@/hooks/use-catalog';
 import { useToast } from '@mecanix/ui-web';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
+import { LoyaltySection } from '@/components/settings/LoyaltySection';
 
 function safe(val: unknown): number {
   return typeof val === 'number' ? val : Number(val) || 0;
@@ -188,9 +189,13 @@ export default function PricingSettingsPage() {
 
       <SettingsPageHeader
         eyebrow="SETTINGS"
-        title="Pricing & markup"
-        description="Pricing modes, price groups, markup rules by category and bulk recalculation tools."
+        title="Pricing & loyalty"
+        description="Pricing modes, price groups, markup rules by category, and the customer loyalty program."
       />
+
+      <div className="mb-8 max-w-3xl">
+        <LoyaltySection />
+      </div>
 
       <div className="max-w-3xl space-y-8">
         {/* ── Pricing Mode Settings ─────────────────────── */}

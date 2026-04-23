@@ -15,6 +15,7 @@ import {
 import { Plus, Shield, Trash2, X } from 'lucide-react';
 import { Button } from '@mecanix/ui-web';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
+import { UsersSubNav } from '@/components/settings/UsersSubNav';
 
 const CATEGORY_ORDER = [
   'operations',
@@ -67,11 +68,7 @@ export default function CustomRolesPage() {
         }
       />
 
-      <p className="-mt-2 text-xs text-gray-500">
-        <Link href="/settings/users" className="hover:text-gray-900 hover:underline">
-          ← {ts('usersTitle')}
-        </Link>
-      </p>
+      <UsersSubNav />
 
       {toast && (
         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
