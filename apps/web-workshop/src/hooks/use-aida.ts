@@ -111,6 +111,21 @@ export function useAidaStats() {
   });
 }
 
+export interface AidaEffectiveRates {
+  bodyLabourRate: number;
+  bodyLabourSource: 'aida_override' | 'workshop_default' | 'tech_max' | 'none';
+  paintMaterialRate: number | null;
+  paintMaterialSource: 'aida_override' | 'none';
+}
+
+export function useAidaEffectiveRates() {
+  return useQuery({
+    queryKey: ['aida-effective-rates'],
+    queryFn: () => api.get<AidaEffectiveRates>('/aida/effective-rates'),
+    staleTime: 60_000,
+  });
+}
+
 export function useAssessments(filters: ListFilters = {}) {
   const qs = new URLSearchParams();
   if (filters.vehicleId) qs.set('vehicleId', filters.vehicleId);

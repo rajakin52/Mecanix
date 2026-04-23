@@ -44,6 +44,11 @@ export class AidaStatsController {
   async stats(@TenantId() tenantId: string) {
     return this.service.getMonthlyStats(tenantId);
   }
+
+  @Get('effective-rates')
+  async effectiveRates(@TenantId() tenantId: string) {
+    return this.service.getEffectiveRates(tenantId);
+  }
 }
 
 @Controller('aida/assessments')

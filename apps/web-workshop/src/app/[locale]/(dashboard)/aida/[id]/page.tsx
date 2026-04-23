@@ -20,6 +20,7 @@ import {
   useGenerateAssessmentPacket,
   useAssessmentEdits,
   useEnsureCaptureToken,
+  useAidaEffectiveRates,
   type AssessmentFinding,
   type AssessmentOperation,
   type DamageType,
@@ -83,6 +84,7 @@ export default function AssessmentDetailPage() {
   const generatePacket = useGenerateAssessmentPacket(id);
   const ensureCaptureToken = useEnsureCaptureToken(id);
   const { data: edits } = useAssessmentEdits(id);
+  const { data: rates } = useAidaEffectiveRates();
   const [showEdits, setShowEdits] = useState(false);
   const router = useRouter();
 
@@ -295,6 +297,38 @@ export default function AssessmentDetailPage() {
         <Kpi label="Labour hours" value={Number(assessment.total_hours || 0).toFixed(1)} />
         <Kpi label="Estimate (parts + paint)" value={formatCurrency(Number(assessment.total_estimate || 0))} />
       </div>
+
+      {rates && !alreadyPushed && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-md border border-gray-200 bg-gray-50 px-4 py-2.5 text-xs text-gray-600">
+          <span>
+            <span className="font-medium text-gray-900">Body-work rate:</span>{' '}
+            {formatCurrency(rates.bodyLabourRate)} / h
+            <span className="ms-1.5 text-gray-400">
+              (
+              {rates.bodyLabourSource === 'aida_override'
+                ? 'AIDA override'
+                : rates.bodyLabourSource === 'workshop_default'
+                  ? 'Workshop default'
+                  : rates.bodyLabourSource === 'tech_max'
+                    ? 'Top technician rate'
+                    : 'Not configured — using 0'}
+              )
+            </span>
+          </span>
+          {rates.paintMaterialRate != null && (
+            <span>
+              <span className="font-medium text-gray-900">Paint material fallback:</span>{' '}
+              {formatCurrency(rates.paintMaterialRate)} / panel
+            </span>
+          )}
+          <Link
+            href="/settings/aida"
+            className="ms-auto text-gray-500 underline hover:text-gray-900"
+          >
+            Change in Settings → AIDA
+          </Link>
+        </div>
+      )}
 
       {alreadyPushed && assessment.job_card && (
         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">

@@ -685,6 +685,77 @@ export class AidaService {
   }
 
   /**
+   * Effective rates for AIDA operations on this tenant, with a label
+   * explaining where each one comes from. Used by the UI to show which
+   * rate will apply when an assessment is converted to a job card.
+   */
+  async getEffectiveRates(tenantId: string): Promise<{
+    bodyLabourRate: number;
+    bodyLabourSource: 'aida_override' | 'workshop_default' | 'tech_max' | 'none';
+    paintMaterialRate: number | null;
+    paintMaterialSource: 'aida_override' | 'none';
+  }> {
+    const client = this.supabase.getClient();
+
+    const aidaBody = await this.resolveAidaBodyLabourRate(tenantId);
+    if (aidaBody != null) {
+      const paint = await this.resolveAidaPaintMaterialRate(tenantId);
+      return {
+        bodyLabourRate: aidaBody,
+        bodyLabourSource: 'aida_override',
+        paintMaterialRate: paint,
+        paintMaterialSource: paint != null ? 'aida_override' : 'none',
+      };
+    }
+
+    const { data: wsDefault } = await client
+      .from('tenant_settings')
+      .select('value')
+      .eq('tenant_id', tenantId)
+      .eq('key', 'labour.default_hourly_rate')
+      .maybeSingle();
+    if (wsDefault?.value != null) {
+      const n = Number(wsDefault.value);
+      if (Number.isFinite(n) && n > 0) {
+        const paint = await this.resolveAidaPaintMaterialRate(tenantId);
+        return {
+          bodyLabourRate: n,
+          bodyLabourSource: 'workshop_default',
+          paintMaterialRate: paint,
+          paintMaterialSource: paint != null ? 'aida_override' : 'none',
+        };
+      }
+    }
+
+    const { data: tech } = await client
+      .from('technicians')
+      .select('hourly_rate')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .not('hourly_rate', 'is', null)
+      .order('hourly_rate', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (tech?.hourly_rate != null) {
+      const paint = await this.resolveAidaPaintMaterialRate(tenantId);
+      return {
+        bodyLabourRate: Number(tech.hourly_rate),
+        bodyLabourSource: 'tech_max',
+        paintMaterialRate: paint,
+        paintMaterialSource: paint != null ? 'aida_override' : 'none',
+      };
+    }
+
+    const paint = await this.resolveAidaPaintMaterialRate(tenantId);
+    return {
+      bodyLabourRate: 0,
+      bodyLabourSource: 'none',
+      paintMaterialRate: paint,
+      paintMaterialSource: paint != null ? 'aida_override' : 'none',
+    };
+  }
+
+  /**
    * AIDA-specific body-work hourly rate override. Returns null if the
    * tenant hasn't set one — caller then falls back to the general rate.
    */
