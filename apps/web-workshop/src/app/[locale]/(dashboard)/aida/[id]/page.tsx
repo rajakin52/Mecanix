@@ -782,6 +782,9 @@ export default function AssessmentDetailPage() {
                 <th className="py-2">Panel</th>
                 <th className="py-2">Operation</th>
                 <th className="py-2 text-right">Hours</th>
+                <th className="py-2 text-right" title={rates ? `${formatCurrency(rates.bodyLabourRate)} / h` : undefined}>
+                  Labour
+                </th>
                 <th className="py-2 text-right">Parts</th>
                 <th className="py-2 text-right">Paint</th>
                 <th className="py-2">OEM #</th>
@@ -847,6 +850,22 @@ export default function AssessmentDetailPage() {
                         Number(o.labour_hours || 0).toFixed(1)
                       )}
                     </td>
+                    <td
+                      className="py-2 text-right tabular-nums text-gray-700"
+                      title={
+                        rates
+                          ? `${Number(o.labour_hours || 0).toFixed(1)} h × ${formatCurrency(rates.bodyLabourRate)} / h`
+                          : undefined
+                      }
+                    >
+                      {rates
+                        ? formatCurrency(
+                            Math.round(
+                              Number(o.labour_hours || 0) * rates.bodyLabourRate * 100,
+                            ) / 100,
+                          )
+                        : '—'}
+                    </td>
                     <td className="py-2 text-right tabular-nums">
                       {isEditing ? (
                         <input
@@ -875,8 +894,18 @@ export default function AssessmentDetailPage() {
                           }
                           className="w-24 rounded-md border-gray-300 text-right text-xs"
                         />
-                      ) : (
+                      ) : Number(o.paint_cost || 0) > 0 ? (
                         formatCurrency(Number(o.paint_cost || 0))
+                      ) : (o.operation === 'paint' || o.operation === 'blend') &&
+                        rates?.paintMaterialRate != null ? (
+                        <span
+                          className="text-gray-500 italic"
+                          title="Fallback — will apply on conversion"
+                        >
+                          {formatCurrency(rates.paintMaterialRate)}
+                        </span>
+                      ) : (
+                        formatCurrency(0)
                       )}
                     </td>
                     <td className="py-2 text-gray-500">
