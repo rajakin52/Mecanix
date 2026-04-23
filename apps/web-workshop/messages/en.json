@@ -78,7 +78,17 @@
     "warehouses": "Warehouses",
     "procurement": "Procurement",
     "pricing": "Pricing",
-    "repairCatalog": "Repair Catalog"
+    "repairCatalog": "Repair Catalog",
+    "fleets": "Fleets",
+    "reorderSuggestions": "Reorder suggestions",
+    "tireStorage": "Tire storage",
+    "collections": "Collections",
+    "creditNotes": "Credit notes",
+    "cashRegister": "Cash register",
+    "navEngagement": "Engagement",
+    "reminders": "Reminders",
+    "deferredWork": "Deferred work",
+    "feedback": "Feedback"
   },
   "jobs": {
     "title": "Job Cards",

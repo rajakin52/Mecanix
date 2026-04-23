@@ -76,7 +76,17 @@
     "warehouses": "Depósitos",
     "procurement": "Compras",
     "pricing": "Preços",
-    "repairCatalog": "Catálogo de Reparos"
+    "repairCatalog": "Catálogo de Reparos",
+    "fleets": "Frotas",
+    "reorderSuggestions": "Sugestões de reposição",
+    "tireStorage": "Armazenamento de pneus",
+    "collections": "Cobranças",
+    "creditNotes": "Notas de crédito",
+    "cashRegister": "Caixa",
+    "navEngagement": "Engajamento",
+    "reminders": "Lembretes",
+    "deferredWork": "Trabalho adiado",
+    "feedback": "Avaliações"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
