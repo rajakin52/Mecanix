@@ -43,13 +43,11 @@ export default function OperationalSettingsPage() {
   const [photoPolicy, setPhotoPolicy] = useState<string>('strict');
   const [allowNegative, setAllowNegative] = useState(false);
   const [overrideRoles, setOverrideRoles] = useState<string[]>(['owner']);
-  const [aidaCap, setAidaCap] = useState('');
   const [reviewUrl, setReviewUrl] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [photoSave, setPhotoSave] = useState<Save>(freshSave);
   const [stockSave, setStockSave] = useState<Save>(freshSave);
-  const [aidaSave, setAidaSave] = useState<Save>(freshSave);
   const [reviewSave, setReviewSave] = useState<Save>(freshSave);
 
   useEffect(() => {
@@ -62,9 +60,6 @@ export default function OperationalSettingsPage() {
           setAllowNegative(d.allowNegativeStock);
           setOverrideRoles(d.overrideRoles);
         })
-        .catch(() => {}),
-      api.get<{ value: string | null }>('/tenants/me/settings/aida.monthly_analyses_max')
-        .then((d) => d.value && setAidaCap(d.value))
         .catch(() => {}),
       api.get<{ value: string | null }>('/tenants/me/settings/google_review_url')
         .then((d) => d.value && setReviewUrl(d.value))
@@ -237,52 +232,7 @@ export default function OperationalSettingsPage() {
           )}
         </SettingsSection>
 
-        {/* AIDA monthly cap */}
-        <SettingsSection
-          title={to('aidaCapTitle')}
-          description={to('aidaCapDescription')}
-          sensitivity="operational"
-          footer={
-            <SettingsFooter
-              saved={aidaSave.saved}
-              error={aidaSave.error}
-              saving={aidaSave.saving}
-            >
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() =>
-                  doSave(setAidaSave, () =>
-                    api.put('/tenants/me/settings/aida.monthly_analyses_max', { value: aidaCap }),
-                  )
-                }
-                loading={aidaSave.saving}
-              >
-                {t('saveChanges')}
-              </Button>
-            </SettingsFooter>
-          }
-        >
-          <SettingsField
-            label={to('aidaCapLabel')}
-            description={to('aidaCapHelp')}
-            htmlFor="aida-cap"
-          >
-            <div className="flex items-center gap-2">
-              <input
-                id="aida-cap"
-                type="number"
-                step="1"
-                min="0"
-                value={aidaCap}
-                onChange={(e) => setAidaCap(e.target.value)}
-                placeholder="200"
-                className="block w-32 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
-              />
-              <span className="text-sm text-gray-500">{to('aidaCapUnit')}</span>
-            </div>
-          </SettingsField>
-        </SettingsSection>
+        {/* AIDA monthly cap moved to /settings/aida */}
 
         {/* Google reviews URL */}
         <SettingsSection

@@ -19,7 +19,7 @@ import type {
 
 const BUCKET = 'aida-captures';
 const PACKET_BUCKET = 'aida-packets';
-const MODEL_VERSION = 'claude-opus-4-7-vision-v1';
+const MODEL_VERSION = 'claude-opus-4-7';
 const CAPTURE_TOKEN_TTL_DAYS = 14;
 
 async function compress(raw: Buffer): Promise<{ buffer: Buffer; width: number; height: number }> {

@@ -32,6 +32,8 @@ import {
   Menu,
   X,
   Camera,
+  Shield,
+  FileCheck,
 } from 'lucide-react';
 
 interface NavItem {
@@ -85,6 +87,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: t('navAida'),
       items: [
         { href: '/aida', label: t('damageAssessments'), icon: Camera },
+        { href: '/insurance', label: t('insuranceClaims'), icon: FileCheck },
+        { href: '/insurance/companies', label: t('insuranceCompanies'), icon: Shield },
       ],
     },
     {

@@ -88,7 +88,9 @@
     "navEngagement": "Engagement",
     "reminders": "Reminders",
     "deferredWork": "Deferred work",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "insuranceClaims": "Insurance claims",
+    "insuranceCompanies": "Insurance companies"
   },
   "jobs": {
     "title": "Job Cards",
@@ -1112,6 +1114,7 @@
     "numbering": "Document numbering",
     "integrations": "Integrations",
     "operational": "Operational",
+    "aida": "Damage assessments (AIDA)",
     "users": "Users & access",
     "branches": "Branches",
     "notifications": "Notifications",
@@ -1178,6 +1181,32 @@
     "taxCodesLinkDescription": "Tax classifications per item or service type, for AGT e-invoicing.",
     "comingSoonTitle": "Coming soon",
     "comingSoonDescription": "This section is being reorganised. In the meantime, edit these settings on"
+  },
+  "settingsAida": {
+    "title": "Damage assessments (AIDA)",
+    "description": "Configuration for the AI damage-assessment module: monthly cap, body and paint rates, plus quick links to insurers and claims.",
+    "perHour": "hour",
+    "perPanel": "panel",
+    "capTitle": "Monthly analysis cap",
+    "capDescription": "Guards against runaway Claude vision costs. Once the cap is reached, new analyses ask for manual confirmation.",
+    "capLabel": "Analyses per month",
+    "capHelp": "Default 200. Re-analyses count once each. Applies only to AI-powered assessments — manual assessments are unlimited.",
+    "capUnit": "analyses / month",
+    "bodyLabourTitle": "Body-work hourly rate",
+    "bodyLabourDescription": "Hourly rate used when the AI generates body-repair operations (repair, replace, R&I). Overrides the general labour rate for body work.",
+    "bodyLabourLabel": "Default body-work rate",
+    "bodyLabourHelp": "Leave blank to use the workshop's general labour rate. Useful when body work is priced separately from mechanical.",
+    "paintTitle": "Paint material cost",
+    "paintDescription": "Estimated paint and primer cost per panel. Applied to paint / refinish operations the AI generates.",
+    "paintLabel": "Cost per panel",
+    "paintHelp": "Average estimate. Includes primer, base coat, clear coat and ancillaries. Adjust per estimate when needed.",
+    "insurersTitle": "Insurance companies",
+    "insurersDescription": "Create and edit the insurers your workshop works with. Assessments can be linked to an insurer instead of a job card.",
+    "claimsTitle": "Insurance claims",
+    "claimsDescription": "Browse and manage open claims. An assessment can be linked to an existing claim or converted into a job card.",
+    "modelTitle": "AI model",
+    "modelProvider": "Anthropic Claude · multimodal",
+    "modelNote": "Used for damage-photo analysis. API key is set on the server — no action needed."
   },
   "aidaNew": {
     "button": "New assessment",

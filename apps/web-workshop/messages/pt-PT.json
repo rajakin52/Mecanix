@@ -86,7 +86,9 @@
     "navEngagement": "Envolvimento",
     "reminders": "Lembretes",
     "deferredWork": "Trabalho diferido",
-    "feedback": "Avaliações"
+    "feedback": "Avaliações",
+    "insuranceClaims": "Sinistros",
+    "insuranceCompanies": "Seguradoras"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -1040,6 +1042,7 @@
     "numbering": "Numeração de documentos",
     "integrations": "Integrações",
     "operational": "Operacional",
+    "aida": "Avaliação de danos (AIDA)",
     "users": "Utilizadores e acessos",
     "branches": "Filiais",
     "notifications": "Notificações",
@@ -1106,6 +1109,32 @@
     "taxCodesLinkDescription": "Classificações de IVA por tipo de artigo ou serviço, para factura electrónica AGT.",
     "comingSoonTitle": "Em preparação",
     "comingSoonDescription": "Esta secção está a ser reorganizada. Entretanto, edite estas definições em"
+  },
+  "settingsAida": {
+    "title": "Avaliação de danos (AIDA)",
+    "description": "Configuração do módulo de avaliação de danos por IA: limite mensal, taxas de carroçaria e pintura, e ligações para seguradoras e sinistros.",
+    "perHour": "hora",
+    "perPanel": "painel",
+    "capTitle": "Limite mensal de análises",
+    "capDescription": "Protege contra custos excessivos do Claude vision. Uma vez atingido o limite, as novas avaliações pedem confirmação manual.",
+    "capLabel": "Análises por mês",
+    "capHelp": "Valor predefinido 200. Reanálises contam uma vez cada. Aplicável apenas a avaliações IA — avaliações manuais são ilimitadas.",
+    "capUnit": "análises / mês",
+    "bodyLabourTitle": "Taxa horária de carroçaria",
+    "bodyLabourDescription": "Taxa usada quando a IA gera operações de carroçaria (reparação, substituição, desmontagem). Substitui a taxa horária geral só para trabalhos de carroçaria.",
+    "bodyLabourLabel": "Taxa predefinida de carroçaria",
+    "bodyLabourHelp": "Deixar em branco usa a taxa horária geral da oficina. Útil quando a carroçaria tem um preço distinto da mecânica.",
+    "paintTitle": "Custo de material de pintura",
+    "paintDescription": "Custo estimado de tinta e primário por painel. Aplicado a operações de pintura/acabamento geradas pela IA.",
+    "paintLabel": "Custo por painel",
+    "paintHelp": "Estimativa média. Inclui primário, tinta-base, verniz e materiais auxiliares. Ajuste em cada orçamento quando necessário.",
+    "insurersTitle": "Seguradoras",
+    "insurersDescription": "Criar e editar seguradoras com quem a oficina trabalha. As avaliações podem ser vinculadas a uma seguradora em vez de uma ficha.",
+    "claimsTitle": "Sinistros",
+    "claimsDescription": "Consultar e gerir sinistros abertos. Uma avaliação pode ser vinculada a um sinistro existente ou convertida em ficha de trabalho.",
+    "modelTitle": "Modelo IA",
+    "modelProvider": "Anthropic Claude · multimodal",
+    "modelNote": "Usado para análise de fotografias de danos. Chave de API configurada no servidor — nenhuma acção necessária."
   },
   "aidaNew": {
     "button": "Nova avaliação",

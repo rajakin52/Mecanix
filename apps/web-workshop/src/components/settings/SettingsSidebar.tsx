@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Shield,
   ArrowLeft,
+  Camera,
 } from 'lucide-react';
 import { cn } from '@mecanix/ui-web';
 
@@ -34,6 +35,7 @@ export function SettingsSidebar() {
     { href: '/settings/document-numbering', label: t('numbering'), icon: Hash },
     { href: '/settings/integrations', label: t('integrations'), icon: Plug },
     { href: '/settings/operational', label: t('operational'), icon: SlidersHorizontal },
+    { href: '/settings/aida', label: t('aida'), icon: Camera },
     { href: '/settings/users', label: t('users'), icon: Users },
     { href: '/settings/branches', label: t('branches'), icon: MapPin },
     { href: '/settings/notifications', label: t('notifications'), icon: MessageSquare },
