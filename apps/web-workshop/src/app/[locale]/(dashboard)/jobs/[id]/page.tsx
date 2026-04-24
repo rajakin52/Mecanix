@@ -1361,9 +1361,11 @@ export default function JobDetailPage() {
     : (parseFloat(partUnitCost) || 0) * (1 + (parseFloat(partMarkup) || 0) / 100);
   const computedSubtotal = computedSellPrice * (parseInt(partQty, 10) || 1);
 
-  // When manual sell price changes, compute the implied markup
+  // When manual sell price changes, compute the implied markup.
+  // Keep full precision — rounding here silently rewrites the user's
+  // chosen sell price after the server re-derives it from cost × markup.
   const computedMarkupFromManual = partPriceMode === 'manual' && parseFloat(partUnitCost) > 0
-    ? Math.round(((parseFloat(partSellPrice) || 0) / parseFloat(partUnitCost) - 1) * 100)
+    ? ((parseFloat(partSellPrice) || 0) / parseFloat(partUnitCost) - 1) * 100
     : 0;
 
   const handleAddPart = async () => {
@@ -2390,7 +2392,7 @@ export default function JobDetailPage() {
               <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
                 <span className="block text-xs font-medium text-gray-500">{t('markupPct')}</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {partPriceMode === 'manual' ? `${computedMarkupFromManual}%` : `${partMarkup || 0}%`}
+                  {partPriceMode === 'manual' ? `${computedMarkupFromManual.toFixed(2)}%` : `${partMarkup || 0}%`}
                 </span>
               </div>
               <div className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2">

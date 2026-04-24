@@ -116,7 +116,34 @@ Expo SDK 54 + expo-router + React Native 0.81 + React 19. Auth tokens in `expo-s
 - **API** → Railway. `railway.toml` / `railway.json` both point to `apps/api/Dockerfile` with healthcheck `/api/v1/health` (300 s timeout). There is also a `docker/Dockerfile.api` — they have diverged in the past; if you change one, verify which Railway is actually building from before assuming parity.
 - **Web** → Vercel (workshop web is the primary deploy; `apps/web-workshop/vercel.json` controls settings).
 - **Mobile** → Expo EAS (`eas build`, per-app `eas.json`).
-- **DB/Auth/Storage/Realtime** → Supabase managed (project id `mecanix` in `supabase/config.toml`, PG 17).
+- **DB/Auth/Storage/Realtime** → Supabase managed (project id `mecanix` in `supabase/config.toml`, PG 17). Prod project ref is `xqblnoncymwdexjeusqk` (stored in `supabase/.temp/project-ref`; pooler host is `aws-1-eu-north-1.pooler.supabase.com`, stored in `supabase/.temp/pooler-url`).
+
+### Connecting to the production database
+
+For one-off queries (e.g. investigating a specific job in prod), use the Session pooler URI:
+
+```
+postgresql://postgres.xqblnoncymwdexjeusqk:<PASSWORD>@aws-1-eu-north-1.pooler.supabase.com:5432/postgres
+```
+
+Get the string from the Supabase dashboard → **Connect** button (top bar) → **Session pooler** tab. The `[YOUR-PASSWORD]` in the UI is a literal placeholder — substitute the real DB password, URL-encoding any special characters (`@` → `%40`, `#` → `%23`, etc.).
+
+The password is not stored in the dashboard. Two ways to obtain it:
+- Read `DATABASE_URL` (or similar) from the Railway API service env vars — safest, won't break anything.
+- Reset it via **Project Settings → Database → Reset database password** — this rotates it, so update Railway (API), PowerSync, and any other consumer immediately after.
+
+Prefer exporting `DATABASE_URL` in the shell rather than pasting the full URI into commands or files, so the password doesn't end up in transcripts or git.
+
+**Alternative: REST API with the service-role key** — for read-only investigations a psql session is overkill. The prod secret-role key (shown in the dashboard under **Project Settings → API Keys**, labelled `service_role` / `secret`, starts with `sb_secret_` or a `eyJ...` JWT) bypasses RLS and works against PostgREST:
+
+```bash
+export SB_URL='https://xqblnoncymwdexjeusqk.supabase.co'
+export SB_KEY='<paste-from-dashboard>'   # never commit, never paste into CLAUDE.md
+curl -s -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+  "$SB_URL/rest/v1/job_cards?job_number=ilike.*00047*&select=*"
+```
+
+**Do not commit this key anywhere** — not in CLAUDE.md, not in `.env` files that aren't gitignored, not in memory files. It grants full access to all tenant data. If it leaks, rotate immediately from the same dashboard page.
 
 ## Conventions & hard rules
 
