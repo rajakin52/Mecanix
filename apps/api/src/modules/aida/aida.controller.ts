@@ -157,6 +157,18 @@ export class AidaController {
     return this.service.ensureCaptureToken(tenantId, id);
   }
 
+  @Post(':id/send-capture-link')
+  async sendCaptureLink(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { phone: string; languageCode?: 'pt_PT' | 'en' },
+  ) {
+    if (!body?.phone || typeof body.phone !== 'string') {
+      throw new Error('phone is required');
+    }
+    return this.service.sendCaptureLinkViaWhatsApp(tenantId, id, body.phone, body.languageCode);
+  }
+
   @Delete(':id')
   async delete(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.service.delete(tenantId, id);

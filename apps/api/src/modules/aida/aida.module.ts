@@ -3,9 +3,10 @@ import { AidaController, AidaStatsController, PublicAidaCaptureController } from
 import { AidaService } from './aida.service';
 import { JobsModule } from '../jobs/jobs.module';
 import { AiModule } from '../ai/ai.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [JobsModule, AiModule],
+  imports: [JobsModule, AiModule, NotificationsModule],
   controllers: [AidaController, AidaStatsController, PublicAidaCaptureController],
   providers: [AidaService],
   exports: [AidaService],

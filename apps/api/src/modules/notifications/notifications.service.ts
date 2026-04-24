@@ -279,10 +279,11 @@ export class NotificationsService {
           'Respond to approve or reject this estimate',
         );
 
+        const wamid = result && result.success ? result.messageId : undefined;
         results.push({
           channel: 'whatsapp',
           success: result?.success ?? false,
-          messageId: result?.messageId,
+          messageId: wamid,
         });
 
         // Log delivery
@@ -292,9 +293,9 @@ export class NotificationsService {
           channel: 'whatsapp',
           recipient: phone,
           status: result?.success ? 'sent' : 'failed',
-          message_id: result?.messageId ?? null,
+          message_id: wamid ?? null,
           sent_at: new Date().toISOString(),
-          error_message: result?.success ? null : JSON.stringify(result?.error),
+          error_message: result?.success ? null : JSON.stringify(result && !result.success ? result.error : null),
         });
       } catch (e) {
         results.push({ channel: 'whatsapp', success: false });
@@ -444,7 +445,7 @@ export class NotificationsService {
         results.push({
           phone,
           success: result?.success ?? false,
-          messageId: result?.messageId,
+          messageId: result && result.success ? result.messageId : undefined,
         });
 
         this.logger.log(`PR approval WhatsApp sent to ${manager.full_name} (${phone})`);

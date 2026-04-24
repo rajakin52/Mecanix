@@ -38,6 +38,7 @@ describe('AidaService — effective rates', () => {
       {} as never, // JobsService — not touched by these paths
       {} as never, // AiService
       {} as never, // ConfigService
+      {} as never, // WhatsAppService
     );
   });
 

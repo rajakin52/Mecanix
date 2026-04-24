@@ -6,6 +6,7 @@ import PDFDocument from 'pdfkit';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from '../jobs/jobs.service';
 import { AiService } from '../ai/ai.service';
+import { WhatsAppService, type WhatsAppSendResult } from '../notifications/whatsapp.service';
 import type {
   CreateAssessmentInput,
   UpdateAssessmentInput,
@@ -40,6 +41,7 @@ export class AidaService {
     private readonly jobsService: JobsService,
     private readonly aiService: AiService,
     private readonly config: ConfigService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   // ─── assessments ─────────────────────────────────────────────
@@ -1565,6 +1567,88 @@ export class AidaService {
       url = `${base.replace(/\/$/, '')}/${locale}/public/aida/capture/${token}`;
     }
     return { token, expiresAt, url };
+  }
+
+  // Send the AIDA damage-photos upload link via WhatsApp using the
+  // approved `damage_photos_upload_request` template. Every attempt
+  // is persisted to `whatsapp_events` for audit.
+  //
+  // Language selection: explicit `languageCode` arg > tenant.locale > pt_PT.
+  async sendCaptureLinkViaWhatsApp(
+    tenantId: string,
+    assessmentId: string,
+    phone: string,
+    languageCode?: 'pt_PT' | 'en',
+  ): Promise<WhatsAppSendResult & { token: string; expiresAt: string; url: string | null }> {
+    const client = this.supabase.getClient();
+
+    // 1. Ensure a live capture token exists.
+    const { token, expiresAt, url } = await this.ensureCaptureToken(tenantId, assessmentId);
+
+    // 2. Pull the pieces we need for the template body.
+    const { data: assessment } = await client
+      .from('damage_assessments')
+      .select(
+        'id, job_card:job_cards(id, job_number), claim:insurance_claims(id, claim_number), vehicle:vehicles(plate, make, model, year)',
+      )
+      .eq('id', assessmentId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (!assessment) {
+      throw new NotFoundException('Assessment not found');
+    }
+
+    const vehicleRow = Array.isArray(assessment.vehicle)
+      ? (assessment.vehicle[0] as Record<string, unknown> | undefined)
+      : (assessment.vehicle as Record<string, unknown> | null);
+    const jobCardRow = Array.isArray(assessment.job_card)
+      ? (assessment.job_card[0] as Record<string, unknown> | undefined)
+      : (assessment.job_card as Record<string, unknown> | null);
+    const claimRow = Array.isArray(assessment.claim)
+      ? (assessment.claim[0] as Record<string, unknown> | undefined)
+      : (assessment.claim as Record<string, unknown> | null);
+
+    // {{1}} — vehicle. Prefer make+model, fall back to plate, then "veículo".
+    const vehicleDescription =
+      [vehicleRow?.make, vehicleRow?.model].filter(Boolean).join(' ').trim() ||
+      (vehicleRow?.plate as string | undefined) ||
+      'veículo';
+
+    // {{2}} — service/ticket number. Prefer claim number, then job number,
+    // then the assessment short-id as a last resort.
+    const serviceNumber =
+      (claimRow?.claim_number as string | undefined) ??
+      (jobCardRow?.job_number as string | undefined) ??
+      assessmentId.slice(0, 8);
+
+    // Language — use tenant locale if not explicitly overridden.
+    let lang: 'pt_PT' | 'en' = languageCode ?? 'pt_PT';
+    if (!languageCode) {
+      const { data: tenant } = await client
+        .from('tenants')
+        .select('locale')
+        .eq('id', tenantId)
+        .maybeSingle();
+      const locale = (tenant?.locale as string | null) ?? 'pt-PT';
+      lang = locale.toLowerCase().startsWith('en') ? 'en' : 'pt_PT';
+    }
+
+    // 3. Fire the template send (audited in whatsapp_events).
+    const result = await this.whatsapp.sendDamagePhotosUploadRequest({
+      to: phone,
+      vehicle: vehicleDescription,
+      serviceNumber,
+      captureToken: token,
+      languageCode: lang,
+      context: {
+        tenantId,
+        contextType: 'photo_capture',
+        contextId: assessmentId,
+      },
+    });
+
+    return { ...result, token, expiresAt, url };
   }
 
   // Public-facing getter — token in, sanitised summary out. No
