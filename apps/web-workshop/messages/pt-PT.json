@@ -170,7 +170,9 @@
     "view": "Ver",
     "viewStock": "Ver stock",
     "warehousesMustDiffer": "Os armazéns de origem e destino têm de ser diferentes",
-    "any": "Qualquer"
+    "any": "Qualquer",
+    "whatsappSent": "Mensagem WhatsApp enviada",
+    "language": "Idioma"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
@@ -887,7 +889,8 @@
     "captureLinkCopied": "Link copiado — partilhe via WhatsApp / SMS / email",
     "captureLinkCopyFallback": "Copie este link:",
     "captureLinkNoUrl": "Defina PUBLIC_APP_URL na API para ativar os links de captura",
-    "captureLinkFailed": "Não foi possível gerar o link"
+    "captureLinkFailed": "Não foi possível gerar o link",
+    "sendViaWhatsApp": "Enviar por WhatsApp"
   },
   "vehicleHistory": {
     "tabTitle": "Histórico de serviço",

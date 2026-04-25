@@ -20,6 +20,7 @@ import {
   useGenerateAssessmentPacket,
   useAssessmentEdits,
   useEnsureCaptureToken,
+  useSendCaptureLink,
   useAidaEffectiveRates,
   type AssessmentFinding,
   type AssessmentOperation,
@@ -84,6 +85,8 @@ export default function AssessmentDetailPage() {
   const createJob = useCreateJobFromAssessment(id);
   const generatePacket = useGenerateAssessmentPacket(id);
   const ensureCaptureToken = useEnsureCaptureToken(id);
+  const sendCaptureLink = useSendCaptureLink(id);
+  const [showSendModal, setShowSendModal] = useState(false);
   const { data: edits } = useAssessmentEdits(id);
   const { data: rates } = useAidaEffectiveRates();
   const [showEdits, setShowEdits] = useState(false);
@@ -444,6 +447,14 @@ export default function AssessmentDetailPage() {
                 title={t('captureLinkTooltip')}
               >
                 {ensureCaptureToken.isPending ? t('captureLinkWorking') : t('captureLink')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSendModal(true)}
+                className="rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100"
+                title={t('sendViaWhatsApp')}
+              >
+                {t('sendViaWhatsApp')}
               </button>
             </>
           )}
@@ -1033,6 +1044,102 @@ export default function AssessmentDetailPage() {
           </div>
         )}
       </section>
+
+      {showSendModal && (
+        <SendCaptureLinkModal
+          isPending={sendCaptureLink.isPending}
+          onClose={() => setShowSendModal(false)}
+          onSend={async ({ phone, languageCode }) => {
+            try {
+              const result = await sendCaptureLink.mutateAsync({ phone, languageCode });
+              if (result.success) {
+                toast.success(t('whatsappSent'));
+                setShowSendModal(false);
+              } else {
+                toast.error(result.error ?? t('captureLinkFailed'));
+              }
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : t('captureLinkFailed'));
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SendCaptureLinkModal({
+  isPending,
+  onClose,
+  onSend,
+}: {
+  isPending: boolean;
+  onClose: () => void;
+  onSend: (input: { phone: string; languageCode: 'pt_PT' | 'en' }) => Promise<void>;
+}) {
+  const tc = useTranslations('common');
+  const t = useTranslations('aida');
+  const [phone, setPhone] = useState('');
+  const [languageCode, setLanguageCode] = useState<'pt_PT' | 'en'>('pt_PT');
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setError(null);
+    const trimmed = phone.trim();
+    if (!trimmed) { setError(tc('fieldRequired')); return; }
+    await onSend({ phone: trimmed, languageCode });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-lg font-semibold">{t('sendViaWhatsApp')}</h2>
+        {error && <div className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('phone')}</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+244 924 635 555"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              autoFocus
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              E.164 format. Country code added automatically if missing.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('language')}</label>
+            <select
+              value={languageCode}
+              onChange={(e) => setLanguageCode(e.target.value as 'pt_PT' | 'en')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="pt_PT">Português (PT)</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {tc('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={isPending}
+            className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {isPending ? tc('loading') : t('sendViaWhatsApp')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

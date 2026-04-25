@@ -172,7 +172,9 @@
     "view": "View",
     "viewStock": "View stock",
     "warehousesMustDiffer": "Source and destination warehouses must differ",
-    "any": "Any"
+    "any": "Any",
+    "whatsappSent": "WhatsApp message sent",
+    "language": "Language"
   },
   "jobs": {
     "title": "Job Cards",
@@ -959,7 +961,8 @@
     "captureLinkCopied": "Link copied — share it via WhatsApp / SMS / email",
     "captureLinkCopyFallback": "Copy this link:",
     "captureLinkNoUrl": "Set PUBLIC_APP_URL on the API to enable capture links",
-    "captureLinkFailed": "Could not generate link"
+    "captureLinkFailed": "Could not generate link",
+    "sendViaWhatsApp": "Send via WhatsApp"
   },
   "vehicleHistory": {
     "tabTitle": "Service history",

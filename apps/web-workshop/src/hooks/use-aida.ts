@@ -266,6 +266,21 @@ export function useEnsureCaptureToken(id: string) {
   });
 }
 
+export function useSendCaptureLink(id: string) {
+  return useMutation({
+    mutationFn: (input: { phone: string; languageCode?: 'pt_PT' | 'en' }) =>
+      api.post<{
+        success: boolean;
+        messageId?: string;
+        error?: string;
+        eventId?: string | null;
+        token: string;
+        expiresAt: string;
+        url: string | null;
+      }>(`/aida/assessments/${id}/send-capture-link`, input),
+  });
+}
+
 export function useUploadAssessmentPhoto(id: string) {
   const qc = useQueryClient();
   return useMutation({
