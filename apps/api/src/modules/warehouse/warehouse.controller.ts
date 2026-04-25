@@ -85,8 +85,15 @@ export class WarehouseController {
   async getStock(
     @TenantId() tenantId: string,
     @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
   ) {
-    return this.warehouseService.getStockByWarehouse(tenantId, id);
+    return this.warehouseService.getStockByWarehouse(
+      tenantId,
+      id,
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 50,
+    );
   }
 
   @Get('part/:partId/stock')

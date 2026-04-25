@@ -188,17 +188,44 @@ export class WarehouseService {
     return data;
   }
 
-  async getStockByWarehouse(tenantId: string, warehouseId: string) {
-    const { data, error } = await this.supabase
+  async getStockByWarehouse(tenantId: string, warehouseId: string, page = 1, pageSize = 50) {
+    const { data, error, count } = await this.supabase
       .getClient()
       .from('warehouse_stock')
-      .select('*, part:parts(id, part_number, description, unit_cost, sell_price, category)')
+      .select('*, part:parts(id, part_number, description, unit_cost, sell_price, category)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .eq('warehouse_id', warehouseId)
-      .order('quantity', { ascending: false });
+      .order('quantity', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (error) throw error;
-    return data ?? [];
+
+    // Flatten the joined `part` row to top-level fields so the UI
+    // (which renders item.part_number, item.description, etc.)
+    // doesn't have to unwrap.
+    const rows = (data ?? []).map((row: Record<string, unknown>) => {
+      const partRel = row.part as Record<string, unknown> | Record<string, unknown>[] | null;
+      const part = Array.isArray(partRel) ? partRel[0] : partRel;
+      return {
+        ...row,
+        part_number: part?.part_number ?? null,
+        description: part?.description ?? null,
+        category: part?.category ?? null,
+        unit_cost: part?.unit_cost ?? null,
+        sell_price: part?.sell_price ?? null,
+      };
+    });
+
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getStockByPart(tenantId: string, partId: string) {
