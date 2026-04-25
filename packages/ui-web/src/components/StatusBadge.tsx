@@ -1,15 +1,20 @@
 import { cn } from '../utils';
 
 const STATUS_STYLES: Record<string, string> = {
-  // Job statuses
+  // Job statuses — each status MUST have a distinct hue so the
+  // workflow phase is identifiable at a glance. Palette walks the
+  // job lifecycle: gray (intake) → blue (diagnosing) → amber/indigo
+  // (waiting on approval/insurance) → orange (parts blocked) →
+  // purple (active work) → teal (QC) → green (ready) → muted gray
+  // (closed). Avoid reusing a hue across two statuses.
   received:           'bg-gray-100 text-gray-700',
   diagnosing:         'bg-blue-100 text-blue-700',
-  awaiting_approval:  'bg-yellow-100 text-yellow-800',
-  awaiting_reapproval:'bg-yellow-100 text-yellow-800',
-  insurance_review:   'bg-purple-100 text-purple-700',
-  in_progress:        'bg-blue-100 text-blue-700',
+  awaiting_approval:  'bg-amber-100 text-amber-800',
+  awaiting_reapproval:'bg-amber-100 text-amber-800',
+  insurance_review:   'bg-indigo-100 text-indigo-700',
   awaiting_parts:     'bg-orange-100 text-orange-700',
-  quality_check:      'bg-indigo-100 text-indigo-700',
+  in_progress:        'bg-purple-100 text-purple-700',
+  quality_check:      'bg-teal-100 text-teal-700',
   ready:              'bg-green-100 text-green-700',
   invoiced:           'bg-gray-100 text-gray-500',
 
