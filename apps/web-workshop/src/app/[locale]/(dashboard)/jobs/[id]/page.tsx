@@ -43,7 +43,7 @@ import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } 
 import { useAssessments, useCreateAssessment } from '@/hooks/use-aida';
 import { VehicleHistoryModal } from '@/components/VehicleHistoryModal';
 import { SkeletonPage, StatusBadge, statusButtonClasses } from '@mecanix/ui-web';
-import { Camera } from 'lucide-react';
+import { Camera, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 
 // Must match backend VALID_TRANSITIONS in jobs.service.ts
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -1067,6 +1067,137 @@ function EditableCell({
     >
       {shown}
     </span>
+  );
+}
+
+/**
+ * Profitability card — computes the actualised margin on the job
+ * from the line-level data. Cost = SUM(unit_cost * qty) on parts
+ * lines. Labour cost isn't tracked anywhere yet (technicians have a
+ * billed `rate` but no separate cost rate), so labour is treated as
+ * 100% margin and that assumption is called out in the breakdown.
+ *
+ * Revenue uses each line's `subtotal` field, which already reflects
+ * any line-level discount the server applied — so the margin shown
+ * is the post-discount, "actualised" number.
+ */
+function ProfitabilityCard({
+  labourLines,
+  partsLines,
+  labourTotal,
+  partsTotal,
+}: {
+  labourLines: Array<Record<string, unknown>>;
+  partsLines: Array<Record<string, unknown>>;
+  labourTotal: number;
+  partsTotal: number;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const charged = (lines: Array<Record<string, unknown>>) =>
+    lines.filter((l) => (l.line_status as string | undefined) !== 'planned');
+
+  const partsCost = charged(partsLines).reduce(
+    (acc, l) => acc + Number(l.unit_cost ?? 0) * Number(l.quantity ?? 0),
+    0,
+  );
+  const partsRevenue = charged(partsLines).reduce(
+    (acc, l) => acc + Number(l.subtotal ?? 0),
+    0,
+  );
+  const labourRevenue = charged(labourLines).reduce(
+    (acc, l) => acc + Number(l.subtotal ?? 0),
+    0,
+  );
+
+  // Fall back to the job-card stored totals when our line-by-line
+  // sums round to 0 (e.g. all lines still planned).
+  const partsRev = partsRevenue || partsTotal;
+  const labourRev = labourRevenue || labourTotal;
+  const totalRevenue = partsRev + labourRev;
+  const totalCost = partsCost; // labour cost not tracked
+  const totalMargin = totalRevenue - totalCost;
+  const totalMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+  const partsMargin = partsRev - partsCost;
+  const partsMarginPct = partsRev > 0 ? (partsMargin / partsRev) * 100 : 0;
+
+  // Tier the headline pill colour by margin band.
+  const pillClass =
+    totalMarginPct >= 40 ? 'bg-green-100 text-green-700' :
+    totalMarginPct >= 20 ? 'bg-amber-100 text-amber-700' :
+    'bg-red-100 text-red-700';
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 p-6 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <TrendingUp className="h-5 w-5 text-gray-400" />
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Margem do trabalho</h2>
+            <p className="text-xs text-gray-500">Custo, receita e margem actualizada após descontos.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${pillClass}`}>
+            {totalMarginPct.toFixed(1)}%
+          </span>
+          {open ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-gray-200 px-6 py-4 text-sm">
+          {/* Parts breakdown */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Peças</h3>
+            <div className="space-y-1">
+              <div className="flex justify-between"><span className="text-gray-600">Receita peças:</span><span className="font-medium">{formatNumber(partsRev, undefined, 2)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">Custo peças:</span><span className="font-medium">{formatNumber(partsCost, undefined, 2)}</span></div>
+              <div className="flex justify-between border-t border-gray-100 pt-1">
+                <span className="text-gray-700 font-medium">Margem peças:</span>
+                <span className={`font-semibold ${partsMargin < 0 ? 'text-red-700' : 'text-gray-900'}`}>
+                  {formatNumber(partsMargin, undefined, 2)} ({partsMarginPct.toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Labour */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Mão de obra</h3>
+            <div className="space-y-1">
+              <div className="flex justify-between"><span className="text-gray-600">Receita mão de obra:</span><span className="font-medium">{formatNumber(labourRev, undefined, 2)}</span></div>
+              <div className="flex justify-between"><span className="text-gray-600">Custo mão de obra:</span><span className="text-gray-400">não rastreado</span></div>
+            </div>
+            <p className="mt-1 text-xs italic text-gray-500">
+              O custo da mão de obra (custo/hora do técnico) ainda não é controlado — a margem total assume mão de obra como 100% margem.
+            </p>
+          </div>
+
+          {/* Total */}
+          <div className="rounded-md bg-gray-50 p-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Receita total:</span>
+              <span className="font-semibold">{formatNumber(totalRevenue, undefined, 2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Custo total rastreado:</span>
+              <span className="font-semibold">{formatNumber(totalCost, undefined, 2)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2">
+              <span className="text-base font-semibold text-gray-900">Margem actualizada:</span>
+              <span className="text-base font-bold text-gray-900">
+                {formatNumber(totalMargin, undefined, 2)} ({totalMarginPct.toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2928,6 +3059,14 @@ export default function JobDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Profitability */}
+      <ProfitabilityCard
+        labourLines={(labourLines as Array<Record<string, unknown>> | undefined) ?? []}
+        partsLines={(partsLines as Array<Record<string, unknown>> | undefined) ?? []}
+        labourTotal={Number(typedJob.labour_total ?? 0)}
+        partsTotal={Number(typedJob.parts_total ?? 0)}
+      />
 
       </>
       )}
