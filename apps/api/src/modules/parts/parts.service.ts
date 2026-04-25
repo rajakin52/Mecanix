@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 import type { CreatePartInput, UpdatePartInput, AdjustStockInput, PaginationInput } from '@mecanix/validators';
 
 interface PartFilters {
@@ -9,7 +10,10 @@ interface PartFilters {
 
 @Injectable()
 export class PartsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly warehouse: WarehouseService,
+  ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: PartFilters = {}) {
     const client = this.supabase.getClient();
@@ -261,7 +265,10 @@ export class PartsService {
     userId: string,
     input: AdjustStockInput,
   ) {
-    // Manual stock increases are forbidden — stock can only increase via supplier invoices or initial upload
+    // Decreases-only: manual stock increases must come through supplier
+    // invoices, dedicated stock upload, or the new stock-adjustments
+    // transaction screen (gated to owner/manager). Decreases like
+    // damaged/lost still flow through here.
     if (input.quantityChange > 0) {
       throw new BadRequestException(
         'Manual stock increases are not allowed. Stock can only be increased through supplier invoices.',
@@ -269,47 +276,33 @@ export class PartsService {
     }
 
     const client = this.supabase.getClient();
-    const part = await this.getById(tenantId, partId);
+    await this.getById(tenantId, partId); // existence + tenant scope check
 
-    const newQty = (part.stock_qty as number) + input.quantityChange;
-    if (newQty < 0) {
-      throw new BadRequestException('Insufficient stock for this adjustment');
-    }
+    const warehouseId = await this.warehouse.getDefaultWarehouseId(tenantId);
+    const newQty = await this.warehouse.applyStockDelta(tenantId, warehouseId, partId, input.quantityChange);
 
-    // Update stock qty
-    const { data, error } = await client
-      .from('parts')
-      .update({
-        stock_qty: newQty,
-        updated_by: userId,
-      })
-      .eq('id', partId)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Insert inventory adjustment record
     const { error: adjError } = await client
       .from('inventory_adjustments')
       .insert({
         tenant_id: tenantId,
         part_id: partId,
+        warehouse_id: warehouseId,
         quantity_change: input.quantityChange,
         reason: input.reason,
         reference: input.reference || null,
         adjusted_by: userId,
       });
-
     if (adjError) throw adjError;
 
-    return data;
+    // parts.stock_qty is auto-synced by the warehouse_stock_sync_parts
+    // trigger; just return the updated part for the response.
+    const updated = await this.getById(tenantId, partId);
+    return { ...updated, stock_qty: newQty };
   }
 
   /**
    * Internal method for stock increases — bypasses manual adjustment guard.
-   * Only called from supplier invoice approval and initial stock upload.
+   * Called from supplier invoice approval and initial stock upload.
    */
   async increaseStockInternal(
     tenantId: string,
@@ -324,30 +317,22 @@ export class PartsService {
     }
 
     const client = this.supabase.getClient();
-    const part = await this.getById(tenantId, partId);
+    await this.getById(tenantId, partId);
 
-    const newQty = (part.stock_qty as number) + quantityChange;
-
-    const { data, error } = await client
-      .from('parts')
-      .update({ stock_qty: newQty, updated_by: userId })
-      .eq('id', partId)
-      .eq('tenant_id', tenantId)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const warehouseId = await this.warehouse.getDefaultWarehouseId(tenantId);
+    await this.warehouse.applyStockDelta(tenantId, warehouseId, partId, quantityChange);
 
     await client.from('inventory_adjustments').insert({
       tenant_id: tenantId,
       part_id: partId,
+      warehouse_id: warehouseId,
       quantity_change: quantityChange,
       reason,
       reference: reference || null,
       adjusted_by: userId,
     });
 
-    return data;
+    return this.getById(tenantId, partId);
   }
 
   /**

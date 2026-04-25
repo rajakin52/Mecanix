@@ -66,6 +66,97 @@ export class WarehouseService {
     };
   }
 
+  /**
+   * Resolve the tenant's default warehouse. Used by writers that
+   * deal in "global" stock (legacy parts.stock_qty paths) so they
+   * have a destination in warehouse_stock.
+   */
+  async getDefaultWarehouseId(tenantId: string): Promise<string> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('warehouses')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      throw new BadRequestException(
+        'No default warehouse configured for this tenant. Create or mark a warehouse as default first.',
+      );
+    }
+    return data.id as string;
+  }
+
+  /**
+   * Apply a stock delta to a (tenant, part, warehouse) tuple.
+   * Inserts a warehouse_stock row if none exists. Refuses negative
+   * resulting quantity. Used by writers that previously updated
+   * parts.stock_qty directly.
+   *
+   * The parts.stock_qty column is NOT touched here — the trigger
+   * `warehouse_stock_sync_parts` keeps it in sync automatically.
+   */
+  async applyStockDelta(
+    tenantId: string,
+    warehouseId: string,
+    partId: string,
+    delta: number,
+  ): Promise<number> {
+    if (delta === 0) {
+      const { data } = await this.supabase
+        .getClient()
+        .from('warehouse_stock')
+        .select('quantity')
+        .eq('tenant_id', tenantId)
+        .eq('warehouse_id', warehouseId)
+        .eq('part_id', partId)
+        .maybeSingle();
+      return (data?.quantity as number | undefined) ?? 0;
+    }
+
+    const client = this.supabase.getClient();
+    const { data: existing } = await client
+      .from('warehouse_stock')
+      .select('id, quantity')
+      .eq('tenant_id', tenantId)
+      .eq('warehouse_id', warehouseId)
+      .eq('part_id', partId)
+      .maybeSingle();
+
+    if (existing) {
+      const newQty = (existing.quantity as number) + delta;
+      if (newQty < 0) {
+        throw new BadRequestException('Insufficient stock for this adjustment');
+      }
+      const { error } = await client
+        .from('warehouse_stock')
+        .update({ quantity: newQty })
+        .eq('id', existing.id)
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return newQty;
+    }
+
+    if (delta < 0) {
+      throw new BadRequestException('Insufficient stock for this adjustment');
+    }
+    const { error } = await client
+      .from('warehouse_stock')
+      .insert({
+        tenant_id: tenantId,
+        warehouse_id: warehouseId,
+        part_id: partId,
+        quantity: delta,
+        min_quantity: 0,
+      });
+    if (error) throw error;
+    return delta;
+  }
+
   async getWarehouse(tenantId: string, id: string) {
     const { data, error } = await this.supabase
       .getClient()

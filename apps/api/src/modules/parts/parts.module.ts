@@ -12,8 +12,10 @@ import { BulkImportController } from './bulk-import.controller';
 import { BulkImportService } from './bulk-import.service';
 import { StockPolicyController } from './stock-policy.controller';
 import { StockPolicyService } from './stock-policy.service';
+import { WarehouseModule } from '../warehouse/warehouse.module';
 
 @Module({
+  imports: [WarehouseModule],
   controllers: [PartsController, ServiceGroupsController, InventoryController, StockUploadController, BulkImportController, StockPolicyController],
   providers: [PartsService, ServiceGroupsService, InventoryService, CostingService, StockUploadService, BulkImportService, StockPolicyService],
   exports: [PartsService, InventoryService, CostingService, StockPolicyService],
