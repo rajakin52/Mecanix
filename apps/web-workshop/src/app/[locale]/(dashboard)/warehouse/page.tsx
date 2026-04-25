@@ -997,8 +997,8 @@ function StockCountModal({ onClose }: { onClose: () => void }) {
 
     try {
       await createMutation.mutateAsync({
-        warehouse_id: warehouseId,
-        category: category || undefined,
+        warehouseId,
+        categoryFilter: category || undefined,
         notes: notes || undefined,
       });
       toast.success(tc('stockCountCreated'));
