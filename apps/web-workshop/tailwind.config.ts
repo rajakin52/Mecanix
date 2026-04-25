@@ -2,7 +2,14 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   darkMode: ['class'],
-  content: ['./src/**/*.{ts,tsx}'],
+  // Scan shared UI packages too — without this, classes used inside
+  // @mecanix/ui-web (e.g. StatusBadge palette) are purged from the
+  // production CSS because Tailwind never sees those source files.
+  content: [
+    './src/**/*.{ts,tsx}',
+    '../../packages/ui-web/src/**/*.{ts,tsx}',
+    '../../packages/ui/src/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {
