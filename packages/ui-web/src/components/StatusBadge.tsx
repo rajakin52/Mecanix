@@ -71,3 +71,26 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     </span>
   );
 }
+
+/**
+ * Same palette as the StatusBadge, packaged as button classes so
+ * status-transition buttons can preview the destination colour.
+ * Each entry must mirror STATUS_STYLES above.
+ */
+const STATUS_BUTTON_STYLES: Record<string, string> = {
+  received:           'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200',
+  diagnosing:         'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200',
+  awaiting_approval:  'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200',
+  awaiting_reapproval:'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200',
+  insurance_review:   'bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200',
+  awaiting_parts:     'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200',
+  in_progress:        'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200',
+  quality_check:      'bg-teal-100 text-teal-700 border-teal-200 hover:bg-teal-200',
+  ready:              'bg-green-100 text-green-700 border-green-200 hover:bg-green-200',
+  invoiced:           'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200',
+};
+
+/** Returns Tailwind button classes (bg/text/border/hover) coloured for a given status. */
+export function statusButtonClasses(status: string): string {
+  return STATUS_BUTTON_STYLES[status] ?? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200';
+}

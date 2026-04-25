@@ -42,7 +42,7 @@ import { useCatalogItems, useApplyCatalogToJob, type CatalogItem } from '@/hooks
 import { useEstimates, useCreateEstimate, useSendEstimate, useApproveEstimate } from '@/hooks/use-estimates';
 import { useAssessments, useCreateAssessment } from '@/hooks/use-aida';
 import { VehicleHistoryModal } from '@/components/VehicleHistoryModal';
-import { SkeletonPage, StatusBadge } from '@mecanix/ui-web';
+import { SkeletonPage, StatusBadge, statusButtonClasses } from '@mecanix/ui-web';
 import { Camera } from 'lucide-react';
 
 // Must match backend VALID_TRANSITIONS in jobs.service.ts
@@ -1474,7 +1474,7 @@ export default function JobDetailPage() {
                     key={ns}
                     onClick={() => handleStatusChange(ns)}
                     disabled={statusMutation.isPending}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    className={`rounded-md border px-3 py-1.5 text-sm font-medium capitalize disabled:opacity-50 ${statusButtonClasses(ns)}`}
                   >
                     {ns.replace(/_/g, ' ')}
                   </button>
