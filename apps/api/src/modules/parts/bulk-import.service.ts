@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { SupabaseService } from '../supabase/supabase.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 
 interface ImportRow {
   rowNumber: number;
@@ -70,7 +71,10 @@ const COLUMN_ALIASES: Record<string, string> = {
 export class BulkImportService {
   private readonly logger = new Logger(BulkImportService.name);
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly warehouse: WarehouseService,
+  ) {}
 
   generateTemplate(): Buffer {
     const workbook = XLSX.utils.book_new();
@@ -278,6 +282,10 @@ export class BulkImportService {
     let updated = 0;
     let skipped = 0;
 
+    // Resolve once — every row that carries stockQty needs to land
+    // in the same default warehouse. Missing default is fatal.
+    const defaultWarehouseId = await this.warehouse.getDefaultWarehouseId(tenantId);
+
     for (const row of rows) {
       try {
         // Resolve supplier
@@ -308,7 +316,9 @@ export class BulkImportService {
         if (row.partNumber !== undefined) payload.part_number = row.partNumber;
         if (row.unitCost !== undefined) payload.unit_cost = row.unitCost;
         if (row.sellPrice !== undefined) payload.sell_price = row.sellPrice;
-        if (row.stockQty !== undefined) payload.stock_qty = row.stockQty;
+        // NB: row.stockQty deliberately NOT placed in the parts payload —
+        // parts.stock_qty is auto-synced by the warehouse_stock trigger.
+        // We write the actual quantity to warehouse_stock below.
         if (row.reorderPoint !== undefined) payload.reorder_point = row.reorderPoint;
         if (row.category !== undefined) payload.category = row.category;
         if (row.location !== undefined) payload.location = row.location;
@@ -327,6 +337,7 @@ export class BulkImportService {
           payload.tax_code_id = defaultTaxCodeId;
         }
 
+        let partId: string | null = null;
         if (existing) {
           const { error: updErr } = await client
             .from('parts')
@@ -338,9 +349,10 @@ export class BulkImportService {
             skipped++;
           } else {
             updated++;
+            partId = existing.id;
           }
         } else {
-          const { error: insErr } = await client
+          const { data: inserted, error: insErr } = await client
             .from('parts')
             .insert({
               tenant_id: tenantId,
@@ -351,13 +363,22 @@ export class BulkImportService {
               reorder_point: 0,
               ...payload,
               created_by: userId,
-            });
+            })
+            .select('id')
+            .single();
           if (insErr) {
             errors.push(`Row ${row.rowNumber}: create failed — ${insErr.message}`);
             skipped++;
           } else {
             created++;
+            partId = inserted.id as string;
           }
+        }
+
+        // Apply CSV stock quantity to warehouse_stock (default warehouse)
+        // as an absolute set. The trigger then updates parts.stock_qty.
+        if (partId !== null && row.stockQty !== undefined) {
+          await this.warehouse.setStockQuantity(tenantId, defaultWarehouseId, partId, row.stockQty);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

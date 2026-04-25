@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 import type { CreatePurchaseOrderInput, CreatePoLineInput, ReceiveGoodsInput, PaginationInput } from '@mecanix/validators';
 
 @Injectable()
 export class PurchaseOrdersService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly warehouse: WarehouseService,
+  ) {}
 
   async list(tenantId: string, pagination: PaginationInput, vendorId?: string) {
     const client = this.supabase.getClient();
@@ -205,38 +209,24 @@ export class PurchaseOrdersService {
 
     if (updateLineError) throw updateLineError;
 
-    // Update part stock qty
-    const { data: part } = await client
-      .from('parts')
-      .select('stock_qty')
-      .eq('id', line.part_id)
-      .eq('tenant_id', tenantId)
-      .single();
+    // Increment warehouse_stock at the PO line's warehouse if set,
+    // else the tenant's default. parts.stock_qty is auto-synced by the
+    // warehouse_stock trigger.
+    const lineWarehouseId = (line.warehouse_id as string | null) ?? null;
+    const warehouseId = lineWarehouseId ?? (await this.warehouse.getDefaultWarehouseId(tenantId));
+    await this.warehouse.applyStockDelta(tenantId, warehouseId, line.part_id as string, input.receivedQty);
 
-    if (part) {
-      const newStockQty = (part.stock_qty as number) + input.receivedQty;
-      await client
-        .from('parts')
-        .update({
-          stock_qty: newStockQty,
-          
-        })
-        .eq('id', line.part_id)
-        .eq('tenant_id', tenantId);
-
-      // Record inventory adjustment — table only has
-      // (quantity_change, reason, reference, adjusted_by)
-      await client
-        .from('inventory_adjustments')
-        .insert({
-          tenant_id: tenantId,
-          part_id: line.part_id,
-          quantity_change: input.receivedQty,
-          reason: 'PO goods received',
-          reference: poId,
-          adjusted_by: userId,
-        });
-    }
+    await client
+      .from('inventory_adjustments')
+      .insert({
+        tenant_id: tenantId,
+        part_id: line.part_id,
+        warehouse_id: warehouseId,
+        quantity_change: input.receivedQty,
+        reason: 'PO goods received',
+        reference: poId,
+        adjusted_by: userId,
+      });
 
     // Check if all lines are fully received
     const { data: allLines } = await client

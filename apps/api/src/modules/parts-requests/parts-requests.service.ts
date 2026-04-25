@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PurchaseRequestsService } from '../purchase-requests/purchase-requests.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 
 interface CreatePartsRequestInput {
   jobCardId: string;
@@ -19,6 +20,7 @@ export class PartsRequestsService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly purchaseRequestsService: PurchaseRequestsService,
+    private readonly warehouse: WarehouseService,
   ) {}
 
   async list(tenantId: string, status?: string, jobCardId?: string) {
@@ -281,7 +283,10 @@ export class PartsRequestsService {
     for (const item of issuableItems) {
       const partId = item.part_id as string;
       const qty = item.quantity as number;
-      const warehouseId = (item.warehouse_id as string) || (pr.warehouse_id as string);
+      const warehouseId =
+        (item.warehouse_id as string) ||
+        (pr.warehouse_id as string) ||
+        (await this.warehouse.getDefaultWarehouseId(tenantId));
 
       // Mark item as issued
       await client
@@ -290,48 +295,15 @@ export class PartsRequestsService {
         .eq('id', item.id as string)
         .eq('tenant_id', tenantId);
 
-      // Deduct stock from warehouse_stock if warehouse specified
-      if (warehouseId) {
-        const { data: ws } = await client
-          .from('warehouse_stock')
-          .select('id, quantity')
-          .eq('warehouse_id', warehouseId)
-          .eq('part_id', partId)
-          .eq('tenant_id', tenantId)
-          .maybeSingle();
+      // Decrement warehouse_stock for the chosen warehouse. The
+      // warehouse_stock_sync_parts trigger keeps parts.stock_qty in
+      // sync — no separate parts.update needed.
+      await this.warehouse.applyStockDelta(tenantId, warehouseId, partId, -qty);
 
-        if (ws) {
-          const newQty = Math.max(0, (ws.quantity as number) - qty);
-          await client
-            .from('warehouse_stock')
-            .update({ quantity: newQty })
-            .eq('id', ws.id as string)
-            .eq('tenant_id', tenantId);
-        }
-      } else {
-        // Deduct from parts.stock_qty
-        const { data: part } = await client
-          .from('parts')
-          .select('id, stock_qty')
-          .eq('id', partId)
-          .eq('tenant_id', tenantId)
-          .single();
-
-        if (part) {
-          const newQty = Math.max(0, (part.stock_qty as number ?? 0) - qty);
-          await client
-            .from('parts')
-            .update({ stock_qty: newQty })
-            .eq('id', partId)
-            .eq('tenant_id', tenantId);
-        }
-      }
-
-      // Create inventory adjustment record
       await client.from('inventory_adjustments').insert({
         tenant_id: tenantId,
         part_id: partId,
-        warehouse_id: warehouseId || null,
+        warehouse_id: warehouseId,
         quantity_change: -qty,
         reason: 'Parts issued to job card',
         reference: `Parts Request ${pr.request_number}`,

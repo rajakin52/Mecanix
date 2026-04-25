@@ -157,6 +157,48 @@ export class WarehouseService {
     return delta;
   }
 
+  /**
+   * Set warehouse_stock.quantity to an absolute value for a
+   * (tenant, warehouse, part) tuple. Use this when the caller knows
+   * the desired final quantity (e.g. CSV bulk-stock upload). Inserts
+   * a row if none exists.
+   */
+  async setStockQuantity(
+    tenantId: string,
+    warehouseId: string,
+    partId: string,
+    quantity: number,
+  ): Promise<void> {
+    if (quantity < 0) throw new BadRequestException('Quantity must be non-negative');
+    const client = this.supabase.getClient();
+    const { data: existing } = await client
+      .from('warehouse_stock')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('warehouse_id', warehouseId)
+      .eq('part_id', partId)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await client
+        .from('warehouse_stock')
+        .update({ quantity })
+        .eq('id', existing.id)
+        .eq('tenant_id', tenantId);
+      if (error) throw error;
+      return;
+    }
+    const { error } = await client
+      .from('warehouse_stock')
+      .insert({
+        tenant_id: tenantId,
+        warehouse_id: warehouseId,
+        part_id: partId,
+        quantity,
+        min_quantity: 0,
+      });
+    if (error) throw error;
+  }
+
   async getWarehouse(tenantId: string, id: string) {
     const { data, error } = await this.supabase
       .getClient()
