@@ -65,10 +65,13 @@ export class StockCountService {
       throw new NotFoundException('Stock count not found');
     }
 
-    // Fetch lines with part details
+    // Fetch lines with part details. Includes location + category so
+    // the XLSX export can render them without a follow-up .in() query
+    // (which was hitting PostgREST URL-length limits at ~500+ part ids
+    // and silently returning no rows).
     const { data: lines, error: linesErr } = await client
       .from('stock_count_lines')
-      .select('*, part:parts(id, part_number, description, unit_cost)')
+      .select('*, part:parts(id, part_number, description, unit_cost, location, category)')
       .eq('stock_count_id', id)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true });
@@ -410,29 +413,18 @@ export class StockCountService {
     countId: string,
     sortBy: 'part_number' | 'description' | 'location' = 'part_number',
   ): Promise<{ fileName: string; contentType: string; base64: string }> {
-    const client = this.supabase.getClient();
     const count = await this.getCount(tenantId, countId);
     const lines = (count.lines as Array<Record<string, unknown>>) ?? [];
 
-    // Pull part details (part_number / description / location) for
-    // every line in one query rather than relying on the embedded
-    // join, since `location` isn't included by the count detail.
-    const partIds = lines.map((l) => l.part_id as string);
-    let partMap = new Map<string, Record<string, unknown>>();
-    if (partIds.length > 0) {
-      const { data: parts } = await client
-        .from('parts')
-        .select('id, part_number, description, location, category')
-        .in('id', partIds)
-        .eq('tenant_id', tenantId);
-      partMap = new Map((parts ?? []).map((p) => [p.id as string, p]));
-    }
-
+    // Each line already carries an embedded `part` thanks to the
+    // join in getCount. No extra query needed (and the previous
+    // .in() approach failed silently on 500+ ids — URL too long).
     const rows = lines.map((line) => {
-      const part = partMap.get(line.part_id as string) ?? {};
+      const partRel = line.part as Record<string, unknown> | Record<string, unknown>[] | null;
+      const part = (Array.isArray(partRel) ? partRel[0] : partRel) ?? {};
       return {
         'Part Number': (part.part_number as string | null) ?? '',
-        Description: (part.description as string | null) ?? (line.description as string | null) ?? '',
+        Description: (part.description as string | null) ?? '',
         Location: (part.location as string | null) ?? '',
         Category: (part.category as string | null) ?? '',
         'System Qty': line.system_qty ?? 0,
