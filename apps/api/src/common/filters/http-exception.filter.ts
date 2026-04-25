@@ -16,6 +16,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'INTERNAL_ERROR';
     let message = 'An unexpected error occurred';
+    let details: unknown = undefined;
 
     if (!(exception instanceof HttpException)) {
       console.error('Unhandled exception:', exception);
@@ -39,6 +40,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const resp = response as Record<string, unknown>;
         message = (resp['message'] as string) ?? message;
         code = (resp['error'] as string) ?? code;
+        details = resp['details'];
+
+        // Zod-style { details: [{ field, message }] } — fold the
+        // first couple of field errors into the user-facing message
+        // so a generic "Validation failed" toast becomes useful.
+        if (Array.isArray(details) && details.length > 0) {
+          const first = details
+            .slice(0, 2)
+            .map((d) => {
+              if (d && typeof d === 'object' && 'field' in d && 'message' in d) {
+                const dr = d as { field: string; message: string };
+                return `${dr.field}: ${dr.message}`;
+              }
+              return String(d);
+            })
+            .join('; ');
+          if (first) message = `${message} — ${first}`;
+        }
       }
     }
 
@@ -47,6 +66,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: {
         code,
         message,
+        ...(details !== undefined ? { details } : {}),
       },
     });
   }
