@@ -1086,11 +1086,13 @@ function ProfitabilityCard({
   partsLines,
   labourTotal,
   partsTotal,
+  technicians,
 }: {
   labourLines: Array<Record<string, unknown>>;
   partsLines: Array<Record<string, unknown>>;
   labourTotal: number;
   partsTotal: number;
+  technicians: Array<{ id: string; cost_per_hour: number | null }>;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -1110,16 +1112,42 @@ function ProfitabilityCard({
     0,
   );
 
+  // Resolve labour cost using technician.cost_per_hour. Lines with
+  // no technician_id, or whose technician has no cost set, are
+  // counted as untracked. labourCost only includes the lines we can
+  // confidently cost.
+  const techCostMap = new Map<string, number>();
+  for (const t of technicians) {
+    if (t.cost_per_hour != null) techCostMap.set(t.id, Number(t.cost_per_hour));
+  }
+  let labourCost = 0;
+  let labourLinesCosted = 0;
+  let labourLinesUntracked = 0;
+  for (const l of charged(labourLines)) {
+    const techId = l.technician_id as string | null | undefined;
+    const cost = techId ? techCostMap.get(techId) : undefined;
+    const hours = Number(l.hours ?? 0);
+    if (cost != null) {
+      labourCost += cost * hours;
+      labourLinesCosted += 1;
+    } else {
+      labourLinesUntracked += 1;
+    }
+  }
+  const labourFullyCosted = labourLinesCosted > 0 && labourLinesUntracked === 0;
+
   // Fall back to the job-card stored totals when our line-by-line
   // sums round to 0 (e.g. all lines still planned).
   const partsRev = partsRevenue || partsTotal;
   const labourRev = labourRevenue || labourTotal;
   const totalRevenue = partsRev + labourRev;
-  const totalCost = partsCost; // labour cost not tracked
+  const totalCost = partsCost + labourCost;
   const totalMargin = totalRevenue - totalCost;
   const totalMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
   const partsMargin = partsRev - partsCost;
   const partsMarginPct = partsRev > 0 ? (partsMargin / partsRev) * 100 : 0;
+  const labourMargin = labourRev - labourCost;
+  const labourMarginPct = labourRev > 0 ? (labourMargin / labourRev) * 100 : 0;
 
   // Tier the headline pill colour by margin band.
   const pillClass =
@@ -1171,11 +1199,29 @@ function ProfitabilityCard({
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Mão de obra</h3>
             <div className="space-y-1">
               <div className="flex justify-between"><span className="text-gray-600">Receita mão de obra:</span><span className="font-medium">{formatNumber(labourRev, undefined, 2)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-600">Custo mão de obra:</span><span className="text-gray-400">não rastreado</span></div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Custo mão de obra:</span>
+                {labourCost > 0 || labourLinesCosted > 0 ? (
+                  <span className="font-medium">{formatNumber(labourCost, undefined, 2)}</span>
+                ) : (
+                  <span className="text-gray-400">não rastreado</span>
+                )}
+              </div>
+              {(labourCost > 0 || labourLinesCosted > 0) && (
+                <div className="flex justify-between border-t border-gray-100 pt-1">
+                  <span className="text-gray-700 font-medium">Margem mão de obra:</span>
+                  <span className={`font-semibold ${labourMargin < 0 ? 'text-red-700' : 'text-gray-900'}`}>
+                    {formatNumber(labourMargin, undefined, 2)} ({labourMarginPct.toFixed(1)}%)
+                  </span>
+                </div>
+              )}
             </div>
-            <p className="mt-1 text-xs italic text-gray-500">
-              O custo da mão de obra (custo/hora do técnico) ainda não é controlado — a margem total assume mão de obra como 100% margem.
-            </p>
+            {labourLinesUntracked > 0 && (
+              <p className="mt-1 text-xs italic text-amber-700">
+                {labourLinesUntracked} linha(s) sem custo — o técnico não tem &quot;Cost / hour&quot; preenchido.
+                {!labourFullyCosted && labourCost === 0 && ' A margem total assume mão de obra como 100% margem.'}
+              </p>
+            )}
           </div>
 
           {/* Total */}
@@ -3066,6 +3112,7 @@ export default function JobDetailPage() {
         partsLines={(partsLines as Array<Record<string, unknown>> | undefined) ?? []}
         labourTotal={Number(typedJob.labour_total ?? 0)}
         partsTotal={Number(typedJob.parts_total ?? 0)}
+        technicians={(techData ?? []) as Array<{ id: string; cost_per_hour: number | null }>}
       />
 
       </>

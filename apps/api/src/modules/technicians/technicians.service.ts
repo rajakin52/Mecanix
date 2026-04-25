@@ -45,6 +45,7 @@ export class TechniciansService {
         phone: input.phone || null,
         specializations: input.specializations ?? [],
         hourly_rate: input.hourlyRate ?? null,
+        cost_per_hour: input.costPerHour ?? null,
         is_active: input.isActive ?? true,
         created_by: userId,
         updated_by: userId,
@@ -64,6 +65,7 @@ export class TechniciansService {
     if (input.phone !== undefined) updateData['phone'] = input.phone || null;
     if (input.specializations !== undefined) updateData['specializations'] = input.specializations;
     if (input.hourlyRate !== undefined) updateData['hourly_rate'] = input.hourlyRate;
+    if (input.costPerHour !== undefined) updateData['cost_per_hour'] = input.costPerHour;
     if (input.isActive !== undefined) updateData['is_active'] = input.isActive;
 
     const { data, error } = await this.supabase

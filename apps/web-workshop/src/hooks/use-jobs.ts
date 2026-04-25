@@ -109,7 +109,7 @@ export function useConvertJobType() {
 export function useTechnicians() {
   return useQuery({
     queryKey: ['technicians'],
-    queryFn: () => api.get<Array<{ id: string; full_name: string; specializations: string[]; hourly_rate: number }>>('/technicians'),
+    queryFn: () => api.get<Array<{ id: string; full_name: string; specializations: string[]; hourly_rate: number; cost_per_hour: number | null }>>('/technicians'),
   });
 }
 

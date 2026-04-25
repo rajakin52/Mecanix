@@ -11,6 +11,7 @@ interface Technician {
   phone: string | null;
   specializations: string[];
   hourly_rate: number | null;
+  cost_per_hour: number | null;
   is_active: boolean;
   created_at: string;
 }
@@ -41,11 +42,11 @@ export default function TechniciansPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ fullName: '', phone: '', specializations: '', hourlyRate: '' });
+  const [form, setForm] = useState({ fullName: '', phone: '', specializations: '', hourlyRate: '', costPerHour: '' });
   const [formError, setFormError] = useState<string | null>(null);
 
   const resetForm = () => {
-    setForm({ fullName: '', phone: '', specializations: '', hourlyRate: '' });
+    setForm({ fullName: '', phone: '', specializations: '', hourlyRate: '', costPerHour: '' });
     setEditId(null);
     setFormError(null);
   };
@@ -58,6 +59,7 @@ export default function TechniciansPage() {
       phone: form.phone || undefined,
       specializations: form.specializations ? form.specializations.split(',').map((s) => s.trim()).filter(Boolean) : [],
       hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : undefined,
+      costPerHour: form.costPerHour ? Number(form.costPerHour) : undefined,
     };
 
     try {
@@ -79,6 +81,7 @@ export default function TechniciansPage() {
       phone: tech.phone ?? '',
       specializations: (tech.specializations ?? []).join(', '),
       hourlyRate: tech.hourly_rate ? String(tech.hourly_rate) : '',
+      costPerHour: tech.cost_per_hour ? String(tech.cost_per_hour) : '',
     });
     setEditId(tech.id);
     setShowForm(true);
@@ -106,6 +109,7 @@ export default function TechniciansPage() {
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Phone</th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Specializations</th>
               <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Rate/hr</th>
+              <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Cost/hr</th>
               <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">Actions</th>
             </tr>
           </thead>
@@ -116,6 +120,7 @@ export default function TechniciansPage() {
                 <td className="px-4 py-3 text-sm text-gray-500">{tech.phone ?? '-'}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{tech.specializations?.join(', ') || '-'}</td>
                 <td className="px-4 py-3 text-end text-sm text-gray-700">{tech.hourly_rate ? Number(tech.hourly_rate).toFixed(2) : '-'}</td>
+                <td className="px-4 py-3 text-end text-sm text-gray-500">{tech.cost_per_hour ? Number(tech.cost_per_hour).toFixed(2) : '-'}</td>
                 <td className="px-4 py-3 text-end">
                   <button onClick={() => startEdit(tech)} className="text-xs text-primary-600 hover:text-primary-700 me-3">Edit</button>
                   <button onClick={() => { if (confirm('Delete this technician?')) deleteMutation.mutate(tech.id); }} className="text-xs text-red-500 hover:text-red-700">Delete</button>
@@ -123,7 +128,7 @@ export default function TechniciansPage() {
               </tr>
             )) : (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">No technicians yet.</td>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">No technicians yet.</td>
               </tr>
             )}
           </tbody>
@@ -156,7 +161,13 @@ export default function TechniciansPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Hourly Rate</label>
                   <input type="number" step="0.01" value={form.hourlyRate} onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
+                  <p className="mt-1 text-xs text-gray-400">Charged to customer.</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Cost / hour <span className="text-xs font-normal text-gray-400">(internal)</span></label>
+                <input type="number" step="0.01" value={form.costPerHour} onChange={(e) => setForm({ ...form, costPerHour: e.target.value })} placeholder="e.g. 6000" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
+                <p className="mt-1 text-xs text-gray-400">Workshop cost — feeds the job-card profitability calculation. Leave blank if unknown.</p>
               </div>
               {formError && (
                 <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>

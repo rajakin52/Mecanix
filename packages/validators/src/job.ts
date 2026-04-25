@@ -8,6 +8,10 @@ export const createTechnicianSchema = z.object({
   phone: z.string().min(7).max(20).optional(),
   specializations: z.array(z.string()).default([]),
   hourlyRate: z.coerce.number().min(0).optional(),
+  // Internal labour cost — fed into the job-card profitability
+  // panel so margin can be computed. Distinct from hourlyRate
+  // (the customer-facing billed rate).
+  costPerHour: z.coerce.number().min(0).optional(),
   isActive: z.boolean().default(true),
 });
 
