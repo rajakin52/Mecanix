@@ -43,6 +43,16 @@ export default function WorkshopProfilePage() {
   const [identitySaved, setIdentitySaved] = useState(false);
   const [identityError, setIdentityError] = useState('');
 
+  // Banking section state — printed on invoices for customer
+  // transfer payments. All optional.
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankIban, setBankIban] = useState('');
+  const [bankSwift, setBankSwift] = useState('');
+  const [savingBank, setSavingBank] = useState(false);
+  const [bankSaved, setBankSaved] = useState(false);
+  const [bankError, setBankError] = useState('');
+
   // Secondary currency section state
   const [secondaryCurrency, setSecondaryCurrency] = useState('');
   const [exchangeRate, setExchangeRate] = useState('');
@@ -60,6 +70,10 @@ export default function WorkshopProfilePage() {
         setPhone((data.phone as string) ?? '');
         setAddress((data.address as string) ?? '');
         setTaxId((data.tax_id as string) ?? '');
+        setBankName((data.bank_name as string) ?? '');
+        setBankAccountNumber((data.bank_account_number as string) ?? '');
+        setBankIban((data.bank_iban as string) ?? '');
+        setBankSwift((data.bank_swift as string) ?? '');
         setSecondaryCurrency((data.secondary_currency as string) ?? '');
         setExchangeRate(data.exchange_rate ? String(data.exchange_rate) : '');
         setExchangeRateUpdatedAt((data.exchange_rate_updated_at as string) ?? null);
@@ -86,6 +100,26 @@ export default function WorkshopProfilePage() {
       setIdentityError(err instanceof Error ? err.message : 'Error');
     } finally {
       setSavingIdentity(false);
+    }
+  }
+
+  async function saveBank() {
+    setSavingBank(true);
+    setBankError('');
+    setBankSaved(false);
+    try {
+      await api.patch('/tenants/me', {
+        bank_name: bankName || null,
+        bank_account_number: bankAccountNumber || null,
+        bank_iban: bankIban || null,
+        bank_swift: bankSwift || null,
+      });
+      setBankSaved(true);
+      setTimeout(() => setBankSaved(false), 3000);
+    } catch (err) {
+      setBankError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setSavingBank(false);
     }
   }
 
@@ -228,6 +262,71 @@ export default function WorkshopProfilePage() {
               value={taxId}
               onChange={(e) => setTaxId(e.target.value)}
               className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </SettingsField>
+        </SettingsSection>
+
+        {/* Banking */}
+        <SettingsSection
+          title={tw('bankingTitle')}
+          description={tw('bankingDescription')}
+          footer={
+            <SettingsFooter
+              saved={bankSaved}
+              error={bankError}
+              saving={savingBank}
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={saveBank}
+                loading={savingBank}
+              >
+                {t('saveChanges')}
+              </Button>
+            </SettingsFooter>
+          }
+        >
+          <SettingsField label={tw('fieldBankName')} htmlFor="wp-bank-name">
+            <input
+              id="wp-bank-name"
+              type="text"
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              placeholder="BAI, BFA, BIC, Caixa Geral, …"
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </SettingsField>
+
+          <SettingsField label={tw('fieldBankAccountNumber')} htmlFor="wp-bank-account">
+            <input
+              id="wp-bank-account"
+              type="text"
+              value={bankAccountNumber}
+              onChange={(e) => setBankAccountNumber(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </SettingsField>
+
+          <SettingsField label={tw('fieldBankIban')} htmlFor="wp-bank-iban">
+            <input
+              id="wp-bank-iban"
+              type="text"
+              value={bankIban}
+              onChange={(e) => setBankIban(e.target.value.toUpperCase())}
+              placeholder="AO06 0000 0000 0000 0000 0000 0"
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono uppercase shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </SettingsField>
+
+          <SettingsField label={tw('fieldBankSwift')} htmlFor="wp-bank-swift">
+            <input
+              id="wp-bank-swift"
+              type="text"
+              value={bankSwift}
+              onChange={(e) => setBankSwift(e.target.value.toUpperCase())}
+              placeholder="BAIPAOLA"
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono uppercase shadow-sm transition focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             />
           </SettingsField>
         </SettingsSection>

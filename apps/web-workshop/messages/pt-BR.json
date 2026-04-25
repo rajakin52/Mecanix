@@ -1160,7 +1160,13 @@
     "secondaryCurrencyTitle": "Moeda secundária (opcional)",
     "secondaryCurrencyDescription": "Mostra preços em uma moeda secundária ao lado da principal. Usado em Angola para AOA + USD.",
     "fieldSecondaryCurrencyHelp": "Escolha 'Nenhuma' para ocultar a moeda secundária.",
-    "fieldExchangeRateHelp": "Quantos {primary} correspondem a 1 {secondary}. Atualize sempre que necessário."
+    "fieldExchangeRateHelp": "Quantos {primary} correspondem a 1 {secondary}. Atualize sempre que necessário.",
+    "bankingTitle": "Dados bancários",
+    "bankingDescription": "Dados da conta impressos nas notas fiscais e recibos para que os clientes possam pagar por transferência.",
+    "fieldBankName": "Banco",
+    "fieldBankAccountNumber": "Número da conta",
+    "fieldBankIban": "IBAN",
+    "fieldBankSwift": "BIC / SWIFT"
   },
   "settingsFinancial": {
     "title": "Configurações financeiras",

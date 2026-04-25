@@ -14,6 +14,16 @@ interface Tenant {
   exchange_rate_updated_at: string | null;
   timezone: string;
   locale: string;
+  // Identity / billing
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  tax_id?: string | null;
+  // Bank details printed on invoices
+  bank_name?: string | null;
+  bank_account_number?: string | null;
+  bank_iban?: string | null;
+  bank_swift?: string | null;
 }
 
 export function useTenant() {

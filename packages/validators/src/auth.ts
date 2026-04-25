@@ -52,8 +52,20 @@ export const updateTenantSchema = z.object({
   phone: z.string().max(20).optional(),
   email: z.string().email().optional().or(z.literal('')),
   address: z.string().max(500).optional(),
+  // tax_id used in snake_case to match the DB column and the
+  // existing settings page payload. The earlier camelCase taxId
+  // was being stripped silently by Zod.
+  tax_id: z.string().max(50).nullable().optional(),
   taxId: z.string().max(50).optional(),
   logoUrl: z.string().optional(),
+  // Bank details printed on invoices / receipts. Snake_case keys
+  // because the settings page sends snake_case directly to match
+  // DB column names — Zod's strip mode would otherwise discard
+  // any camelCase aliases.
+  bank_name: z.string().max(200).nullable().optional(),
+  bank_account_number: z.string().max(60).nullable().optional(),
+  bank_iban: z.string().max(40).nullable().optional(),
+  bank_swift: z.string().max(20).nullable().optional(),
 });
 
 export const setExchangeRateSchema = z.object({

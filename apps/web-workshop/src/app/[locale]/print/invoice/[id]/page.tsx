@@ -240,8 +240,43 @@ export default function PrintInvoicePage() {
           </div>
         )}
 
-        {/* Totals */}
-        <div className="ml-auto w-80 border-t-2 border-gray-800 pt-4">
+        {/* Totals + bank details */}
+        <div className="mt-6 flex flex-wrap items-start justify-between gap-6">
+          {/* Bank details — only shown when at least one field is set */}
+          {tenant && (tenant.bank_name || tenant.bank_iban || tenant.bank_account_number || tenant.bank_swift) && (
+            <div className="max-w-sm flex-1 rounded-md border border-gray-300 bg-gray-50 p-4 text-xs">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-700">
+                Dados Bancários
+              </div>
+              {tenant.bank_name && (
+                <div className="mb-1">
+                  <span className="text-gray-500">Banco: </span>
+                  <span className="font-medium">{tenant.bank_name}</span>
+                </div>
+              )}
+              {tenant.bank_account_number && (
+                <div className="mb-1">
+                  <span className="text-gray-500">Conta: </span>
+                  <span className="font-mono">{tenant.bank_account_number}</span>
+                </div>
+              )}
+              {tenant.bank_iban && (
+                <div className="mb-1">
+                  <span className="text-gray-500">IBAN: </span>
+                  <span className="font-mono">{tenant.bank_iban}</span>
+                </div>
+              )}
+              {tenant.bank_swift && (
+                <div>
+                  <span className="text-gray-500">SWIFT/BIC: </span>
+                  <span className="font-mono">{tenant.bank_swift}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Totals (right) */}
+          <div className="w-80 border-t-2 border-gray-800 pt-4">
           <div className="flex justify-between py-1 text-sm">
             <span>Mão de Obra:</span>
             <span>{formatCurrency(inv.labour_total as number)}</span>
@@ -317,6 +352,7 @@ export default function PrintInvoicePage() {
               </div>
             </>
           )}
+          </div>
         </div>
 
         {/* Legal note when captive or retention applies */}
