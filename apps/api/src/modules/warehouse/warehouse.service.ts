@@ -33,18 +33,37 @@ interface MoveStockInput {
 export class WarehouseService {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async listWarehouses(tenantId: string) {
-    const { data, error } = await this.supabase
+  async listWarehouses(tenantId: string, page = 1, pageSize = 50) {
+    const { data, error, count } = await this.supabase
       .getClient()
       .from('warehouses')
-      .select('*')
+      .select('*, branch:branches(id, name)', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
       .order('is_default', { ascending: false })
-      .order('name', { ascending: true });
+      .order('name', { ascending: true })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (error) throw error;
-    return data ?? [];
+
+    // Flatten the joined branch row to a top-level branch_name field —
+    // the UI renders `wh.branch_name` directly.
+    const rows = (data ?? []).map((row: Record<string, unknown>) => {
+      const branchRel = row.branch as { name?: string } | { name?: string }[] | null;
+      const branch = Array.isArray(branchRel) ? branchRel[0] : branchRel;
+      return { ...row, branch_name: branch?.name ?? null };
+    });
+
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getWarehouse(tenantId: string, id: string) {
