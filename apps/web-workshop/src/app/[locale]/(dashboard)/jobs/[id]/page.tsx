@@ -981,6 +981,95 @@ function InspectionSection({ jobCardId, vehicleId, inspection, isLoadingInspecti
   );
 }
 
+/**
+ * Click-to-edit cell. Displays the formatted value normally and
+ * swaps in an input on click. Enter / blur commits, Escape cancels.
+ * Used for inline editing of qty / cost / markup / description / etc.
+ * across the parts and labour tables.
+ */
+function EditableCell({
+  value,
+  type,
+  disabled,
+  onSave,
+  display,
+  inputClassName,
+  cellClassName,
+}: {
+  value: string | number | null | undefined;
+  type: 'text' | 'number';
+  disabled?: boolean;
+  onSave: (raw: string) => Promise<void> | void;
+  display?: (v: string | number | null | undefined) => string;
+  inputClassName?: string;
+  cellClassName?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const committedRef = useRef(false);
+
+  const startEdit = () => {
+    if (disabled) return;
+    setDraft(value == null ? '' : String(value));
+    committedRef.current = false;
+    setEditing(true);
+  };
+
+  const commit = async () => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    const original = value == null ? '' : String(value);
+    if (draft === original) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } catch {
+      // mutation will surface error via toast / state elsewhere
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  };
+
+  const cancel = () => {
+    committedRef.current = true;
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        type={type}
+        autoFocus
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          else if (e.key === 'Escape') cancel();
+        }}
+        className={`w-full rounded-sm border border-primary-300 bg-primary-50 px-1 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 ${inputClassName ?? ''}`}
+      />
+    );
+  }
+
+  const shown = display ? display(value) : String(value ?? '—');
+  return (
+    <span
+      onClick={startEdit}
+      title={disabled ? undefined : 'Click to edit'}
+      className={`${disabled ? '' : 'cursor-pointer rounded-sm px-1 py-0.5 hover:bg-primary-50'} ${cellClassName ?? ''}`}
+    >
+      {shown}
+    </span>
+  );
+}
+
 export default function JobDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -2064,9 +2153,48 @@ export default function JobDetailPage() {
               const lineVat = Math.round((Number(line.subtotal ?? 0) * lineRate) ) / 100;
               return (
               <tr key={line.id as string}>
-                <td className="px-4 py-2 text-sm text-gray-900">{line.description as string}</td>
-                <td className="px-4 py-2 text-end text-sm text-gray-600">{line.hours as number}</td>
-                <td className="px-4 py-2 text-end text-sm text-gray-600">{formatCurrency(line.rate as number)}</td>
+                <td className="px-4 py-2 text-sm text-gray-900">
+                  <EditableCell
+                    type="text"
+                    value={line.description as string}
+                    disabled={isInvoiced}
+                    onSave={async (raw) => {
+                      const s = raw.trim();
+                      if (s) {
+                        await updateLabour.mutateAsync({ jobId: id, lineId: String(line.id), description: s });
+                      }
+                    }}
+                  />
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-600">
+                  <EditableCell
+                    type="number"
+                    value={line.hours as number}
+                    disabled={isInvoiced}
+                    inputClassName="text-end"
+                    onSave={async (raw) => {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n > 0) {
+                        await updateLabour.mutateAsync({ jobId: id, lineId: String(line.id), hours: n });
+                      }
+                    }}
+                  />
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-600">
+                  <EditableCell
+                    type="number"
+                    value={line.rate as number}
+                    disabled={isInvoiced}
+                    inputClassName="text-end"
+                    display={(v) => formatCurrency(Number(v ?? 0))}
+                    onSave={async (raw) => {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n >= 0) {
+                        await updateLabour.mutateAsync({ jobId: id, lineId: String(line.id), rate: n });
+                      }
+                    }}
+                  />
+                </td>
                 <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">
                   <select
@@ -2227,9 +2355,50 @@ export default function JobDetailPage() {
               <tr key={line.id as string}>
                 <td className="px-4 py-2 text-sm text-gray-900">{line.part_name as string}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">{(line.part_number as string) || '-'}</td>
-                <td className="px-4 py-2 text-end text-sm text-gray-600">{line.quantity as number}</td>
-                <td className="px-4 py-2 text-end text-sm text-gray-600">{formatCurrency(line.unit_cost as number)}</td>
-                <td className="px-4 py-2 text-end text-sm text-gray-600">{line.markup_pct as number}%</td>
+                <td className="px-4 py-2 text-end text-sm text-gray-600">
+                  <EditableCell
+                    type="number"
+                    value={line.quantity as number}
+                    disabled={isInvoiced}
+                    inputClassName="text-end"
+                    onSave={async (raw) => {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n > 0) {
+                        await updateParts.mutateAsync({ jobId: id, lineId: String(line.id), quantity: n });
+                      }
+                    }}
+                  />
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-600">
+                  <EditableCell
+                    type="number"
+                    value={line.unit_cost as number}
+                    disabled={isInvoiced}
+                    inputClassName="text-end"
+                    display={(v) => formatCurrency(Number(v ?? 0))}
+                    onSave={async (raw) => {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n >= 0) {
+                        await updateParts.mutateAsync({ jobId: id, lineId: String(line.id), unitCost: n });
+                      }
+                    }}
+                  />
+                </td>
+                <td className="px-4 py-2 text-end text-sm text-gray-600">
+                  <EditableCell
+                    type="number"
+                    value={line.markup_pct as number}
+                    disabled={isInvoiced || (isAutomatic && !allowOverride)}
+                    inputClassName="text-end"
+                    display={(v) => `${v ?? 0}%`}
+                    onSave={async (raw) => {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n >= 0) {
+                        await updateParts.mutateAsync({ jobId: id, lineId: String(line.id), markupPct: n });
+                      }
+                    }}
+                  />
+                </td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">{formatCurrency(line.sell_price as number)}</td>
                 <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
                 <td className="px-4 py-2 text-sm text-gray-600">
