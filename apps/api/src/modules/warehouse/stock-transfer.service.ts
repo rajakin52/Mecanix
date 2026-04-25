@@ -15,24 +15,46 @@ interface CreateTransferInput {
 export class StockTransferService {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async listTransfers(tenantId: string, status?: string) {
+  async listTransfers(tenantId: string, status?: string, page = 1, pageSize = 50) {
     const client = this.supabase.getClient();
 
     let query = client
       .from('stock_transfers')
-      .select('*, from_warehouse:warehouses!stock_transfers_from_warehouse_id_fkey(id, name, code), to_warehouse:warehouses!stock_transfers_to_warehouse_id_fkey(id, name, code)')
+      .select(
+        '*, from_warehouse:warehouses!stock_transfers_from_warehouse_id_fkey(id, name, code), to_warehouse:warehouses!stock_transfers_to_warehouse_id_fkey(id, name, code)',
+        { count: 'exact' },
+      )
       .eq('tenant_id', tenantId);
 
-    if (status) {
-      query = query.eq('status', status);
-    }
+    if (status) query = query.eq('status', status);
 
-    query = query.order('created_at', { ascending: false });
+    query = query
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
-    const { data, error } = await query;
-
+    const { data, error, count } = await query;
     if (error) throw error;
-    return data ?? [];
+
+    const rows = (data ?? []).map((row: Record<string, unknown>) => {
+      const from = Array.isArray(row.from_warehouse) ? row.from_warehouse[0] : row.from_warehouse;
+      const to = Array.isArray(row.to_warehouse) ? row.to_warehouse[0] : row.to_warehouse;
+      return {
+        ...row,
+        from_warehouse_name: (from as { name?: string } | null)?.name ?? null,
+        to_warehouse_name: (to as { name?: string } | null)?.name ?? null,
+      };
+    });
+
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getTransfer(tenantId: string, id: string) {

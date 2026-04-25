@@ -6,24 +6,35 @@ import type { CreateVendorInput, UpdateVendorInput } from '@mecanix/validators';
 export class VendorsService {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async list(tenantId: string, search?: string) {
+  async list(tenantId: string, search?: string, page = 1, pageSize = 50) {
     const client = this.supabase.getClient();
 
     let query = client
       .from('vendors')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
-      .order('name', { ascending: true });
+      .order('name', { ascending: true })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,contact_name.ilike.%${search}%`);
     }
 
-    const { data, error } = await query;
-
+    const { data, error, count } = await query;
     if (error) throw error;
-    return data ?? [];
+
+    const rows = data ?? [];
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getById(tenantId: string, id: string) {

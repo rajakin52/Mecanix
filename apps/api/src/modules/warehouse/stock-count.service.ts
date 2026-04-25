@@ -17,16 +17,38 @@ interface UpdateCountLineInput {
 export class StockCountService {
   constructor(private readonly supabase: SupabaseService) {}
 
-  async listCounts(tenantId: string) {
-    const { data, error } = await this.supabase
+  async listCounts(tenantId: string, page = 1, pageSize = 50) {
+    const { data, error, count } = await this.supabase
       .getClient()
       .from('stock_counts')
-      .select('*, warehouse:warehouses(id, name, code)')
+      .select('*, warehouse:warehouses(id, name, code)', { count: 'exact' })
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (error) throw error;
-    return data ?? [];
+
+    // Flatten warehouse to top-level warehouse_name so the table can
+    // render it directly (matches the StockCount type the UI uses).
+    const rows = (data ?? []).map((row: Record<string, unknown>) => {
+      const wh = Array.isArray(row.warehouse) ? row.warehouse[0] : row.warehouse;
+      return {
+        ...row,
+        warehouse_name: (wh as { name?: string } | null)?.name ?? null,
+        warehouse_code: (wh as { code?: string } | null)?.code ?? null,
+      };
+    });
+
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getCount(tenantId: string, id: string) {

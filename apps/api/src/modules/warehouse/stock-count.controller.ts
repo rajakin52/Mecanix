@@ -26,8 +26,16 @@ export class StockCountController {
   constructor(private readonly stockCountService: StockCountService) {}
 
   @Get()
-  async list(@TenantId() tenantId: string) {
-    return this.stockCountService.listCounts(tenantId);
+  async list(
+    @TenantId() tenantId: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.stockCountService.listCounts(
+      tenantId,
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 50,
+    );
   }
 
   @Get(':id')

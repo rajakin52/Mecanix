@@ -23,7 +23,7 @@ export class PartsRequestsService {
     private readonly warehouse: WarehouseService,
   ) {}
 
-  async list(tenantId: string, status?: string, jobCardId?: string) {
+  async list(tenantId: string, status?: string, jobCardId?: string, page = 1, pageSize = 50) {
     const client = this.supabase.getClient();
     let query = client
       .from('parts_requests')
@@ -32,24 +32,31 @@ export class PartsRequestsService {
         job_card:job_cards(id, job_number),
         requester:users!parts_requests_requested_by_fkey(id, full_name),
         items:parts_request_items(id)
-      `)
+      `, { count: 'exact' })
       .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (jobCardId) {
-      query = query.eq('job_card_id', jobCardId);
-    }
+    if (status) query = query.eq('status', status);
+    if (jobCardId) query = query.eq('job_card_id', jobCardId);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
 
-    return (data ?? []).map((pr: Record<string, unknown>) => ({
+    const rows = (data ?? []).map((pr: Record<string, unknown>) => ({
       ...pr,
       items_count: Array.isArray(pr.items) ? pr.items.length : 0,
     }));
+    const total = count ?? rows.length;
+    return {
+      data: rows,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
   }
 
   async getById(tenantId: string, id: string) {

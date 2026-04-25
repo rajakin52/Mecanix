@@ -26,8 +26,15 @@ export class StockTransferController {
   async list(
     @TenantId() tenantId: string,
     @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
   ) {
-    return this.stockTransferService.listTransfers(tenantId, status);
+    return this.stockTransferService.listTransfers(
+      tenantId,
+      status,
+      page ? parseInt(page, 10) : 1,
+      pageSize ? parseInt(pageSize, 10) : 50,
+    );
   }
 
   @Get(':id')
