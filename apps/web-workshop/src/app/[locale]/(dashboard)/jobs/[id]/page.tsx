@@ -1396,6 +1396,36 @@ export default function JobDetailPage() {
 
   const [partsError, setPartsError] = useState<string | null>(null);
 
+  // Auto-resolve customer markup once when the job + pricing mode is
+  // ready, so the inline parts row starts with the right default.
+  useEffect(() => {
+    if (!isAutomatic) return;
+    const customerId = (job as { customer_id?: string } | null | undefined)?.customer_id;
+    if (!customerId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL ?? ''}/pricing/resolve?customerId=${customerId}`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } },
+        );
+        const json = await resp.json();
+        if (!cancelled && json.success && json.data) {
+          setPartMarkup(String(json.data.markupPct));
+          const sourceMap: Record<string, string> = {
+            group_category: 'Price Group + Category',
+            group_default: 'Price Group Default',
+            tenant_default: 'Company Default',
+          };
+          setResolvedMarkupInfo(sourceMap[json.data.source] ?? json.data.source);
+        }
+      } catch {
+        /* fallback to manual entry */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAutomatic, job]);
+
   // Computed preview of sell price
   const computedSellPrice = partPriceMode === 'manual'
     ? parseFloat(partSellPrice) || 0
@@ -1423,14 +1453,16 @@ export default function JobDetailPage() {
         markupPct: Math.max(0, finalMarkup),
         warrantyMonths: partWarrantyMonths ? Number(partWarrantyMonths) : undefined,
       });
-      setShowPartsForm(false);
+      // Inline form: keep it open and ready for the next part. Reset
+      // the line-specific fields but keep the resolved markup so the
+      // next entry inherits it (same customer, same pricing rules).
       setPartWarrantyMonths('');
       clearPartSelection();
       setPartQty('1');
-      setPartMarkup('0');
+      setPartUnitCost('');
       setPartSellPrice('');
       setPartPriceMode('markup');
-      setResolvedMarkupInfo(null);
+      // partMarkup intentionally NOT reset — same customer = same markup
     } catch (err) {
       setPartsError(err instanceof Error ? err.message : 'Failed to add parts line');
     }
@@ -2170,33 +2202,6 @@ export default function JobDetailPage() {
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">{t('partsLines')}</h2>
-          <button
-            onClick={async () => {
-              setShowPartsForm(true);
-              // Auto-fill markup from pricing engine
-              if (isAutomatic && typedJob?.customer_id) {
-                try {
-                  const resp = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL ?? ''}/pricing/resolve?customerId=${typedJob.customer_id}`,
-                    { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } },
-                  );
-                  const json = await resp.json();
-                  if (json.success && json.data) {
-                    setPartMarkup(String(json.data.markupPct));
-                    const sourceMap: Record<string, string> = {
-                      group_category: 'Price Group + Category',
-                      group_default: 'Price Group Default',
-                      tenant_default: 'Company Default',
-                    };
-                    setResolvedMarkupInfo(sourceMap[json.data.source] ?? json.data.source);
-                  }
-                } catch { /* fallback to manual */ }
-              }
-            }}
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700"
-          >
-            {t('addPart')}
-          </button>
         </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -2272,202 +2277,144 @@ export default function JobDetailPage() {
           </tbody>
         </table>
 
-        {/* Inline parts form */}
-        {showPartsForm && (
-          <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+        {/* Inline quick-add row — no modal, type and Tab through fields. */}
+        {!isInvoiced && (
+          <div className="mt-3 space-y-2">
             {partsError && (
-              <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{partsError}</div>
+              <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{partsError}</div>
             )}
-            {/* Part selection — search from inventory */}
-            {!selectedPartId ? (
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Search Inventory</label>
-                <input
-                  value={partSearch}
-                  onChange={(e) => handlePartSearch(e.target.value)}
-                  placeholder="Type part name or number..."
-                  autoFocus
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                />
-                {partSearchResults.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg max-h-48 overflow-y-auto">
-                    {partSearchResults.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selectPartFromInventory(p)}
-                        className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-primary-50 text-left"
-                      >
-                        <div>
-                          <span className="font-medium text-gray-900">{p.description}</span>
-                          {p.part_number && <span className="ml-2 text-xs text-gray-400">{p.part_number}</span>}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="text-gray-500">{formatCurrency(p.unit_cost)}</span>
-                          <span className={`rounded-full px-2 py-0.5 font-medium ${
-                            p.stock_qty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {p.stock_qty} in stock
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-gray-200 bg-gray-50 p-2">
+              {/* Part search / selected chip */}
+              <div className="relative min-w-[260px] flex-1">
+                {selectedPartId ? (
+                  <div className="flex h-9 items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-2 text-xs">
+                    <span className="truncate font-medium text-gray-900">{partName}</span>
+                    {partNumber && <span className="text-gray-500">· {partNumber}</span>}
+                    {partStockInfo && <span className="text-green-600">· {partStockInfo}</span>}
+                    <button
+                      type="button"
+                      onClick={clearPartSelection}
+                      className="ms-auto text-gray-400 hover:text-red-500"
+                      title={tc('cancel')}
+                    >
+                      ×
+                    </button>
                   </div>
-                )}
-                {partSearch.length >= 2 && partSearchResults.length === 0 && (
-                  <p className="mt-1 text-xs text-amber-600">No parts found. Add the part to inventory first under Parts → Catalogue.</p>
-                )}
-              </div>
-            ) : (
-              <div>
-                {/* Selected part display */}
-                <div className="mb-3 flex items-center gap-3 rounded-md border border-primary-200 bg-primary-50 px-3 py-2">
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-gray-900">{partName}</span>
-                    {partNumber && <span className="ml-2 text-xs text-gray-500">{partNumber}</span>}
-                    {partStockInfo && (
-                      <span className="ml-2 text-xs text-green-600">{partStockInfo}</span>
+                ) : (
+                  <>
+                    <input
+                      value={partSearch}
+                      onChange={(e) => handlePartSearch(e.target.value)}
+                      placeholder={tc('searchByPartNumberOrDescription')}
+                      className="block h-9 w-full rounded-md border border-gray-300 px-2 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                    />
+                    {partSearchResults.length > 0 && (
+                      <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+                        {partSearchResults.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => selectPartFromInventory(p)}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-primary-50"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-gray-900">{p.description}</span>
+                              {p.part_number && <span className="text-[11px] text-gray-400">{p.part_number}</span>}
+                            </div>
+                            <div className="ms-3 flex items-center gap-2">
+                              <span className="text-[11px] text-gray-500">{formatCurrency(p.unit_cost)}</span>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${p.stock_qty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {p.stock_qty}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                  <button type="button" onClick={clearPartSelection} className="text-xs text-gray-400 hover:text-red-500">
-                    Change
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('quantity')}</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={partQty}
-                      onChange={(e) => setPartQty(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">{t('unitCost')}</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={partUnitCost}
-                      onChange={(e) => setPartUnitCost(e.target.value)}
-                      placeholder="0.00"
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
-            )}
 
-            {/* Pricing mode toggle */}
-            <div className="mt-3 flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-700">Pricing:</span>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="priceMode"
-                  checked={partPriceMode === 'markup'}
-                  onChange={() => setPartPriceMode('markup')}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">Cost + Markup %</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="priceMode"
-                  checked={partPriceMode === 'manual'}
-                  onChange={() => setPartPriceMode('manual')}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                />
-                <span className="text-sm text-gray-700">Manual Sell Price</span>
-              </label>
-            </div>
+              {/* Quantity */}
+              <input
+                type="number"
+                min="1"
+                value={partQty}
+                onChange={(e) => setPartQty(e.target.value)}
+                title={t('quantity')}
+                placeholder={t('quantity')}
+                className="h-9 w-16 rounded-md border border-gray-300 px-2 text-end text-sm"
+              />
 
-            <div className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-4">
+              {/* Unit cost */}
+              <input
+                type="number"
+                step="0.01"
+                value={partUnitCost}
+                onChange={(e) => setPartUnitCost(e.target.value)}
+                title={t('unitCost')}
+                placeholder={t('unitCost')}
+                className="h-9 w-24 rounded-md border border-gray-300 px-2 text-end text-sm"
+              />
+
+              {/* Markup % OR manual sell price (toggleable via small icon) */}
               {partPriceMode === 'markup' ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">{t('markupPct')}</label>
-                  <div className="relative mt-1">
-                    <input
-                      type="number"
-                      step="1"
-                      value={partMarkup}
-                      onChange={(e) => setPartMarkup(e.target.value)}
-                      disabled={isAutomatic && !allowOverride}
-                      className={`block w-full rounded-md border px-3 py-2 pe-8 text-sm ${
-                        isAutomatic && !allowOverride
-                          ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    <span className="absolute end-3 top-2.5 text-sm text-gray-400">%</span>
-                  </div>
-                  {resolvedMarkupInfo && (
-                    <p className="mt-1 text-xs text-blue-600">
-                      Auto-filled from: {resolvedMarkupInfo}
-                      {isAutomatic && !allowOverride && ' (override disabled)'}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Sell Price</label>
+                <div className="relative">
                   <input
                     type="number"
                     step="0.01"
-                    value={partSellPrice}
-                    onChange={(e) => setPartSellPrice(e.target.value)}
-                    placeholder="0.00"
-                    className="mt-1 block w-full rounded-md border border-primary-300 bg-primary-50 px-3 py-2 text-sm font-medium ring-1 ring-primary-200"
+                    value={partMarkup}
+                    onChange={(e) => setPartMarkup(e.target.value)}
+                    disabled={isAutomatic && !allowOverride}
+                    title={t('markupPct')}
+                    placeholder={t('markupPct')}
+                    className={`h-9 w-20 rounded-md border px-2 pe-5 text-end text-sm ${isAutomatic && !allowOverride ? 'border-gray-200 bg-gray-100 text-gray-500' : 'border-gray-300'}`}
                   />
+                  <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
                 </div>
+              ) : (
+                <input
+                  type="number"
+                  step="0.01"
+                  value={partSellPrice}
+                  onChange={(e) => setPartSellPrice(e.target.value)}
+                  title={t('sellPrice')}
+                  placeholder={t('sellPrice')}
+                  className="h-9 w-24 rounded-md border border-primary-300 bg-primary-50 px-2 text-end text-sm"
+                />
               )}
+              <button
+                type="button"
+                onClick={() => setPartPriceMode((m) => (m === 'markup' ? 'manual' : 'markup'))}
+                className="h-9 rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-600 hover:bg-gray-50"
+                title={partPriceMode === 'markup' ? 'Switch to manual sell price' : 'Switch to markup %'}
+              >
+                {partPriceMode === 'markup' ? '%' : '$'}
+              </button>
 
-              {/* Live preview */}
-              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-                <span className="block text-xs font-medium text-gray-500">{t('sellPrice')}</span>
-                <span className="text-lg font-bold text-gray-900">{formatCurrency(computedSellPrice)}</span>
+              {/* Live computed preview */}
+              <div className="flex h-9 items-center rounded-md border border-gray-200 bg-white px-2 text-xs">
+                <span className="text-gray-400">=</span>
+                <span className="ms-1 font-semibold text-gray-900">{formatCurrency(computedSubtotal)}</span>
               </div>
-              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-                <span className="block text-xs font-medium text-gray-500">{t('markupPct')}</span>
-                <span className="text-lg font-bold text-gray-900">
-                  {partPriceMode === 'manual' ? `${computedMarkupFromManual.toFixed(2)}%` : `${partMarkup || 0}%`}
-                </span>
-              </div>
-              <div className="rounded-md border border-primary-200 bg-primary-50 px-3 py-2">
-                <span className="block text-xs font-medium text-primary-600">{t('subtotal')}</span>
-                <span className="text-lg font-bold text-primary-700">{formatCurrency(computedSubtotal)}</span>
-              </div>
-            </div>
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700">Warranty (months)</label>
-              <input
-                type="number"
-                min="0"
-                max="240"
-                value={partWarrantyMonths}
-                onChange={(e) => setPartWarrantyMonths(e.target.value)}
-                placeholder="Leave blank to use part default"
-                className="mt-1 block w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
+
+              {/* Add */}
               <button
-                onClick={() => setShowPartsForm(false)}
-                className="rounded-md border px-3 py-1.5 text-sm"
-              >
-                {tc('cancel')}
-              </button>
-              <button
+                type="button"
                 onClick={handleAddPart}
-                disabled={createParts.isPending}
-                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                disabled={!partName || !partUnitCost || createParts.isPending}
+                className="h-9 rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                title={tc('addPart')}
               >
-                {createParts.isPending ? tc('loading') : tc('save')}
+                {createParts.isPending ? tc('loading') : `+ ${tc('addPart')}`}
               </button>
             </div>
+            {resolvedMarkupInfo && (
+              <p className="text-[11px] text-blue-600">
+                Auto-filled markup from: {resolvedMarkupInfo}
+                {isAutomatic && !allowOverride && ' (override disabled)'}
+              </p>
+            )}
           </div>
         )}
       </div>
