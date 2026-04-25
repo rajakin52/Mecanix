@@ -256,6 +256,135 @@ export class WhatsAppService {
   }
 
   /**
+   * `photo_capture_request` template (pt_PT only). General inspection-photo
+   * capture flow — different from `damage_photos_upload_request` which is
+   * for AIDA. URL button param is the photo-capture session token (suffix);
+   * the template URL base is baked in (mecanix-web-ten.vercel.app).
+   * Body: {{1}}=customer name, {{2}}=vehicle (plate + make/model).
+   */
+  async sendPhotoCaptureRequest(params: {
+    to: string;
+    customerName: string;
+    vehicle: string;
+    captureToken: string;
+    context?: WhatsAppContext;
+  }): Promise<WhatsAppSendResult> {
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: params.customerName },
+          { type: 'text', text: params.vehicle },
+        ],
+      },
+      {
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: params.captureToken }],
+      },
+    ];
+    return this.sendTemplate(
+      params.to,
+      'photo_capture_request',
+      'pt_PT',
+      components,
+      params.context ?? {},
+    );
+  }
+
+  /**
+   * `vehicle_ready_for_pickup` template (pt_PT only). No buttons.
+   * Body: {{1}}=customer name, {{2}}=vehicle (plate + make/model),
+   *       {{3}}=workshop opening hours.
+   */
+  async sendVehicleReadyForPickup(params: {
+    to: string;
+    customerName: string;
+    vehicle: string;
+    openingHours: string;
+    context?: WhatsAppContext;
+  }): Promise<WhatsAppSendResult> {
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: params.customerName },
+          { type: 'text', text: params.vehicle },
+          { type: 'text', text: params.openingHours },
+        ],
+      },
+    ];
+    return this.sendTemplate(
+      params.to,
+      'vehicle_ready_for_pickup',
+      'pt_PT',
+      components,
+      params.context ?? {},
+    );
+  }
+
+  /**
+   * `job_status_update` template (pt_PT only). No buttons.
+   * Body: {{1}}=customer name, {{2}}=vehicle, {{3}}=current status text.
+   */
+  async sendJobStatusUpdate(params: {
+    to: string;
+    customerName: string;
+    vehicle: string;
+    statusText: string;
+    context?: WhatsAppContext;
+  }): Promise<WhatsAppSendResult> {
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: params.customerName },
+          { type: 'text', text: params.vehicle },
+          { type: 'text', text: params.statusText },
+        ],
+      },
+    ];
+    return this.sendTemplate(
+      params.to,
+      'job_status_update',
+      'pt_PT',
+      components,
+      params.context ?? {},
+    );
+  }
+
+  /**
+   * `appointment_reminder` template (pt_PT only). No buttons.
+   * Body: {{1}}=customer name, {{2}}=vehicle, {{3}}=appointment date/time text.
+   */
+  async sendAppointmentReminder(params: {
+    to: string;
+    customerName: string;
+    vehicle: string;
+    appointmentText: string;
+    context?: WhatsAppContext;
+  }): Promise<WhatsAppSendResult> {
+    const components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: params.customerName },
+          { type: 'text', text: params.vehicle },
+          { type: 'text', text: params.appointmentText },
+        ],
+      },
+    ];
+    return this.sendTemplate(
+      params.to,
+      'appointment_reminder',
+      'pt_PT',
+      components,
+      params.context ?? {},
+    );
+  }
+
+  /**
    * Free-form text. Only deliverable within the 24-hour customer service
    * window (i.e. the customer messaged us first). Use templates for anything
    * initiated by the business.

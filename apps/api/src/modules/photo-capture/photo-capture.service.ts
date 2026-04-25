@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SmsService } from '../notifications/sms.service';
+import { WhatsAppService } from '../notifications/whatsapp.service';
 import { redactPhone } from '../../common/utils/redact';
 import sharp from 'sharp';
 
@@ -20,6 +21,7 @@ export class PhotoCaptureService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly smsService: SmsService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   /**
@@ -28,6 +30,7 @@ export class PhotoCaptureService {
    */
   async createSession(tenantId: string, userId: string, input: {
     jobCardId?: string;
+    customerName?: string;  // used as {{1}} of photo_capture_request template
     vehiclePlate?: string;
     vehicleInfo?: string;
     requiredPhotos?: string[];
@@ -73,40 +76,24 @@ export class PhotoCaptureService {
       const result = await this.smsService.sendText(input.sendSms, message);
       messageStatus = { sent: result.sent, channel: 'sms', ...(result.error ? { error: result.error } : {}) };
     } else if (input.sendWhatsApp) {
-      const whatsappPhoneId = process.env['WHATSAPP_PHONE_NUMBER_ID'];
-      const whatsappToken = process.env['WHATSAPP_ACCESS_TOKEN'];
-      if (!whatsappPhoneId || !whatsappToken) {
-        messageStatus = { sent: false, channel: 'whatsapp', error: 'WhatsApp env vars not set on server' };
-        this.logger.warn('WhatsApp not configured (missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN)');
-      } else {
-        try {
-          const resp = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${whatsappToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              to: input.sendWhatsApp.replace(/\D/g, ''),
-              type: 'text',
-              text: { body: message },
-            }),
-          });
-          const respBody = await resp.text();
-          if (!resp.ok) {
-            this.logger.error(`WhatsApp API ${resp.status}: ${respBody}`);
-            messageStatus = { sent: false, channel: 'whatsapp', error: `Meta API ${resp.status}: ${respBody.slice(0, 300)}` };
-          } else {
-            this.logger.log(`WhatsApp message sent (to=${redactPhone(input.sendWhatsApp)})`);
-            messageStatus = { sent: true, channel: 'whatsapp' };
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          this.logger.error(`WhatsApp send exception: ${msg}`);
-          messageStatus = { sent: false, channel: 'whatsapp', error: msg };
-        }
-      }
+      // Template-based send via the approved `photo_capture_request` template
+      // (pt_PT). Audited to whatsapp_events. The button URL base is baked into
+      // the approved template — we only pass the token suffix.
+      const vehicleText = [input.vehiclePlate, input.vehicleInfo].filter(Boolean).join(' ').trim() || 'veículo';
+      const result = await this.whatsapp.sendPhotoCaptureRequest({
+        to: input.sendWhatsApp,
+        customerName: input.customerName?.trim() || 'Cliente',
+        vehicle: vehicleText,
+        captureToken: token,
+        context: {
+          tenantId,
+          contextType: 'photo_capture',
+          contextId: data.id as string,
+        },
+      });
+      messageStatus = result.success
+        ? { sent: true, channel: 'whatsapp' }
+        : { sent: false, channel: 'whatsapp', error: result.error };
     }
 
     return { ...data, captureUrl, token, whatsappStatus: messageStatus, messageStatus };
