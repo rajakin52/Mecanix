@@ -169,7 +169,8 @@
     "variance": "Diferença",
     "view": "Ver",
     "viewStock": "Ver stock",
-    "warehousesMustDiffer": "Os armazéns de origem e destino têm de ser diferentes"
+    "warehousesMustDiffer": "Os armazéns de origem e destino têm de ser diferentes",
+    "any": "Qualquer"
   },
   "jobs": {
     "title": "Fichas de Trabalho",

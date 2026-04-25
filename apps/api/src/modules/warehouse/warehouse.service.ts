@@ -321,13 +321,47 @@ export class WarehouseService {
     return data;
   }
 
-  async getStockByWarehouse(tenantId: string, warehouseId: string, page = 1, pageSize = 50) {
-    const { data, error, count } = await this.supabase
+  async getStockByWarehouse(
+    tenantId: string,
+    warehouseId: string,
+    page = 1,
+    pageSize = 50,
+    filters: { search?: string; category?: string; stockStatus?: 'all' | 'in_stock' | 'low' | 'out' } = {},
+  ) {
+    // !inner makes the part filter actually filter rows (left join
+    // would let stock rows through even when the part fields don't
+    // match the search).
+    let query = this.supabase
       .getClient()
       .from('warehouse_stock')
-      .select('*, part:parts(id, part_number, description, unit_cost, sell_price, category)', { count: 'exact' })
+      .select(
+        '*, part:parts!inner(id, part_number, description, unit_cost, sell_price, category, reorder_point)',
+        { count: 'exact' },
+      )
       .eq('tenant_id', tenantId)
-      .eq('warehouse_id', warehouseId)
+      .eq('warehouse_id', warehouseId);
+
+    // Search across part number + description (PostgREST `or` on
+    // embedded resource).
+    if (filters.search && filters.search.trim()) {
+      const s = filters.search.trim().replace(/[,()]/g, ' ');
+      query = query.or(
+        `part_number.ilike.%${s}%,description.ilike.%${s}%`,
+        { foreignTable: 'part' },
+      );
+    }
+
+    if (filters.category && filters.category.trim()) {
+      query = query.eq('part.category', filters.category.trim());
+    }
+
+    if (filters.stockStatus === 'out') query = query.lte('quantity', 0);
+    else if (filters.stockStatus === 'in_stock') query = query.gt('quantity', 0);
+    // 'low' is reorder-point based — handled client-side after the
+    // query because PostgREST can't compare two columns in a single
+    // .filter() expression cleanly. (UI already supports it.)
+
+    const { data, error, count } = await query
       .order('quantity', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -346,6 +380,7 @@ export class WarehouseService {
         category: part?.category ?? null,
         unit_cost: part?.unit_cost ?? null,
         sell_price: part?.sell_price ?? null,
+        reorder_point: part?.reorder_point ?? null,
       };
     });
 

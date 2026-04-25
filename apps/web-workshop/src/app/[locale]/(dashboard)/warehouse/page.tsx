@@ -491,7 +491,31 @@ function WarehouseStockView({ warehouseId, warehouseName, onBack }: { warehouseI
   const [stockPage, setStockPage] = useState(1);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
-  const { data, isLoading } = useWarehouseStock(warehouseId, stockPage);
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
+  const [category, setCategory] = useState('');
+  const [stockStatus, setStockStatus] = useState<'all' | 'in_stock' | 'low' | 'out'>('all');
+  const { data, isLoading } = useWarehouseStock(warehouseId, stockPage, {
+    search: debouncedSearch,
+    category,
+    stockStatus,
+  });
+
+  // Reset to page 1 when filters change so we don't end up on an
+  // empty page beyond the new (smaller) result count.
+  const filterKey = `${debouncedSearch}|${category}|${stockStatus}`;
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey);
+    if (stockPage !== 1) setStockPage(1);
+  }
+
+  // Build a category list from the rows currently loaded so the
+  // filter dropdown only shows real categories. (Server filter uses
+  // the value verbatim against parts.category.)
+  const categories = Array.from(
+    new Set(((data?.data ?? []) as Array<{ category?: string | null }>).map((r) => r.category).filter(Boolean) as string[]),
+  ).sort();
 
   const handleSort = (field: string, dir: SortDirection) => {
     setSortField(dir ? field : null);
@@ -505,6 +529,44 @@ function WarehouseStockView({ warehouseId, warehouseName, onBack }: { warehouseI
         {tc('backToWarehouses')}
       </button>
       <h2 className="mb-4 text-lg font-semibold text-gray-900">{warehouseName} - {tc('stock')}</h2>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder={tc('searchByPartNumberOrDescription')}
+          className="min-w-[280px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{tc('category')}: {tc('any')}</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select
+          value={stockStatus}
+          onChange={(e) => setStockStatus(e.target.value as typeof stockStatus)}
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="all">{tc('stock')}: {tc('any')}</option>
+          <option value="in_stock">&gt; 0</option>
+          <option value="low">{tc('lowStockItems')}</option>
+          <option value="out">{tc('outOfStock')}</option>
+        </select>
+        {(searchInput || category || stockStatus !== 'all') && (
+          <button
+            onClick={() => { setSearchInput(''); setCategory(''); setStockStatus('all'); }}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            {tc('cancel')}
+          </button>
+        )}
+      </div>
 
       {isLoading ? (
         <SkeletonTable rows={8} cols={5} />
@@ -523,8 +585,14 @@ function WarehouseStockView({ warehouseId, warehouseName, onBack }: { warehouseI
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {(() => {
-                  const stock = data?.data ?? [];
-                  const sorted = sortData(stock, sortField, sortDir);
+                  const stock = (data?.data ?? []) as Array<{ id: string; part_number: string; description: string; category?: string | null; quantity: number; location?: string | null; reorder_point?: number | null }>;
+                  // 'low' is reorder-point based — backend can't compare two
+                  // columns in a single PostgREST filter, so we apply it
+                  // client-side on top of the page we got back.
+                  const filtered = stockStatus === 'low'
+                    ? stock.filter((s) => s.quantity > 0 && s.reorder_point != null && s.quantity <= (s.reorder_point ?? 0))
+                    : stock;
+                  const sorted = sortData(filtered, sortField, sortDir);
                   return sorted.length > 0 ? (
                     sorted.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">

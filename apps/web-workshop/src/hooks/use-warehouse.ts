@@ -139,11 +139,18 @@ export function useWarehouse(id: string) {
   });
 }
 
-export function useWarehouseStock(warehouseId: string, page = 1) {
+export function useWarehouseStock(
+  warehouseId: string,
+  page = 1,
+  filters: { search?: string; category?: string; stockStatus?: 'all' | 'in_stock' | 'low' | 'out' } = {},
+) {
   return useQuery({
-    queryKey: ['warehouse-stock', warehouseId, page],
+    queryKey: ['warehouse-stock', warehouseId, page, filters],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '50' });
+      if (filters.search?.trim()) params.set('search', filters.search.trim());
+      if (filters.category?.trim()) params.set('category', filters.category.trim());
+      if (filters.stockStatus && filters.stockStatus !== 'all') params.set('stockStatus', filters.stockStatus);
       return api.get<WarehouseStockResponse>(`/warehouses/${warehouseId}/stock?${params}`);
     },
     enabled: !!warehouseId,

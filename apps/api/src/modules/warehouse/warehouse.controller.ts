@@ -87,12 +87,16 @@ export class WarehouseController {
     @Param('id') id: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+    @Query('stockStatus') stockStatus?: 'all' | 'in_stock' | 'low' | 'out',
   ) {
     return this.warehouseService.getStockByWarehouse(
       tenantId,
       id,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 50,
+      { search, category, stockStatus },
     );
   }
 

@@ -171,7 +171,8 @@
     "variance": "Variance",
     "view": "View",
     "viewStock": "View stock",
-    "warehousesMustDiffer": "Source and destination warehouses must differ"
+    "warehousesMustDiffer": "Source and destination warehouses must differ",
+    "any": "Any"
   },
   "jobs": {
     "title": "Job Cards",

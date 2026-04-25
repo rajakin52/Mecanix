@@ -169,7 +169,8 @@
     "variance": "Diferença",
     "view": "Ver",
     "viewStock": "Ver estoque",
-    "warehousesMustDiffer": "Os depósitos de origem e destino devem ser diferentes"
+    "warehousesMustDiffer": "Os depósitos de origem e destino devem ser diferentes",
+    "any": "Qualquer"
   },
   "jobs": {
     "title": "Fichas de Trabalho",
