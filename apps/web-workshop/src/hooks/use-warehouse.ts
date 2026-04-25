@@ -289,6 +289,31 @@ export function useAddStockCountLine() {
   });
 }
 
+export function useExportStockCount() {
+  return useMutation({
+    mutationFn: ({ countId, sortBy }: { countId: string; sortBy?: 'part_number' | 'description' | 'location' }) => {
+      const qs = sortBy ? `?sortBy=${encodeURIComponent(sortBy)}` : '';
+      return api.get<{ fileName: string; contentType: string; base64: string }>(
+        `/stock-counts/${countId}/export${qs}`,
+      );
+    },
+  });
+}
+
+export function useImportStockCount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ countId, fileName, base64 }: { countId: string; fileName: string; base64: string }) =>
+      api.post<{ matched: number; skipped: number; errors: string[] }>(
+        `/stock-counts/${countId}/import`,
+        { fileName, base64 },
+      ),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['stock-count', v.countId] });
+    },
+  });
+}
+
 export function useApproveCount() {
   const qc = useQueryClient();
   return useMutation({

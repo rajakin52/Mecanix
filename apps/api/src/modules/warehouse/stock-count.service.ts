@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as XLSX from 'xlsx';
 import { SupabaseService } from '../supabase/supabase.service';
 
 interface CreateCountInput {
@@ -371,5 +372,166 @@ export class StockCountService {
 
     if (error) throw error;
     return data;
+  }
+
+  // ─── Export / Import ────────────────────────────────────────────
+  // Workshops often want to print a count sheet, walk the warehouse
+  // with a clipboard, fill counted_qty by hand, then transcribe back.
+  // Export produces an XLSX with the prefilled lines + an empty
+  // counted_qty column. Import reads it back, matching by part_id
+  // (hidden column) or part_number, and updates counted_qty on each
+  // matching line. Idempotent — re-uploading the same file leaves
+  // no extra state.
+
+  async exportToXlsx(
+    tenantId: string,
+    countId: string,
+    sortBy: 'part_number' | 'description' | 'location' = 'part_number',
+  ): Promise<{ fileName: string; contentType: string; base64: string }> {
+    const client = this.supabase.getClient();
+    const count = await this.getCount(tenantId, countId);
+    const lines = (count.lines as Array<Record<string, unknown>>) ?? [];
+
+    // Pull part details (part_number / description / location) for
+    // every line in one query rather than relying on the embedded
+    // join, since `location` isn't included by the count detail.
+    const partIds = lines.map((l) => l.part_id as string);
+    let partMap = new Map<string, Record<string, unknown>>();
+    if (partIds.length > 0) {
+      const { data: parts } = await client
+        .from('parts')
+        .select('id, part_number, description, location, category')
+        .in('id', partIds)
+        .eq('tenant_id', tenantId);
+      partMap = new Map((parts ?? []).map((p) => [p.id as string, p]));
+    }
+
+    const rows = lines.map((line) => {
+      const part = partMap.get(line.part_id as string) ?? {};
+      return {
+        'Part Number': (part.part_number as string | null) ?? '',
+        Description: (part.description as string | null) ?? (line.description as string | null) ?? '',
+        Location: (part.location as string | null) ?? '',
+        Category: (part.category as string | null) ?? '',
+        'System Qty': line.system_qty ?? 0,
+        'Counted Qty': line.counted_qty ?? '',
+        Notes: line.notes ?? '',
+        // Hidden column — used by import to match unambiguously even
+        // if part_number changes between export and re-upload.
+        '__part_id': line.part_id,
+      };
+    });
+
+    rows.sort((a, b) => {
+      const key = sortBy === 'description' ? 'Description' : sortBy === 'location' ? 'Location' : 'Part Number';
+      const av = String(a[key as keyof typeof a] ?? '');
+      const bv = String(b[key as keyof typeof b] ?? '');
+      return av.localeCompare(bv);
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows, {
+      header: ['Part Number', 'Description', 'Location', 'Category', 'System Qty', 'Counted Qty', 'Notes', '__part_id'],
+    });
+
+    // Hide the __part_id column visually but keep it in the file.
+    if (!ws['!cols']) ws['!cols'] = [];
+    ws['!cols'][7] = { hidden: true } as XLSX.ColInfo;
+
+    // Modest column widths so the printed sheet is usable.
+    ws['!cols'][0] = { wch: 18 };
+    ws['!cols'][1] = { wch: 40 };
+    ws['!cols'][2] = { wch: 14 };
+    ws['!cols'][3] = { wch: 14 };
+    ws['!cols'][4] = { wch: 12 };
+    ws['!cols'][5] = { wch: 14 };
+    ws['!cols'][6] = { wch: 30 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock Count');
+    const buffer: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const fileName = `${(count.count_number as string | null) ?? 'stock-count'}.xlsx`;
+    return {
+      fileName,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      base64: buffer.toString('base64'),
+    };
+  }
+
+  async importFromXlsx(
+    tenantId: string,
+    countId: string,
+    fileBuffer: Buffer,
+  ): Promise<{ matched: number; skipped: number; errors: string[] }> {
+    const count = await this.getCount(tenantId, countId);
+    if (count.status !== 'in_progress') {
+      throw new BadRequestException(`Cannot import into a ${count.status} stock count`);
+    }
+
+    let wb: XLSX.WorkBook;
+    try {
+      wb = XLSX.read(fileBuffer, { type: 'buffer' });
+    } catch (e) {
+      throw new BadRequestException(`Failed to parse XLSX: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const sheetName = wb.SheetNames[0];
+    if (!sheetName) throw new BadRequestException('Workbook contains no sheets');
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws as XLSX.WorkSheet) as Array<Record<string, unknown>>;
+
+    const linesById = new Map<string, Record<string, unknown>>();
+    const linesByPartNumber = new Map<string, Record<string, unknown>>();
+    for (const line of (count.lines as Array<Record<string, unknown>>) ?? []) {
+      linesById.set(line.part_id as string, line);
+      const pn = line.part_number as string | undefined;
+      if (pn) linesByPartNumber.set(pn.toLowerCase().trim(), line);
+    }
+
+    let matched = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    let rowNum = 1;
+
+    for (const row of rows) {
+      rowNum++;
+
+      // Read the counted quantity. Empty / blank cells mean "not yet
+      // counted" — leave the line alone.
+      const rawCounted = row['Counted Qty'] ?? row['counted_qty'] ?? row.countedQty;
+      if (rawCounted === undefined || rawCounted === null || rawCounted === '') {
+        skipped++;
+        continue;
+      }
+      const countedQty = Number(rawCounted);
+      if (Number.isNaN(countedQty) || countedQty < 0) {
+        errors.push(`Row ${rowNum}: invalid counted qty "${String(rawCounted)}"`);
+        continue;
+      }
+
+      // Match: hidden __part_id wins, fallback to Part Number.
+      const partId = row['__part_id'] as string | undefined;
+      const partNumber = (row['Part Number'] ?? row['part_number'] ?? row.partNumber) as string | undefined;
+      const line = (partId && linesById.get(partId)) ||
+        (partNumber && linesByPartNumber.get(String(partNumber).toLowerCase().trim()));
+
+      if (!line) {
+        errors.push(`Row ${rowNum}: no matching count line for part "${partNumber ?? partId ?? '(blank)'}"`);
+        continue;
+      }
+
+      const notes = row['Notes'] ?? row.notes;
+      try {
+        await this.updateCountLine(tenantId, countId, line.id as string, {
+          countedQty,
+          notes: notes !== undefined && notes !== null && String(notes).trim() !== '' ? String(notes) : undefined,
+        });
+        matched++;
+      } catch (e) {
+        errors.push(`Row ${rowNum}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    return { matched, skipped, errors };
   }
 }

@@ -17,6 +17,8 @@ import {
   useCreateStockCount,
   useUpdateCountLine,
   useAddStockCountLine,
+  useExportStockCount,
+  useImportStockCount,
   useApproveCount,
   type Warehouse,
   type StockTransferLine,
@@ -51,6 +53,8 @@ import {
   Check,
   X,
   ChevronLeft,
+  Download,
+  Upload,
 } from 'lucide-react';
 
 type Tab = 'warehouses' | 'transfers' | 'counts';
@@ -1082,12 +1086,58 @@ function StockCountDetail({ countId, onBack }: { countId: string; onBack: () => 
   const { data: count, isLoading } = useStockCount(countId);
   const updateLineMutation = useUpdateCountLine();
   const addLineMutation = useAddStockCountLine();
+  const exportMutation = useExportStockCount();
+  const importMutation = useImportStockCount();
   const approveMutation = useApproveCount();
 
   const [editingLine, setEditingLine] = useState<string | null>(null);
   const [editQty, setEditQty] = useState(0);
   const [editNotes, setEditNotes] = useState('');
   const [showAddLine, setShowAddLine] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      const result = await exportMutation.mutateAsync({ countId, sortBy: 'part_number' });
+      // Decode base64 -> Blob -> trigger download
+      const byteString = atob(result.base64);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+      const blob = new Blob([bytes], { type: result.contentType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : tc('error'));
+    }
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = String(reader.result ?? '');
+      const base64 = dataUrl.split(',')[1] ?? '';
+      try {
+        const result = await importMutation.mutateAsync({ countId, fileName: file.name, base64 });
+        const errSummary = result.errors.length > 0 ? `, ${result.errors.length} error(s)` : '';
+        toast.success(`${result.matched} updated, ${result.skipped} skipped${errSummary}`);
+        if (result.errors.length > 0) {
+          // Surface first 3 errors so the operator sees what to fix.
+          for (const err of result.errors.slice(0, 3)) toast.error(err);
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : tc('error'));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const startEdit = (line: StockCountLine) => {
     setEditingLine(line.id);
@@ -1161,6 +1211,28 @@ function StockCountDetail({ countId, onBack }: { countId: string; onBack: () => 
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exportMutation.isPending}
+              title={tc('exportXlsx')}
+              className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {tc('exportXlsx')}
+            </button>
+            <label
+              className={`flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 ${importMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
+              title={tc('importXlsx')}
+            >
+              <Upload className="h-4 w-4" />
+              {importMutation.isPending ? tc('loading') : tc('importXlsx')}
+              <input
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={handleImport}
+                className="hidden"
+              />
+            </label>
             <button
               onClick={() => setShowAddLine(true)}
               className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

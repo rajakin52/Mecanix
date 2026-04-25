@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { StockCountService } from './stock-count.service';
@@ -80,5 +81,28 @@ export class StockCountController {
     @Param('id') id: string,
   ) {
     return this.stockCountService.cancelCount(tenantId, id);
+  }
+
+  // ─── Export / Import ──────────────────────────────────────────
+  @Get(':id/export')
+  async exportXlsx(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Query('sortBy') sortBy?: 'part_number' | 'description' | 'location',
+  ) {
+    return this.stockCountService.exportToXlsx(tenantId, id, sortBy ?? 'part_number');
+  }
+
+  @Post(':id/import')
+  async importXlsx(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+    @Body() body: { fileName?: string; base64: string },
+  ) {
+    if (!body?.base64 || typeof body.base64 !== 'string') {
+      throw new Error('base64 file payload is required');
+    }
+    const buffer = Buffer.from(body.base64, 'base64');
+    return this.stockCountService.importFromXlsx(tenantId, id, buffer);
   }
 }

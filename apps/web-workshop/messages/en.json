@@ -92,6 +92,8 @@
     "reference": "Reference",
     "adjustmentSaved": "Adjustment saved",
     "searchByPartNumberOrDescription": "Search by part number or description",
+    "exportXlsx": "Export XLSX",
+    "importXlsx": "Import XLSX",
     "procurement": "Procurement",
     "pricing": "Pricing",
     "repairCatalog": "Repair Catalog",
