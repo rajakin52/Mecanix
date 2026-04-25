@@ -16,6 +16,7 @@ import {
   useStockCount,
   useCreateStockCount,
   useUpdateCountLine,
+  useAddStockCountLine,
   useApproveCount,
   type Warehouse,
   type StockTransferLine,
@@ -1080,11 +1081,13 @@ function StockCountDetail({ countId, onBack }: { countId: string; onBack: () => 
   const toast = useToast();
   const { data: count, isLoading } = useStockCount(countId);
   const updateLineMutation = useUpdateCountLine();
+  const addLineMutation = useAddStockCountLine();
   const approveMutation = useApproveCount();
 
   const [editingLine, setEditingLine] = useState<string | null>(null);
   const [editQty, setEditQty] = useState(0);
   const [editNotes, setEditNotes] = useState('');
+  const [showAddLine, setShowAddLine] = useState(false);
 
   const startEdit = (line: StockCountLine) => {
     setEditingLine(line.id);
@@ -1157,16 +1160,41 @@ function StockCountDetail({ countId, onBack }: { countId: string; onBack: () => 
           <p className="text-sm text-gray-500">{count.warehouse_name} &middot; <StatusBadge status={count.status} /></p>
         </div>
         {canEdit && (
-          <button
-            onClick={handleApprove}
-            disabled={approveMutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" />
-            {approveMutation.isPending ? tc('loading') : tc('approveAndAdjust')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAddLine(true)}
+              className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Plus className="h-4 w-4" />
+              {tc('addPart')}
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={approveMutation.isPending}
+              className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <Check className="h-4 w-4" />
+              {approveMutation.isPending ? tc('loading') : tc('approveAndAdjust')}
+            </button>
+          </div>
         )}
       </div>
+
+      {showAddLine && (
+        <AddCountLineModal
+          countId={countId}
+          existingPartIds={(count.lines ?? []).map((l) => l.part_id as string)}
+          onClose={() => setShowAddLine(false)}
+          onAdd={async (partId) => {
+            try {
+              await addLineMutation.mutateAsync({ countId, partId });
+              toast.success(tc('addPart'));
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : tc('error'));
+            }
+          }}
+        />
+      )}
 
       <div className="overflow-hidden rounded-lg border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200">
@@ -1272,6 +1300,101 @@ function StockCountDetail({ countId, onBack }: { countId: string; onBack: () => 
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function AddCountLineModal({
+  countId: _countId,
+  existingPartIds,
+  onClose,
+  onAdd,
+}: {
+  countId: string;
+  existingPartIds: string[];
+  onClose: () => void;
+  onAdd: (partId: string) => Promise<void>;
+}) {
+  const tc = useTranslations('common');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+  const { data, isLoading } = useParts(1, debouncedSearch);
+  const [busyPartId, setBusyPartId] = useState<string | null>(null);
+
+  const existingSet = new Set(existingPartIds);
+  type PartListItem = { id: string; part_number: string | null; description: string };
+  const partsList = (data?.data ?? []) as PartListItem[];
+  const candidates: PartListItem[] = partsList.filter((p) => !existingSet.has(p.id));
+
+  const handleAdd = async (partId: string) => {
+    setBusyPartId(partId);
+    try {
+      await onAdd(partId);
+    } finally {
+      setBusyPartId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="flex w-full max-w-lg flex-col rounded-lg bg-white shadow-xl" style={{ maxHeight: '80vh' }}>
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{tc('addPart')}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="border-b px-6 py-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tc('searchByPartNumberOrDescription')}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            autoFocus
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-2">
+          {isLoading ? (
+            <div className="space-y-2 py-4">
+              <SkeletonCard className="h-10" />
+              <SkeletonCard className="h-10" />
+              <SkeletonCard className="h-10" />
+            </div>
+          ) : candidates.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-500">{tc('noResults')}</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {candidates.map((p) => (
+                <li key={p.id} className="flex items-center justify-between py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900">{p.part_number ?? '—'}</p>
+                    <p className="truncate text-xs text-gray-500">{p.description}</p>
+                  </div>
+                  <button
+                    onClick={() => handleAdd(p.id)}
+                    disabled={busyPartId !== null}
+                    className="ms-3 rounded-md bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {busyPartId === p.id ? tc('loading') : tc('addPart')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t px-6 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {tc('close')}
+          </button>
+        </div>
       </div>
     </div>
   );

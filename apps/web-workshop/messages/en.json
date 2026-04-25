@@ -91,6 +91,7 @@
     "reason": "Reason",
     "reference": "Reference",
     "adjustmentSaved": "Adjustment saved",
+    "searchByPartNumberOrDescription": "Search by part number or description",
     "procurement": "Procurement",
     "pricing": "Pricing",
     "repairCatalog": "Repair Catalog",

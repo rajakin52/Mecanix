@@ -278,6 +278,17 @@ export function useUpdateCountLine() {
   });
 }
 
+export function useAddStockCountLine() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ countId, partId }: { countId: string; partId: string }) =>
+      api.post<StockCountLine>(`/stock-counts/${countId}/lines`, { partId }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['stock-count', v.countId] });
+    },
+  });
+}
+
 export function useApproveCount() {
   const qc = useQueryClient();
   return useMutation({
