@@ -30,6 +30,20 @@ export const adjustStockSchema = z.object({
 
 export type AdjustStockInput = z.infer<typeof adjustStockSchema>;
 
+// Standalone stock-adjustment transaction. Unlike adjustStockSchema
+// (which is the parts-detail decreases-only path), this one is the
+// dedicated "Stock Adjustments" screen — gated to owner/manager and
+// allows both directions, with a reason explaining the change.
+export const createInventoryAdjustmentSchema = z.object({
+  partId: z.string().uuid(),
+  warehouseId: z.string().uuid().optional(),
+  quantityChange: z.coerce.number().int().refine((n) => n !== 0, 'Quantity change cannot be zero'),
+  reason: z.string().min(1, 'Reason is required').max(500),
+  reference: z.string().max(200).optional(),
+});
+
+export type CreateInventoryAdjustmentInput = z.infer<typeof createInventoryAdjustmentSchema>;
+
 // ---------- Service Groups ----------
 
 export const createServiceGroupSchema = z.object({

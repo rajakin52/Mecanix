@@ -325,3 +325,64 @@ export function useApproveCount() {
     },
   });
 }
+
+// ── Inventory Adjustments ───────────────────────────────────────────────
+
+export interface InventoryAdjustment {
+  id: string;
+  part_id: string;
+  warehouse_id: string | null;
+  quantity_change: number;
+  reason: string;
+  reference: string | null;
+  adjusted_by: string | null;
+  created_at: string;
+  // joined / flattened fields from backend
+  part_number?: string | null;
+  part_description?: string | null;
+  warehouse_name?: string | null;
+  warehouse_code?: string | null;
+  adjuster_name?: string | null;
+}
+
+interface InventoryAdjustmentsResponse {
+  data: InventoryAdjustment[];
+  meta: { page: number; pageSize: number; total: number; totalPages: number };
+}
+
+export function useInventoryAdjustments(
+  page = 1,
+  filters: { warehouseId?: string; partId?: string; fromDate?: string; toDate?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['inventory-adjustments', page, filters],
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page), pageSize: '50' });
+      if (filters.warehouseId) params.set('warehouseId', filters.warehouseId);
+      if (filters.partId) params.set('partId', filters.partId);
+      if (filters.fromDate) params.set('fromDate', filters.fromDate);
+      if (filters.toDate) params.set('toDate', filters.toDate);
+      return api.get<InventoryAdjustmentsResponse>(`/inventory-adjustments?${params}`);
+    },
+  });
+}
+
+export function useCreateInventoryAdjustment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      partId: string;
+      warehouseId?: string;
+      quantityChange: number;
+      reason: string;
+      reference?: string;
+    }) => api.post<InventoryAdjustment>('/inventory-adjustments', input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inventory-adjustments'] });
+      qc.invalidateQueries({ queryKey: ['warehouse-stock'] });
+      qc.invalidateQueries({ queryKey: ['warehouses'] });
+      qc.invalidateQueries({ queryKey: ['parts'] });
+      qc.invalidateQueries({ queryKey: ['inventory-summary'] });
+    },
+  });
+}

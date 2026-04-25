@@ -20,11 +20,15 @@ import {
   useExportStockCount,
   useImportStockCount,
   useApproveCount,
+  useInventoryAdjustments,
+  useCreateInventoryAdjustment,
+  type InventoryAdjustment,
   type Warehouse,
   type StockTransferLine,
   type StockCountLine,
 } from '@/hooks/use-warehouse';
 import { useParts } from '@/hooks/use-parts';
+import { useSession } from '@/hooks/use-session';
 import { useDebounce } from '@/hooks/use-debounce';
 import { InventoryTabs } from '../parts/inventory-tabs';
 import {
@@ -57,7 +61,7 @@ import {
   Upload,
 } from 'lucide-react';
 
-type Tab = 'warehouses' | 'transfers' | 'counts';
+type Tab = 'warehouses' | 'transfers' | 'counts' | 'adjustments';
 
 const WAREHOUSE_TYPES = [
   'main',
@@ -78,6 +82,7 @@ export default function WarehousePage() {
     { key: 'warehouses', label: tc('warehouses'), icon: WarehouseIcon },
     { key: 'transfers', label: tc('transfers'), icon: ArrowLeftRight },
     { key: 'counts', label: tc('stockCounts'), icon: ClipboardCheck },
+    { key: 'adjustments', label: tc('stockAdjustments'), icon: AlertTriangle },
   ];
 
   return (
@@ -114,6 +119,7 @@ export default function WarehousePage() {
       {activeTab === 'warehouses' && <WarehousesTab />}
       {activeTab === 'transfers' && <TransfersTab />}
       {activeTab === 'counts' && <StockCountsTab />}
+      {activeTab === 'adjustments' && <AdjustmentsTab />}
     </div>
   );
 }
@@ -1465,6 +1471,262 @@ function AddCountLineModal({
             className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             {tc('close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Adjustments Tab ─────────────────────────────────────────────────────
+
+function AdjustmentsTab() {
+  const tc = useTranslations('common');
+  const { data: session } = useSession();
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const { data, isLoading } = useInventoryAdjustments(page);
+  const canCreate = session?.role === 'owner' || session?.role === 'manager';
+  const adjustments: InventoryAdjustment[] = data?.data ?? [];
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">{tc('stockAdjustments')}</h2>
+        {canCreate && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            <Plus className="h-4 w-4" />
+            {tc('newAdjustment')}
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <SkeletonTable rows={6} cols={6} />
+      ) : adjustments.length === 0 ? (
+        <EmptyState icon={AlertTriangle} title={tc('noResults')} />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('date')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('part')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('warehouse')}</th>
+                <th className="px-4 py-3 text-end text-xs font-semibold uppercase text-gray-500">{tc('quantityChange')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('reason')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{tc('countedBy')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {adjustments.map((adj) => {
+                const positive = (adj.quantity_change ?? 0) > 0;
+                const negative = (adj.quantity_change ?? 0) < 0;
+                return (
+                  <tr key={adj.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-700">{new Date(adj.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{adj.part_number ?? '—'}</div>
+                      <div className="truncate text-xs text-gray-500">{adj.part_description ?? ''}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{adj.warehouse_name ?? '—'}</td>
+                    <td className={`px-4 py-3 text-end text-sm font-semibold ${positive ? 'text-green-700' : negative ? 'text-red-700' : 'text-gray-700'}`}>
+                      {positive ? '+' : ''}{adj.quantity_change}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{adj.reason}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{adj.adjuster_name ?? '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data?.meta && data.meta.totalPages > 1 && (
+        <div className="mt-4 flex justify-end gap-2 text-sm">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded-md border px-3 py-1.5 disabled:opacity-50">{tc('previous')}</button>
+          <span className="px-3 py-1.5 text-gray-600">{data.meta.page} / {data.meta.totalPages}</span>
+          <button onClick={() => setPage((p) => p + 1)} disabled={page >= data.meta.totalPages} className="rounded-md border px-3 py-1.5 disabled:opacity-50">{tc('next')}</button>
+        </div>
+      )}
+
+      {showModal && canCreate && <NewAdjustmentModal onClose={() => setShowModal(false)} />}
+    </div>
+  );
+}
+
+function NewAdjustmentModal({ onClose }: { onClose: () => void }) {
+  const tc = useTranslations('common');
+  const toast = useToast();
+  const createMutation = useCreateInventoryAdjustment();
+  const { data: warehousesData } = useWarehouses(1);
+  const warehouses = (warehousesData?.data ?? []) as Warehouse[];
+
+  // Default to the tenant's default warehouse so most adjustments
+  // don't need a manual pick.
+  const defaultWh = warehouses.find((w) => w.is_default) ?? warehouses[0];
+  const [warehouseId, setWarehouseId] = useState(defaultWh?.id ?? '');
+  const [partSearch, setPartSearch] = useState('');
+  const debouncedSearch = useDebounce(partSearch, 300);
+  const { data: partsData } = useParts(1, debouncedSearch);
+  type PickerPart = { id: string; part_number: string | null; description: string };
+  const partResults = (partsData?.data ?? []) as PickerPart[];
+  const [partId, setPartId] = useState<string>('');
+  const [partLabel, setPartLabel] = useState<string>('');
+  const [quantityChange, setQuantityChange] = useState('');
+  const [reason, setReason] = useState('');
+  const [reference, setReference] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Sync warehouseId once the warehouse list arrives.
+  if (warehouseId === '' && defaultWh?.id) setWarehouseId(defaultWh.id);
+
+  const handleSubmit = async () => {
+    setError(null);
+    const qty = parseInt(quantityChange, 10);
+    if (!partId) { setError(tc('part') + ': ' + tc('fieldRequired')); return; }
+    if (Number.isNaN(qty) || qty === 0) { setError(tc('quantityChange') + ': must be a non-zero integer'); return; }
+    if (!reason.trim()) { setError(tc('reason') + ': ' + tc('fieldRequired')); return; }
+
+    try {
+      await createMutation.mutateAsync({
+        partId,
+        warehouseId: warehouseId || undefined,
+        quantityChange: qty,
+        reason: reason.trim(),
+        reference: reference.trim() || undefined,
+      });
+      toast.success(tc('adjustmentSaved'));
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tc('error'));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{tc('newAdjustment')}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('warehouse')}</label>
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name} ({w.code}){w.is_default ? ' ★' : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('part')} *</label>
+            {partId ? (
+              <div className="mt-1 flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm">
+                <span className="truncate">{partLabel}</span>
+                <button
+                  type="button"
+                  onClick={() => { setPartId(''); setPartLabel(''); }}
+                  className="ms-2 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  {tc('cancel')}
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={partSearch}
+                  onChange={(e) => setPartSearch(e.target.value)}
+                  placeholder={tc('searchByPartNumberOrDescription')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                />
+                {partSearch && partResults.length > 0 && (
+                  <ul className="mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white text-sm">
+                    {partResults.slice(0, 10).map((p) => (
+                      <li
+                        key={p.id}
+                        onClick={() => {
+                          setPartId(p.id);
+                          setPartLabel(`${p.part_number ?? '—'} · ${p.description}`);
+                          setPartSearch('');
+                        }}
+                        className="cursor-pointer px-3 py-2 hover:bg-gray-50"
+                      >
+                        <div className="font-medium text-gray-900">{p.part_number ?? '—'}</div>
+                        <div className="truncate text-xs text-gray-500">{p.description}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('quantityChange')} *</label>
+            <input
+              type="number"
+              value={quantityChange}
+              onChange={(e) => setQuantityChange(e.target.value)}
+              placeholder="e.g. -5 or 10"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Positive = increase stock; negative = decrease
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('reason')} *</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">{tc('reference')}</label>
+            <input
+              type="text"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {tc('cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={createMutation.isPending}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {createMutation.isPending ? tc('loading') : tc('save')}
           </button>
         </div>
       </div>

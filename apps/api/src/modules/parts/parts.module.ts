@@ -4,6 +4,7 @@ import { PartsService } from './parts.service';
 import { ServiceGroupsController } from './service-groups.controller';
 import { ServiceGroupsService } from './service-groups.service';
 import { InventoryController } from './inventory.controller';
+import { InventoryAdjustmentsController } from './inventory-adjustments.controller';
 import { InventoryService } from './inventory.service';
 import { CostingService } from './costing.service';
 import { StockUploadController } from './stock-upload.controller';
@@ -16,7 +17,7 @@ import { WarehouseModule } from '../warehouse/warehouse.module';
 
 @Module({
   imports: [WarehouseModule],
-  controllers: [PartsController, ServiceGroupsController, InventoryController, StockUploadController, BulkImportController, StockPolicyController],
+  controllers: [PartsController, ServiceGroupsController, InventoryController, InventoryAdjustmentsController, StockUploadController, BulkImportController, StockPolicyController],
   providers: [PartsService, ServiceGroupsService, InventoryService, CostingService, StockUploadService, BulkImportService, StockPolicyService],
   exports: [PartsService, InventoryService, CostingService, StockPolicyService],
 })
