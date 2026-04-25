@@ -285,14 +285,8 @@ export class PartsLinesService {
               existing.part_name as string,
             );
           }
-          const currentStockQty = Number(part.stock_qty);
-          const newStockQty = currentStockQty - qtyDiff;
-          await this.supabase.getClient()
-            .from('parts')
-            .update({ stock_qty: newStockQty, updated_by: userId })
-            .eq('id', part.id)
-            .eq('tenant_id', tenantId);
-
+          // Decrement warehouse_stock; parts.stock_qty is auto-synced
+          // by the warehouse_stock trigger from migration 00107.
           const { data: whStock } = await this.supabase.getClient()
             .from('warehouse_stock')
             .select('id, quantity')
@@ -408,16 +402,8 @@ export class PartsLinesService {
               reference: jobCardId,
             });
         } else if (stockStatus === 'issued') {
-          // Return to stock — increment stock_qty (stock was already deducted)
-          const currentQty = Number(part.stock_qty);
-          const newQty = currentQty + qty;
-          await this.supabase.getClient()
-            .from('parts')
-            .update({ stock_qty: newQty })
-            .eq('id', part.id)
-            .eq('tenant_id', tenantId);
-
-          // Return to warehouse stock if applicable
+          // Return to warehouse_stock; parts.stock_qty is auto-synced
+          // by the warehouse_stock trigger from migration 00107.
           const { data: whStock } = await this.supabase.getClient()
             .from('warehouse_stock')
             .select('id, quantity')
@@ -504,16 +490,17 @@ export class PartsLinesService {
       if (!part) continue;
 
       const qty = Number(line.quantity) || 0;
-      const currentStockQty = Number(part.stock_qty);
       const currentReserved = Number(part.reserved_qty) || 0;
-      // Allow stock to go negative: policy was enforced at reservation time.
-      const newStockQty = currentStockQty - qty;
       const newReserved = Math.max(0, currentReserved - qty);
 
-      // Deduct stock and decrement reservation
+      // Decrement reservation only — parts.stock_qty is auto-synced
+      // by the warehouse_stock trigger when warehouse_stock updates
+      // below (or when this part has no warehouse_stock row, the
+      // trigger collapses it to 0). Allows stock to go negative
+      // because policy was enforced at reservation time.
       await client
         .from('parts')
-        .update({ stock_qty: newStockQty, reserved_qty: newReserved })
+        .update({ reserved_qty: newReserved })
         .eq('id', part.id)
         .eq('tenant_id', tenantId);
 
