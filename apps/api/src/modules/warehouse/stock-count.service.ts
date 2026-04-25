@@ -136,6 +136,77 @@ export class StockCountService {
     return this.getCount(tenantId, stockCount.id);
   }
 
+  /**
+   * Add an extra part to an in-progress stock count. Used when the
+   * counter discovers a SKU on the shelf that the system didn't know
+   * was in this warehouse — no row in `warehouse_stock` for it (or it
+   * exists with quantity 0). Inserted with system_qty pulled from
+   * warehouse_stock if present, else 0.
+   */
+  async addLine(tenantId: string, countId: string, partId: string) {
+    const client = this.supabase.getClient();
+
+    const count = await this.getCount(tenantId, countId);
+    if (count.status !== 'in_progress') {
+      throw new BadRequestException(`Cannot add lines to a ${count.status} stock count`);
+    }
+
+    const warehouseId = count.warehouse_id as string;
+
+    // Verify the part exists in this tenant's catalog.
+    const { data: part, error: partErr } = await client
+      .from('parts')
+      .select('id, category')
+      .eq('id', partId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (partErr) throw partErr;
+    if (!part) throw new NotFoundException('Part not found in catalog');
+
+    // If the count was scoped by category, refuse to add cross-category parts.
+    const categoryFilter = count.category_filter as string | null;
+    if (categoryFilter && (part.category as string | null) !== categoryFilter) {
+      throw new BadRequestException(
+        `This count is scoped to category "${categoryFilter}"; the part belongs to "${part.category ?? 'none'}"`,
+      );
+    }
+
+    // Refuse duplicates — a line for this part already exists.
+    const { data: existing } = await client
+      .from('stock_count_lines')
+      .select('id')
+      .eq('stock_count_id', countId)
+      .eq('part_id', partId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (existing) {
+      throw new BadRequestException('This part is already in the count');
+    }
+
+    // Pull current system quantity from warehouse_stock; 0 if no row.
+    const { data: stockRow } = await client
+      .from('warehouse_stock')
+      .select('quantity')
+      .eq('warehouse_id', warehouseId)
+      .eq('part_id', partId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    const systemQty = (stockRow?.quantity as number | undefined) ?? 0;
+
+    const { data, error } = await client
+      .from('stock_count_lines')
+      .insert({
+        tenant_id: tenantId,
+        stock_count_id: countId,
+        part_id: partId,
+        system_qty: systemQty,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   async updateCountLine(
     tenantId: string,
     countId: string,

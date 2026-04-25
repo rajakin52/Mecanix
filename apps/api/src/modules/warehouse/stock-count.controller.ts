@@ -46,6 +46,15 @@ export class StockCountController {
     return this.stockCountService.createCount(tenantId, user.id, body);
   }
 
+  @Post(':countId/lines')
+  async addLine(
+    @TenantId() tenantId: string,
+    @Param('countId') countId: string,
+    @Body() body: { partId: string },
+  ) {
+    return this.stockCountService.addLine(tenantId, countId, body.partId);
+  }
+
   @Patch(':countId/lines/:lineId')
   async updateLine(
     @TenantId() tenantId: string,
