@@ -1141,6 +1141,47 @@ export default function JobDetailPage() {
     ['polish_done', 'polishDone', tjc('bodyStage_polish')],
   ] as const;
 
+  // Group the 8 sequential body-repair stages into 4 visually distinct
+  // phases. Each phase corresponds to a workshop activity with its own
+  // colour: blue = disassembly/inspection, amber = bodywork,
+  // purple = paint, emerald = finishing. Tailwind needs the full class
+  // names statically, so the palette is spelled out per phase.
+  // i18n TODO: phase labels are pt-PT-only; move to translations.
+  const BODY_STAGE_PHASES = [
+    {
+      label: 'Desmontagem & Inspeção',
+      palette: {
+        bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800',
+        bar: 'bg-blue-500', check: 'text-blue-600 focus:ring-blue-500',
+      },
+      stages: BODY_STAGES.slice(0, 2),
+    },
+    {
+      label: 'Reparação',
+      palette: {
+        bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800',
+        bar: 'bg-amber-500', check: 'text-amber-600 focus:ring-amber-500',
+      },
+      stages: BODY_STAGES.slice(2, 4),
+    },
+    {
+      label: 'Pintura',
+      palette: {
+        bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-800',
+        bar: 'bg-purple-500', check: 'text-purple-600 focus:ring-purple-500',
+      },
+      stages: BODY_STAGES.slice(4, 6),
+    },
+    {
+      label: 'Acabamento',
+      palette: {
+        bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-800',
+        bar: 'bg-emerald-500', check: 'text-emerald-600 focus:ring-emerald-500',
+      },
+      stages: BODY_STAGES.slice(6, 8),
+    },
+  ];
+
   // Quality Control (gates the transition to 'ready')
   const { data: qcData } = useJobQc(id);
   const upsertQc = useUpsertJobQc();
@@ -2433,7 +2474,7 @@ export default function JobDetailPage() {
 
       {/* Body-Repair Stages (body_repair jobs only) */}
       {(typedJob.job_type as string) === 'body_repair' && (
-        <div className="rounded-lg border border-red-200 bg-white p-6">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">{tjc('bodyStagesTitle')}</h2>
@@ -2443,38 +2484,51 @@ export default function JobDetailPage() {
               const done = BODY_STAGES.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length;
               const pct = Math.round((done / BODY_STAGES.length) * 100);
               return (
-                <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200">
+                <span className="inline-flex items-center rounded-full bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-200">
                   {tjc('bodyStagesProgress', { done, total: BODY_STAGES.length, pct })}
                 </span>
               );
             })()}
           </div>
 
-          <div className="mb-4 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-red-500 rounded-full transition-all duration-300"
-              style={{
-                width: `${
-                  (BODY_STAGES.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length /
-                    BODY_STAGES.length) *
-                  100
-                }%`,
-              }}
-            />
+          {/* Segmented progress bar — one segment per phase, fill tinted by phase colour */}
+          <div className="mb-6 flex h-2 gap-1 overflow-hidden">
+            {BODY_STAGE_PHASES.map((phase, i) => {
+              const total = phase.stages.length;
+              const done = phase.stages.filter(([s]) => Boolean(bodyField(s) ?? bodyStages[s])).length;
+              const fillPct = (done / total) * 100;
+              return (
+                <div key={i} className="relative flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className={`absolute inset-y-0 left-0 ${phase.palette.bar} transition-all duration-300`}
+                    style={{ width: `${fillPct}%` }}
+                  />
+                </div>
+              );
+            })}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {BODY_STAGES.map(([snake, camel, label]) => (
-              <label key={snake} className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  disabled={isInvoiced || upsertBodyStages.isPending}
-                  checked={Boolean(bodyField(camel) ?? bodyStages[snake])}
-                  onChange={(e) => setBodyField(camel, e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:opacity-50"
-                />
-                <span>{label}</span>
-              </label>
+          <div className="space-y-3">
+            {BODY_STAGE_PHASES.map((phase, i) => (
+              <div key={i} className={`rounded-md border ${phase.palette.border} ${phase.palette.bg} p-3`}>
+                <h3 className={`mb-2 text-xs font-semibold uppercase tracking-wide ${phase.palette.text}`}>
+                  {phase.label}
+                </h3>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {phase.stages.map(([snake, camel, label]) => (
+                    <label key={snake} className="flex items-center gap-2 text-sm text-gray-800">
+                      <input
+                        type="checkbox"
+                        disabled={isInvoiced || upsertBodyStages.isPending}
+                        checked={Boolean(bodyField(camel) ?? bodyStages[snake])}
+                        onChange={(e) => setBodyField(camel, e.target.checked)}
+                        className={`h-4 w-4 rounded border-gray-300 ${phase.palette.check} disabled:opacity-50`}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
@@ -2497,7 +2551,7 @@ export default function JobDetailPage() {
                   );
                 }}
                 disabled={upsertBodyStages.isPending}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 {upsertBodyStages.isPending ? tc('loading') : tjc('saveStages')}
               </button>
