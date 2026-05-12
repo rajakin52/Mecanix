@@ -43,10 +43,10 @@ export default function PartsDashboardPage() {
           {/* ── Inventory snapshot ─────────────────────────────── */}
           <Section title="Inventory snapshot">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <Kpi icon={Package} label="Total parts" value={data.inventory.total_parts.toLocaleString()} sub={`${data.inventory.total_units.toLocaleString()} units`} />
-              <Kpi icon={Wallet} label="Stock value" value={formatCurrency(data.inventory.stock_value)} />
-              <Kpi icon={AlertTriangle} label="Low stock" value={String(data.inventory.low_stock_count)} tone={data.inventory.low_stock_count > 0 ? 'amber' : undefined} href="/parts/purchases" />
-              <Kpi icon={AlertCircle} label="Out of stock" value={String(data.inventory.out_of_stock_count)} tone={data.inventory.out_of_stock_count > 0 ? 'red' : undefined} />
+              <Kpi icon={Package} label="Total parts" value={data.inventory.total_parts.toLocaleString()} sub={`${data.inventory.total_units.toLocaleString()} units`} href="/parts" />
+              <Kpi icon={Wallet} label="Stock value" value={formatCurrency(data.inventory.stock_value)} href="/parts/purchases/stock-valuation" />
+              <Kpi icon={AlertTriangle} label="Low stock" value={String(data.inventory.low_stock_count)} tone={data.inventory.low_stock_count > 0 ? 'amber' : undefined} href="/parts/purchases/consumables" />
+              <Kpi icon={AlertCircle} label="Out of stock" value={String(data.inventory.out_of_stock_count)} tone={data.inventory.out_of_stock_count > 0 ? 'red' : undefined} href="/parts/purchases/out-of-stock" />
               <Kpi icon={Droplet} label="Consumables value" value={formatCurrency(data.inventory.consumables_value)} href="/parts/purchases/consumables" />
             </div>
           </Section>
@@ -60,6 +60,8 @@ export default function PartsDashboardPage() {
                 t={data.procurement.purchases.today}
                 w={data.procurement.purchases.week}
                 m={data.procurement.purchases.month}
+                hrefBase="/parts/purchases/purchased"
+                hrefExtra={{ source: 'po' }}
               />
               <Triplet
                 icon={PackageCheck}
@@ -67,6 +69,8 @@ export default function PartsDashboardPage() {
                 t={data.procurement.received.today}
                 w={data.procurement.received.week}
                 m={data.procurement.received.month}
+                hrefBase="/parts/purchases/purchased"
+                hrefExtra={{ source: 'bill' }}
               />
             </div>
 
@@ -124,6 +128,7 @@ export default function PartsDashboardPage() {
               w={data.consumption.delivered.week}
               m={data.consumption.delivered.month}
               y={data.consumption.delivered.ytd}
+              hrefBase="/parts/purchases/delivered"
             />
 
             <div className="mt-3">
@@ -134,12 +139,12 @@ export default function PartsDashboardPage() {
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <Link href="/reports/builder?type=wip-inventory" className="rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md">
                 <div className="flex items-center gap-2 text-xs uppercase text-gray-500">
                   <Wrench className="h-4 w-4" /> WIP value (parts on open jobs)
                 </div>
                 <div className="mt-1 text-2xl font-semibold text-gray-900">{formatCurrency(data.consumption.wip_value)}</div>
-              </div>
+              </Link>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="mb-2 flex items-center gap-2 text-xs uppercase text-gray-500">
                   <TrendingUp className="h-4 w-4" /> Top parts MTD
@@ -172,6 +177,7 @@ export default function PartsDashboardPage() {
                 value={String(data.health.backorder_count)}
                 sub="parts where reserved > available"
                 tone={data.health.backorder_count > 0 ? 'red' : undefined}
+                href="/parts/purchases/backorders"
               />
               <Kpi
                 icon={Hourglass}
@@ -230,45 +236,51 @@ function Kpi({
   return href ? <Link href={href}>{body}</Link> : body;
 }
 
-function Triplet({ icon: Icon, title, t, w, m }: { icon: typeof Package; title: string; t: PeriodValue; w: PeriodValue; m: PeriodValue }) {
+function buildHref(base: string, range: string, extra?: Record<string, string>): string {
+  const params = new URLSearchParams({ range, ...(extra ?? {}) });
+  return `${base}?${params.toString()}`;
+}
+
+function Triplet({ icon: Icon, title, t, w, m, hrefBase, hrefExtra }: { icon: typeof Package; title: string; t: PeriodValue; w: PeriodValue; m: PeriodValue; hrefBase?: string; hrefExtra?: Record<string, string> }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="mb-3 flex items-center gap-2 text-xs uppercase text-gray-500">
         <Icon className="h-4 w-4" /> {title}
       </div>
       <div className="grid grid-cols-3 gap-3 text-sm">
-        <Period label="Today" v={t} />
-        <Period label="This week" v={w} />
-        <Period label="This month" v={m} />
+        <Period label="Today" v={t} href={hrefBase ? buildHref(hrefBase, 'today', hrefExtra) : undefined} />
+        <Period label="This week" v={w} href={hrefBase ? buildHref(hrefBase, 'week', hrefExtra) : undefined} />
+        <Period label="This month" v={m} href={hrefBase ? buildHref(hrefBase, 'month', hrefExtra) : undefined} />
       </div>
     </div>
   );
 }
 
-function Quad({ icon: Icon, title, t, w, m, y }: { icon: typeof Package; title: string; t: PeriodValue; w: PeriodValue; m: PeriodValue; y: PeriodValue }) {
+function Quad({ icon: Icon, title, t, w, m, y, hrefBase, hrefExtra }: { icon: typeof Package; title: string; t: PeriodValue; w: PeriodValue; m: PeriodValue; y: PeriodValue; hrefBase?: string; hrefExtra?: Record<string, string> }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className="mb-3 flex items-center gap-2 text-xs uppercase text-gray-500">
         <Icon className="h-4 w-4" /> {title}
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <Period label="Today" v={t} />
-        <Period label="This week" v={w} />
-        <Period label="This month" v={m} />
-        <Period label="YTD" v={y} />
+        <Period label="Today" v={t} href={hrefBase ? buildHref(hrefBase, 'today', hrefExtra) : undefined} />
+        <Period label="This week" v={w} href={hrefBase ? buildHref(hrefBase, 'week', hrefExtra) : undefined} />
+        <Period label="This month" v={m} href={hrefBase ? buildHref(hrefBase, 'month', hrefExtra) : undefined} />
+        <Period label="YTD" v={y} href={hrefBase ? buildHref(hrefBase, 'ytd', hrefExtra) : undefined} />
       </div>
     </div>
   );
 }
 
-function Period({ label, v }: { label: string; v: PeriodValue }) {
-  return (
-    <div>
+function Period({ label, v, href }: { label: string; v: PeriodValue; href?: string }) {
+  const body = (
+    <div className={href ? 'cursor-pointer rounded-md p-1 -m-1 transition-colors hover:bg-gray-50' : ''}>
       <div className="text-xs text-gray-500">{label}</div>
       <div className="mt-0.5 text-lg font-semibold text-gray-900">{formatCurrency(v.amount)}</div>
       <div className="text-xs text-gray-400">{v.count} line{v.count === 1 ? '' : 's'}</div>
     </div>
   );
+  return href ? <Link href={href}>{body}</Link> : body;
 }
 
 function MarginTable({
@@ -308,18 +320,28 @@ function MarginTable({
           {cols.map(([k, label]) => {
             const i = issued[k];
             const v = invoiced[k];
+            const issuedHref = `/parts/purchases/margin-detail?mode=issued&range=${k}`;
+            const invoicedHref = `/parts/purchases/margin-detail?mode=invoiced&range=${k}`;
             return (
-              <tr key={k}>
+              <tr key={k} className="hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium text-gray-700">{label}</td>
-                <td className="px-3 py-2 text-end text-gray-700">{formatCurrency(i.revenue)}</td>
-                <td className="px-3 py-2 text-end font-medium text-gray-900">
-                  {formatCurrency(i.margin)}{' '}
-                  <span className="text-xs text-gray-500">({i.margin_pct.toFixed(1)}%)</span>
+                <td className="px-3 py-2 text-end text-gray-700">
+                  <Link href={issuedHref} className="hover:underline">{formatCurrency(i.revenue)}</Link>
                 </td>
-                <td className="px-3 py-2 text-end text-gray-700">{formatCurrency(v.revenue)}</td>
                 <td className="px-3 py-2 text-end font-medium text-gray-900">
-                  {formatCurrency(v.margin)}{' '}
-                  <span className="text-xs text-gray-500">({v.margin_pct.toFixed(1)}%)</span>
+                  <Link href={issuedHref} className="hover:underline">
+                    {formatCurrency(i.margin)}{' '}
+                    <span className="text-xs text-gray-500">({i.margin_pct.toFixed(1)}%)</span>
+                  </Link>
+                </td>
+                <td className="px-3 py-2 text-end text-gray-700">
+                  <Link href={invoicedHref} className="hover:underline">{formatCurrency(v.revenue)}</Link>
+                </td>
+                <td className="px-3 py-2 text-end font-medium text-gray-900">
+                  <Link href={invoicedHref} className="hover:underline">
+                    {formatCurrency(v.margin)}{' '}
+                    <span className="text-xs text-gray-500">({v.margin_pct.toFixed(1)}%)</span>
+                  </Link>
                 </td>
               </tr>
             );

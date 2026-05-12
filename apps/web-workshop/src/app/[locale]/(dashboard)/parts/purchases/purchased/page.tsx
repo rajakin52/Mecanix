@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../inventory-tabs';
 import { DateRangePicker, todayRange, type DateRange } from '@/components/DateRangePicker';
@@ -10,15 +11,36 @@ import { downloadCsv } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
+function rangeFromQuery(q: string | null): DateRange {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  if (q === 'week') {
+    const d = new Date(today); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return { startDate: fmt(d), endDate: fmt(today) };
+  }
+  if (q === 'month') return { startDate: fmt(new Date(today.getFullYear(), today.getMonth(), 1)), endDate: fmt(today) };
+  return todayRange();
+}
+
 export default function PartsPurchasedPage() {
+  const sp = useSearchParams();
   const [range, setRange] = useState<DateRange>(todayRange());
+  useEffect(() => { setRange(rangeFromQuery(sp.get('range'))); }, [sp]);
+  const sourceFilter = sp.get('source') as 'po' | 'bill' | null;
   const { data, isLoading } = usePartsPurchased(range.startDate, range.endDate);
+
+  const filteredLines = data
+    ? sourceFilter
+      ? data.lines.filter((l) => l.source === sourceFilter)
+      : data.lines
+    : [];
 
   const handleExport = () => {
     if (!data) return;
     downloadCsv(`parts-purchased-${range.startDate}_${range.endDate}.csv`, [
       ['Date', 'Source', 'Document', 'Vendor', 'Part #', 'Description', 'Qty', 'Received', 'Unit cost', 'Total'],
-      ...data.lines.map((l) => [
+      ...filteredLines.map((l) => [
         l.date, l.source, l.document, l.vendor_name ?? '', l.part_number ?? '',
         l.description, l.quantity, l.received_qty, l.unit_cost, l.total,
       ]),
@@ -52,9 +74,15 @@ export default function PartsPurchasedPage() {
 
       {data && (
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Kpi label="Lines" value={String(data.totals.line_count)} />
-          <Kpi label="Units" value={data.totals.quantity.toLocaleString()} />
-          <Kpi label="Total value" value={formatCurrency(data.totals.value)} />
+          <Kpi label="Lines" value={String(filteredLines.length)} />
+          <Kpi label="Units" value={filteredLines.reduce((s, l) => s + Number(l.quantity || 0), 0).toLocaleString()} />
+          <Kpi label="Total value" value={formatCurrency(filteredLines.reduce((s, l) => s + Number(l.total || 0), 0))} />
+        </div>
+      )}
+      {sourceFilter && (
+        <div className="mb-3 rounded-md bg-blue-50 px-3 py-1.5 text-xs text-blue-800">
+          Filtered to <strong>{sourceFilter === 'po' ? 'Purchase Orders' : 'Bills'}</strong> only.{' '}
+          <Link href="/parts/purchases/purchased" className="underline">Clear</Link>
         </div>
       )}
 
@@ -78,8 +106,8 @@ export default function PartsPurchasedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white text-sm">
-              {data && data.lines.length > 0 ? (
-                data.lines.map((l, i) => (
+              {filteredLines.length > 0 ? (
+                filteredLines.map((l, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-gray-700">{formatDate(l.date)}</td>
                     <td className="px-3 py-2"><span className={`rounded px-1.5 py-0.5 text-xs ${l.source === 'po' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>{l.source.toUpperCase()}</span></td>

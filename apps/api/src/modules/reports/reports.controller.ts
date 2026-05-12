@@ -335,6 +335,51 @@ export class ReportsController {
     return this.reportsService.inventoryDashboard(tenantId);
   }
 
+  @Get('stock-valuation')
+  async stockValuation(@TenantId() tenantId: string) {
+    return this.reportsService.stockValuation(tenantId);
+  }
+
+  @Get('out-of-stock')
+  async outOfStock(@TenantId() tenantId: string) {
+    return this.reportsService.outOfStock(tenantId);
+  }
+
+  @Get('backorders')
+  async backorders(@TenantId() tenantId: string) {
+    return this.reportsService.backorders(tenantId);
+  }
+
+  @Get('parts-delivered')
+  async partsDelivered(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.partsDelivered(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('margin-detail')
+  async marginDetail(
+    @TenantId() tenantId: string,
+    @Query('mode') mode?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.marginDetail(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+      mode === 'invoiced' ? 'invoiced' : 'issued',
+    );
+  }
+
   @Get('parts-purchased')
   async partsPurchased(
     @TenantId() tenantId: string,

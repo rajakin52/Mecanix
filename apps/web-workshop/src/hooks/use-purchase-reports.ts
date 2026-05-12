@@ -168,6 +168,119 @@ export interface InventoryDashboard {
   generated_at: string;
 }
 
+export interface StockValuationRow {
+  id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  location: string | null;
+  stock_qty: number;
+  reserved_qty: number;
+  available: number;
+  unit_cost: number;
+  sell_price: number;
+  stock_value: number;
+  potential_revenue: number;
+  is_consumable: boolean;
+  is_universal: boolean;
+}
+export interface StockValuationResponse {
+  rows: StockValuationRow[];
+  totals: { parts: number; units: number; value: number; potential_revenue: number };
+}
+export function useStockValuation() {
+  return useQuery({
+    queryKey: ['reports', 'stock-valuation'],
+    queryFn: () => api.get<StockValuationResponse>('/reports/stock-valuation'),
+  });
+}
+
+export interface OutOfStockRow {
+  id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  location: string | null;
+  stock_qty: number;
+  reserved_qty: number;
+  reorder_point: number;
+  unit_cost: number;
+  sell_price: number;
+  vendor: { name: string } | null;
+}
+export function useOutOfStock() {
+  return useQuery({
+    queryKey: ['reports', 'out-of-stock'],
+    queryFn: () => api.get<{ rows: OutOfStockRow[]; totals: { parts: number } }>('/reports/out-of-stock'),
+  });
+}
+
+export interface BackorderRow {
+  id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  stock_qty: number;
+  reserved_qty: number;
+  available: number;
+  reorder_point: number;
+  unit_cost: number;
+  sell_price: number;
+}
+export function useBackorders() {
+  return useQuery({
+    queryKey: ['reports', 'backorders'],
+    queryFn: () => api.get<{ rows: BackorderRow[]; totals: { parts: number } }>('/reports/backorders'),
+  });
+}
+
+export interface DeliveredRow {
+  id: string;
+  issued_at: string;
+  part_number: string | null;
+  description: string;
+  quantity: number;
+  unit_cost: number;
+  sell_price: number;
+  subtotal: number;
+  margin: number;
+  job_number: string | null;
+  job_status: string | null;
+  customer_name: string | null;
+  vehicle_plate: string | null;
+}
+export interface DeliveredResponse {
+  rows: DeliveredRow[];
+  totals: { lines: number; quantity: number; revenue: number; cost: number; margin: number };
+}
+export function usePartsDelivered(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: ['reports', 'parts-delivered', startDate, endDate],
+    queryFn: () => api.get<DeliveredResponse>(`/reports/parts-delivered?startDate=${startDate}&endDate=${endDate}`),
+  });
+}
+
+export interface MarginDetailRow {
+  part_number: string | null;
+  description: string;
+  quantity: number;
+  revenue: number;
+  cost: number;
+  margin: number;
+  margin_pct: number;
+}
+export interface MarginDetailResponse {
+  rows: MarginDetailRow[];
+  totals: { items: number; quantity: number; revenue: number; cost: number; margin: number; margin_pct: number };
+  mode: 'issued' | 'invoiced';
+}
+export function useMarginDetail(mode: 'issued' | 'invoiced', startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: ['reports', 'margin-detail', mode, startDate, endDate],
+    queryFn: () => api.get<MarginDetailResponse>(`/reports/margin-detail?mode=${mode}&startDate=${startDate}&endDate=${endDate}`),
+  });
+}
+
 export function useInventoryDashboard() {
   return useQuery({
     queryKey: ['reports', 'inventory-dashboard'],

@@ -1920,6 +1920,273 @@ export class ReportsService {
     return { rows, totals, since };
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  Drill-down lists (dashboard click-throughs)
+  // ════════════════════════════════════════════════════════════
+
+  async stockValuation(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, location, stock_qty, reserved_qty, unit_cost, sell_price, is_consumable, is_universal')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .gt('stock_qty', 0);
+    if (error) throw error;
+
+    const rows = (data ?? [])
+      .map((p) => {
+        const stock = Number((p as { stock_qty: number }).stock_qty ?? 0);
+        const reserved = Number((p as { reserved_qty: number }).reserved_qty ?? 0);
+        const cost = Number((p as { unit_cost: number }).unit_cost ?? 0);
+        const sell = Number((p as { sell_price: number }).sell_price ?? 0);
+        return {
+          ...(p as Record<string, unknown>),
+          stock_qty: stock,
+          reserved_qty: reserved,
+          available: stock - reserved,
+          stock_value: round2(stock * cost),
+          potential_revenue: round2(stock * sell),
+        };
+      })
+      .sort((a, b) => Number(b.stock_value) - Number(a.stock_value));
+
+    const totals = rows.reduce<{ parts: number; units: number; value: number; potential_revenue: number }>(
+      (acc, r) => {
+        acc.parts++;
+        acc.units += Number(r.stock_qty) || 0;
+        acc.value += Number(r.stock_value) || 0;
+        acc.potential_revenue += Number(r.potential_revenue) || 0;
+        return acc;
+      },
+      { parts: 0, units: 0, value: 0, potential_revenue: 0 },
+    );
+    totals.value = round2(totals.value);
+    totals.potential_revenue = round2(totals.potential_revenue);
+
+    return { rows, totals };
+  }
+
+  async outOfStock(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, location, stock_qty, reserved_qty, reorder_point, unit_cost, sell_price, vendor:vendors(name)')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .lte('stock_qty', 0);
+    if (error) throw error;
+    return { rows: data ?? [], totals: { parts: (data ?? []).length } };
+  }
+
+  async backorders(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, stock_qty, reserved_qty, reorder_point, unit_cost, sell_price')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+    if (error) throw error;
+    const rows = (data ?? [])
+      .map((p) => {
+        const stock = Number((p as { stock_qty: number }).stock_qty ?? 0);
+        const reserved = Number((p as { reserved_qty: number }).reserved_qty ?? 0);
+        return { ...(p as Record<string, unknown>), available: stock - reserved };
+      })
+      .filter((r) => Number(r.available) < 0)
+      .sort((a, b) => Number(a.available) - Number(b.available));
+    return { rows, totals: { parts: rows.length } };
+  }
+
+  async partsDelivered(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts_lines')
+      .select(
+        'id, part_number, part_name, quantity, unit_cost, sell_price, subtotal, issued_at, job_card:job_cards(job_number, status, customer:customers(full_name), vehicle:vehicles(plate))',
+      )
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', startDate)
+      .lte('issued_at', endDate)
+      .order('issued_at', { ascending: false });
+    if (error) throw error;
+
+    const pick = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+    type Row = {
+      id: string;
+      part_number: string | null;
+      part_name: string;
+      quantity: number;
+      unit_cost: number;
+      sell_price: number;
+      subtotal: number;
+      issued_at: string;
+      job_card: {
+        job_number: string;
+        status: string;
+        customer: { full_name: string } | Array<{ full_name: string }> | null;
+        vehicle: { plate: string } | Array<{ plate: string }> | null;
+      } | Array<{
+        job_number: string;
+        status: string;
+        customer: { full_name: string } | Array<{ full_name: string }> | null;
+        vehicle: { plate: string } | Array<{ plate: string }> | null;
+      }> | null;
+    };
+
+    const rows = ((data ?? []) as unknown as Row[]).map((r) => {
+      const jc = pick(r.job_card);
+      const customer = jc ? pick(jc.customer) : null;
+      const vehicle = jc ? pick(jc.vehicle) : null;
+      const qty = Number(r.quantity ?? 0);
+      const cost = Number(r.unit_cost ?? 0);
+      const revenue = Number(r.subtotal ?? 0) || qty * Number(r.sell_price ?? 0);
+      return {
+        id: r.id,
+        issued_at: r.issued_at,
+        part_number: r.part_number,
+        description: r.part_name,
+        quantity: qty,
+        unit_cost: cost,
+        sell_price: Number(r.sell_price ?? 0),
+        subtotal: round2(revenue),
+        margin: round2(revenue - qty * cost),
+        job_number: jc?.job_number ?? null,
+        job_status: jc?.status ?? null,
+        customer_name: customer?.full_name ?? null,
+        vehicle_plate: vehicle?.plate ?? null,
+      };
+    });
+
+    const totals = rows.reduce<{ lines: number; quantity: number; revenue: number; cost: number; margin: number }>(
+      (acc, r) => {
+        acc.lines++;
+        acc.quantity += Number(r.quantity) || 0;
+        acc.revenue += Number(r.subtotal) || 0;
+        acc.cost += Number(r.quantity) * Number(r.unit_cost);
+        acc.margin += Number(r.margin) || 0;
+        return acc;
+      },
+      { lines: 0, quantity: 0, revenue: 0, cost: 0, margin: 0 },
+    );
+    totals.revenue = round2(totals.revenue);
+    totals.cost = round2(totals.cost);
+    totals.margin = round2(totals.margin);
+
+    return { rows, totals };
+  }
+
+  /**
+   * Margin detail: per-part revenue + cost + margin within a window.
+   * `mode` = 'issued' (parts_lines.issued_at) or 'invoiced'
+   * (invoice.invoice_date join). Each part aggregated.
+   */
+  async marginDetail(
+    tenantId: string,
+    startDate: string,
+    endDate: string,
+    mode: 'issued' | 'invoiced',
+  ) {
+    const client = this.supabase.getClient();
+
+    let lines: Array<{ part_number: string | null; part_name: string; quantity: number; unit_cost: number; sell_price: number; subtotal: number }>;
+    if (mode === 'issued') {
+      const { data, error } = await client
+        .from('parts_lines')
+        .select('part_number, part_name, quantity, unit_cost, sell_price, subtotal')
+        .eq('tenant_id', tenantId)
+        .eq('stock_status', 'issued')
+        .gte('issued_at', startDate)
+        .lte('issued_at', endDate);
+      if (error) throw error;
+      lines = (data ?? []) as typeof lines;
+    } else {
+      const { data: invs } = await client
+        .from('invoices')
+        .select('job_card_id')
+        .eq('tenant_id', tenantId)
+        .gte('invoice_date', startDate)
+        .lte('invoice_date', endDate)
+        .not('job_card_id', 'is', null);
+      const jobIds = Array.from(
+        new Set(
+          (invs ?? [])
+            .map((i) => (i as { job_card_id: string | null }).job_card_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (jobIds.length === 0) lines = [];
+      else {
+        const { data, error } = await client
+          .from('parts_lines')
+          .select('part_number, part_name, quantity, unit_cost, sell_price, subtotal')
+          .eq('tenant_id', tenantId)
+          .in('job_card_id', jobIds);
+        if (error) throw error;
+        lines = (data ?? []) as typeof lines;
+      }
+    }
+
+    const agg = new Map<string, { part_number: string | null; description: string; quantity: number; revenue: number; cost: number }>();
+    for (const r of lines) {
+      const key = (r.part_number && r.part_number.trim()) || `__${r.part_name}`;
+      const qty = Number(r.quantity ?? 0);
+      const cost = qty * Number(r.unit_cost ?? 0);
+      const revenue = Number(r.subtotal ?? 0) || qty * Number(r.sell_price ?? 0);
+      const e = agg.get(key);
+      if (e) {
+        e.quantity += qty;
+        e.revenue += revenue;
+        e.cost += cost;
+      } else {
+        agg.set(key, {
+          part_number: r.part_number ?? null,
+          description: r.part_name,
+          quantity: qty,
+          revenue,
+          cost,
+        });
+      }
+    }
+
+    const rows = Array.from(agg.values())
+      .map((it) => {
+        const margin = it.revenue - it.cost;
+        const margin_pct = it.revenue > 0 ? (margin / it.revenue) * 100 : 0;
+        return {
+          part_number: it.part_number,
+          description: it.description,
+          quantity: it.quantity,
+          revenue: round2(it.revenue),
+          cost: round2(it.cost),
+          margin: round2(margin),
+          margin_pct: round2(margin_pct),
+        };
+      })
+      .sort((a, b) => b.margin - a.margin);
+
+    const totals = rows.reduce<{ items: number; quantity: number; revenue: number; cost: number; margin: number; margin_pct: number }>(
+      (acc, r) => {
+        acc.items++;
+        acc.quantity += r.quantity;
+        acc.revenue += r.revenue;
+        acc.cost += r.cost;
+        acc.margin += r.margin;
+        return acc;
+      },
+      { items: 0, quantity: 0, revenue: 0, cost: 0, margin: 0, margin_pct: 0 },
+    );
+    totals.revenue = round2(totals.revenue);
+    totals.cost = round2(totals.cost);
+    totals.margin = round2(totals.margin);
+    totals.margin_pct = totals.revenue > 0 ? round2((totals.margin / totals.revenue) * 100) : 0;
+
+    return { rows, totals, mode };
+  }
+
   /**
    * One-shot KPI bundle for the Parts → Dashboard landing. Returns:
    *   - inventory snapshot (counts, values, low-stock, out-of-stock)
