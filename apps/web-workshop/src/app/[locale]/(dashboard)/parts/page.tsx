@@ -323,6 +323,7 @@ export default function PartsPage() {
     taxCodeId: '',
   });
   const [editIsUniversal, setEditIsUniversal] = useState(false);
+  const [editIsConsumable, setEditIsConsumable] = useState(false);
   const [editCompat, setEditCompat] = useState<CompatRow[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -340,6 +341,7 @@ export default function PartsPage() {
     taxCodeId: '',
   });
   const [isUniversal, setIsUniversal] = useState(false);
+  const [isConsumable, setIsConsumable] = useState(false);
   const [compat, setCompat] = useState<CompatRow[]>([]);
 
   interface TaxCodeSummary { id: string; code: string; name: string; rate: number; is_default: boolean; is_active: boolean }
@@ -394,11 +396,13 @@ export default function PartsPage() {
         location: form.location || undefined,
         taxCodeId: form.taxCodeId || undefined,
         isUniversal,
+        isConsumable,
         compatibility,
       });
       setShowModal(false);
       setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '', taxCodeId: '' });
       setIsUniversal(false);
+      setIsConsumable(false);
       setCompat([]);
       toast.success('Saved successfully!');
     } catch (err) {
@@ -452,11 +456,13 @@ export default function PartsPage() {
       taxCodeId: (part.tax_code_id as string) ?? '',
     });
     setEditIsUniversal(Boolean(part.is_universal));
+    setEditIsConsumable(Boolean(part.is_consumable));
     setEditCompat([]);
     // Fetch full part (list payload doesn't include compatibility[])
     try {
       const full = await api.get<Record<string, unknown>>(`/parts/${part.id as string}`);
       setEditIsUniversal(Boolean(full.is_universal));
+      setEditIsConsumable(Boolean(full.is_consumable));
       const compatRows = (full.compatibility as Array<Record<string, unknown>> | undefined) ?? [];
       setEditCompat(
         compatRows.map((r) => ({
@@ -497,6 +503,7 @@ export default function PartsPage() {
         location: editForm.location || undefined,
         taxCodeId: editForm.taxCodeId || undefined,
         isUniversal: editIsUniversal,
+        isConsumable: editIsConsumable,
         compatibility,
       });
       setEditPart(null);
@@ -841,6 +848,20 @@ export default function PartsPage() {
                 </select>
               </div>
 
+              <div className="rounded-md border border-gray-200 bg-white p-3">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={isConsumable}
+                    onChange={(e) => setIsConsumable(e.target.checked)}
+                  />
+                  <span className="font-medium text-gray-700">Consumable</span>
+                  <span className="text-xs text-gray-500">
+                    (oil, coolant, brake fluid, paint, cleaning products…)
+                  </span>
+                </label>
+              </div>
+
               <CompatibilityEditor
                 isUniversal={isUniversal}
                 rows={compat}
@@ -1062,6 +1083,20 @@ export default function PartsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="rounded-md border border-gray-200 bg-white p-3">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editIsConsumable}
+                    onChange={(e) => setEditIsConsumable(e.target.checked)}
+                  />
+                  <span className="font-medium text-gray-700">Consumable</span>
+                  <span className="text-xs text-gray-500">
+                    (oil, coolant, brake fluid, paint, cleaning products…)
+                  </span>
+                </label>
               </div>
 
               <CompatibilityEditor

@@ -2,15 +2,16 @@
 
 import { useTranslations } from 'next-intl';
 import { usePathname, Link } from '@/i18n/navigation';
-import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen } from 'lucide-react';
+import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen, BarChart3 } from 'lucide-react';
 
 type CommonKey = 'catalogue' | 'warehouses' | 'procurement' | 'purchaseOrders' | 'pricing' | 'repairCatalog';
 
-const TABS: { href: string; tKey: CommonKey; icon: typeof Package }[] = [
+const TABS: { href: string; tKey: CommonKey | null; label?: string; icon: typeof Package }[] = [
   { href: '/parts', tKey: 'catalogue', icon: Package },
   { href: '/warehouse', tKey: 'warehouses', icon: Warehouse },
   { href: '/procurement', tKey: 'procurement', icon: ClipboardList },
   { href: '/purchase-orders', tKey: 'purchaseOrders', icon: ShoppingCart },
+  { href: '/parts/purchases', tKey: null, label: 'Reports', icon: BarChart3 },
   { href: '/settings/pricing', tKey: 'pricing', icon: Tags },
   { href: '/settings/catalog', tKey: 'repairCatalog', icon: BookOpen },
 ];
@@ -24,7 +25,12 @@ export function InventoryTabs() {
       <nav className="flex gap-1" aria-label={tc('procurement')}>
         {TABS.map((tab) => {
           const Icon = tab.icon;
-          const active = pathname.startsWith(tab.href);
+          // `/parts/purchases` is a child of `/parts` — match it exactly so
+          // the parent Catalogue tab doesn't always look active.
+          const active = tab.href === '/parts'
+            ? pathname === '/parts' || /^\/parts\/[a-f0-9-]{8,}/.test(pathname)
+            : pathname === tab.href || pathname.startsWith(tab.href + '/');
+          const label = tab.tKey ? tc(tab.tKey) : (tab.label ?? '');
           return (
             <Link
               key={tab.href}
@@ -36,7 +42,7 @@ export function InventoryTabs() {
               }`}
             >
               <Icon className="h-4 w-4" />
-              {tc(tab.tKey)}
+              {label}
             </Link>
           );
         })}

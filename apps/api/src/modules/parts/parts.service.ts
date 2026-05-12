@@ -169,6 +169,7 @@ export class PartsService {
         default_warranty_months: input.defaultWarrantyMonths ?? null,
         default_warranty_km: input.defaultWarrantyKm ?? null,
         is_universal: input.isUniversal ?? false,
+        is_consumable: input.isConsumable ?? false,
         is_active: true,
         created_by: userId,
         updated_by: userId,
@@ -233,6 +234,7 @@ export class PartsService {
       defaultWarrantyMonths: 'default_warranty_months',
       defaultWarrantyKm: 'default_warranty_km',
       isUniversal: 'is_universal',
+      isConsumable: 'is_consumable',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

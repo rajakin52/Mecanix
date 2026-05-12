@@ -1636,4 +1636,360 @@ export class ReportsService {
       },
     };
   }
+
+  // ════════════════════════════════════════════════════════════
+  //  Parts-purchases reports
+  // ════════════════════════════════════════════════════════════
+
+  /**
+   * What was purchased in a given window. Combines PO lines from POs
+   * ordered in the period with approved bill lines (final invoiced cost).
+   */
+  async partsPurchased(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    const { data: poRows } = await client
+      .from('po_lines')
+      .select(
+        'id, quantity, unit_cost, received_qty, part_id, description, part:parts(part_number, description), purchase_order:purchase_orders!inner(po_number, order_date, expected_date, vendor:vendors(name))',
+      )
+      .eq('tenant_id', tenantId)
+      .gte('purchase_order.order_date', startDate)
+      .lte('purchase_order.order_date', endDate);
+
+    const { data: billRows } = await client
+      .from('bill_lines')
+      .select(
+        'id, quantity, unit_cost, total, part_id, part_number, part_name, bill:bills!inner(bill_number, bill_date, status, vendor:vendors(name))',
+      )
+      .eq('tenant_id', tenantId)
+      .gte('bill.bill_date', startDate)
+      .lte('bill.bill_date', endDate);
+
+    const pick = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+    type PoRow = {
+      id: string;
+      quantity: number;
+      unit_cost: number;
+      received_qty: number;
+      part_id: string | null;
+      description: string;
+      part: { part_number: string | null; description: string } | Array<{ part_number: string | null; description: string }> | null;
+      purchase_order: { po_number: string; order_date: string; expected_date: string | null; vendor: { name: string } | Array<{ name: string }> | null } | null;
+    };
+    type BillRow = {
+      id: string;
+      quantity: number;
+      unit_cost: number;
+      total: number;
+      part_id: string | null;
+      part_number: string | null;
+      part_name: string;
+      bill: { bill_number: string; bill_date: string; status: string; vendor: { name: string } | Array<{ name: string }> | null } | null;
+    };
+
+    const lines: Array<Record<string, unknown>> = [];
+    for (const r of (poRows ?? []) as unknown as PoRow[]) {
+      if (!r.purchase_order) continue;
+      const po = r.purchase_order;
+      const part = pick(r.part);
+      const vendor = pick(po.vendor);
+      lines.push({
+        source: 'po',
+        date: po.order_date,
+        document: po.po_number,
+        vendor_name: vendor?.name ?? null,
+        part_id: r.part_id,
+        part_number: part?.part_number ?? null,
+        description: part?.description ?? r.description,
+        quantity: r.quantity,
+        received_qty: r.received_qty,
+        unit_cost: Number(r.unit_cost),
+        total: Number(r.unit_cost) * r.quantity,
+      });
+    }
+    for (const r of (billRows ?? []) as unknown as BillRow[]) {
+      if (!r.bill) continue;
+      const bill = r.bill;
+      const vendor = pick(bill.vendor);
+      lines.push({
+        source: 'bill',
+        date: bill.bill_date,
+        document: bill.bill_number,
+        vendor_name: vendor?.name ?? null,
+        part_id: r.part_id,
+        part_number: r.part_number,
+        description: r.part_name,
+        quantity: r.quantity,
+        received_qty: r.quantity,
+        unit_cost: Number(r.unit_cost),
+        total: Number(r.total),
+      });
+    }
+
+    lines.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    const totals = lines.reduce<{ line_count: number; quantity: number; value: number }>(
+      (acc, l) => {
+        acc.line_count++;
+        acc.quantity += Number(l.quantity) || 0;
+        acc.value += Number(l.total) || 0;
+        return acc;
+      },
+      { line_count: 0, quantity: 0, value: 0 },
+    );
+
+    return { lines, totals };
+  }
+
+  /**
+   * POs sent or partial, with at least one line not fully received.
+   * One row per outstanding line. `overdue` is true when expected_date
+   * is in the past.
+   */
+  async pendingDeliveries(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const { data, error } = await client
+      .from('po_lines')
+      .select(
+        'id, quantity, received_qty, unit_cost, description, part:parts(part_number, description), purchase_order:purchase_orders!inner(id, po_number, status, order_date, expected_date, vendor:vendors(name))',
+      )
+      .eq('tenant_id', tenantId)
+      .in('purchase_order.status', ['sent', 'partial']);
+    if (error) throw error;
+
+    const pick = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+    type Row = {
+      id: string;
+      quantity: number;
+      received_qty: number;
+      unit_cost: number;
+      description: string;
+      part: { part_number: string | null; description: string } | Array<{ part_number: string | null; description: string }> | null;
+      purchase_order: { id: string; po_number: string; status: string; order_date: string; expected_date: string | null; vendor: { name: string } | Array<{ name: string }> | null } | null;
+    };
+    const today = new Date().toISOString().slice(0, 10);
+
+    const rows = ((data ?? []) as unknown as Row[])
+      .filter((r) => r.purchase_order && r.quantity > r.received_qty)
+      .map((r) => {
+        const po = r.purchase_order!;
+        const part = pick(r.part);
+        const vendor = pick(po.vendor);
+        const outstanding = r.quantity - r.received_qty;
+        return {
+          po_id: po.id,
+          po_number: po.po_number,
+          po_status: po.status,
+          order_date: po.order_date,
+          expected_date: po.expected_date,
+          overdue: po.expected_date != null && po.expected_date < today,
+          vendor_name: vendor?.name ?? null,
+          part_number: part?.part_number ?? null,
+          description: part?.description ?? r.description,
+          quantity: r.quantity,
+          received_qty: r.received_qty,
+          outstanding,
+          unit_cost: Number(r.unit_cost),
+          outstanding_value: outstanding * Number(r.unit_cost),
+        };
+      })
+      .sort((a, b) => {
+        if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+        return String(a.expected_date ?? '9999').localeCompare(String(b.expected_date ?? '9999'));
+      });
+
+    const totals = rows.reduce(
+      (acc, r) => {
+        acc.lines++;
+        acc.outstanding_qty += r.outstanding;
+        acc.outstanding_value += r.outstanding_value;
+        if (r.overdue) acc.overdue_lines++;
+        return acc;
+      },
+      { lines: 0, outstanding_qty: 0, outstanding_value: 0, overdue_lines: 0 },
+    );
+
+    return { rows, totals };
+  }
+
+  /**
+   * Stock on hand for parts flagged as consumables.
+   */
+  async consumablesStock(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, location, stock_qty, reserved_qty, reorder_point, unit_cost, sell_price')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .eq('is_consumable', true)
+      .order('description');
+    if (error) throw error;
+
+    const rows = (data ?? []).map((p) => {
+      const stock = Number((p as { stock_qty: number }).stock_qty ?? 0);
+      const reserved = Number((p as { reserved_qty: number }).reserved_qty ?? 0);
+      const available = stock - reserved;
+      const reorder = Number((p as { reorder_point: number }).reorder_point ?? 0);
+      const unit_cost = Number((p as { unit_cost: number }).unit_cost ?? 0);
+      return {
+        ...(p as Record<string, unknown>),
+        stock_qty: stock,
+        available,
+        below_reorder: available <= reorder,
+        stock_value: round2(stock * unit_cost),
+      };
+    });
+
+    const totals = rows.reduce<{ parts: number; units: number; value: number; below_reorder: number }>(
+      (acc, r) => {
+        acc.parts++;
+        acc.units += Number(r.stock_qty) || 0;
+        acc.value += Number(r.stock_value) || 0;
+        if (r.below_reorder) acc.below_reorder++;
+        return acc;
+      },
+      { parts: 0, units: 0, value: 0, below_reorder: 0 },
+    );
+
+    return { rows, totals };
+  }
+
+  /**
+   * Parts in stock that have not had an `issued` movement in the last
+   * `days` (default 180). Highlights working capital tied up in
+   * dead/slow inventory.
+   */
+  async slowMovingParts(tenantId: string, days = 180) {
+    const client = this.supabase.getClient();
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: moved } = await client
+      .from('parts_lines')
+      .select('part_number')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', since)
+      .not('part_number', 'is', null);
+
+    const movedKeys = new Set<string>();
+    for (const m of moved ?? []) {
+      const k = (m as { part_number: string | null }).part_number;
+      if (k) movedKeys.add(k);
+    }
+
+    const { data: parts, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, stock_qty, unit_cost, sell_price, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .gt('stock_qty', 0);
+    if (error) throw error;
+
+    const rows = (parts ?? [])
+      .filter((p) => {
+        const pn = (p as { part_number: string | null }).part_number;
+        return !pn || !movedKeys.has(pn);
+      })
+      .map((p) => {
+        const stock = Number((p as { stock_qty: number }).stock_qty ?? 0);
+        const cost = Number((p as { unit_cost: number }).unit_cost ?? 0);
+        return {
+          ...(p as Record<string, unknown>),
+          stock_qty: stock,
+          tied_up_value: round2(stock * cost),
+        };
+      })
+      .sort((a, b) => Number(b.tied_up_value) - Number(a.tied_up_value));
+
+    const totals = rows.reduce<{ parts: number; units: number; value: number }>(
+      (acc, r) => {
+        acc.parts++;
+        acc.units += Number(r.stock_qty) || 0;
+        acc.value += Number(r.tied_up_value) || 0;
+        return acc;
+      },
+      { parts: 0, units: 0, value: 0 },
+    );
+
+    return { rows, totals, since };
+  }
+
+  /**
+   * Pareto/ABC analysis by revenue over the window.
+   *   Class A — top 80% of cumulative revenue (the vital few)
+   *   Class B — next 15%
+   *   Class C — bottom 5%
+   */
+  async abcAnalysis(tenantId: string, startDate: string, endDate: string) {
+    const client = this.supabase.getClient();
+
+    const { data, error } = await client
+      .from('parts_lines')
+      .select('part_number, part_name, quantity, sell_price, subtotal')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', startDate)
+      .lte('issued_at', endDate);
+    if (error) throw error;
+
+    type Row = { part_number: string | null; part_name: string; quantity: number; sell_price: number; subtotal: number };
+
+    const agg = new Map<string, { part_number: string | null; description: string; quantity: number; revenue: number }>();
+    for (const r of (data ?? []) as Row[]) {
+      const key = (r.part_number && r.part_number.trim()) || `__${r.part_name}`;
+      const revenue = Number(r.subtotal) || Number(r.sell_price) * Number(r.quantity) || 0;
+      const existing = agg.get(key);
+      if (existing) {
+        existing.quantity += Number(r.quantity) || 0;
+        existing.revenue += revenue;
+      } else {
+        agg.set(key, {
+          part_number: r.part_number ?? null,
+          description: r.part_name,
+          quantity: Number(r.quantity) || 0,
+          revenue,
+        });
+      }
+    }
+
+    const items = Array.from(agg.values()).sort((a, b) => b.revenue - a.revenue);
+    const total = items.reduce((s, i) => s + i.revenue, 0);
+
+    let running = 0;
+    const rows = items.map((it, idx) => {
+      running += it.revenue;
+      const cumPct = total > 0 ? (running / total) * 100 : 0;
+      const itemPct = total > 0 ? (it.revenue / total) * 100 : 0;
+      const cls: 'A' | 'B' | 'C' = cumPct <= 80 ? 'A' : cumPct <= 95 ? 'B' : 'C';
+      return {
+        rank: idx + 1,
+        part_number: it.part_number,
+        description: it.description,
+        quantity: it.quantity,
+        revenue: round2(it.revenue),
+        revenue_pct: round2(itemPct),
+        cumulative_pct: round2(cumPct),
+        class: cls,
+      };
+    });
+
+    const sumClass = (cls: 'A' | 'B' | 'C') =>
+      rows.filter((r) => r.class === cls).reduce((s, r) => s + r.revenue, 0);
+
+    const summary = {
+      total_revenue: round2(total),
+      total_items: rows.length,
+      class_A: { items: rows.filter((r) => r.class === 'A').length, revenue: round2(sumClass('A')) },
+      class_B: { items: rows.filter((r) => r.class === 'B').length, revenue: round2(sumClass('B')) },
+      class_C: { items: rows.filter((r) => r.class === 'C').length, revenue: round2(sumClass('C')) },
+    };
+
+    return { rows, summary };
+  }
 }

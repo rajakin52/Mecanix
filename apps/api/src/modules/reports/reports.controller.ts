@@ -327,4 +327,55 @@ export class ReportsController {
       endDate || defaults.endDate,
     );
   }
+
+  // ── Parts-purchases reports ───────────────────────────────────
+
+  @Get('parts-purchased')
+  async partsPurchased(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.partsPurchased(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
+  @Get('pending-deliveries')
+  async pendingDeliveries(@TenantId() tenantId: string) {
+    return this.reportsService.pendingDeliveries(tenantId);
+  }
+
+  @Get('consumables-stock')
+  async consumablesStock(@TenantId() tenantId: string) {
+    return this.reportsService.consumablesStock(tenantId);
+  }
+
+  @Get('slow-moving')
+  async slowMoving(
+    @TenantId() tenantId: string,
+    @Query('days') days?: string,
+  ) {
+    return this.reportsService.slowMovingParts(
+      tenantId,
+      days ? Number(days) : 180,
+    );
+  }
+
+  @Get('abc-analysis')
+  async abcAnalysis(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.abcAnalysis(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
 }
