@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +24,49 @@ interface CompatRow {
 }
 
 const EMPTY_COMPAT_ROW: CompatRow = { make: '', model: '', yearFrom: '', yearTo: '' };
+
+const UOM_OPTIONS = ['each', 'litre', 'ml', 'kg', 'g', 'metre', 'cm', 'sheet', 'roll', 'pack'];
+
+function UomFields({
+  uom, packSize, onUomChange, onPackSizeChange,
+}: {
+  uom: string;
+  packSize: string;
+  onUomChange: (v: string) => void;
+  onPackSizeChange: (v: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-3">
+      <div className="mb-2 text-sm font-medium text-gray-700">Unit of measure</div>
+      <p className="mb-2 text-xs text-gray-500">
+        How the part is issued to jobs. For things sold in larger containers (e.g. a 5L jug of oil), set <code className="bg-gray-100 px-1 rounded">uom = litre</code> and <code className="bg-gray-100 px-1 rounded">pack size = 5</code>.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs text-gray-500">Unit</label>
+          <select
+            value={uom}
+            onChange={(e) => onUomChange(e.target.value)}
+            className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            {UOM_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500">Pack size</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={packSize}
+            onChange={(e) => onPackSizeChange(e.target.value)}
+            className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CompatibilityEditor({
   isUniversal,
@@ -307,7 +351,19 @@ export default function PartsPage() {
     setSortDir(dir);
   };
 
-  const { data, isLoading, isError, error } = useParts(page, debouncedSearch, category || undefined);
+  const sp = useSearchParams();
+  const [consumableFilter, setConsumableFilter] = useState(false);
+  useEffect(() => {
+    setConsumableFilter(sp.get('consumable') === 'true');
+  }, [sp]);
+
+  const { data, isLoading, isError, error } = useParts(
+    page,
+    debouncedSearch,
+    category || undefined,
+    undefined,
+    consumableFilter,
+  );
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
   const updateMutation = useUpdatePart();
@@ -324,6 +380,8 @@ export default function PartsPage() {
   });
   const [editIsUniversal, setEditIsUniversal] = useState(false);
   const [editIsConsumable, setEditIsConsumable] = useState(false);
+  const [editUom, setEditUom] = useState('each');
+  const [editPackSize, setEditPackSize] = useState('1');
   const [editCompat, setEditCompat] = useState<CompatRow[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -342,6 +400,8 @@ export default function PartsPage() {
   });
   const [isUniversal, setIsUniversal] = useState(false);
   const [isConsumable, setIsConsumable] = useState(false);
+  const [uom, setUom] = useState('each');
+  const [packSize, setPackSize] = useState('1');
   const [compat, setCompat] = useState<CompatRow[]>([]);
 
   interface TaxCodeSummary { id: string; code: string; name: string; rate: number; is_default: boolean; is_active: boolean }
@@ -397,12 +457,16 @@ export default function PartsPage() {
         taxCodeId: form.taxCodeId || undefined,
         isUniversal,
         isConsumable,
+        uom: uom || 'each',
+        packSize: Number(packSize) || 1,
         compatibility,
       });
       setShowModal(false);
       setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '', taxCodeId: '' });
       setIsUniversal(false);
       setIsConsumable(false);
+      setUom('each');
+      setPackSize('1');
       setCompat([]);
       toast.success('Saved successfully!');
     } catch (err) {
@@ -457,12 +521,16 @@ export default function PartsPage() {
     });
     setEditIsUniversal(Boolean(part.is_universal));
     setEditIsConsumable(Boolean(part.is_consumable));
+    setEditUom((part.uom as string) || 'each');
+    setEditPackSize(part.pack_size != null ? String(part.pack_size) : '1');
     setEditCompat([]);
     // Fetch full part (list payload doesn't include compatibility[])
     try {
       const full = await api.get<Record<string, unknown>>(`/parts/${part.id as string}`);
       setEditIsUniversal(Boolean(full.is_universal));
       setEditIsConsumable(Boolean(full.is_consumable));
+      setEditUom((full.uom as string) || 'each');
+      setEditPackSize(full.pack_size != null ? String(full.pack_size) : '1');
       const compatRows = (full.compatibility as Array<Record<string, unknown>> | undefined) ?? [];
       setEditCompat(
         compatRows.map((r) => ({
@@ -504,6 +572,8 @@ export default function PartsPage() {
         taxCodeId: editForm.taxCodeId || undefined,
         isUniversal: editIsUniversal,
         isConsumable: editIsConsumable,
+        uom: editUom || 'each',
+        packSize: Number(editPackSize) || 1,
         compatibility,
       });
       setEditPart(null);
@@ -607,6 +677,18 @@ export default function PartsPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        {consumableFilter && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-200">
+            Showing consumables only
+            <Link
+              href="/parts"
+              className="ml-1 text-blue-600 hover:underline"
+              onClick={() => setConsumableFilter(false)}
+            >
+              clear
+            </Link>
+          </span>
+        )}
       </div>
 
       {isLoading ? (
@@ -862,6 +944,8 @@ export default function PartsPage() {
                 </label>
               </div>
 
+              <UomFields uom={uom} packSize={packSize} onUomChange={setUom} onPackSizeChange={setPackSize} />
+
               <CompatibilityEditor
                 isUniversal={isUniversal}
                 rows={compat}
@@ -1098,6 +1182,8 @@ export default function PartsPage() {
                   </span>
                 </label>
               </div>
+
+              <UomFields uom={editUom} packSize={editPackSize} onUomChange={setEditUom} onPackSizeChange={setEditPackSize} />
 
               <CompatibilityEditor
                 isUniversal={editIsUniversal}

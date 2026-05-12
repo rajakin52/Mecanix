@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
+import { MaterialsChargesPanel } from '@/components/job-card/MaterialsChargesPanel';
 import {
   useJob,
   useUpdateJob,
@@ -1373,6 +1374,7 @@ export default function JobDetailPage() {
   const [labourHours, setLabourHours] = useState('');
   const [labourRate, setLabourRate] = useState('');
   const [labourTechId, setLabourTechId] = useState('');
+  const [labourType, setLabourType] = useState<'mechanical' | 'body' | 'refinish' | 'detail'>('mechanical');
   const [labourWarrantyMonths, setLabourWarrantyMonths] = useState('');
   const [partWarrantyMonths, setPartWarrantyMonths] = useState('');
 
@@ -1648,12 +1650,14 @@ export default function JobDetailPage() {
         rate: parseFloat(labourRate),
         technicianId: labourTechId || undefined,
         warrantyMonths: labourWarrantyMonths ? Number(labourWarrantyMonths) : undefined,
+        labourType,
       });
       setShowLabourForm(false);
       setLabourDesc('');
       setLabourHours('');
       setLabourRate('');
       setLabourTechId('');
+      setLabourType('mechanical');
       setLabourWarrantyMonths('');
     } catch (err) {
       setLabourError(err instanceof Error ? err.message : 'Failed to add labour line');
@@ -2456,7 +2460,20 @@ export default function JobDetailPage() {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
-              <div className="col-span-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Labour type</label>
+                <select
+                  value={labourType}
+                  onChange={(e) => setLabourType(e.target.value as typeof labourType)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="mechanical">Mechanical</option>
+                  <option value="body">Body repair</option>
+                  <option value="refinish">Refinish (paint)</option>
+                  <option value="detail">Detail</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">{t('selectTechnician')}</label>
                 <select
                   value={labourTechId}
@@ -2502,6 +2519,9 @@ export default function JobDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Materials Charges (body-shop recovery) */}
+      <MaterialsChargesPanel jobCardId={id} />
 
       {/* Parts Lines */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">

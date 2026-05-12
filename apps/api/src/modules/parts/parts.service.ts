@@ -13,6 +13,7 @@ import type {
 interface PartFilters {
   category?: string;
   lowStock?: boolean;
+  consumable?: boolean;
   vehicle?: PartsVehicleFilter;
 }
 
@@ -70,6 +71,10 @@ export class PartsService {
 
     if (filters.lowStock) {
       query = query.filter('stock_qty', 'lte', 'reorder_point');
+    }
+
+    if (filters.consumable) {
+      query = query.eq('is_consumable', true);
     }
 
     // Vehicle scope: show parts that are universal OR have a compat row

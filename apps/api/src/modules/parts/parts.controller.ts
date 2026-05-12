@@ -37,6 +37,7 @@ export class PartsController {
     @Query(new ZodValidationPipe(paginationSchema)) query: PaginationInput,
     @Query('category') category?: string,
     @Query('lowStock') lowStock?: string,
+    @Query('consumable') consumable?: string,
     @Query('make') make?: string,
     @Query('model') model?: string,
     @Query('year') year?: string,
@@ -53,6 +54,7 @@ export class PartsController {
     return this.partsService.list(tenantId, query, {
       category,
       lowStock: lowStock === 'true',
+      consumable: consumable === 'true',
       vehicle,
     });
   }

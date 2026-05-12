@@ -25,9 +25,13 @@ export default function ConsumablesPage() {
   return (
     <div>
       <InventoryTabs />
-      <div className="mb-4">
-        <Link href="/parts/purchases" className="inline-flex items-center text-sm text-primary-600 hover:underline">
-          <ChevronLeft className="h-4 w-4" /> Purchases &amp; Reports
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+        <Link href="/parts/dashboard" className="inline-flex items-center text-primary-600 hover:underline">
+          <ChevronLeft className="h-4 w-4" /> Dashboard
+        </Link>
+        <span className="text-gray-300">·</span>
+        <Link href="/parts/purchases" className="text-gray-600 hover:text-primary-600">
+          Purchases &amp; Reports
         </Link>
       </div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -35,13 +39,21 @@ export default function ConsumablesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Consumables on Hand</h1>
           <p className="text-sm text-gray-500">Parts flagged as consumable in the catalogue (oil, fluids, paint, filters, cleaning products).</p>
         </div>
-        <button
-          onClick={handleExport}
-          disabled={!data}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          Export
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/parts?consumable=true"
+            className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-sm font-semibold text-primary-700 hover:bg-primary-100"
+          >
+            Manage in Catalogue
+          </Link>
+          <button
+            onClick={handleExport}
+            disabled={!data}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Export
+          </button>
+        </div>
       </div>
 
       {data && (

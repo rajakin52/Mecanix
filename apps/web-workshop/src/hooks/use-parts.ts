@@ -56,14 +56,16 @@ export function useParts(
   search = '',
   category?: string,
   vehicle?: PartsVehicleScope,
+  consumable?: boolean,
 ) {
   const scope = vehicle?.make ? vehicle : undefined;
   return useQuery({
-    queryKey: ['parts', page, search, category, scope?.make, scope?.model, scope?.year],
+    queryKey: ['parts', page, search, category, scope?.make, scope?.model, scope?.year, consumable],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '20' });
       if (search) params.set('search', search);
       if (category) params.set('category', category);
+      if (consumable) params.set('consumable', 'true');
       if (scope?.make) params.set('make', scope.make);
       if (scope?.model) params.set('model', scope.model);
       if (scope?.year) params.set('year', String(scope.year));

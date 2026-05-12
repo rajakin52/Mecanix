@@ -15,6 +15,7 @@ import {
   Shield,
   ArrowLeft,
   Camera,
+  PaintBucket,
 } from 'lucide-react';
 import { cn } from '@mecanix/ui-web';
 
@@ -31,6 +32,7 @@ export function SettingsSidebar() {
   const items: NavItem[] = [
     { href: '/settings/workshop', label: t('workshop'), icon: Building2 },
     { href: '/settings/financial', label: t('financial'), icon: Banknote },
+    { href: '/settings/materials-rates', label: 'Materials rates', icon: PaintBucket },
     { href: '/settings/pricing', label: t('pricing'), icon: Tag },
     { href: '/settings/document-numbering', label: t('numbering'), icon: Hash },
     { href: '/settings/integrations', label: t('integrations'), icon: Plug },
