@@ -188,6 +188,34 @@ export interface StockValuationResponse {
   rows: StockValuationRow[];
   totals: { parts: number; units: number; value: number; potential_revenue: number };
 }
+export interface LowStockRow {
+  id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  location: string | null;
+  stock_qty: number;
+  reserved_qty: number;
+  available: number;
+  reorder_point: number;
+  shortfall: number;
+  out_of_stock: boolean;
+  unit_cost: number;
+  sell_price: number;
+  vendor_name: string | null;
+  replenish_value: number;
+}
+export interface LowStockResponse {
+  rows: LowStockRow[];
+  totals: { parts: number; out_of_stock: number; shortfall_units: number; replenish_value: number };
+}
+export function useLowStockDetail() {
+  return useQuery({
+    queryKey: ['reports', 'low-stock-detail'],
+    queryFn: () => api.get<LowStockResponse>('/reports/low-stock-detail'),
+  });
+}
+
 export function useStockValuation() {
   return useQuery({
     queryKey: ['reports', 'stock-valuation'],

@@ -335,6 +335,11 @@ export class ReportsController {
     return this.reportsService.inventoryDashboard(tenantId);
   }
 
+  @Get('low-stock-detail')
+  async lowStockDetail(@TenantId() tenantId: string) {
+    return this.reportsService.lowStockDetail(tenantId);
+  }
+
   @Get('stock-valuation')
   async stockValuation(@TenantId() tenantId: string) {
     return this.reportsService.stockValuation(tenantId);

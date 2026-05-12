@@ -1924,6 +1924,80 @@ export class ReportsService {
   //  Drill-down lists (dashboard click-throughs)
   // ════════════════════════════════════════════════════════════
 
+  /**
+   * Parts at or below reorder point — same definition as the dashboard
+   * (available = stock − reserved ≤ reorder_point). Includes parts with
+   * zero or negative stock.
+   */
+  async lowStockDetail(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select('id, part_number, description, category, location, stock_qty, reserved_qty, reorder_point, unit_cost, sell_price, vendor:vendors(name)')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('stock_qty', { ascending: true });
+    if (error) throw error;
+
+    type Row = {
+      id: string;
+      part_number: string | null;
+      description: string;
+      category: string | null;
+      location: string | null;
+      stock_qty: number;
+      reserved_qty: number;
+      reorder_point: number;
+      unit_cost: number;
+      sell_price: number;
+      vendor: { name: string } | Array<{ name: string }> | null;
+    };
+    const pick = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+    const rows = ((data ?? []) as Row[])
+      .map((p) => {
+        const stock = Number(p.stock_qty ?? 0);
+        const reserved = Number(p.reserved_qty ?? 0);
+        const reorder = Number(p.reorder_point ?? 0);
+        const available = stock - reserved;
+        const vendor = pick(p.vendor);
+        const shortfall = Math.max(0, reorder - available);
+        return {
+          id: p.id,
+          part_number: p.part_number,
+          description: p.description,
+          category: p.category,
+          location: p.location,
+          stock_qty: stock,
+          reserved_qty: reserved,
+          available,
+          reorder_point: reorder,
+          shortfall,
+          out_of_stock: stock <= 0,
+          unit_cost: Number(p.unit_cost ?? 0),
+          sell_price: Number(p.sell_price ?? 0),
+          vendor_name: vendor?.name ?? null,
+          replenish_value: round2(shortfall * Number(p.unit_cost ?? 0)),
+        };
+      })
+      .filter((r) => r.available <= r.reorder_point);
+
+    const totals = rows.reduce<{ parts: number; out_of_stock: number; shortfall_units: number; replenish_value: number }>(
+      (acc, r) => {
+        acc.parts++;
+        if (r.out_of_stock) acc.out_of_stock++;
+        acc.shortfall_units += r.shortfall;
+        acc.replenish_value += r.replenish_value;
+        return acc;
+      },
+      { parts: 0, out_of_stock: 0, shortfall_units: 0, replenish_value: 0 },
+    );
+    totals.replenish_value = round2(totals.replenish_value);
+
+    return { rows, totals };
+  }
+
   async stockValuation(tenantId: string) {
     const client = this.supabase.getClient();
     const { data, error } = await client
@@ -2240,8 +2314,10 @@ export class ReportsService {
       inventory.stock_value += value;
       if (p.is_consumable) inventory.consumables_value += value;
       const available = stock - reserved;
+      // Low stock = anything at or below reorder point, even if stock is 0.
+      // Out-of-stock is a subset (stock <= 0).
+      if (available <= reorder) inventory.low_stock_count++;
       if (stock <= 0) inventory.out_of_stock_count++;
-      else if (available <= reorder) inventory.low_stock_count++;
     }
     inventory.stock_value = round2(inventory.stock_value);
     inventory.consumables_value = round2(inventory.consumables_value);

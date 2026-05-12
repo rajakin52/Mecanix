@@ -45,7 +45,7 @@ export default function PartsDashboardPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <Kpi icon={Package} label="Total parts" value={data.inventory.total_parts.toLocaleString()} sub={`${data.inventory.total_units.toLocaleString()} units`} href="/parts" />
               <Kpi icon={Wallet} label="Stock value" value={formatCurrency(data.inventory.stock_value)} href="/parts/purchases/stock-valuation" />
-              <Kpi icon={AlertTriangle} label="Low stock" value={String(data.inventory.low_stock_count)} tone={data.inventory.low_stock_count > 0 ? 'amber' : undefined} href="/parts/purchases/consumables" />
+              <Kpi icon={AlertTriangle} label="Low stock" value={String(data.inventory.low_stock_count)} tone={data.inventory.low_stock_count > 0 ? 'amber' : undefined} href="/parts/purchases/low-stock" />
               <Kpi icon={AlertCircle} label="Out of stock" value={String(data.inventory.out_of_stock_count)} tone={data.inventory.out_of_stock_count > 0 ? 'red' : undefined} href="/parts/purchases/out-of-stock" />
               <Kpi icon={Droplet} label="Consumables value" value={formatCurrency(data.inventory.consumables_value)} href="/parts/purchases/consumables" />
             </div>
