@@ -9,6 +9,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useParts, useCreatePart, useUpdatePart, useLowStock, useVehicleMakes, useVehicleModels } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
+import { SearchableSelect } from '@/components/SearchableSelect';
 import { InventoryTabs } from './inventory-tabs';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
@@ -106,74 +107,98 @@ function CompatRowEditor({
   onRemove: () => void;
 }) {
   const { data: models } = useVehicleModels(row.make || undefined);
+  const yearInvalid =
+    row.yearFrom !== '' && row.yearTo !== '' && Number(row.yearFrom) > Number(row.yearTo);
   return (
-    <div className="flex items-end gap-2 rounded-md border border-gray-200 bg-gray-50 p-2">
-      <div className="flex-1">
-        <label className="block text-xs text-gray-500">Make</label>
-        <input
-          list={`make-list-${row.make}`}
-          value={row.make}
-          onChange={(e) => onChange('make', e.target.value)}
-          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        />
-        <datalist id={`make-list-${row.make}`}>
-          {makes.map((m) => <option key={m} value={m} />)}
-        </datalist>
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-2">
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <label className="block text-xs text-gray-500">Make *</label>
+          <SearchableSelect
+            value={row.make}
+            options={makes}
+            placeholder="Search make…"
+            onChange={(v) => onChange('make', v)}
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs text-gray-500">Model</label>
+          <SearchableSelect
+            value={row.model}
+            options={models ?? []}
+            placeholder={row.make ? 'Search model… (leave empty = all)' : 'Pick a make first'}
+            disabled={!row.make}
+            onChange={(v) => onChange('model', v)}
+          />
+        </div>
+        <div className="w-24">
+          <label className="block text-xs text-gray-500">Year from *</label>
+          <input
+            type="number"
+            min="1900"
+            max="2100"
+            required
+            value={row.yearFrom}
+            onChange={(e) => onChange('yearFrom', e.target.value)}
+            className={`mt-0.5 block w-full rounded-md border px-2 py-1.5 text-sm ${
+              row.yearFrom === '' || yearInvalid ? 'border-red-300' : 'border-gray-300'
+            }`}
+          />
+        </div>
+        <div className="w-24">
+          <label className="block text-xs text-gray-500">Year to *</label>
+          <input
+            type="number"
+            min="1900"
+            max="2100"
+            required
+            value={row.yearTo}
+            onChange={(e) => onChange('yearTo', e.target.value)}
+            className={`mt-0.5 block w-full rounded-md border px-2 py-1.5 text-sm ${
+              row.yearTo === '' || yearInvalid ? 'border-red-300' : 'border-gray-300'
+            }`}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="mb-0.5 text-red-500 hover:text-red-700"
+          aria-label="Remove row"
+        >
+          &#x2715;
+        </button>
       </div>
-      <div className="flex-1">
-        <label className="block text-xs text-gray-500">Model</label>
-        <input
-          list={`model-list-${row.make}`}
-          value={row.model}
-          onChange={(e) => onChange('model', e.target.value)}
-          placeholder="all models"
-          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        />
-        <datalist id={`model-list-${row.make}`}>
-          {(models ?? []).map((m) => <option key={m} value={m} />)}
-        </datalist>
-      </div>
-      <div className="w-24">
-        <label className="block text-xs text-gray-500">Year from</label>
-        <input
-          type="number"
-          value={row.yearFrom}
-          onChange={(e) => onChange('yearFrom', e.target.value)}
-          placeholder="any"
-          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        />
-      </div>
-      <div className="w-24">
-        <label className="block text-xs text-gray-500">Year to</label>
-        <input
-          type="number"
-          value={row.yearTo}
-          onChange={(e) => onChange('yearTo', e.target.value)}
-          placeholder="any"
-          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-        />
-      </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="mb-0.5 text-red-500 hover:text-red-700"
-        aria-label="Remove row"
-      >
-        &#x2715;
-      </button>
+      {yearInvalid && (
+        <p className="mt-1 text-xs text-red-600">Year from must be ≤ year to</p>
+      )}
     </div>
   );
 }
 
-function compatRowsToPayload(rows: CompatRow[]): Array<{ make: string; model?: string | null; yearFrom?: number | null; yearTo?: number | null }> {
+function compatRowsToPayload(rows: CompatRow[]): Array<{ make: string; model?: string | null; yearFrom: number; yearTo: number }> {
   return rows
     .filter((r) => r.make.trim().length > 0)
     .map((r) => ({
       make: r.make.trim(),
       model: r.model.trim() === '' ? null : r.model.trim(),
-      yearFrom: r.yearFrom.trim() === '' ? null : Number(r.yearFrom),
-      yearTo: r.yearTo.trim() === '' ? null : Number(r.yearTo),
+      yearFrom: Number(r.yearFrom),
+      yearTo: Number(r.yearTo),
     }));
+}
+
+function validateCompatRows(rows: CompatRow[]): string | null {
+  for (const r of rows) {
+    if (!r.make.trim()) return 'Every compatibility row must have a make.';
+    if (r.yearFrom.trim() === '' || r.yearTo.trim() === '') {
+      return 'Year from and Year to are required on every compatibility row.';
+    }
+    const yf = Number(r.yearFrom);
+    const yt = Number(r.yearTo);
+    if (!Number.isFinite(yf) || !Number.isFinite(yt)) return 'Year values must be numbers.';
+    if (yf > yt) return 'Year from must be ≤ year to.';
+    if (yf < 1900 || yt > 2100) return 'Years must be between 1900 and 2100.';
+  }
+  return null;
 }
 
 export default function PartsPage() {
@@ -261,11 +286,18 @@ export default function PartsPage() {
   const handleCreate = async () => {
     try {
       setFormError(null);
-      const compatibility = compatRowsToPayload(compat);
-      if (!isUniversal && compatibility.length === 0) {
-        setFormError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
-        return;
+      if (!isUniversal) {
+        if (compat.length === 0) {
+          setFormError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
+          return;
+        }
+        const compatError = validateCompatRows(compat);
+        if (compatError) {
+          setFormError(compatError);
+          return;
+        }
       }
+      const compatibility = compatRowsToPayload(compat);
       await createMutation.mutateAsync({
         partNumber: form.partNumber || undefined,
         description: form.description,
@@ -294,12 +326,10 @@ export default function PartsPage() {
       setAddingPart(part.partNumber as string);
       const avgPrice = (part.avgPrice as number) ?? 0;
       const defaultTax = taxCodes.find((t) => t.is_default) ?? taxCodes[0];
-      // Prefill compatibility from the TecDoc filter the user just searched
-      // (make + model). If neither is set, fall back to universal so the
-      // part still saves.
-      const prefilled = tdMake.trim()
-        ? [{ make: tdMake.trim(), model: tdModel.trim() === '' ? null : tdModel.trim(), yearFrom: null, yearTo: null }]
-        : [];
+      // TecDoc returns make/model but no year range, and year is now
+      // required on every compat row. Save the part as universal so it
+      // creates cleanly, then prompt the user to edit it with the right
+      // year range.
       await createMutation.mutateAsync({
         partNumber: part.partNumber as string,
         description: part.description as string,
@@ -309,10 +339,14 @@ export default function PartsPage() {
         unitCost: avgPrice / 100,
         sellPrice: (avgPrice * 1.3) / 100,
         taxCodeId: defaultTax?.id,
-        isUniversal: prefilled.length === 0,
-        compatibility: prefilled,
+        isUniversal: true,
+        compatibility: [],
       });
-      toast.success(tt('addedToCatalogue'));
+      toast.success(
+        tdMake.trim()
+          ? `${tt('addedToCatalogue')} — edit it to scope to ${tdMake}${tdModel ? ' ' + tdModel : ''} with a year range.`
+          : tt('addedToCatalogue'),
+      );
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add part');
     } finally {
@@ -356,11 +390,18 @@ export default function PartsPage() {
     if (!editPart) return;
     try {
       setEditError(null);
-      const compatibility = compatRowsToPayload(editCompat);
-      if (!editIsUniversal && compatibility.length === 0) {
-        setEditError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
-        return;
+      if (!editIsUniversal) {
+        if (editCompat.length === 0) {
+          setEditError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
+          return;
+        }
+        const compatError = validateCompatRows(editCompat);
+        if (compatError) {
+          setEditError(compatError);
+          return;
+        }
       }
+      const compatibility = compatRowsToPayload(editCompat);
       await updateMutation.mutateAsync({
         id: editPart.id as string,
         description: editForm.description,

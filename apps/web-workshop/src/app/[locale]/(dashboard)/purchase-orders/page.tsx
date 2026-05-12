@@ -15,6 +15,7 @@ import {
 import { api } from '@/lib/api';
 import { useToast } from '@mecanix/ui-web';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { SearchableSelect } from '@/components/SearchableSelect';
 import { InventoryTabs } from '../parts/inventory-tabs';
 
 const FALLBACK_MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
@@ -374,30 +375,22 @@ export default function PurchaseOrdersPage() {
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                   <div>
                     <label className="block text-xs text-gray-500">Make</label>
-                    <input
-                      list="po-makes"
+                    <SearchableSelect
                       value={filterMake}
-                      onChange={(e) => { setFilterMake(e.target.value); setFilterModel(''); }}
-                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      options={(vehicleMakes && vehicleMakes.length > 0) ? vehicleMakes : FALLBACK_MAKES}
+                      placeholder="Search make…"
+                      onChange={(v) => { setFilterMake(v); setFilterModel(''); }}
                     />
-                    <datalist id="po-makes">
-                      {((vehicleMakes && vehicleMakes.length > 0) ? vehicleMakes : FALLBACK_MAKES).map((m) => (
-                        <option key={m} value={m} />
-                      ))}
-                    </datalist>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500">Model</label>
-                    <input
-                      list="po-models"
+                    <SearchableSelect
                       value={filterModel}
-                      onChange={(e) => setFilterModel(e.target.value)}
+                      options={vehicleModels ?? []}
+                      placeholder={filterMake ? 'Search model…' : 'Pick a make first'}
                       disabled={!filterMake}
-                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                      onChange={setFilterModel}
                     />
-                    <datalist id="po-models">
-                      {(vehicleModels ?? []).map((m) => <option key={m} value={m} />)}
-                    </datalist>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500">Year</label>

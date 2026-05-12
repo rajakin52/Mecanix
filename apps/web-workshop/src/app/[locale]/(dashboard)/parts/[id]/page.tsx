@@ -54,6 +54,14 @@ export default function PartDetailPage() {
   const totalStock = Number(p.stock_qty ?? 0);
   const reserved = Number(p.reserved_qty ?? 0);
   const available = totalStock - reserved;
+  const isUniversal = Boolean(p.is_universal);
+  const compatibility = (p.compatibility as Array<{
+    id: string;
+    make: string;
+    model: string | null;
+    year_from: number | null;
+    year_to: number | null;
+  }> | undefined) ?? [];
 
   const handleTransfer = async () => {
     if (!fromWarehouse || !toWarehouse || !quantity) {
@@ -173,6 +181,60 @@ export default function PartDetailPage() {
                 </table>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Vehicle compatibility */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Vehicle compatibility</h2>
+          {isUniversal && (
+            <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-200">
+              Fits all vehicles
+            </span>
+          )}
+        </div>
+        {isUniversal ? (
+          <p className="text-sm text-gray-500">
+            This part is marked as universal — it will appear in every purchase order regardless of vehicle filter.
+          </p>
+        ) : compatibility.length === 0 ? (
+          <p className="py-3 text-center text-sm text-amber-700">
+            No vehicle compatibility set. This part will not appear when filtering a PO by vehicle. Edit the part to scope it.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Make</th>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Model</th>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Years</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {compatibility.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{c.make}</td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {c.model ?? <span className="text-gray-400 italic">all models</span>}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {c.year_from != null && c.year_to != null
+                        ? c.year_from === c.year_to
+                          ? c.year_from
+                          : `${c.year_from} – ${c.year_to}`
+                        : c.year_from != null
+                          ? `${c.year_from}+`
+                          : c.year_to != null
+                            ? `up to ${c.year_to}`
+                            : 'any'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

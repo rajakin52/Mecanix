@@ -4,15 +4,23 @@ import { z } from 'zod';
 
 export const partCompatibilityRowSchema = z
   .object({
-    make: z.string().min(1).max(100),
+    make: z.string().min(1, 'Make is required').max(100),
     model: z.string().max(100).optional().nullable(),
-    yearFrom: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
-    yearTo: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
+    yearFrom: z.coerce
+      .number({ invalid_type_error: 'Year from is required', required_error: 'Year from is required' })
+      .int()
+      .min(1900)
+      .max(2100),
+    yearTo: z.coerce
+      .number({ invalid_type_error: 'Year to is required', required_error: 'Year to is required' })
+      .int()
+      .min(1900)
+      .max(2100),
   })
-  .refine(
-    (r) => r.yearFrom == null || r.yearTo == null || r.yearFrom <= r.yearTo,
-    { message: 'yearFrom must be ≤ yearTo', path: ['yearFrom'] },
-  );
+  .refine((r) => r.yearFrom <= r.yearTo, {
+    message: 'Year from must be ≤ year to',
+    path: ['yearFrom'],
+  });
 
 export const createPartSchema = z
   .object({

@@ -245,6 +245,16 @@ export class PartsService {
   async listVehicleMakes(tenantId: string): Promise<string[]> {
     const client = this.supabase.getClient();
 
+    // Primary source: master vehicle_makes table (global, pre-seeded)
+    const fromMaster = await client
+      .from('vehicle_makes')
+      .select('name')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name');
+    if (fromMaster.error) throw fromMaster.error;
+
+    // Also include any tenant-specific makes not yet in the master table
     const fromVehicles = await client
       .from('vehicles')
       .select('make')
@@ -259,6 +269,10 @@ export class PartsService {
     if (fromCompat.error) throw fromCompat.error;
 
     const set = new Set<string>();
+    for (const r of fromMaster.data ?? []) {
+      const m = (r as { name: string }).name;
+      if (m && m.trim()) set.add(m.trim());
+    }
     for (const r of fromVehicles.data ?? []) {
       const m = (r as { make: string | null }).make;
       if (m && m.trim()) set.add(m.trim());
@@ -276,6 +290,26 @@ export class PartsService {
   async listVehicleModels(tenantId: string, make: string): Promise<string[]> {
     const client = this.supabase.getClient();
 
+    // Primary source: master vehicle_models table via make name lookup
+    const { data: masterMake } = await client
+      .from('vehicle_makes')
+      .select('id')
+      .eq('name', make)
+      .maybeSingle();
+
+    let masterModels: { name: string }[] = [];
+    if (masterMake) {
+      const fromMaster = await client
+        .from('vehicle_models')
+        .select('name')
+        .eq('make_id', masterMake.id)
+        .eq('is_active', true)
+        .order('name');
+      if (fromMaster.error) throw fromMaster.error;
+      masterModels = (fromMaster.data ?? []) as { name: string }[];
+    }
+
+    // Also include any tenant-specific models not yet in the master table
     const fromVehicles = await client
       .from('vehicles')
       .select('model')
@@ -293,6 +327,9 @@ export class PartsService {
     if (fromCompat.error) throw fromCompat.error;
 
     const set = new Set<string>();
+    for (const r of masterModels) {
+      if (r.name && r.name.trim()) set.add(r.name.trim());
+    }
     for (const r of fromVehicles.data ?? []) {
       const m = (r as { model: string | null }).model;
       if (m && m.trim()) set.add(m.trim());
