@@ -91,6 +91,10 @@ export class CustomersService {
         preferred_channel: input.preferredChannel ?? 'whatsapp',
         vat_captive_pct: input.vatCaptivePct ?? 0,
         withholds_service_retention: input.withholdsServiceRetention ?? false,
+        materials_rate_refinish: input.materialsRateRefinish ?? null,
+        materials_rate_body: input.materialsRateBody ?? null,
+        shop_supplies_pct: input.shopSuppliesPct ?? null,
+        shop_supplies_cap: input.shopSuppliesCap ?? null,
         created_by: userId,
         updated_by: userId,
       })
@@ -129,6 +133,10 @@ export class CustomersService {
     if (input.preferredChannel !== undefined) updateData['preferred_channel'] = input.preferredChannel;
     if (input.vatCaptivePct !== undefined) updateData['vat_captive_pct'] = input.vatCaptivePct;
     if (input.withholdsServiceRetention !== undefined) updateData['withholds_service_retention'] = input.withholdsServiceRetention;
+    if (input.materialsRateRefinish !== undefined) updateData['materials_rate_refinish'] = input.materialsRateRefinish ?? null;
+    if (input.materialsRateBody !== undefined) updateData['materials_rate_body'] = input.materialsRateBody ?? null;
+    if (input.shopSuppliesPct !== undefined) updateData['shop_supplies_pct'] = input.shopSuppliesPct ?? null;
+    if (input.shopSuppliesCap !== undefined) updateData['shop_supplies_cap'] = input.shopSuppliesCap ?? null;
 
     const { data, error } = await this.supabase
       .getClient()

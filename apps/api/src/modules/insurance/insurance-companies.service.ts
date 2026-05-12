@@ -60,6 +60,10 @@ export class InsuranceCompaniesService {
         submission_notes: input.submissionNotes || null,
         address: input.address || null,
         sla_hours: input.slaHours ?? null,
+        materials_rate_refinish: input.materialsRateRefinish ?? null,
+        materials_rate_body: input.materialsRateBody ?? null,
+        shop_supplies_pct: input.shopSuppliesPct ?? null,
+        shop_supplies_cap: input.shopSuppliesCap ?? null,
         is_active: true,
       })
       .select()
@@ -85,6 +89,10 @@ export class InsuranceCompaniesService {
       submissionNotes: 'submission_notes',
       address: 'address',
       slaHours: 'sla_hours',
+      materialsRateRefinish: 'materials_rate_refinish',
+      materialsRateBody: 'materials_rate_body',
+      shopSuppliesPct: 'shop_supplies_pct',
+      shopSuppliesCap: 'shop_supplies_cap',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {

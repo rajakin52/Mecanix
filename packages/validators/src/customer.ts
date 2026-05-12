@@ -26,6 +26,11 @@ export const createCustomerSchema = z.object({
   // Angola tax treatment
   vatCaptivePct: z.union([z.literal(0), z.literal(50), z.literal(100)]).default(0),
   withholdsServiceRetention: z.boolean().default(false),
+  // Materials-charge overrides (nullable — fall back to insurance/tenant)
+  materialsRateRefinish: z.coerce.number().min(0).optional().nullable(),
+  materialsRateBody: z.coerce.number().min(0).optional().nullable(),
+  shopSuppliesPct: z.coerce.number().min(0).max(1).optional().nullable(),
+  shopSuppliesCap: z.coerce.number().min(0).optional().nullable(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

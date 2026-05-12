@@ -17,6 +17,15 @@ export function useCreateInsuranceCompany() {
   });
 }
 
+export function useUpdateInsuranceCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      api.patch(`/insurance/companies/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['insurance-companies'] }),
+  });
+}
+
 export function useClaims(page = 1, status?: string) {
   return useQuery({
     queryKey: ['claims', page, status],

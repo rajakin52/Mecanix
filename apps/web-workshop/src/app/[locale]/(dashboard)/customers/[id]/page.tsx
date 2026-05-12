@@ -225,12 +225,25 @@ export default function CustomerDetailPage() {
         billingContact: customer.billing_contact ?? '',
         creditLimit: customer.credit_limit ?? undefined,
         priceGroupId: customer.price_group_id ?? '',
+        materialsRateRefinish: customer.materials_rate_refinish ?? null,
+        materialsRateBody: customer.materials_rate_body ?? null,
+        // shop_supplies_pct stored 0..1; the form input uses 0..100, so
+        // convert when seeding. The submit handler converts back below.
+        shopSuppliesPct: customer.shop_supplies_pct != null
+          ? Number(customer.shop_supplies_pct) * 100
+          : null,
+        shopSuppliesCap: customer.shop_supplies_cap ?? null,
       });
     }
   }, [customer, reset]);
 
   const onSubmit = async (formData: UpdateCustomerInput) => {
-    await updateMutation.mutateAsync({ id, ...formData });
+    // Form shows shop_supplies_pct as 0..100; DB stores 0..1
+    const normalised = { ...formData } as UpdateCustomerInput;
+    if (normalised.shopSuppliesPct != null) {
+      normalised.shopSuppliesPct = Number(normalised.shopSuppliesPct) / 100;
+    }
+    await updateMutation.mutateAsync({ id, ...normalised });
     setShowEditModal(false);
   };
 
@@ -640,6 +653,60 @@ export default function CustomerDetailPage() {
                   </div>
                 </>
               )}
+
+              <div className="rounded-md border border-blue-200 bg-blue-50/40 p-3">
+                <div className="mb-1 text-sm font-semibold text-gray-700">Materials rate overrides</div>
+                <p className="mb-3 text-xs text-gray-500">
+                  Optional. Override the insurance and tenant defaults for jobs billed directly to this customer. Leave empty to inherit.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500">Refinish rate (per hour)</label>
+                    <input
+                      {...register('materialsRateRefinish')}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="inherit"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Body rate (per hour)</label>
+                    <input
+                      {...register('materialsRateBody')}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="inherit"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Shop supplies (% of mech labour)</label>
+                    <input
+                      {...register('shopSuppliesPct')}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="inherit"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Shop supplies cap</label>
+                    <input
+                      {...register('shopSuppliesCap')}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="inherit"
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
 
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowEditModal(false)} className="rounded-md border px-4 py-2 text-sm">

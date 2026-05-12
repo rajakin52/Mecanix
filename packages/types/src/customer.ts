@@ -14,6 +14,11 @@ export interface Customer {
   billing_contact?: string;
   credit_limit?: number;
   current_balance?: number;
+  // Materials-charge overrides (null = inherit from insurance/tenant)
+  materials_rate_refinish?: number | null;
+  materials_rate_body?: number | null;
+  shop_supplies_pct?: number | null;
+  shop_supplies_cap?: number | null;
   created_at: string;
   updated_at: string;
   created_by?: string;

@@ -12,6 +12,11 @@ export const createInsuranceCompanySchema = z.object({
   submissionNotes: z.string().max(2000).optional(),
   address: z.string().max(500).optional(),
   slaHours: z.coerce.number().int().min(0).optional(),
+  // Materials-charge overrides (nullable — fall back to tenant default)
+  materialsRateRefinish: z.coerce.number().min(0).optional().nullable(),
+  materialsRateBody: z.coerce.number().min(0).optional().nullable(),
+  shopSuppliesPct: z.coerce.number().min(0).max(1).optional().nullable(),
+  shopSuppliesCap: z.coerce.number().min(0).optional().nullable(),
 });
 
 export const updateInsuranceCompanySchema = createInsuranceCompanySchema.partial();
