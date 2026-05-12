@@ -77,6 +77,11 @@ export class PartsController {
     return this.partsService.getReorderSuggestions(tenantId);
   }
 
+  @Get('export')
+  async exportCatalogue(@TenantId() tenantId: string) {
+    return this.partsService.exportCatalogue(tenantId);
+  }
+
   @Get('vehicle-makes')
   async listVehicleMakes(@TenantId() tenantId: string) {
     return this.partsService.listVehicleMakes(tenantId);

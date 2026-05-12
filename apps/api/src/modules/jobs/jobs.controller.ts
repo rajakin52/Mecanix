@@ -55,6 +55,11 @@ export class JobsController {
     });
   }
 
+  @Get('numbers')
+  async listJobNumbers(@TenantId() tenantId: string) {
+    return this.jobsService.listJobNumbers(tenantId);
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,

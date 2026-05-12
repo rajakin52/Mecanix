@@ -36,6 +36,30 @@ export class JobsService {
     private readonly symptomsService: SymptomsService,
   ) {}
 
+  /**
+   * Lightweight lookup: job numbers for the tenant. Excludes invoiced
+   * cards by default since the PO form is most often used while a job
+   * is open. Powers the PO form combobox.
+   */
+  async listJobNumbers(tenantId: string): Promise<string[]> {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('job_cards')
+      .select('job_number, status')
+      .eq('tenant_id', tenantId)
+      .not('job_number', 'is', null)
+      .neq('status', 'invoiced')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    const seen = new Set<string>();
+    for (const r of data ?? []) {
+      const n = (r as { job_number: string | null }).job_number;
+      if (n && n.trim()) seen.add(n.trim());
+    }
+    return Array.from(seen);
+  }
+
   async list(tenantId: string, pagination: PaginationInput, filters: JobFilters) {
     const client = this.supabase.getClient();
     const { page, pageSize, search } = pagination;

@@ -7,6 +7,29 @@ import { sanitizeSearch } from '../../common/utils/sanitize';
 export class VehiclesService {
   constructor(private readonly supabase: SupabaseService) {}
 
+  /**
+   * Lightweight lookup: just non-deleted plates for the tenant. Powers
+   * the PO form combobox so the user can search-and-pick rather than
+   * type a plate from memory.
+   */
+  async listPlates(tenantId: string): Promise<string[]> {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('vehicles')
+      .select('plate')
+      .eq('tenant_id', tenantId)
+      .is('deleted_at', null)
+      .not('plate', 'is', null)
+      .order('plate', { ascending: true });
+    if (error) throw error;
+    const seen = new Set<string>();
+    for (const r of data ?? []) {
+      const p = (r as { plate: string | null }).plate;
+      if (p && p.trim()) seen.add(p.trim());
+    }
+    return Array.from(seen);
+  }
+
   async list(tenantId: string, pagination: PaginationInput, customerId?: string) {
     const client = this.supabase.getClient();
     const { page, pageSize, search, sortBy, sortOrder } = pagination;

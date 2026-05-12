@@ -6,7 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useParts, useCreatePart, useUpdatePart, useLowStock, useVehicleMakes, useVehicleModels } from '@/hooks/use-parts';
+import { useParts, useCreatePart, useUpdatePart, useLowStock, useVehicleMakes, useVehicleModels, useExportParts, type CataloguePart } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { SearchableSelect } from '@/components/SearchableSelect';
@@ -175,6 +175,90 @@ function CompatRowEditor({
   );
 }
 
+interface CompatLike {
+  make?: string;
+  model?: string | null;
+  year_from?: number | null;
+  year_to?: number | null;
+}
+
+/**
+ * Summarise a part's compatibility rows into Make / Model / Year cells.
+ * Universal parts return "ALL" in every cell.
+ */
+function summariseCompatibility(
+  isUniversal: boolean,
+  rows: CompatLike[] | undefined,
+): { make: string; model: string; year: string } {
+  if (isUniversal) return { make: 'ALL', model: 'ALL', year: 'ALL' };
+  if (!rows || rows.length === 0) return { make: '—', model: '—', year: '—' };
+  const makes = Array.from(new Set(rows.map((r) => r.make).filter(Boolean) as string[])).sort();
+  const models = Array.from(
+    new Set(
+      rows.map((r) => (r.model && r.model.trim()) || null).filter(Boolean) as string[],
+    ),
+  ).sort();
+  const allYearsFrom = rows.map((r) => r.year_from).filter((y): y is number => y != null);
+  const allYearsTo = rows.map((r) => r.year_to).filter((y): y is number => y != null);
+  const yearStr =
+    allYearsFrom.length === 0 && allYearsTo.length === 0
+      ? '—'
+      : `${allYearsFrom.length ? Math.min(...allYearsFrom) : '…'}/${allYearsTo.length ? Math.max(...allYearsTo) : '…'}`;
+  return {
+    make: makes.length === 0 ? '—' : makes.length === 1 ? (makes[0] ?? '—') : makes.join(', '),
+    model: models.length === 0 ? '— (all)' : models.length === 1 ? (models[0] ?? '—') : models.join(', '),
+    year: yearStr,
+  };
+}
+
+function csvCell(v: unknown): string {
+  if (v == null) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function buildCatalogueCsv(parts: CataloguePart[]): string {
+  const headers = [
+    'Part number', 'Description', 'Category', 'Make', 'Model', 'Year from', 'Year to',
+    'Stock', 'Reorder point', 'Unit cost', 'Sell price', 'IVA', 'Vendor', 'Location',
+  ];
+  const lines: string[] = [headers.map(csvCell).join(',')];
+  for (const p of parts) {
+    const summary = summariseCompatibility(p.is_universal, p.compatibility);
+    let yearFrom = '';
+    let yearTo = '';
+    if (p.is_universal) {
+      yearFrom = 'ALL';
+      yearTo = 'ALL';
+    } else if (p.compatibility && p.compatibility.length > 0) {
+      const fs = p.compatibility.map((c) => c.year_from).filter((y): y is number => y != null);
+      const ts = p.compatibility.map((c) => c.year_to).filter((y): y is number => y != null);
+      yearFrom = fs.length ? String(Math.min(...fs)) : '';
+      yearTo = ts.length ? String(Math.max(...ts)) : '';
+    }
+    lines.push([
+      p.part_number ?? '',
+      p.description,
+      p.category ?? '',
+      summary.make,
+      summary.model,
+      yearFrom,
+      yearTo,
+      p.stock_qty,
+      p.reorder_point,
+      p.unit_cost,
+      p.sell_price,
+      p.tax_code ? `${p.tax_code.code} (${p.tax_code.rate}%)` : '',
+      p.vendor?.name ?? '',
+      p.location ?? '',
+    ].map(csvCell).join(','));
+  }
+  return lines.join('\n');
+}
+
 function compatRowsToPayload(rows: CompatRow[]): Array<{ make: string; model?: string | null; yearFrom: number; yearTo: number }> {
   return rows
     .filter((r) => r.make.trim().length > 0)
@@ -227,6 +311,7 @@ export default function PartsPage() {
   const { data: lowStockData } = useLowStock();
   const createMutation = useCreatePart();
   const updateMutation = useUpdatePart();
+  const exportMutation = useExportParts();
   const [editPart, setEditPart] = useState<Record<string, unknown> | null>(null);
   const [editForm, setEditForm] = useState({
     description: '',
@@ -427,6 +512,27 @@ export default function PartsPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const parts = await exportMutation.mutateAsync();
+      const csv = buildCatalogueCsv(parts);
+      // UTF-8 BOM so Excel renders accents (ç, ã, ó, etc.) correctly
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.download = `parts-catalogue-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${parts.length} parts`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
   const lowStockCount = lowStockData?.count ?? 0;
 
   return (
@@ -460,6 +566,13 @@ export default function PartsPage() {
           >
             Bulk Import
           </Link>
+          <button
+            onClick={handleExport}
+            disabled={exportMutation.isPending}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exportMutation.isPending ? 'Exporting…' : 'Export to Excel'}
+          </button>
           <button
             onClick={() => setShowModal(true)}
             className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
@@ -503,6 +616,9 @@ export default function PartsPage() {
                 <tr>
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('partNumber')}</th>
                   <SortableHeader label={t('description')} field="description" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Make</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Model</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">Year</th>
                   <SortableHeader label={t('stock')} field="stock_qty" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <SortableHeader label={t('costPrice')} field="unit_cost" currentSort={sortField} currentDirection={sortDir} onSort={handleSort} />
                   <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-gray-500">{t('sellPrice')}</th>
@@ -516,7 +632,11 @@ export default function PartsPage() {
                   const parts = data?.data ?? [];
                   const sorted = sortData(parts, sortField, sortDir);
                   return sorted.length > 0 ? (
-                  sorted.map((part) => (
+                  sorted.map((part) => {
+                    const compatRows = part.compatibility as CompatLike[] | undefined;
+                    const summary = summariseCompatibility(Boolean(part.is_universal), compatRows);
+                    const isAll = Boolean(part.is_universal);
+                    return (
                     <tr key={part.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium">
                         <Link href={`/parts/${part.id as string}`} className="text-primary-600 hover:underline">
@@ -524,6 +644,27 @@ export default function PartsPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{part.description}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {isAll ? (
+                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">ALL</span>
+                        ) : (
+                          <span className="text-xs">{summary.make}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {isAll ? (
+                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">ALL</span>
+                        ) : (
+                          <span className="text-xs">{summary.model}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {isAll ? (
+                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">ALL</span>
+                        ) : (
+                          <span className="text-xs font-mono">{summary.year}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm">
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -556,10 +697,10 @@ export default function PartsPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                  );})
                 ) : (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={11}>
                       <EmptyState icon="parts" title="No parts in inventory" description="Add parts manually or search TecDoc" />
                     </td>
                   </tr>

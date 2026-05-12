@@ -2,22 +2,42 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+export interface SearchableSelectOption {
+  label: string;
+  value: string;
+}
+
 interface SearchableSelectProps {
   value: string;
   onChange: (value: string) => void;
-  options: string[];
+  /**
+   * Either a list of strings (label === value) or {label, value} pairs.
+   * The dropdown shows labels; the form stores values.
+   */
+  options: string[] | SearchableSelectOption[];
   placeholder?: string;
   disabled?: boolean;
+  /**
+   * When true, the user can submit a value not in the options list (via Enter
+   * or blur). Default true. Set false for ID-based pickers where free text
+   * makes no sense (e.g. the Part picker).
+   */
   allowFreeText?: boolean;
   className?: string;
   inputClassName?: string;
 }
 
+function normalise(options: string[] | SearchableSelectOption[]): SearchableSelectOption[] {
+  if (options.length === 0) return [];
+  if (typeof options[0] === 'string') {
+    return (options as string[]).map((s) => ({ label: s, value: s }));
+  }
+  return options as SearchableSelectOption[];
+}
+
 /**
  * Combobox: filter-as-you-type input + scrollable option list.
- * When `allowFreeText` is true, the user can type values not in the
- * options list (still committed via blur / Enter). Useful for make/
- * model fields where the master list may not cover every variant.
+ * Display labels in the dropdown, store values via onChange.
  */
 export function SearchableSelect({
   value,
@@ -29,41 +49,59 @@ export function SearchableSelect({
   className = '',
   inputClassName = '',
 }: SearchableSelectProps) {
+  const norm = useMemo(() => normalise(options), [options]);
+  const labelForValue = useMemo(() => {
+    const hit = norm.find((o) => o.value === value);
+    return hit?.label ?? (allowFreeText ? value : '');
+  }, [norm, value, allowFreeText]);
+
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState(labelForValue);
   const [highlightIdx, setHighlightIdx] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
-  // Sync internal query with external value when it changes from outside
+  // Sync internal query with external value when not actively editing
   useEffect(() => {
-    if (!open) setQuery(value);
-  }, [value, open]);
+    if (!open) setQuery(labelForValue);
+  }, [labelForValue, open]);
 
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
-        // Commit free-text on outside click if allowed
-        if (allowFreeText && query !== value) onChange(query);
-        else setQuery(value);
+        // Commit free-text on outside click if allowed and the value differs
+        if (allowFreeText && query !== labelForValue) {
+          onChange(query);
+        } else {
+          setQuery(labelForValue);
+        }
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [query, value, allowFreeText, onChange]);
+  }, [query, labelForValue, allowFreeText, onChange]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.toLowerCase().includes(q));
-  }, [options, query]);
+    if (!q) return norm;
+    return norm.filter((o) => o.label.toLowerCase().includes(q));
+  }, [norm, query]);
 
-  const select = (v: string) => {
-    onChange(v);
-    setQuery(v);
+  const selectOption = (opt: SearchableSelectOption) => {
+    onChange(opt.value);
+    setQuery(opt.label);
     setOpen(false);
+  };
+
+  const commitFreeText = () => {
+    if (allowFreeText) {
+      onChange(query);
+      setOpen(false);
+    } else {
+      setQuery(labelForValue);
+      setOpen(false);
+    }
   };
 
   return (
@@ -90,28 +128,25 @@ export function SearchableSelect({
           } else if (e.key === 'Enter') {
             e.preventDefault();
             if (open && filtered[highlightIdx]) {
-              select(filtered[highlightIdx]);
-            } else if (allowFreeText) {
-              select(query);
+              selectOption(filtered[highlightIdx]);
+            } else {
+              commitFreeText();
             }
           } else if (e.key === 'Escape') {
             setOpen(false);
-            setQuery(value);
+            setQuery(labelForValue);
           }
         }}
         className={`block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 ${inputClassName}`}
       />
       {open && filtered.length > 0 && (
-        <ul
-          ref={listRef}
-          className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg"
-        >
+        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg">
           {filtered.map((opt, idx) => (
             <li
-              key={opt}
+              key={opt.value}
               onMouseDown={(e) => {
                 e.preventDefault();
-                select(opt);
+                selectOption(opt);
               }}
               onMouseEnter={() => setHighlightIdx(idx)}
               className={`cursor-pointer px-3 py-1.5 ${
@@ -120,14 +155,16 @@ export function SearchableSelect({
                   : 'text-gray-900 hover:bg-gray-50'
               }`}
             >
-              {opt}
+              {opt.label}
             </li>
           ))}
         </ul>
       )}
-      {open && filtered.length === 0 && allowFreeText && query.trim() && (
+      {open && filtered.length === 0 && (
         <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-lg">
-          Press Enter to use &ldquo;{query}&rdquo;
+          {allowFreeText && query.trim()
+            ? <>Press Enter to use &ldquo;{query}&rdquo;</>
+            : 'No matches'}
         </div>
       )}
     </div>

@@ -35,6 +35,11 @@ export class VehiclesController {
     return this.vehiclesService.list(tenantId, query, customerId);
   }
 
+  @Get('plates')
+  async listPlates(@TenantId() tenantId: string) {
+    return this.vehiclesService.listPlates(tenantId);
+  }
+
   @Get('vin/:vin')
   async decodeVin(@Param('vin') vin: string) {
     return this.vinService.decode(vin);

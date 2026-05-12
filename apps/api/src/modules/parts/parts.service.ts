@@ -31,12 +31,37 @@ export class PartsService {
 
     let query = client
       .from('parts')
-      .select('*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate)', { count: 'exact' })
+      .select(
+        '*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate), compatibility:part_vehicle_compat(make, model, year_from, year_to)',
+        { count: 'exact' },
+      )
       .eq('tenant_id', tenantId)
       .eq('is_active', true);
 
     if (search) {
-      query = query.or(`description.ilike.%${search}%,part_number.ilike.%${search}%`);
+      // Search across description, part_number, AND compat rows (make/model).
+      // PostgREST can't OR across joined tables, so we resolve matching
+      // compat part_ids first then union into the OR.
+      const compatHits = await client
+        .from('part_vehicle_compat')
+        .select('part_id')
+        .eq('tenant_id', tenantId)
+        .or(`make.ilike.%${search}%,model.ilike.%${search}%`);
+      const compatIds = Array.from(
+        new Set(
+          (compatHits.data ?? [])
+            .map((r) => (r as { part_id: string }).part_id)
+            .filter(Boolean),
+        ),
+      );
+      const orParts = [
+        `description.ilike.%${search}%`,
+        `part_number.ilike.%${search}%`,
+      ];
+      if (compatIds.length > 0) {
+        orParts.push(`id.in.(${compatIds.join(',')})`);
+      }
+      query = query.or(orParts.join(','));
     }
 
     if (filters.category) {
@@ -592,6 +617,26 @@ export class PartsService {
     });
 
     return this.getById(tenantId, partId);
+  }
+
+  /**
+   * Flat list of every active part for this tenant, with compatibility,
+   * for the catalogue Excel export. No pagination — capped at 10k to
+   * avoid runaway responses.
+   */
+  async exportCatalogue(tenantId: string) {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts')
+      .select(
+        'id, part_number, description, category, location, stock_qty, reorder_point, unit_cost, sell_price, is_universal, vendor:vendors(name), tax_code:tax_codes(code, rate), compatibility:part_vehicle_compat(make, model, year_from, year_to)',
+      )
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('part_number', { ascending: true })
+      .limit(10000);
+    if (error) throw error;
+    return data ?? [];
   }
 
   /**

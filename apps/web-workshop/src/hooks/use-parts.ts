@@ -115,6 +115,42 @@ export function usePartPurchaseHistory(id: string | undefined) {
   });
 }
 
+export function useVehiclePlates() {
+  return useQuery({
+    queryKey: ['vehicles', 'plates'],
+    queryFn: () => api.get<string[]>('/vehicles/plates'),
+  });
+}
+
+export function useJobNumbers() {
+  return useQuery({
+    queryKey: ['jobs', 'numbers'],
+    queryFn: () => api.get<string[]>('/jobs/numbers'),
+  });
+}
+
+export interface CataloguePart {
+  id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  location: string | null;
+  stock_qty: number;
+  reorder_point: number;
+  unit_cost: number;
+  sell_price: number;
+  is_universal: boolean;
+  vendor: { name: string } | null;
+  tax_code: { code: string; rate: number } | null;
+  compatibility: Array<{ make: string; model: string | null; year_from: number | null; year_to: number | null }>;
+}
+
+export function useExportParts() {
+  return useMutation({
+    mutationFn: () => api.get<CataloguePart[]>('/parts/export'),
+  });
+}
+
 export function useResolveVehicle() {
   return useMutation({
     mutationFn: async (args: { plate?: string; jobNumber?: string; jobCardId?: string }) => {

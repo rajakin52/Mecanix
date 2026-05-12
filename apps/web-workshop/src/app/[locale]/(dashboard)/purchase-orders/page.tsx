@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { usePurchaseOrders, useCreatePurchaseOrder, useVendors } from '@/hooks/use-purchases';
@@ -9,6 +9,8 @@ import {
   useVehicleMakes,
   useVehicleModels,
   useResolveVehicle,
+  useVehiclePlates,
+  useJobNumbers,
   type PartPurchaseHistory,
   type PartPurchaseHistoryRow,
 } from '@/hooks/use-parts';
@@ -72,8 +74,18 @@ export default function PurchaseOrdersPage() {
 
   const { data: vehicleMakes } = useVehicleMakes();
   const { data: vehicleModels } = useVehicleModels(filterMake || undefined);
+  const { data: plates } = useVehiclePlates();
+  const { data: jobNumbers } = useJobNumbers();
   const resolveVehicle = useResolveVehicle();
   const { data: partsData } = useParts(1, '', undefined, vehicleScope);
+
+  // Year combobox source: 1990 → next year.
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    const out: string[] = [];
+    for (let y = current + 1; y >= 1990; y--) out.push(String(y));
+    return out;
+  }, []);
 
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -394,43 +406,35 @@ export default function PurchaseOrdersPage() {
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500">Year</label>
-                    <input
-                      type="number"
+                    <SearchableSelect
                       value={filterYear}
-                      onChange={(e) => setFilterYear(e.target.value)}
-                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      options={yearOptions}
+                      placeholder="Search year…"
+                      onChange={setFilterYear}
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500">Plate (lookup)</label>
-                    <input
+                    <SearchableSelect
                       value={filterPlate}
-                      onChange={(e) => setFilterPlate(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && filterPlate.trim()) {
-                          e.preventDefault();
-                          applyResolvedVehicle({ plate: filterPlate.trim() });
-                        }
+                      options={plates ?? []}
+                      placeholder="Search plate…"
+                      onChange={(v) => {
+                        setFilterPlate(v);
+                        if (v.trim()) applyResolvedVehicle({ plate: v.trim() });
                       }}
-                      onBlur={() => filterPlate.trim() && applyResolvedVehicle({ plate: filterPlate.trim() })}
-                      placeholder="e.g. AA-12-BC"
-                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500">Job card # (lookup)</label>
-                    <input
+                    <SearchableSelect
                       value={filterJobNumber}
-                      onChange={(e) => setFilterJobNumber(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && filterJobNumber.trim()) {
-                          e.preventDefault();
-                          applyResolvedVehicle({ jobNumber: filterJobNumber.trim() });
-                        }
+                      options={jobNumbers ?? []}
+                      placeholder="Search job card…"
+                      onChange={(v) => {
+                        setFilterJobNumber(v);
+                        if (v.trim()) applyResolvedVehicle({ jobNumber: v.trim() });
                       }}
-                      onBlur={() => filterJobNumber.trim() && applyResolvedVehicle({ jobNumber: filterJobNumber.trim() })}
-                      placeholder="JC-00123"
-                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                     />
                   </div>
                   <div className="flex items-end text-xs text-gray-500">
@@ -465,16 +469,16 @@ export default function PurchaseOrdersPage() {
                         <div className="flex items-end gap-2">
                           <div className="flex-1">
                             <label className="block text-xs text-gray-500">{t('part')}</label>
-                            <select
+                            <SearchableSelect
                               value={line.partId}
-                              onChange={(e) => handleLinePartChange(idx, e.target.value)}
-                              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                            >
-                              <option value="">--</option>
-                              {parts.map((p) => (
-                                <option key={p.id} value={p.id}>{p.part_number} - {p.description}</option>
-                              ))}
-                            </select>
+                              options={parts.map((p) => ({
+                                value: p.id,
+                                label: `${p.part_number ?? '—'} · ${p.description}`,
+                              }))}
+                              placeholder="Search part…"
+                              allowFreeText={false}
+                              onChange={(v) => handleLinePartChange(idx, v)}
+                            />
                           </div>
                           <div className="flex-1">
                             <label className="block text-xs text-gray-500">{t('description')}</label>
