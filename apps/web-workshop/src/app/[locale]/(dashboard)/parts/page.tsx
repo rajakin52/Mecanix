@@ -6,13 +6,175 @@ import { Link } from '@/i18n/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useParts, useCreatePart, useUpdatePart, useLowStock } from '@/hooks/use-parts';
+import { useParts, useCreatePart, useUpdatePart, useLowStock, useVehicleMakes, useVehicleModels } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { InventoryTabs } from './inventory-tabs';
 
 const CATEGORIES = ['Engine', 'Brakes', 'Suspension', 'Electrical', 'Body', 'Filters', 'Fluids', 'Other'];
 const MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
+
+interface CompatRow {
+  make: string;
+  model: string;
+  yearFrom: string;
+  yearTo: string;
+}
+
+const EMPTY_COMPAT_ROW: CompatRow = { make: '', model: '', yearFrom: '', yearTo: '' };
+
+function CompatibilityEditor({
+  isUniversal,
+  rows,
+  onToggleUniversal,
+  onChange,
+  makesFallback,
+}: {
+  isUniversal: boolean;
+  rows: CompatRow[];
+  onToggleUniversal: (v: boolean) => void;
+  onChange: (rows: CompatRow[]) => void;
+  makesFallback: string[];
+}) {
+  const { data: vehicleMakes } = useVehicleMakes();
+  const makes = (vehicleMakes && vehicleMakes.length > 0 ? vehicleMakes : makesFallback);
+
+  const update = (idx: number, field: keyof CompatRow, value: string) => {
+    const next = [...rows];
+    const current = next[idx];
+    if (!current) return;
+    const merged: CompatRow = { ...current, [field]: value };
+    // If user changes make, clear the model so the dependent dropdown re-loads.
+    if (field === 'make') merged.model = '';
+    next[idx] = merged;
+    onChange(next);
+  };
+
+  return (
+    <div className="rounded-md border border-gray-200 bg-white p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-700">Vehicle compatibility</label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isUniversal}
+            onChange={(e) => onToggleUniversal(e.target.checked)}
+          />
+          <span>Fits all vehicles</span>
+        </label>
+      </div>
+      {isUniversal ? (
+        <p className="text-xs text-gray-500">
+          This part will appear in every purchase order regardless of vehicle. Use for batteries, tyres, lubricants, paint, etc.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {rows.length === 0 && (
+            <p className="text-xs text-gray-500">Add at least one make + model (leave model empty to mean &ldquo;all models of that make&rdquo;).</p>
+          )}
+          {rows.map((row, idx) => (
+            <CompatRowEditor
+              key={idx}
+              row={row}
+              makes={makes}
+              onChange={(field, value) => update(idx, field, value)}
+              onRemove={() => onChange(rows.filter((_, i) => i !== idx))}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => onChange([...rows, { ...EMPTY_COMPAT_ROW }])}
+            className="text-sm font-medium text-primary-600 hover:text-primary-700"
+          >
+            + Add make/model
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompatRowEditor({
+  row,
+  makes,
+  onChange,
+  onRemove,
+}: {
+  row: CompatRow;
+  makes: string[];
+  onChange: (field: keyof CompatRow, value: string) => void;
+  onRemove: () => void;
+}) {
+  const { data: models } = useVehicleModels(row.make || undefined);
+  return (
+    <div className="flex items-end gap-2 rounded-md border border-gray-200 bg-gray-50 p-2">
+      <div className="flex-1">
+        <label className="block text-xs text-gray-500">Make</label>
+        <input
+          list={`make-list-${row.make}`}
+          value={row.make}
+          onChange={(e) => onChange('make', e.target.value)}
+          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+        />
+        <datalist id={`make-list-${row.make}`}>
+          {makes.map((m) => <option key={m} value={m} />)}
+        </datalist>
+      </div>
+      <div className="flex-1">
+        <label className="block text-xs text-gray-500">Model</label>
+        <input
+          list={`model-list-${row.make}`}
+          value={row.model}
+          onChange={(e) => onChange('model', e.target.value)}
+          placeholder="all models"
+          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+        />
+        <datalist id={`model-list-${row.make}`}>
+          {(models ?? []).map((m) => <option key={m} value={m} />)}
+        </datalist>
+      </div>
+      <div className="w-24">
+        <label className="block text-xs text-gray-500">Year from</label>
+        <input
+          type="number"
+          value={row.yearFrom}
+          onChange={(e) => onChange('yearFrom', e.target.value)}
+          placeholder="any"
+          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+        />
+      </div>
+      <div className="w-24">
+        <label className="block text-xs text-gray-500">Year to</label>
+        <input
+          type="number"
+          value={row.yearTo}
+          onChange={(e) => onChange('yearTo', e.target.value)}
+          placeholder="any"
+          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="mb-0.5 text-red-500 hover:text-red-700"
+        aria-label="Remove row"
+      >
+        &#x2715;
+      </button>
+    </div>
+  );
+}
+
+function compatRowsToPayload(rows: CompatRow[]): Array<{ make: string; model?: string | null; yearFrom?: number | null; yearTo?: number | null }> {
+  return rows
+    .filter((r) => r.make.trim().length > 0)
+    .map((r) => ({
+      make: r.make.trim(),
+      model: r.model.trim() === '' ? null : r.model.trim(),
+      yearFrom: r.yearFrom.trim() === '' ? null : Number(r.yearFrom),
+      yearTo: r.yearTo.trim() === '' ? null : Number(r.yearTo),
+    }));
+}
 
 export default function PartsPage() {
   const t = useTranslations('parts');
@@ -50,6 +212,8 @@ export default function PartsPage() {
     location: '',
     taxCodeId: '',
   });
+  const [editIsUniversal, setEditIsUniversal] = useState(false);
+  const [editCompat, setEditCompat] = useState<CompatRow[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -65,6 +229,8 @@ export default function PartsPage() {
     location: '',
     taxCodeId: '',
   });
+  const [isUniversal, setIsUniversal] = useState(false);
+  const [compat, setCompat] = useState<CompatRow[]>([]);
 
   interface TaxCodeSummary { id: string; code: string; name: string; rate: number; is_default: boolean; is_active: boolean }
   const { data: taxCodesData } = useQuery({
@@ -95,6 +261,11 @@ export default function PartsPage() {
   const handleCreate = async () => {
     try {
       setFormError(null);
+      const compatibility = compatRowsToPayload(compat);
+      if (!isUniversal && compatibility.length === 0) {
+        setFormError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
+        return;
+      }
       await createMutation.mutateAsync({
         partNumber: form.partNumber || undefined,
         description: form.description,
@@ -105,9 +276,13 @@ export default function PartsPage() {
         sellPrice: Number(form.sellPrice),
         location: form.location || undefined,
         taxCodeId: form.taxCodeId || undefined,
+        isUniversal,
+        compatibility,
       });
       setShowModal(false);
       setForm({ partNumber: '', description: '', category: 'Other', stockQty: 0, reorderPoint: 5, unitCost: 0, sellPrice: 0, location: '', taxCodeId: '' });
+      setIsUniversal(false);
+      setCompat([]);
       toast.success('Saved successfully!');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to create part');
@@ -119,6 +294,12 @@ export default function PartsPage() {
       setAddingPart(part.partNumber as string);
       const avgPrice = (part.avgPrice as number) ?? 0;
       const defaultTax = taxCodes.find((t) => t.is_default) ?? taxCodes[0];
+      // Prefill compatibility from the TecDoc filter the user just searched
+      // (make + model). If neither is set, fall back to universal so the
+      // part still saves.
+      const prefilled = tdMake.trim()
+        ? [{ make: tdMake.trim(), model: tdModel.trim() === '' ? null : tdModel.trim(), yearFrom: null, yearTo: null }]
+        : [];
       await createMutation.mutateAsync({
         partNumber: part.partNumber as string,
         description: part.description as string,
@@ -128,6 +309,8 @@ export default function PartsPage() {
         unitCost: avgPrice / 100,
         sellPrice: (avgPrice * 1.3) / 100,
         taxCodeId: defaultTax?.id,
+        isUniversal: prefilled.length === 0,
+        compatibility: prefilled,
       });
       toast.success(tt('addedToCatalogue'));
     } catch (err) {
@@ -137,7 +320,7 @@ export default function PartsPage() {
     }
   };
 
-  const openEdit = (part: Record<string, unknown>) => {
+  const openEdit = async (part: Record<string, unknown>) => {
     setEditError(null);
     setEditPart(part);
     setEditForm({
@@ -149,12 +332,35 @@ export default function PartsPage() {
       location: (part.location as string) ?? '',
       taxCodeId: (part.tax_code_id as string) ?? '',
     });
+    setEditIsUniversal(Boolean(part.is_universal));
+    setEditCompat([]);
+    // Fetch full part (list payload doesn't include compatibility[])
+    try {
+      const full = await api.get<Record<string, unknown>>(`/parts/${part.id as string}`);
+      setEditIsUniversal(Boolean(full.is_universal));
+      const compatRows = (full.compatibility as Array<Record<string, unknown>> | undefined) ?? [];
+      setEditCompat(
+        compatRows.map((r) => ({
+          make: (r.make as string) ?? '',
+          model: ((r.model as string | null) ?? '') || '',
+          yearFrom: r.year_from == null ? '' : String(r.year_from),
+          yearTo: r.year_to == null ? '' : String(r.year_to),
+        })),
+      );
+    } catch {
+      // non-fatal — user can still edit core fields
+    }
   };
 
   const handleUpdate = async () => {
     if (!editPart) return;
     try {
       setEditError(null);
+      const compatibility = compatRowsToPayload(editCompat);
+      if (!editIsUniversal && compatibility.length === 0) {
+        setEditError('Mark the part as "Fits all vehicles" or add at least one make/model row.');
+        return;
+      }
       await updateMutation.mutateAsync({
         id: editPart.id as string,
         description: editForm.description,
@@ -164,6 +370,8 @@ export default function PartsPage() {
         sellPrice: Number(editForm.sellPrice),
         location: editForm.location || undefined,
         taxCodeId: editForm.taxCodeId || undefined,
+        isUniversal: editIsUniversal,
+        compatibility,
       });
       setEditPart(null);
       toast.success('Saved successfully!');
@@ -347,7 +555,7 @@ export default function PartsPage() {
       {/* New Part Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">{t('newPart')}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
@@ -450,6 +658,15 @@ export default function PartsPage() {
                   ))}
                 </select>
               </div>
+
+              <CompatibilityEditor
+                isUniversal={isUniversal}
+                rows={compat}
+                onToggleUniversal={setIsUniversal}
+                onChange={setCompat}
+                makesFallback={MAKES}
+              />
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowModal(false)} className="rounded-md border px-4 py-2 text-sm">
                   {tc('cancel')}
@@ -576,7 +793,7 @@ export default function PartsPage() {
       {/* Edit Part Modal */}
       {editPart && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">
                 {tc('edit')} — {editPart.part_number as string}
@@ -664,6 +881,15 @@ export default function PartsPage() {
                   ))}
                 </select>
               </div>
+
+              <CompatibilityEditor
+                isUniversal={editIsUniversal}
+                rows={editCompat}
+                onToggleUniversal={setEditIsUniversal}
+                onChange={setEditCompat}
+                makesFallback={MAKES}
+              />
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setEditPart(null)} className="rounded-md border px-4 py-2 text-sm">
                   {tc('cancel')}

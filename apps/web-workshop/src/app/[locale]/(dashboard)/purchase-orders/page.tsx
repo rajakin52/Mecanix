@@ -4,8 +4,20 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { usePurchaseOrders, useCreatePurchaseOrder, useVendors } from '@/hooks/use-purchases';
-import { useParts } from '@/hooks/use-parts';
+import {
+  useParts,
+  useVehicleMakes,
+  useVehicleModels,
+  useResolveVehicle,
+  type PartPurchaseHistory,
+  type PartPurchaseHistoryRow,
+} from '@/hooks/use-parts';
+import { api } from '@/lib/api';
+import { useToast } from '@mecanix/ui-web';
+import { formatCurrency, formatDate } from '@/lib/format';
 import { InventoryTabs } from '../parts/inventory-tabs';
+
+const FALLBACK_MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'complete'] as const;
 
@@ -36,17 +48,45 @@ export default function PurchaseOrdersPage() {
     statusFilter === 'all' ? undefined : statusFilter,
   );
   const { data: vendorsData } = useVendors();
-  const { data: partsData } = useParts(1, '', undefined);
   const createMutation = useCreatePurchaseOrder();
+
+  // Vehicle filter for the parts picker. `vehicleScope` is what we actually
+  // pass to /parts; the other state fields are just user input that resolves
+  // into a scope (directly or via plate/job-card lookup).
+  const [filterMake, setFilterMake] = useState('');
+  const [filterModel, setFilterModel] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const [filterPlate, setFilterPlate] = useState('');
+  const [filterJobNumber, setFilterJobNumber] = useState('');
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [filterSource, setFilterSource] = useState<string | null>(null);
+
+  const vehicleScope = filterMake
+    ? {
+        make: filterMake,
+        model: filterModel || undefined,
+        year: filterYear ? Number(filterYear) : undefined,
+      }
+    : undefined;
+
+  const { data: vehicleMakes } = useVehicleMakes();
+  const { data: vehicleModels } = useVehicleModels(filterMake || undefined);
+  const resolveVehicle = useResolveVehicle();
+  const { data: partsData } = useParts(1, '', undefined, vehicleScope);
 
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const toast = useToast();
   const [form, setForm] = useState({
     vendorId: '',
     expectedDate: '',
     notes: '',
     lines: [{ partId: '', description: '', quantity: 1, unitCost: 0 }],
   });
+  // Last-purchase hints per line index — surfaces under each line after
+  // the user picks a part, so they can see where the prefilled price came
+  // from without opening a modal.
+  const [lineHints, setLineHints] = useState<Record<number, PartPurchaseHistoryRow | null>>({});
 
   const addLine = () => {
     setForm({
@@ -64,6 +104,80 @@ export default function PurchaseOrdersPage() {
 
   const removeLine = (idx: number) => {
     setForm({ ...form, lines: form.lines.filter((_, i) => i !== idx) });
+    setLineHints((prev) => {
+      const next: Record<number, PartPurchaseHistoryRow | null> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = Number(k);
+        if (i < idx) next[i] = v;
+        else if (i > idx) next[i - 1] = v;
+      });
+      return next;
+    });
+  };
+
+  const handleLinePartChange = async (idx: number, partId: string) => {
+    const p = parts.find((pt) => pt.id === partId);
+    const lines = [...form.lines];
+    const current = lines[idx] ?? { partId: '', description: '', quantity: 1, unitCost: 0 };
+    lines[idx] = {
+      ...current,
+      partId,
+      description: p ? p.description : current.description,
+      // Fall back to catalogue cost while we fetch the last purchase below.
+      unitCost: p ? p.unit_cost : current.unitCost,
+    };
+    setForm((f) => ({ ...f, lines }));
+    setLineHints((h) => ({ ...h, [idx]: null }));
+
+    if (!partId) return;
+
+    try {
+      const history = await api.get<PartPurchaseHistory>(`/parts/${partId}/purchase-history`);
+      const last = history.last;
+      if (last && last.unit_cost > 0) {
+        setForm((f) => {
+          const next = [...f.lines];
+          const cur = next[idx];
+          if (!cur || cur.partId !== partId) return f;
+          next[idx] = { ...cur, unitCost: last.unit_cost };
+          return { ...f, lines: next };
+        });
+        setLineHints((h) => ({ ...h, [idx]: last }));
+        toast.success(
+          `Last bought from ${last.vendor_name ?? '—'} on ${formatDate(last.order_date)} at ${formatCurrency(last.unit_cost)}`,
+        );
+      }
+    } catch {
+      // Non-fatal: leave the catalogue price in place.
+    }
+  };
+
+  const resetVehicleFilter = () => {
+    setFilterMake('');
+    setFilterModel('');
+    setFilterYear('');
+    setFilterPlate('');
+    setFilterJobNumber('');
+    setFilterError(null);
+    setFilterSource(null);
+  };
+
+  const applyResolvedVehicle = async (args: { plate?: string; jobNumber?: string }) => {
+    setFilterError(null);
+    setFilterSource(null);
+    try {
+      const v = await resolveVehicle.mutateAsync(args);
+      if (!v) {
+        setFilterError(args.plate ? `No vehicle with plate "${args.plate}"` : `No job card "${args.jobNumber}"`);
+        return;
+      }
+      setFilterMake(v.make ?? '');
+      setFilterModel(v.model ?? '');
+      setFilterYear(v.year ? String(v.year) : '');
+      setFilterSource(v.source);
+    } catch (err) {
+      setFilterError(err instanceof Error ? err.message : 'Lookup failed');
+    }
   };
 
   const handleCreate = async () => {
@@ -238,6 +352,106 @@ export default function PurchaseOrdersPage() {
                 </div>
               </div>
 
+              {/* Vehicle filter for the parts picker */}
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">
+                    Filter parts by vehicle
+                  </label>
+                  {vehicleScope && (
+                    <button
+                      type="button"
+                      onClick={resetVehicleFilter}
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                </div>
+                <p className="mb-2 text-xs text-gray-500">
+                  Parts marked &ldquo;Fits all vehicles&rdquo; always appear. Leave empty to see every part.
+                </p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                  <div>
+                    <label className="block text-xs text-gray-500">Make</label>
+                    <input
+                      list="po-makes"
+                      value={filterMake}
+                      onChange={(e) => { setFilterMake(e.target.value); setFilterModel(''); }}
+                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                    <datalist id="po-makes">
+                      {((vehicleMakes && vehicleMakes.length > 0) ? vehicleMakes : FALLBACK_MAKES).map((m) => (
+                        <option key={m} value={m} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Model</label>
+                    <input
+                      list="po-models"
+                      value={filterModel}
+                      onChange={(e) => setFilterModel(e.target.value)}
+                      disabled={!filterMake}
+                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                    />
+                    <datalist id="po-models">
+                      {(vehicleModels ?? []).map((m) => <option key={m} value={m} />)}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Year</label>
+                    <input
+                      type="number"
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Plate (lookup)</label>
+                    <input
+                      value={filterPlate}
+                      onChange={(e) => setFilterPlate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && filterPlate.trim()) {
+                          e.preventDefault();
+                          applyResolvedVehicle({ plate: filterPlate.trim() });
+                        }
+                      }}
+                      onBlur={() => filterPlate.trim() && applyResolvedVehicle({ plate: filterPlate.trim() })}
+                      placeholder="e.g. AA-12-BC"
+                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500">Job card # (lookup)</label>
+                    <input
+                      value={filterJobNumber}
+                      onChange={(e) => setFilterJobNumber(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && filterJobNumber.trim()) {
+                          e.preventDefault();
+                          applyResolvedVehicle({ jobNumber: filterJobNumber.trim() });
+                        }
+                      }}
+                      onBlur={() => filterJobNumber.trim() && applyResolvedVehicle({ jobNumber: filterJobNumber.trim() })}
+                      placeholder="JC-00123"
+                      className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-end text-xs text-gray-500">
+                    {resolveVehicle.isPending && <span>Looking up…</span>}
+                    {filterSource && !resolveVehicle.isPending && (
+                      <span className="text-green-700">Matched via {filterSource}</span>
+                    )}
+                  </div>
+                </div>
+                {filterError && (
+                  <div className="mt-2 rounded-md bg-red-50 p-2 text-xs text-red-700">{filterError}</div>
+                )}
+              </div>
+
               {/* Lines */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -251,71 +465,77 @@ export default function PurchaseOrdersPage() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {form.lines.map((line, idx) => (
-                    <div key={idx} className="flex items-end gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500">{t('part')}</label>
-                        <select
-                          value={line.partId}
-                          onChange={(e) => {
-                            const partId = e.target.value;
-                            const p = parts.find((pt) => pt.id === partId);
-                            const lines = [...form.lines];
-                            const current = lines[idx] ?? { partId: '', description: '', quantity: 1, unitCost: 0 };
-                            lines[idx] = {
-                              ...current,
-                              partId,
-                              description: p ? p.description : current.description,
-                              unitCost: p ? p.unit_cost : current.unitCost,
-                            };
-                            setForm({ ...form, lines });
-                          }}
-                          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                        >
-                          <option value="">--</option>
-                          {parts.map((p) => (
-                            <option key={p.id} value={p.id}>{p.part_number} - {p.description}</option>
-                          ))}
-                        </select>
+                  {form.lines.map((line, idx) => {
+                    const hint = lineHints[idx];
+                    return (
+                      <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500">{t('part')}</label>
+                            <select
+                              value={line.partId}
+                              onChange={(e) => handleLinePartChange(idx, e.target.value)}
+                              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                            >
+                              <option value="">--</option>
+                              {parts.map((p) => (
+                                <option key={p.id} value={p.id}>{p.part_number} - {p.description}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500">{t('description')}</label>
+                            <input
+                              value={line.description}
+                              onChange={(e) => updateLine(idx, 'description', e.target.value)}
+                              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <label className="block text-xs text-gray-500">{t('qty')}</label>
+                            <input
+                              type="number"
+                              value={line.quantity}
+                              onChange={(e) => updateLine(idx, 'quantity', Number(e.target.value))}
+                              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="w-24">
+                            <label className="block text-xs text-gray-500">{t('unitCost')}</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={line.unitCost}
+                              onChange={(e) => updateLine(idx, 'unitCost', Number(e.target.value))}
+                              className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          {form.lines.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeLine(idx)}
+                              className="mb-0.5 text-red-500 hover:text-red-700"
+                            >
+                              &#x2715;
+                            </button>
+                          )}
+                        </div>
+                        {hint && (
+                          <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs text-green-800">
+                            Last bought from{' '}
+                            <span className="font-semibold">{hint.vendor_name ?? '—'}</span>{' '}
+                            on {formatDate(hint.order_date)} at{' '}
+                            <span className="font-semibold">{formatCurrency(hint.unit_cost)}</span>
+                            {hint.received_qty === 0 && (
+                              <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                not yet received
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500">{t('description')}</label>
-                        <input
-                          value={line.description}
-                          onChange={(e) => updateLine(idx, 'description', e.target.value)}
-                          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-                      <div className="w-20">
-                        <label className="block text-xs text-gray-500">{t('qty')}</label>
-                        <input
-                          type="number"
-                          value={line.quantity}
-                          onChange={(e) => updateLine(idx, 'quantity', Number(e.target.value))}
-                          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-                      <div className="w-24">
-                        <label className="block text-xs text-gray-500">{t('unitCost')}</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={line.unitCost}
-                          onChange={(e) => updateLine(idx, 'unitCost', Number(e.target.value))}
-                          className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-                      {form.lines.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeLine(idx)}
-                          className="mb-0.5 text-red-500 hover:text-red-700"
-                        >
-                          &#x2715;
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

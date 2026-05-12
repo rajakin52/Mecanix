@@ -1,11 +1,19 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { WarehouseService } from '../warehouse/warehouse.service';
-import type { CreatePartInput, UpdatePartInput, AdjustStockInput, PaginationInput } from '@mecanix/validators';
+import type {
+  CreatePartInput,
+  UpdatePartInput,
+  AdjustStockInput,
+  PaginationInput,
+  PartCompatibilityRow,
+  PartsVehicleFilter,
+} from '@mecanix/validators';
 
 interface PartFilters {
   category?: string;
   lowStock?: boolean;
+  vehicle?: PartsVehicleFilter;
 }
 
 @Injectable()
@@ -39,6 +47,19 @@ export class PartsService {
       query = query.filter('stock_qty', 'lte', 'reorder_point');
     }
 
+    // Vehicle scope: show parts that are universal OR have a compat row
+    // matching the (make, model?, year?) tuple. We resolve the matching
+    // part_ids in a separate query because PostgREST can't express an
+    // EXISTS subquery directly.
+    if (filters.vehicle?.make) {
+      const matchingIds = await this.findCompatPartIds(tenantId, filters.vehicle);
+      if (matchingIds.length === 0) {
+        query = query.eq('is_universal', true);
+      } else {
+        query = query.or(`is_universal.eq.true,id.in.(${matchingIds.join(',')})`);
+      }
+    }
+
     query = query.order('created_at', { ascending: false });
 
     const { data, count, error } = await query.range(from, to);
@@ -56,11 +77,42 @@ export class PartsService {
     };
   }
 
+  private async findCompatPartIds(tenantId: string, vehicle: PartsVehicleFilter): Promise<string[]> {
+    if (!vehicle.make) return [];
+    const client = this.supabase.getClient();
+
+    let q = client
+      .from('part_vehicle_compat')
+      .select('part_id, model, year_from, year_to')
+      .eq('tenant_id', tenantId)
+      .eq('make', vehicle.make);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    // Filter in JS to honour the (model IS NULL OR model = $model) and
+    // (year between year_from..year_to) semantics without a complex .or()
+    // string.
+    const ids = new Set<string>();
+    for (const row of data ?? []) {
+      const r = row as { part_id: string; model: string | null; year_from: number | null; year_to: number | null };
+      if (r.model && vehicle.model && r.model !== vehicle.model) continue;
+      if (vehicle.year != null) {
+        if (r.year_from != null && r.year_from > vehicle.year) continue;
+        if (r.year_to != null && r.year_to < vehicle.year) continue;
+      }
+      ids.add(r.part_id);
+    }
+    return Array.from(ids);
+  }
+
   async getById(tenantId: string, id: string) {
     const { data, error } = await this.supabase
       .getClient()
       .from('parts')
-      .select('*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate)')
+      .select(
+        '*, vendor:vendors(id, name), tax_code:tax_codes(id, code, rate), compatibility:part_vehicle_compat(id, make, model, year_from, year_to)',
+      )
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
@@ -74,8 +126,8 @@ export class PartsService {
   }
 
   async create(tenantId: string, userId: string, input: CreatePartInput) {
-    const { data, error } = await this.supabase
-      .getClient()
+    const client = this.supabase.getClient();
+    const { data, error } = await client
       .from('parts')
       .insert({
         tenant_id: tenantId,
@@ -91,6 +143,7 @@ export class PartsService {
         tax_code_id: input.taxCodeId || null,
         default_warranty_months: input.defaultWarrantyMonths ?? null,
         default_warranty_km: input.defaultWarrantyKm ?? null,
+        is_universal: input.isUniversal ?? false,
         is_active: true,
         created_by: userId,
         updated_by: userId,
@@ -99,7 +152,41 @@ export class PartsService {
       .single();
 
     if (error) throw error;
+
+    if (!input.isUniversal && input.compatibility && input.compatibility.length > 0) {
+      await this.replaceCompatibility(tenantId, data.id, input.compatibility);
+    }
+
     return data;
+  }
+
+  private async replaceCompatibility(
+    tenantId: string,
+    partId: string,
+    rows: PartCompatibilityRow[],
+  ) {
+    const client = this.supabase.getClient();
+
+    const { error: delError } = await client
+      .from('part_vehicle_compat')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('part_id', partId);
+    if (delError) throw delError;
+
+    if (rows.length === 0) return;
+
+    const toInsert = rows.map((r) => ({
+      tenant_id: tenantId,
+      part_id: partId,
+      make: r.make.trim(),
+      model: r.model && r.model.trim().length > 0 ? r.model.trim() : null,
+      year_from: r.yearFrom ?? null,
+      year_to: r.yearTo ?? null,
+    }));
+
+    const { error: insError } = await client.from('part_vehicle_compat').insert(toInsert);
+    if (insError) throw insError;
   }
 
   async update(tenantId: string, id: string, userId: string, input: UpdatePartInput) {
@@ -120,6 +207,7 @@ export class PartsService {
       taxCodeId: 'tax_code_id',
       defaultWarrantyMonths: 'default_warranty_months',
       defaultWarrantyKm: 'default_warranty_km',
+      isUniversal: 'is_universal',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {
@@ -138,7 +226,141 @@ export class PartsService {
       .single();
 
     if (error) throw error;
+
+    // If the caller explicitly sent compatibility, replace the set.
+    // If the part is being switched to universal, clear any old rows.
+    if (input.compatibility !== undefined) {
+      await this.replaceCompatibility(tenantId, id, input.compatibility);
+    } else if (input.isUniversal === true) {
+      await this.replaceCompatibility(tenantId, id, []);
+    }
+
     return data;
+  }
+
+  /**
+   * Distinct vehicle makes for this tenant — used to populate the make
+   * dropdown on the part-compatibility editor and the PO parts filter.
+   */
+  async listVehicleMakes(tenantId: string): Promise<string[]> {
+    const client = this.supabase.getClient();
+
+    const fromVehicles = await client
+      .from('vehicles')
+      .select('make')
+      .eq('tenant_id', tenantId)
+      .not('make', 'is', null);
+    if (fromVehicles.error) throw fromVehicles.error;
+
+    const fromCompat = await client
+      .from('part_vehicle_compat')
+      .select('make')
+      .eq('tenant_id', tenantId);
+    if (fromCompat.error) throw fromCompat.error;
+
+    const set = new Set<string>();
+    for (const r of fromVehicles.data ?? []) {
+      const m = (r as { make: string | null }).make;
+      if (m && m.trim()) set.add(m.trim());
+    }
+    for (const r of fromCompat.data ?? []) {
+      const m = (r as { make: string | null }).make;
+      if (m && m.trim()) set.add(m.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Distinct vehicle models for a given make (within this tenant).
+   */
+  async listVehicleModels(tenantId: string, make: string): Promise<string[]> {
+    const client = this.supabase.getClient();
+
+    const fromVehicles = await client
+      .from('vehicles')
+      .select('model')
+      .eq('tenant_id', tenantId)
+      .eq('make', make)
+      .not('model', 'is', null);
+    if (fromVehicles.error) throw fromVehicles.error;
+
+    const fromCompat = await client
+      .from('part_vehicle_compat')
+      .select('model')
+      .eq('tenant_id', tenantId)
+      .eq('make', make)
+      .not('model', 'is', null);
+    if (fromCompat.error) throw fromCompat.error;
+
+    const set = new Set<string>();
+    for (const r of fromVehicles.data ?? []) {
+      const m = (r as { model: string | null }).model;
+      if (m && m.trim()) set.add(m.trim());
+    }
+    for (const r of fromCompat.data ?? []) {
+      const m = (r as { model: string | null }).model;
+      if (m && m.trim()) set.add(m.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Resolve a vehicle by plate or by job-card number/id into {make, model, year}
+   * so the PO parts filter can derive a scope from either input.
+   */
+  async resolveVehicle(
+    tenantId: string,
+    args: { plate?: string; jobCardId?: string; jobNumber?: string },
+  ): Promise<{ make: string | null; model: string | null; year: number | null; source: string } | null> {
+    const client = this.supabase.getClient();
+
+    if (args.plate) {
+      const { data } = await client
+        .from('vehicles')
+        .select('make, model, year, plate')
+        .eq('tenant_id', tenantId)
+        .ilike('plate', args.plate.trim())
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        return {
+          make: (data.make as string | null) ?? null,
+          model: (data.model as string | null) ?? null,
+          year: (data.year as number | null) ?? null,
+          source: `plate:${data.plate}`,
+        };
+      }
+      return null;
+    }
+
+    if (args.jobCardId || args.jobNumber) {
+      let q = client
+        .from('job_cards')
+        .select('id, job_number, vehicle:vehicles(make, model, year, plate)')
+        .eq('tenant_id', tenantId);
+      if (args.jobCardId) q = q.eq('id', args.jobCardId);
+      if (args.jobNumber) q = q.eq('job_number', args.jobNumber.trim());
+      const { data } = await q.limit(1).maybeSingle();
+      if (data && data.vehicle) {
+        // Supabase returns the embedded relation as an array even on FK
+        // joins; take the first row.
+        const rel = data.vehicle as unknown as
+          | { make: string | null; model: string | null; year: number | null; plate: string | null }
+          | Array<{ make: string | null; model: string | null; year: number | null; plate: string | null }>;
+        const v = Array.isArray(rel) ? rel[0] : rel;
+        if (v) {
+          return {
+            make: v.make,
+            model: v.model,
+            year: v.year,
+            source: `jobCard:${data.job_number ?? data.id}`,
+          };
+        }
+      }
+      return null;
+    }
+
+    return null;
   }
 
   /**
@@ -333,6 +555,74 @@ export class PartsService {
     });
 
     return this.getById(tenantId, partId);
+  }
+
+  /**
+   * Purchase history for a single part: all PO lines that reference it,
+   * with vendor + order date. Sorted most-recent first.
+   *
+   * `lastReceived` is the first entry with received_qty > 0 — that's what
+   * the PO line picker uses to prefill the unit cost.
+   */
+  async getPurchaseHistory(tenantId: string, partId: string) {
+    await this.getById(tenantId, partId);
+
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('po_lines')
+      .select(
+        'id, quantity, unit_cost, received_qty, purchase_order:purchase_orders!inner(id, po_number, order_date, expected_date, status, vendor:vendors(id, name))',
+      )
+      .eq('tenant_id', tenantId)
+      .eq('part_id', partId);
+    if (error) throw error;
+
+    type Row = {
+      id: string;
+      quantity: number;
+      unit_cost: number;
+      received_qty: number;
+      purchase_order: {
+        id: string;
+        po_number: string;
+        order_date: string;
+        expected_date: string | null;
+        status: string;
+        vendor: { id: string; name: string } | null | Array<{ id: string; name: string }>;
+      } | null;
+    };
+
+    const rows = ((data ?? []) as unknown as Row[])
+      .filter((r) => r.purchase_order)
+      .map((r) => {
+        const po = r.purchase_order!;
+        const vendorRel = po.vendor;
+        const vendor = Array.isArray(vendorRel) ? vendorRel[0] ?? null : vendorRel;
+        return {
+          po_line_id: r.id,
+          po_id: po.id,
+          po_number: po.po_number,
+          order_date: po.order_date,
+          expected_date: po.expected_date,
+          status: po.status,
+          vendor_id: vendor?.id ?? null,
+          vendor_name: vendor?.name ?? null,
+          quantity: r.quantity,
+          unit_cost: Number(r.unit_cost),
+          received_qty: r.received_qty,
+        };
+      })
+      .sort((a, b) => (a.order_date < b.order_date ? 1 : a.order_date > b.order_date ? -1 : 0));
+
+    const lastReceived = rows.find((r) => r.received_qty > 0) ?? null;
+    const lastAny = rows[0] ?? null;
+
+    return {
+      history: rows,
+      lastReceived,
+      // Fallback for the PO line picker when nothing has been received yet.
+      last: lastReceived ?? lastAny,
+    };
   }
 
   /**

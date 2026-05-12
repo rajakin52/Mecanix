@@ -37,10 +37,23 @@ export class PartsController {
     @Query(new ZodValidationPipe(paginationSchema)) query: PaginationInput,
     @Query('category') category?: string,
     @Query('lowStock') lowStock?: string,
+    @Query('make') make?: string,
+    @Query('model') model?: string,
+    @Query('year') year?: string,
   ) {
+    const vehicle =
+      make && make.trim().length > 0
+        ? {
+            make: make.trim(),
+            model: model && model.trim().length > 0 ? model.trim() : undefined,
+            year: year && year.trim().length > 0 ? Number(year) : undefined,
+          }
+        : undefined;
+
     return this.partsService.list(tenantId, query, {
       category,
       lowStock: lowStock === 'true',
+      vehicle,
     });
   }
 
@@ -64,12 +77,44 @@ export class PartsController {
     return this.partsService.getReorderSuggestions(tenantId);
   }
 
+  @Get('vehicle-makes')
+  async listVehicleMakes(@TenantId() tenantId: string) {
+    return this.partsService.listVehicleMakes(tenantId);
+  }
+
+  @Get('vehicle-models')
+  async listVehicleModels(
+    @TenantId() tenantId: string,
+    @Query('make') make: string,
+  ) {
+    if (!make || !make.trim()) return [];
+    return this.partsService.listVehicleModels(tenantId, make.trim());
+  }
+
+  @Get('resolve-vehicle')
+  async resolveVehicle(
+    @TenantId() tenantId: string,
+    @Query('plate') plate?: string,
+    @Query('jobCardId') jobCardId?: string,
+    @Query('jobNumber') jobNumber?: string,
+  ) {
+    return this.partsService.resolveVehicle(tenantId, { plate, jobCardId, jobNumber });
+  }
+
   @Get(':id')
   async getById(
     @TenantId() tenantId: string,
     @Param('id') id: string,
   ) {
     return this.partsService.getById(tenantId, id);
+  }
+
+  @Get(':id/purchase-history')
+  async getPurchaseHistory(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.partsService.getPurchaseHistory(tenantId, id);
   }
 
   @Post()

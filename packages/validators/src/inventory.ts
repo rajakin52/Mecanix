@@ -2,25 +2,86 @@ import { z } from 'zod';
 
 // ---------- Parts ----------
 
-export const createPartSchema = z.object({
-  partNumber: z.string().max(100).optional(),
-  description: z.string().min(1).max(500),
-  unitCost: z.coerce.number().min(0),
-  sellPrice: z.coerce.number().min(0),
-  stockQty: z.coerce.number().int().min(0).default(0),
-  reorderPoint: z.coerce.number().int().min(0).default(0),
-  supplierId: z.string().uuid().optional(),
-  category: z.string().max(100).optional(),
-  location: z.string().max(200).optional(),
-  taxCodeId: z.string().uuid().optional(),
-  defaultWarrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
-  defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
-});
+export const partCompatibilityRowSchema = z
+  .object({
+    make: z.string().min(1).max(100),
+    model: z.string().max(100).optional().nullable(),
+    yearFrom: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
+    yearTo: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
+  })
+  .refine(
+    (r) => r.yearFrom == null || r.yearTo == null || r.yearFrom <= r.yearTo,
+    { message: 'yearFrom must be ≤ yearTo', path: ['yearFrom'] },
+  );
 
-export const updatePartSchema = createPartSchema.partial();
+export const createPartSchema = z
+  .object({
+    partNumber: z.string().max(100).optional(),
+    description: z.string().min(1).max(500),
+    unitCost: z.coerce.number().min(0),
+    sellPrice: z.coerce.number().min(0),
+    stockQty: z.coerce.number().int().min(0).default(0),
+    reorderPoint: z.coerce.number().int().min(0).default(0),
+    supplierId: z.string().uuid().optional(),
+    category: z.string().max(100).optional(),
+    location: z.string().max(200).optional(),
+    taxCodeId: z.string().uuid().optional(),
+    defaultWarrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
+    defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
+    isUniversal: z.boolean().default(false),
+    compatibility: z.array(partCompatibilityRowSchema).default([]),
+  })
+  .refine(
+    (p) => p.isUniversal || (p.compatibility && p.compatibility.length > 0),
+    {
+      message:
+        'A part must either be marked "Fits all vehicles" or have at least one compatibility row.',
+      path: ['compatibility'],
+    },
+  );
 
+export const updatePartSchema = z
+  .object({
+    partNumber: z.string().max(100).optional(),
+    description: z.string().min(1).max(500).optional(),
+    unitCost: z.coerce.number().min(0).optional(),
+    sellPrice: z.coerce.number().min(0).optional(),
+    stockQty: z.coerce.number().int().min(0).optional(),
+    reorderPoint: z.coerce.number().int().min(0).optional(),
+    supplierId: z.string().uuid().optional(),
+    category: z.string().max(100).optional(),
+    location: z.string().max(200).optional(),
+    taxCodeId: z.string().uuid().optional(),
+    defaultWarrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
+    defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
+    isUniversal: z.boolean().optional(),
+    compatibility: z.array(partCompatibilityRowSchema).optional(),
+  })
+  .refine(
+    (p) =>
+      p.isUniversal === undefined && p.compatibility === undefined
+        ? true
+        : p.isUniversal === true || (p.compatibility && p.compatibility.length > 0),
+    {
+      message:
+        'A part must either be marked "Fits all vehicles" or have at least one compatibility row.',
+      path: ['compatibility'],
+    },
+  );
+
+export type PartCompatibilityRow = z.infer<typeof partCompatibilityRowSchema>;
 export type CreatePartInput = z.infer<typeof createPartSchema>;
 export type UpdatePartInput = z.infer<typeof updatePartSchema>;
+
+// Query string for the parts list when scoping to a specific vehicle.
+// Used by the PO create form to narrow the picker.
+export const partsVehicleFilterSchema = z.object({
+  make: z.string().max(100).optional(),
+  model: z.string().max(100).optional(),
+  year: z.coerce.number().int().min(1900).max(2100).optional(),
+});
+
+export type PartsVehicleFilter = z.infer<typeof partsVehicleFilterSchema>;
 
 export const adjustStockSchema = z.object({
   quantityChange: z.coerce.number().int().negative('Only negative adjustments (stock corrections) are allowed. Stock increases must come from supplier invoices.'),

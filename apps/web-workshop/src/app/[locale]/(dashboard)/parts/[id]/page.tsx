@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
-import { usePart } from '@/hooks/use-parts';
+import { usePart, usePartPurchaseHistory } from '@/hooks/use-parts';
 import { useStockByBranch, useTransferStock } from '@/hooks/use-branches';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { SkeletonPage, useToast } from '@mecanix/ui-web';
@@ -15,6 +15,7 @@ export default function PartDetailPage() {
 
   const { data: part, isLoading } = usePart(id);
   const { data: stockGroups } = useStockByBranch(id);
+  const { data: purchaseHistory } = usePartPurchaseHistory(id);
   const transfer = useTransferStock();
 
   const [transferOpen, setTransferOpen] = useState(false);
@@ -172,6 +173,66 @@ export default function PartDetailPage() {
                 </table>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Purchase history */}
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Purchase history</h2>
+          {purchaseHistory?.last && (
+            <span className="text-xs text-gray-500">
+              Last:{' '}
+              <span className="font-medium text-gray-700">
+                {purchaseHistory.last.vendor_name ?? '—'}
+              </span>{' '}
+              · {formatDate(purchaseHistory.last.order_date)} ·{' '}
+              {formatCurrency(purchaseHistory.last.unit_cost)}
+            </span>
+          )}
+        </div>
+        {!purchaseHistory || purchaseHistory.history.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-500">
+            This part has never been ordered yet.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Supplier</th>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">PO</th>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Order date</th>
+                  <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
+                  <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Received</th>
+                  <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Unit price</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {purchaseHistory.history.map((row) => (
+                  <tr key={row.po_line_id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-sm text-gray-900">{row.vendor_name ?? '—'}</td>
+                    <td className="px-4 py-2 text-sm">
+                      <Link
+                        href={`/purchase-orders/${row.po_id}`}
+                        className="font-medium text-primary-600 hover:underline"
+                      >
+                        {row.po_number}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-700">{formatDate(row.order_date)}</td>
+                    <td className="px-4 py-2 text-end text-sm text-gray-700">{row.quantity}</td>
+                    <td className={`px-4 py-2 text-end text-sm ${row.received_qty < row.quantity ? 'text-amber-700' : 'text-green-700'}`}>
+                      {row.received_qty}
+                    </td>
+                    <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">
+                      {formatCurrency(row.unit_cost)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
