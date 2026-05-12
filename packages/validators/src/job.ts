@@ -94,6 +94,9 @@ export type JobType = z.infer<typeof jobTypeEnum>;
 
 // ---------- Labour Lines ----------
 
+export const labourTypeEnum = z.enum(['mechanical', 'body', 'refinish', 'detail']);
+export type LabourType = z.infer<typeof labourTypeEnum>;
+
 export const createLabourLineSchema = z.object({
   description: z.string().min(1).max(500),
   hours: z.coerce.number().min(0),
@@ -102,6 +105,7 @@ export const createLabourLineSchema = z.object({
   taxCodeId: z.string().uuid().optional(),
   warrantyMonths: z.coerce.number().int().min(0).max(240).optional(),
   warrantyKm: z.coerce.number().int().min(0).optional(),
+  labourType: labourTypeEnum.default('mechanical'),
 });
 
 export const updateLabourLineSchema = createLabourLineSchema.partial();

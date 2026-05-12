@@ -38,6 +38,8 @@ export const createPartSchema = z
     defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
     isUniversal: z.boolean().default(false),
     isConsumable: z.boolean().default(false),
+    uom: z.string().max(20).default('each'),
+    packSize: z.coerce.number().positive().default(1),
     compatibility: z.array(partCompatibilityRowSchema).default([]),
   })
   .refine(
@@ -65,6 +67,8 @@ export const updatePartSchema = z
     defaultWarrantyKm: z.coerce.number().int().min(0).optional(),
     isUniversal: z.boolean().optional(),
     isConsumable: z.boolean().optional(),
+    uom: z.string().max(20).optional(),
+    packSize: z.coerce.number().positive().optional(),
     compatibility: z.array(partCompatibilityRowSchema).optional(),
   })
   .refine(

@@ -86,6 +86,7 @@ export class LabourLinesService {
         warranty_km: input.warrantyKm ?? null,
         warranty_starts_at:
           input.warrantyMonths != null || input.warrantyKm != null ? new Date().toISOString() : null,
+        labour_type: input.labourType ?? 'mechanical',
       })
       .select()
       .single();
@@ -128,6 +129,7 @@ export class LabourLinesService {
     if (input.hours !== undefined) updateData['hours'] = input.hours;
     if (input.rate !== undefined) updateData['rate'] = input.rate;
     if (input.technicianId !== undefined) updateData['technician_id'] = input.technicianId || null;
+    if (input.labourType !== undefined) updateData['labour_type'] = input.labourType;
 
     if (input.warrantyMonths !== undefined || input.warrantyKm !== undefined) {
       if (input.warrantyMonths !== undefined) updateData['warranty_months'] = input.warrantyMonths ?? null;

@@ -170,6 +170,8 @@ export class PartsService {
         default_warranty_km: input.defaultWarrantyKm ?? null,
         is_universal: input.isUniversal ?? false,
         is_consumable: input.isConsumable ?? false,
+        uom: input.uom ?? 'each',
+        pack_size: input.packSize ?? 1,
         is_active: true,
         created_by: userId,
         updated_by: userId,
@@ -235,6 +237,8 @@ export class PartsService {
       defaultWarrantyKm: 'default_warranty_km',
       isUniversal: 'is_universal',
       isConsumable: 'is_consumable',
+      uom: 'uom',
+      packSize: 'pack_size',
     };
 
     for (const [camel, snake] of Object.entries(fieldMap)) {
