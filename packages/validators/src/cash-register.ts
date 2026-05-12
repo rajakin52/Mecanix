@@ -30,6 +30,11 @@ export const createBankDepositSchema = z.object({
   depositReference: z.string().min(1).max(200),
   depositDate: z.string().optional(),
   notes: z.string().max(1000).optional(),
+  sourcePaymentMethod: z.enum([
+    'cash', 'card', 'mpesa', 'multicaixa', 'emola',
+    'pix', 'mbway', 'multibanco', 'transfer', 'other',
+  ]).default('cash'),
+  destinationType: z.enum(['bank_account', 'debit_card', 'other']).default('bank_account'),
 });
 
 export type OpenRegisterInput = z.infer<typeof openRegisterSchema>;

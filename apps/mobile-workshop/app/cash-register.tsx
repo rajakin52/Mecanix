@@ -79,12 +79,14 @@ export default function CashRegisterScreen() {
   const [txAmount, setTxAmount] = useState('');
   const [txDesc, setTxDesc] = useState('');
   const [txRef, setTxRef] = useState('');
-  // Bank deposit
+  // Bank deposit / card reload
   const [showDeposit, setShowDeposit] = useState(false);
   const [depAmount, setDepAmount] = useState('');
   const [depBank, setDepBank] = useState('');
   const [depRef, setDepRef] = useState('');
   const [depNotes, setDepNotes] = useState('');
+  const [depSource, setDepSource] = useState<string>('cash');
+  const [depDestination, setDepDestination] = useState<'bank_account' | 'debit_card' | 'other'>('bank_account');
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -173,10 +175,13 @@ export default function CashRegisterScreen() {
           bankName: depBank.trim(),
           depositReference: depRef.trim(),
           notes: depNotes.trim() || undefined,
+          sourcePaymentMethod: depSource,
+          destinationType: depDestination,
         }),
       });
       setShowDeposit(false);
       setDepAmount(''); setDepBank(''); setDepRef(''); setDepNotes('');
+      setDepSource('cash'); setDepDestination('bank_account');
       Alert.alert(t('common.success'), t('cashRegister.depositSuccess'));
       fetchData();
     } catch (err) {
@@ -289,7 +294,7 @@ export default function CashRegisterScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#E3F2FD' }]} onPress={() => setShowDeposit(true)}>
                 <Text style={styles.actionIcon}>🏦</Text>
-                <Text style={[styles.actionLabel, { color: PRIMARY }]}>{t('cashRegister.bankDeposit')}</Text>
+                <Text style={[styles.actionLabel, { color: PRIMARY }]}>{t('cashRegister.depositOrReload', 'Deposit / card reload')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FFEBEE' }]} onPress={() => setShowClose(true)}>
                 <Text style={styles.actionIcon}>🔒</Text>
@@ -391,14 +396,45 @@ export default function CashRegisterScreen() {
         </View>
       </Modal>
 
-      {/* Bank Deposit Modal */}
+      {/* Bank Deposit / Card Reload Modal */}
       <Modal visible={showDeposit} transparent animationType="slide" onRequestClose={() => setShowDeposit(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>{t('cashRegister.bankDeposit')}</Text>
+            <Text style={styles.modalTitle}>{t('cashRegister.depositOrReload', 'Deposit / card reload')}</Text>
+
+            {/* Source chips */}
+            <Text style={styles.fieldLabel}>{t('cashRegister.source', 'Source')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
+              {PAYMENT_METHODS.map((m) => (
+                <TouchableOpacity key={m} style={[styles.chip, depSource === m && styles.chipActive]} onPress={() => setDepSource(m)}>
+                  <Text style={[styles.chipText, depSource === m && styles.chipTextActive]}>
+                    {t(`cashRegister.methods.${m}`, m)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Destination chips */}
+            <Text style={styles.fieldLabel}>{t('cashRegister.destination', 'Destination')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
+              {(['bank_account', 'debit_card', 'other'] as const).map((d) => (
+                <TouchableOpacity key={d} style={[styles.chip, depDestination === d && styles.chipActive]} onPress={() => setDepDestination(d)}>
+                  <Text style={[styles.chipText, depDestination === d && styles.chipTextActive]}>
+                    {t(`cashRegister.destinations.${d}`, d === 'bank_account' ? 'Bank account' : d === 'debit_card' ? 'Debit card' : 'Other')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {depSource !== 'cash' && (
+              <Text style={{ fontSize: 12, color: '#0087FF', backgroundColor: '#E3F2FD', padding: 10, borderRadius: 8, marginBottom: 10 }}>
+                {t('cashRegister.nonCashNote', "Non-cash sources don't affect the till's expected cash.")}
+              </Text>
+            )}
+
             <TextInput style={styles.modalInput} placeholder={t('cashRegister.amount')} placeholderTextColor="#8E8E93" value={depAmount} onChangeText={setDepAmount} keyboardType="numeric" />
-            <TextInput style={styles.modalInput} placeholder={t('cashRegister.bankName')} placeholderTextColor="#8E8E93" value={depBank} onChangeText={setDepBank} />
+            <TextInput style={styles.modalInput} placeholder={depDestination === 'debit_card' ? t('cashRegister.cardName', 'Card name') : t('cashRegister.bankName')} placeholderTextColor="#8E8E93" value={depBank} onChangeText={setDepBank} />
             <TextInput style={styles.modalInput} placeholder={t('cashRegister.depositRef')} placeholderTextColor="#8E8E93" value={depRef} onChangeText={setDepRef} />
             <TextInput style={[styles.modalInput, { minHeight: 50 }]} placeholder={t('cashRegister.closeNotes')} placeholderTextColor="#8E8E93" value={depNotes} onChangeText={setDepNotes} multiline />
             <View style={styles.modalButtons}>

@@ -199,6 +199,9 @@ export class CashRegisterService {
 
     const client = this.supabase.getClient();
 
+    const sourceMethod = input.sourcePaymentMethod ?? 'cash';
+    const destinationType = input.destinationType ?? 'bank_account';
+
     // Create deposit record
     const { data: deposit, error: depError } = await client
       .from('bank_deposits')
@@ -211,6 +214,8 @@ export class CashRegisterService {
         deposit_reference: input.depositReference,
         deposit_date: input.depositDate ?? new Date().toISOString().slice(0, 10),
         notes: input.notes ?? null,
+        source_payment_method: sourceMethod,
+        destination_type: destinationType,
         created_by: userId,
       })
       .select()
@@ -218,17 +223,22 @@ export class CashRegisterService {
 
     if (depError) throw depError;
 
-    // Also create a transaction to deduct from cash
-    await client.from('cash_transactions').insert({
-      tenant_id: tenantId,
-      register_id: register.id,
-      transaction_type: 'deposit',
-      payment_method: 'cash',
-      amount: -Math.abs(input.amount),
-      description: `Bank deposit: ${input.bankName} — ${input.depositReference}`,
-      reference: input.depositReference,
-      created_by: userId,
-    });
+    // Only deduct from cash when the source was physical cash.
+    // Non-cash sources (card settlements, transfers, card reloads from bank, etc.)
+    // never passed through the till and must not affect expected cash.
+    if (sourceMethod === 'cash') {
+      const destLabel = destinationType === 'debit_card' ? 'Card reload' : 'Bank deposit';
+      await client.from('cash_transactions').insert({
+        tenant_id: tenantId,
+        register_id: register.id,
+        transaction_type: 'deposit',
+        payment_method: 'cash',
+        amount: -Math.abs(input.amount),
+        description: `${destLabel}: ${input.bankName} — ${input.depositReference}`,
+        reference: input.depositReference,
+        created_by: userId,
+      });
+    }
 
     return deposit;
   }

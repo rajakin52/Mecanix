@@ -71,6 +71,8 @@ export function useAddBankDeposit() {
       depositReference: string;
       depositDate?: string;
       notes?: string;
+      sourcePaymentMethod?: string;
+      destinationType?: 'bank_account' | 'debit_card' | 'other';
     }) => api.post<R>('/cash-register/bank-deposits', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cash-register'] }),
   });

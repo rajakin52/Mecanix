@@ -44,7 +44,15 @@ export default function CashRegisterPage() {
   const [closingCash, setClosingCash] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
   const [txnForm, setTxnForm] = useState({ type: 'petty_cash', method: 'cash', amount: '', description: '', reference: '' });
-  const [depForm, setDepForm] = useState({ amount: '', bankName: '', accountNumber: '', reference: '', notes: '' });
+  const [depForm, setDepForm] = useState({
+    amount: '',
+    bankName: '',
+    accountNumber: '',
+    reference: '',
+    notes: '',
+    sourcePaymentMethod: 'cash',
+    destinationType: 'bank_account' as 'bank_account' | 'debit_card' | 'other',
+  });
   const [depOpen, setDepOpen] = useState(false);
 
   const txns = (transactions ?? []) as Array<Record<string, unknown>>;
@@ -99,8 +107,18 @@ export default function CashRegisterPage() {
         accountNumber: depForm.accountNumber || undefined,
         depositReference: depForm.reference,
         notes: depForm.notes || undefined,
+        sourcePaymentMethod: depForm.sourcePaymentMethod,
+        destinationType: depForm.destinationType,
       });
-      setDepForm({ amount: '', bankName: '', accountNumber: '', reference: '', notes: '' });
+      setDepForm({
+        amount: '',
+        bankName: '',
+        accountNumber: '',
+        reference: '',
+        notes: '',
+        sourcePaymentMethod: 'cash',
+        destinationType: 'bank_account',
+      });
       setDepOpen(false);
       toast.success('Deposit recorded');
     } catch (err) {
@@ -243,7 +261,7 @@ export default function CashRegisterPage() {
                   onClick={() => setDepOpen(true)}
                   className="text-xs text-primary-600 hover:underline"
                 >
-                  Record bank deposit &rarr;
+                  Record deposit / card reload &rarr;
                 </button>
               </div>
               <div>
@@ -344,15 +362,56 @@ export default function CashRegisterPage() {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
               <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Bank deposit</h2>
+                  <h2 className="text-lg font-semibold">Deposit / card reload</h2>
                   <button onClick={() => setDepOpen(false)} className="text-gray-400 hover:text-gray-600">
                     &#x2715;
                   </button>
                 </div>
                 <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Source</label>
+                      <select
+                        value={depForm.sourcePaymentMethod}
+                        onChange={(e) => setDepForm({ ...depForm, sourcePaymentMethod: e.target.value })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      >
+                        {PAYMENT_METHODS.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Destination</label>
+                      <select
+                        value={depForm.destinationType}
+                        onChange={(e) => setDepForm({ ...depForm, destinationType: e.target.value as 'bank_account' | 'debit_card' | 'other' })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      >
+                        <option value="bank_account">Bank account</option>
+                        <option value="debit_card">Debit card</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  {depForm.sourcePaymentMethod !== 'cash' && (
+                    <p className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                      Non-cash sources don&apos;t affect the till&apos;s expected cash — this entry is pure bank/card reconciliation.
+                    </p>
+                  )}
                   <Field label="Amount" type="number" value={depForm.amount} onChange={(v) => setDepForm({ ...depForm, amount: v })} />
-                  <Field label="Bank name" value={depForm.bankName} onChange={(v) => setDepForm({ ...depForm, bankName: v })} />
-                  <Field label="Account number" value={depForm.accountNumber} onChange={(v) => setDepForm({ ...depForm, accountNumber: v })} />
+                  <Field
+                    label={depForm.destinationType === 'debit_card' ? 'Card name' : 'Bank name'}
+                    value={depForm.bankName}
+                    onChange={(v) => setDepForm({ ...depForm, bankName: v })}
+                  />
+                  <Field
+                    label={depForm.destinationType === 'debit_card' ? 'Card number' : 'Account number'}
+                    value={depForm.accountNumber}
+                    onChange={(v) => setDepForm({ ...depForm, accountNumber: v })}
+                  />
                   <Field label="Reference" value={depForm.reference} onChange={(v) => setDepForm({ ...depForm, reference: v })} />
                   <Field label="Notes" value={depForm.notes} onChange={(v) => setDepForm({ ...depForm, notes: v })} />
                   <div className="flex justify-end gap-2">
