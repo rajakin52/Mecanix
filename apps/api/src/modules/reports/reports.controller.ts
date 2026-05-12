@@ -330,6 +330,11 @@ export class ReportsController {
 
   // ── Parts-purchases reports ───────────────────────────────────
 
+  @Get('inventory-dashboard')
+  async inventoryDashboard(@TenantId() tenantId: string) {
+    return this.reportsService.inventoryDashboard(tenantId);
+  }
+
   @Get('parts-purchased')
   async partsPurchased(
     @TenantId() tenantId: string,

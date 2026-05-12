@@ -2,11 +2,12 @@
 
 import { useTranslations } from 'next-intl';
 import { usePathname, Link } from '@/i18n/navigation';
-import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen, BarChart3 } from 'lucide-react';
+import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen, BarChart3, LayoutDashboard } from 'lucide-react';
 
 type CommonKey = 'catalogue' | 'warehouses' | 'procurement' | 'purchaseOrders' | 'pricing' | 'repairCatalog';
 
 const TABS: { href: string; tKey: CommonKey | null; label?: string; icon: typeof Package }[] = [
+  { href: '/parts/dashboard', tKey: null, label: 'Dashboard', icon: LayoutDashboard },
   { href: '/parts', tKey: 'catalogue', icon: Package },
   { href: '/warehouse', tKey: 'warehouses', icon: Warehouse },
   { href: '/procurement', tKey: 'procurement', icon: ClipboardList },

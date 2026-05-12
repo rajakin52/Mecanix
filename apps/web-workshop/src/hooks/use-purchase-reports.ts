@@ -132,6 +132,50 @@ export interface AbcResponse {
   };
 }
 
+export interface PeriodValue { count: number; amount: number }
+export interface PeriodMargin { revenue: number; cost: number; margin: number; margin_pct: number }
+
+export interface InventoryDashboard {
+  inventory: {
+    total_parts: number;
+    total_units: number;
+    stock_value: number;
+    consumables_value: number;
+    low_stock_count: number;
+    out_of_stock_count: number;
+  };
+  procurement: {
+    purchases: { today: PeriodValue; week: PeriodValue; month: PeriodValue };
+    received: { today: PeriodValue; week: PeriodValue; month: PeriodValue };
+    pending: { count: number; value: number; overdue_count: number };
+    top_vendors_mtd: Array<{ vendor_id: string; vendor_name: string; amount: number; count: number }>;
+    outstanding_bills: { count: number; total: number };
+  };
+  consumption: {
+    delivered: { today: PeriodValue; week: PeriodValue; month: PeriodValue; ytd: PeriodValue };
+    margin: {
+      issued: { today: PeriodMargin; week: PeriodMargin; month: PeriodMargin; ytd: PeriodMargin };
+      invoiced: { today: PeriodMargin; week: PeriodMargin; month: PeriodMargin; ytd: PeriodMargin };
+    };
+    wip_value: number;
+    top_parts_mtd: Array<{ part_number: string | null; description: string; quantity: number; revenue: number }>;
+  };
+  health: {
+    backorder_count: number;
+    slow_moving_value: number;
+    stock_turnover: number;
+  };
+  generated_at: string;
+}
+
+export function useInventoryDashboard() {
+  return useQuery({
+    queryKey: ['reports', 'inventory-dashboard'],
+    queryFn: () => api.get<InventoryDashboard>('/reports/inventory-dashboard'),
+    refetchInterval: 60_000, // refresh every minute
+  });
+}
+
 export function useAbcAnalysis(startDate: string, endDate: string) {
   return useQuery({
     queryKey: ['reports', 'abc', startDate, endDate],

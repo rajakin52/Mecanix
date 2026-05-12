@@ -1921,6 +1921,446 @@ export class ReportsService {
   }
 
   /**
+   * One-shot KPI bundle for the Parts → Dashboard landing. Returns:
+   *   - inventory snapshot (counts, values, low-stock, out-of-stock)
+   *   - procurement velocity (purchases / received: today / WTD / MTD)
+   *   - pending deliveries summary, top vendors MTD, outstanding bills
+   *   - consumption velocity (issued today / WTD / MTD, WIP value, top parts MTD)
+   *   - health (backorders, slow-moving value, stock turnover)
+   */
+  async inventoryDashboard(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayStart = today.toISOString();
+    const dayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
+    const dow = (now.getDay() + 6) % 7; // 0 = Monday
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - dow);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const yearAgo = new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    const dayStartDate = today.toISOString().slice(0, 10);
+    const weekStartDate = weekStart.toISOString().slice(0, 10);
+    const monthStartDate = monthStart.toISOString().slice(0, 10);
+    const todayDate = today.toISOString().slice(0, 10);
+
+    // ── Inventory snapshot ─────────────────────────────────────
+    const { data: partsAgg } = await client
+      .from('parts')
+      .select('id, stock_qty, reserved_qty, reorder_point, unit_cost, is_consumable')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true);
+
+    type PartRow = { id: string; stock_qty: number | null; reserved_qty: number | null; reorder_point: number | null; unit_cost: number | null; is_consumable: boolean };
+    const parts = (partsAgg ?? []) as PartRow[];
+    const inventory = {
+      total_parts: parts.length,
+      total_units: 0,
+      stock_value: 0,
+      consumables_value: 0,
+      low_stock_count: 0,
+      out_of_stock_count: 0,
+    };
+    for (const p of parts) {
+      const stock = Number(p.stock_qty ?? 0);
+      const reserved = Number(p.reserved_qty ?? 0);
+      const reorder = Number(p.reorder_point ?? 0);
+      const cost = Number(p.unit_cost ?? 0);
+      const value = stock * cost;
+      inventory.total_units += stock;
+      inventory.stock_value += value;
+      if (p.is_consumable) inventory.consumables_value += value;
+      const available = stock - reserved;
+      if (stock <= 0) inventory.out_of_stock_count++;
+      else if (available <= reorder) inventory.low_stock_count++;
+    }
+    inventory.stock_value = round2(inventory.stock_value);
+    inventory.consumables_value = round2(inventory.consumables_value);
+
+    // ── Procurement: purchases (PO lines by PO order_date) ─────
+    const purchases = await this.aggregatePoLineValues(client, tenantId, [
+      ['today', dayStartDate, todayDate],
+      ['week', weekStartDate, todayDate],
+      ['month', monthStartDate, todayDate],
+    ]);
+
+    // ── Procurement: received (bills by bill_date, more reliable than
+    //    increments on po_lines.received_qty since we don't track when
+    //    that happens). Falls back to po_lines for shops not using bills.
+    const received = await this.aggregateBillLineValues(client, tenantId, [
+      ['today', dayStartDate, todayDate],
+      ['week', weekStartDate, todayDate],
+      ['month', monthStartDate, todayDate],
+    ]);
+
+    // ── Procurement: pending deliveries (sent/partial POs with backlog)
+    const { data: pendingRows } = await client
+      .from('po_lines')
+      .select('quantity, received_qty, unit_cost, purchase_order:purchase_orders!inner(status, expected_date)')
+      .eq('tenant_id', tenantId)
+      .in('purchase_order.status', ['sent', 'partial']);
+    type PendRow = {
+      quantity: number;
+      received_qty: number;
+      unit_cost: number;
+      purchase_order: { status: string; expected_date: string | null } | Array<{ status: string; expected_date: string | null }> | null;
+    };
+    const pickPO = (v: PendRow['purchase_order']) => Array.isArray(v) ? v[0] ?? null : v ?? null;
+    const pending = { count: 0, value: 0, overdue_count: 0 };
+    for (const r of (pendingRows ?? []) as PendRow[]) {
+      const po = pickPO(r.purchase_order);
+      if (!po) continue;
+      const outstanding = (r.quantity ?? 0) - (r.received_qty ?? 0);
+      if (outstanding <= 0) continue;
+      pending.count++;
+      pending.value += outstanding * Number(r.unit_cost ?? 0);
+      if (po.expected_date && po.expected_date < todayDate) pending.overdue_count++;
+    }
+    pending.value = round2(pending.value);
+
+    // ── Top vendors MTD ────────────────────────────────────────
+    const { data: vendorRows } = await client
+      .from('bills')
+      .select('amount, bill_date, vendor:vendors(id, name)')
+      .eq('tenant_id', tenantId)
+      .gte('bill_date', monthStartDate)
+      .lte('bill_date', todayDate);
+    type VendorRow = { amount: number; bill_date: string; vendor: { id: string; name: string } | Array<{ id: string; name: string }> | null };
+    const vendorAgg = new Map<string, { vendor_id: string; vendor_name: string; amount: number; count: number }>();
+    for (const r of (vendorRows ?? []) as VendorRow[]) {
+      const v = Array.isArray(r.vendor) ? r.vendor[0] ?? null : r.vendor ?? null;
+      if (!v) continue;
+      const e = vendorAgg.get(v.id);
+      if (e) {
+        e.amount += Number(r.amount ?? 0);
+        e.count++;
+      } else {
+        vendorAgg.set(v.id, { vendor_id: v.id, vendor_name: v.name, amount: Number(r.amount ?? 0), count: 1 });
+      }
+    }
+    const top_vendors_mtd = Array.from(vendorAgg.values())
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5)
+      .map((v) => ({ ...v, amount: round2(v.amount) }));
+
+    // ── Outstanding bills ──────────────────────────────────────
+    const { data: outstandingBills } = await client
+      .from('bills')
+      .select('amount, paid_amount, status')
+      .eq('tenant_id', tenantId)
+      .in('status', ['unpaid', 'partial']);
+    type BillRow = { amount: number; paid_amount: number; status: string };
+    const outstanding_bills = { count: 0, total: 0 };
+    for (const b of (outstandingBills ?? []) as BillRow[]) {
+      outstanding_bills.count++;
+      outstanding_bills.total += Number(b.amount ?? 0) - Number(b.paid_amount ?? 0);
+    }
+    outstanding_bills.total = round2(outstanding_bills.total);
+
+    // ── Consumption: parts issued from stock to jobs ───────────
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    const delivered = await this.aggregatePartsIssuedValues(client, tenantId, [
+      ['today', dayStart, dayEnd],
+      ['week', weekStart.toISOString(), new Date().toISOString()],
+      ['month', monthStart.toISOString(), new Date().toISOString()],
+      ['ytd', yearStart.toISOString(), new Date().toISOString()],
+    ]);
+
+    // ── Margin: revenue − cost ─────────────────────────────────
+    // We compute both definitions:
+    //   - issued: by parts_lines.issued_at (operational, near real-time)
+    //   - invoiced: by invoice.invoice_date for the linked job card
+    //     (accounting; lags but reflects actual billed revenue)
+    const marginWindows: Array<[string, string, string]> = [
+      ['today', dayStart, dayEnd],
+      ['week', weekStart.toISOString(), new Date().toISOString()],
+      ['month', monthStart.toISOString(), new Date().toISOString()],
+      ['ytd', yearStart.toISOString(), new Date().toISOString()],
+    ];
+    const marginIssued = await this.aggregatePartsMargin(client, tenantId, marginWindows);
+    const marginInvoicedWindows: Array<[string, string, string]> = [
+      ['today', dayStartDate, todayDate],
+      ['week', weekStartDate, todayDate],
+      ['month', monthStartDate, todayDate],
+      ['ytd', yearStart.toISOString().slice(0, 10), todayDate],
+    ];
+    const marginInvoiced = await this.aggregatePartsMarginByInvoice(client, tenantId, marginInvoicedWindows);
+    const margin = { issued: marginIssued, invoiced: marginInvoiced };
+
+    // ── WIP value: parts allocated to open job cards ───────────
+    const { data: wipRows } = await client
+      .from('wip_inventory')
+      .select('cost_value')
+      .eq('tenant_id', tenantId);
+    let wip_value = 0;
+    for (const r of (wipRows ?? []) as Array<{ cost_value: number | null }>) {
+      wip_value += Number(r.cost_value ?? 0);
+    }
+    wip_value = round2(wip_value);
+
+    // ── Top parts MTD by revenue ───────────────────────────────
+    const { data: topPartRows } = await client
+      .from('parts_lines')
+      .select('part_number, part_name, quantity, subtotal')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', monthStart.toISOString());
+    type TopRow = { part_number: string | null; part_name: string; quantity: number; subtotal: number };
+    const topAgg = new Map<string, { part_number: string | null; description: string; quantity: number; revenue: number }>();
+    for (const r of (topPartRows ?? []) as TopRow[]) {
+      const key = (r.part_number && r.part_number.trim()) || `__${r.part_name}`;
+      const e = topAgg.get(key);
+      if (e) {
+        e.quantity += Number(r.quantity ?? 0);
+        e.revenue += Number(r.subtotal ?? 0);
+      } else {
+        topAgg.set(key, {
+          part_number: r.part_number ?? null,
+          description: r.part_name,
+          quantity: Number(r.quantity ?? 0),
+          revenue: Number(r.subtotal ?? 0),
+        });
+      }
+    }
+    const top_parts_mtd = Array.from(topAgg.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5)
+      .map((p) => ({ ...p, revenue: round2(p.revenue) }));
+
+    // ── Health: backorders (reserved > available) ──────────────
+    let backorder_count = 0;
+    for (const p of parts) {
+      const available = Number(p.stock_qty ?? 0) - Number(p.reserved_qty ?? 0);
+      if (available < 0) backorder_count++;
+    }
+
+    // ── Health: slow-moving (no `issued` in last 180 days) ─────
+    const { data: movedRows } = await client
+      .from('parts_lines')
+      .select('part_number')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString())
+      .not('part_number', 'is', null);
+    const movedKeys = new Set<string>();
+    for (const m of movedRows ?? []) {
+      const k = (m as { part_number: string | null }).part_number;
+      if (k) movedKeys.add(k);
+    }
+    const { data: allParts } = await client
+      .from('parts')
+      .select('part_number, stock_qty, unit_cost')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .gt('stock_qty', 0);
+    let slow_moving_value = 0;
+    for (const p of (allParts ?? []) as Array<{ part_number: string | null; stock_qty: number; unit_cost: number }>) {
+      const pn = p.part_number;
+      if (pn && movedKeys.has(pn)) continue;
+      slow_moving_value += Number(p.stock_qty ?? 0) * Number(p.unit_cost ?? 0);
+    }
+    slow_moving_value = round2(slow_moving_value);
+
+    // ── Health: stock turnover (annualised COGS / avg stock value)
+    // Approx: sum(parts_lines.unit_cost * quantity issued in last 365d)
+    //         / current stock value
+    const { data: issuedYear } = await client
+      .from('parts_lines')
+      .select('quantity, unit_cost')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', yearAgo.toISOString());
+    let cogs365 = 0;
+    for (const r of (issuedYear ?? []) as Array<{ quantity: number; unit_cost: number }>) {
+      cogs365 += Number(r.quantity ?? 0) * Number(r.unit_cost ?? 0);
+    }
+    const stock_turnover = inventory.stock_value > 0
+      ? round2(cogs365 / inventory.stock_value)
+      : 0;
+
+    return {
+      inventory,
+      procurement: {
+        purchases,
+        received,
+        pending,
+        top_vendors_mtd,
+        outstanding_bills,
+      },
+      consumption: {
+        delivered,
+        margin,
+        wip_value,
+        top_parts_mtd,
+      },
+      health: {
+        backorder_count,
+        slow_moving_value,
+        stock_turnover,
+      },
+      generated_at: now.toISOString(),
+    };
+  }
+
+  private async aggregatePoLineValues(
+    client: ReturnType<SupabaseService['getClient']>,
+    tenantId: string,
+    windows: Array<[string, string, string]>,
+  ): Promise<Record<string, { count: number; amount: number }>> {
+    const out: Record<string, { count: number; amount: number }> = {};
+    for (const [label, start, end] of windows) {
+      const { data } = await client
+        .from('po_lines')
+        .select('quantity, unit_cost, purchase_order:purchase_orders!inner(order_date)')
+        .eq('tenant_id', tenantId)
+        .gte('purchase_order.order_date', start)
+        .lte('purchase_order.order_date', end);
+      let amount = 0;
+      const count = (data ?? []).length;
+      for (const r of (data ?? []) as Array<{ quantity: number; unit_cost: number }>) {
+        amount += Number(r.quantity ?? 0) * Number(r.unit_cost ?? 0);
+      }
+      out[label] = { count, amount: round2(amount) };
+    }
+    return out;
+  }
+
+  private async aggregateBillLineValues(
+    client: ReturnType<SupabaseService['getClient']>,
+    tenantId: string,
+    windows: Array<[string, string, string]>,
+  ): Promise<Record<string, { count: number; amount: number }>> {
+    const out: Record<string, { count: number; amount: number }> = {};
+    for (const [label, start, end] of windows) {
+      const { data } = await client
+        .from('bill_lines')
+        .select('quantity, unit_cost, total, bill:bills!inner(bill_date, status)')
+        .eq('tenant_id', tenantId)
+        .gte('bill.bill_date', start)
+        .lte('bill.bill_date', end);
+      let amount = 0;
+      const count = (data ?? []).length;
+      for (const r of (data ?? []) as Array<{ quantity: number; unit_cost: number; total: number }>) {
+        amount += Number(r.total ?? 0) || (Number(r.quantity ?? 0) * Number(r.unit_cost ?? 0));
+      }
+      out[label] = { count, amount: round2(amount) };
+    }
+    return out;
+  }
+
+  private async aggregatePartsMargin(
+    client: ReturnType<SupabaseService['getClient']>,
+    tenantId: string,
+    windows: Array<[string, string, string]>,
+  ): Promise<Record<string, { revenue: number; cost: number; margin: number; margin_pct: number }>> {
+    const out: Record<string, { revenue: number; cost: number; margin: number; margin_pct: number }> = {};
+    for (const [label, start, end] of windows) {
+      const { data } = await client
+        .from('parts_lines')
+        .select('quantity, unit_cost, sell_price, subtotal')
+        .eq('tenant_id', tenantId)
+        .eq('stock_status', 'issued')
+        .gte('issued_at', start)
+        .lte('issued_at', end);
+      let revenue = 0;
+      let cost = 0;
+      for (const r of (data ?? []) as Array<{ quantity: number; unit_cost: number; sell_price: number; subtotal: number }>) {
+        const qty = Number(r.quantity ?? 0);
+        revenue += Number(r.subtotal ?? 0) || qty * Number(r.sell_price ?? 0);
+        cost += qty * Number(r.unit_cost ?? 0);
+      }
+      const margin = revenue - cost;
+      const margin_pct = revenue > 0 ? (margin / revenue) * 100 : 0;
+      out[label] = {
+        revenue: round2(revenue),
+        cost: round2(cost),
+        margin: round2(margin),
+        margin_pct: round2(margin_pct),
+      };
+    }
+    return out;
+  }
+
+  /**
+   * Margin by *invoice* date — joins parts_lines to invoiced job cards
+   * via the invoices table. This is the accounting view of parts sales.
+   */
+  private async aggregatePartsMarginByInvoice(
+    client: ReturnType<SupabaseService['getClient']>,
+    tenantId: string,
+    windows: Array<[string, string, string]>,
+  ): Promise<Record<string, { revenue: number; cost: number; margin: number; margin_pct: number }>> {
+    const out: Record<string, { revenue: number; cost: number; margin: number; margin_pct: number }> = {};
+    for (const [label, start, end] of windows) {
+      const { data: invs } = await client
+        .from('invoices')
+        .select('job_card_id, invoice_date')
+        .eq('tenant_id', tenantId)
+        .gte('invoice_date', start)
+        .lte('invoice_date', end)
+        .not('job_card_id', 'is', null);
+      const jobIds = Array.from(
+        new Set(
+          (invs ?? [])
+            .map((i) => (i as { job_card_id: string | null }).job_card_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (jobIds.length === 0) {
+        out[label] = { revenue: 0, cost: 0, margin: 0, margin_pct: 0 };
+        continue;
+      }
+      const { data } = await client
+        .from('parts_lines')
+        .select('quantity, unit_cost, sell_price, subtotal')
+        .eq('tenant_id', tenantId)
+        .in('job_card_id', jobIds);
+      let revenue = 0;
+      let cost = 0;
+      for (const r of (data ?? []) as Array<{ quantity: number; unit_cost: number; sell_price: number; subtotal: number }>) {
+        const qty = Number(r.quantity ?? 0);
+        revenue += Number(r.subtotal ?? 0) || qty * Number(r.sell_price ?? 0);
+        cost += qty * Number(r.unit_cost ?? 0);
+      }
+      const margin = revenue - cost;
+      const margin_pct = revenue > 0 ? (margin / revenue) * 100 : 0;
+      out[label] = {
+        revenue: round2(revenue),
+        cost: round2(cost),
+        margin: round2(margin),
+        margin_pct: round2(margin_pct),
+      };
+    }
+    return out;
+  }
+
+  private async aggregatePartsIssuedValues(
+    client: ReturnType<SupabaseService['getClient']>,
+    tenantId: string,
+    windows: Array<[string, string, string]>,
+  ): Promise<Record<string, { count: number; amount: number }>> {
+    const out: Record<string, { count: number; amount: number }> = {};
+    for (const [label, start, end] of windows) {
+      const { data } = await client
+        .from('parts_lines')
+        .select('quantity, sell_price, subtotal')
+        .eq('tenant_id', tenantId)
+        .eq('stock_status', 'issued')
+        .gte('issued_at', start)
+        .lte('issued_at', end);
+      let amount = 0;
+      const count = (data ?? []).length;
+      for (const r of (data ?? []) as Array<{ quantity: number; sell_price: number; subtotal: number }>) {
+        amount += Number(r.subtotal ?? 0) || (Number(r.quantity ?? 0) * Number(r.sell_price ?? 0));
+      }
+      out[label] = { count, amount: round2(amount) };
+    }
+    return out;
+  }
+
+  /**
    * Pareto/ABC analysis by revenue over the window.
    *   Class A — top 80% of cumulative revenue (the vital few)
    *   Class B — next 15%
