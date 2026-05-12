@@ -7,7 +7,7 @@ import {
   type PeriodValue,
   type PeriodMargin,
 } from '@/hooks/use-purchase-reports';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatCurrencyWhole } from '@/lib/format';
 import { SkeletonTable } from '@mecanix/ui-web';
 import {
   Package, Wallet, AlertTriangle, AlertCircle, Droplet,
@@ -44,10 +44,10 @@ export default function PartsDashboardPage() {
           <Section title="Inventory snapshot">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <Kpi icon={Package} label="Total parts" value={data.inventory.total_parts.toLocaleString()} sub={`${data.inventory.total_units.toLocaleString()} units`} href="/parts" />
-              <Kpi icon={Wallet} label="Stock value" value={formatCurrency(data.inventory.stock_value)} href="/parts/purchases/stock-valuation" />
+              <Kpi icon={Wallet} label="Stock value" value={formatCurrencyWhole(data.inventory.stock_value)} href="/parts/purchases/stock-valuation" />
               <Kpi icon={AlertTriangle} label="Low stock" value={String(data.inventory.low_stock_count)} tone={data.inventory.low_stock_count > 0 ? 'amber' : undefined} href="/parts/purchases/low-stock" />
               <Kpi icon={AlertCircle} label="Out of stock" value={String(data.inventory.out_of_stock_count)} tone={data.inventory.out_of_stock_count > 0 ? 'red' : undefined} href="/parts/purchases/out-of-stock" />
-              <Kpi icon={Droplet} label="Consumables value" value={formatCurrency(data.inventory.consumables_value)} href="/parts/purchases/consumables" />
+              <Kpi icon={Droplet} label="Consumables value" value={formatCurrencyWhole(data.inventory.consumables_value)} href="/parts/purchases/consumables" />
             </div>
           </Section>
 
@@ -90,14 +90,14 @@ export default function PartsDashboardPage() {
                     </span>
                   )}
                 </div>
-                <div className="mt-0.5 text-sm text-gray-600">{formatCurrency(data.procurement.pending.value)}</div>
+                <div className="mt-0.5 text-sm text-gray-600">{formatCurrencyWhole(data.procurement.pending.value)}</div>
               </Link>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="flex items-center gap-2 text-xs uppercase text-gray-500">
                   <Receipt className="h-4 w-4" /> Outstanding bills
                 </div>
                 <div className="mt-1 text-2xl font-semibold text-gray-900">{data.procurement.outstanding_bills.count}</div>
-                <div className="mt-0.5 text-sm text-gray-600">{formatCurrency(data.procurement.outstanding_bills.total)}</div>
+                <div className="mt-0.5 text-sm text-gray-600">{formatCurrencyWhole(data.procurement.outstanding_bills.total)}</div>
               </div>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="mb-2 flex items-center gap-2 text-xs uppercase text-gray-500">
@@ -110,7 +110,7 @@ export default function PartsDashboardPage() {
                     {data.procurement.top_vendors_mtd.map((v) => (
                       <li key={v.vendor_id} className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-gray-700">{v.vendor_name}</span>
-                        <span className="whitespace-nowrap font-medium text-gray-900">{formatCurrency(v.amount)}</span>
+                        <span className="whitespace-nowrap font-medium text-gray-900">{formatCurrencyWhole(v.amount)}</span>
                       </li>
                     ))}
                   </ul>
@@ -143,7 +143,7 @@ export default function PartsDashboardPage() {
                 <div className="flex items-center gap-2 text-xs uppercase text-gray-500">
                   <Wrench className="h-4 w-4" /> WIP value (parts on open jobs)
                 </div>
-                <div className="mt-1 text-2xl font-semibold text-gray-900">{formatCurrency(data.consumption.wip_value)}</div>
+                <div className="mt-1 text-2xl font-semibold text-gray-900">{formatCurrencyWhole(data.consumption.wip_value)}</div>
               </Link>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
                 <div className="mb-2 flex items-center gap-2 text-xs uppercase text-gray-500">
@@ -159,7 +159,7 @@ export default function PartsDashboardPage() {
                           <span className="font-mono text-xs text-gray-500">{p.part_number ?? '—'}</span>{' '}
                           {p.description}
                         </span>
-                        <span className="whitespace-nowrap font-medium text-gray-900">{formatCurrency(p.revenue)}</span>
+                        <span className="whitespace-nowrap font-medium text-gray-900">{formatCurrencyWhole(p.revenue)}</span>
                       </li>
                     ))}
                   </ul>
@@ -182,7 +182,7 @@ export default function PartsDashboardPage() {
               <Kpi
                 icon={Hourglass}
                 label="Slow-moving stock"
-                value={formatCurrency(data.health.slow_moving_value)}
+                value={formatCurrencyWhole(data.health.slow_moving_value)}
                 sub="no movement in 180 days"
                 tone={data.health.slow_moving_value > 0 ? 'amber' : undefined}
                 href="/parts/purchases/slow-moving"
@@ -276,7 +276,7 @@ function Period({ label, v, href }: { label: string; v: PeriodValue; href?: stri
   const body = (
     <div className={href ? 'cursor-pointer rounded-md p-1 -m-1 transition-colors hover:bg-gray-50' : ''}>
       <div className="text-xs text-gray-500">{label}</div>
-      <div className="mt-0.5 text-lg font-semibold text-gray-900">{formatCurrency(v.amount)}</div>
+      <div className="mt-0.5 text-lg font-semibold text-gray-900">{formatCurrencyWhole(v.amount)}</div>
       <div className="text-xs text-gray-400">{v.count} line{v.count === 1 ? '' : 's'}</div>
     </div>
   );
@@ -326,20 +326,20 @@ function MarginTable({
               <tr key={k} className="hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium text-gray-700">{label}</td>
                 <td className="px-3 py-2 text-end text-gray-700">
-                  <Link href={issuedHref} className="hover:underline">{formatCurrency(i.revenue)}</Link>
+                  <Link href={issuedHref} className="hover:underline">{formatCurrencyWhole(i.revenue)}</Link>
                 </td>
                 <td className="px-3 py-2 text-end font-medium text-gray-900">
                   <Link href={issuedHref} className="hover:underline">
-                    {formatCurrency(i.margin)}{' '}
+                    {formatCurrencyWhole(i.margin)}{' '}
                     <span className="text-xs text-gray-500">({i.margin_pct.toFixed(1)}%)</span>
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-end text-gray-700">
-                  <Link href={invoicedHref} className="hover:underline">{formatCurrency(v.revenue)}</Link>
+                  <Link href={invoicedHref} className="hover:underline">{formatCurrencyWhole(v.revenue)}</Link>
                 </td>
                 <td className="px-3 py-2 text-end font-medium text-gray-900">
                   <Link href={invoicedHref} className="hover:underline">
-                    {formatCurrency(v.margin)}{' '}
+                    {formatCurrencyWhole(v.margin)}{' '}
                     <span className="text-xs text-gray-500">({v.margin_pct.toFixed(1)}%)</span>
                   </Link>
                 </td>

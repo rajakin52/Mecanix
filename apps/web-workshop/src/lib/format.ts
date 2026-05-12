@@ -27,6 +27,28 @@ export function formatCurrency(
 }
 
 /**
+ * Whole-currency formatter for dashboard KPIs and summary cards where
+ * the cents are noise (e.g. "1.250.000 AOA" instead of "1.250.000,00 AOA").
+ */
+export function formatCurrencyWhole(
+  amount: number | string | null | undefined,
+  currency = 'AOA',
+  locale = 'pt-PT',
+): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0);
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(num);
+  } catch {
+    return `${Math.round(num).toLocaleString(locale)} ${currency}`;
+  }
+}
+
+/**
  * Format a date string using locale-aware formatting.
  */
 export function formatDate(
