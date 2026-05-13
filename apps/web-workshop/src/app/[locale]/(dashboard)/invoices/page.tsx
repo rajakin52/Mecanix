@@ -75,12 +75,26 @@ export default function InvoicesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">{t('title')}</h1>
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-        >
-          {t('generateInvoice')}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/proformas"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Proformas
+          </Link>
+          <Link
+            href="/invoices/new-parts-sale"
+            className="rounded-md border border-primary-600 px-4 py-2 text-sm font-semibold text-primary-600 hover:bg-primary-50"
+          >
+            + Parts sale
+          </Link>
+          <button
+            onClick={() => setShowGenerateModal(true)}
+            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+          >
+            {t('generateInvoice')}
+          </button>
+        </div>
       </div>
 
       {/* Financial Summary Cards */}

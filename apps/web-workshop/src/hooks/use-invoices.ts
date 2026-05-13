@@ -75,6 +75,34 @@ export function useGenerateInvoice() {
   });
 }
 
+export interface StandaloneLine {
+  partId?: string;
+  description: string;
+  quantity: number;
+  unitCost?: number;
+  sellPrice: number;
+  taxCodeId?: string;
+}
+
+export interface StandaloneInvoiceInput {
+  customerId: string;
+  lines: StandaloneLine[];
+  dueDate?: string;
+  notes?: string;
+}
+
+export function useCreateStandaloneInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: StandaloneInvoiceInput) =>
+      api.post<Invoice>('/invoices/standalone', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['parts'] });
+    },
+  });
+}
+
 export function useMarkAsSent() {
   const qc = useQueryClient();
   return useMutation({
