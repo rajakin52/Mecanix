@@ -35,6 +35,7 @@ export default function ReportBuilderPage() {
 
   const [templateType, setTemplateType] = useState<string>('');
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [allDates, setAllDates] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
   const [saveName, setSaveName] = useState('');
 
@@ -43,10 +44,27 @@ export default function ReportBuilderPage() {
     [templates, templateType],
   );
 
+  // When "All dates" is on, strip every date filter before sending —
+  // backend treats empty/missing as no constraint.
+  const effectiveFilters = useMemo(() => {
+    if (!allDates || !selected) return filters;
+    const dateKeys = new Set(selected.filters.filter((f) => f.type === 'date').map((f) => f.key));
+    const stripped: Record<string, string> = {};
+    for (const [k, v] of Object.entries(filters)) {
+      if (!dateKeys.has(k)) stripped[k] = v;
+    }
+    return stripped;
+  }, [allDates, filters, selected]);
+
+  const hasDateFilter = useMemo(
+    () => !!selected && selected.filters.some((f) => f.type === 'date'),
+    [selected],
+  );
+
   const handleRun = async () => {
     if (!selected) return;
     try {
-      const res = await run.mutateAsync({ reportType: selected.type, filters });
+      const res = await run.mutateAsync({ reportType: selected.type, filters: effectiveFilters });
       setResult(res as unknown as RunResult);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to run');
@@ -59,7 +77,7 @@ export default function ReportBuilderPage() {
       await save.mutateAsync({
         name: saveName.trim(),
         reportType: selected.type,
-        filters,
+        filters: effectiveFilters,
       });
       toast.success('Report saved');
       setSaveName('');
@@ -77,15 +95,17 @@ export default function ReportBuilderPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}`,
         },
-        body: JSON.stringify({ reportType: selected.type, filters }),
+        body: JSON.stringify({ reportType: selected.type, filters: effectiveFilters }),
       });
       if (!res.ok) throw new Error('Export failed');
       const text = await res.text();
-      const blob = new Blob([text], { type: 'text/csv' });
+      // UTF-8 BOM prefix so Excel renders accents correctly when opening the CSV
+      const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selected.type}.csv`;
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.download = `${selected.type}-${stamp}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -165,6 +185,17 @@ export default function ReportBuilderPage() {
           {selected ? (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <h2 className="text-sm font-semibold uppercase text-gray-500 mb-3">Filters</h2>
+              {hasDateFilter && (
+                <label className="mb-3 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={allDates}
+                    onChange={(e) => setAllDates(e.target.checked)}
+                  />
+                  <span className="font-medium text-gray-700">All dates</span>
+                  <span className="text-xs text-gray-500">(ignore date filters)</span>
+                </label>
+              )}
               <div className="space-y-3">
                 {selected.filters.map((f) => (
                   <div key={f.key}>
@@ -174,7 +205,8 @@ export default function ReportBuilderPage() {
                         type="date"
                         value={filters[f.key] ?? ''}
                         onChange={(e) => setFilters({ ...filters, [f.key]: e.target.value })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                        disabled={allDates}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
                       />
                     ) : f.type === 'branch' ? (
                       <select
