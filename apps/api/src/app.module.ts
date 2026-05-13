@@ -15,6 +15,7 @@ import { PartsModule } from './modules/parts/parts.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { ProformasModule } from './modules/proformas/proformas.module';
 import { InsuranceModule } from './modules/insurance/insurance.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -82,6 +83,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
     PurchasesModule,
     ExpensesModule,
     InvoicesModule,
+    ProformasModule,
     InsuranceModule,
     InspectionsModule,
     NotificationsModule,

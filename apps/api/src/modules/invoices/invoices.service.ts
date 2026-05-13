@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import * as crypto from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
-import type { GenerateInvoiceInput, PaginationInput } from '@mecanix/validators';
+import type { GenerateInvoiceInput, PaginationInput, CreateStandaloneInvoiceInput, StandaloneLineInput } from '@mecanix/validators';
 import { computeInvoiceTotals } from './invoice-math';
 
 // Default expiry for a payment link = 30 days. Customer pays at pickup or
@@ -282,6 +282,268 @@ export class InvoicesService {
     });
 
     return invoice;
+  }
+
+  /**
+   * Stand-alone OTC parts-sale invoice — no job card, no labour, no
+   * vehicle. parts_lines hang directly off the invoice via invoice_id
+   * (made possible by migration 00115). Stock is deducted inline.
+   */
+  async createStandalone(
+    tenantId: string,
+    userId: string,
+    input: CreateStandaloneInvoiceInput,
+  ) {
+    const client = this.supabase.getClient();
+
+    // 1. Validate customer + fetch tax profile
+    const { data: customer, error: custErr } = await client
+      .from('customers')
+      .select('id, full_name, vat_captive_pct, withholds_service_retention')
+      .eq('id', input.customerId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (custErr) throw custErr;
+    if (!customer) throw new NotFoundException('Customer not found');
+
+    // 2. Resolve a default tax code for lines that don't carry one
+    const { data: defaultTax } = await client
+      .from('tax_codes')
+      .select('id, rate')
+      .eq('tenant_id', tenantId)
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    const enriched = await this.enrichLines(tenantId, input.lines, defaultTax);
+
+    // 3. Generate invoice number
+    const { data: invoiceNumber, error: rpcErr } = await client.rpc(
+      'generate_invoice_number',
+      { p_tenant_id: tenantId },
+    );
+    if (rpcErr) throw rpcErr;
+
+    const customerCaptivePct = Number(customer.vat_captive_pct ?? 0);
+    const customerRetains = Boolean(customer.withholds_service_retention);
+
+    const totals = computeInvoiceTotals({
+      labourLines: [],
+      partsLines: enriched.map((l) => ({ subtotal: l.subtotal, tax_rate: l.tax_rate })),
+      customerCaptivePct,
+      customerRetains,
+      isTaxable: true,
+      isInsurance: false,
+    });
+
+    // 4. Insert invoice (job_card_id = null thanks to migration 00115)
+    const { data: invoice, error: invErr } = await client
+      .from('invoices')
+      .insert({
+        tenant_id: tenantId,
+        invoice_number: invoiceNumber,
+        job_card_id: null,
+        customer_id: customer.id,
+        status: 'draft',
+        labour_total: 0,
+        parts_total: totals.partsTotal,
+        subtotal: totals.subtotal,
+        tax_rate: totals.legacyTaxRate,
+        tax_amount: totals.totalVat,
+        vat_by_rate: totals.vatByRate,
+        vat_captive_pct: customerCaptivePct,
+        iva_captive_amount: totals.captiveAmount,
+        service_retention_pct: totals.retentionPct,
+        service_retention_amount: totals.retentionAmount,
+        grand_total: totals.grandTotal,
+        customer_portion: totals.customerPortion,
+        insurance_portion: 0,
+        paid_amount: 0,
+        balance_due: totals.clientOwes,
+        is_insurance: false,
+        due_date: input.dueDate || null,
+        notes: input.notes || null,
+        footer: input.footer || null,
+        created_by: userId,
+      })
+      .select()
+      .single();
+    if (invErr) throw invErr;
+
+    // 5. Insert parts_lines and deduct stock for catalogue parts
+    await this.writeStandaloneLines(tenantId, invoice.id, 'invoice', enriched, userId);
+
+    // 6. AGT hash (non-blocking)
+    try {
+      const now = new Date();
+      const hashResult = await this.agtService.generateDocumentHash(
+        tenantId,
+        'FT',
+        now.toISOString().slice(0, 10),
+        now.toISOString().replace(/\.\d{3}Z$/, ''),
+        totals.grandTotal,
+      );
+      await client
+        .from('invoices')
+        .update({
+          document_type: 'FT',
+          series_id: hashResult.seriesId,
+          saft_document_number: hashResult.saftDocumentNumber,
+          hash: hashResult.hash,
+          hash_control: hashResult.hashControl,
+          short_hash: hashResult.shortHash,
+          previous_hash: hashResult.previousHash,
+          system_entry_date: now.toISOString(),
+        })
+        .eq('id', invoice.id);
+    } catch (err) {
+      this.logger.warn(`Hash generation skipped for ${invoice.invoice_number}: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+
+    return invoice;
+  }
+
+  /**
+   * Hydrates standalone lines with tax rates (from line.taxCodeId or
+   * tenant default), pulls unit_cost from parts catalogue when partId
+   * is given, and computes subtotal.
+   */
+  private async enrichLines(
+    tenantId: string,
+    lines: StandaloneLineInput[],
+    defaultTax: { id: string; rate: number } | null,
+  ) {
+    const client = this.supabase.getClient();
+    type Enriched = {
+      part_id: string | null;
+      description: string;
+      quantity: number;
+      unit_cost: number;
+      sell_price: number;
+      subtotal: number;
+      tax_code_id: string | null;
+      tax_rate: number;
+    };
+    const out: Enriched[] = [];
+
+    // Resolve tax codes referenced on lines
+    const taxIds = Array.from(new Set(lines.map((l) => l.taxCodeId).filter((x): x is string => !!x)));
+    const taxMap = new Map<string, number>();
+    if (taxIds.length > 0) {
+      const { data } = await client
+        .from('tax_codes')
+        .select('id, rate')
+        .in('id', taxIds)
+        .eq('tenant_id', tenantId);
+      for (const r of (data ?? []) as Array<{ id: string; rate: number }>) {
+        taxMap.set(r.id, Number(r.rate));
+      }
+    }
+
+    // Resolve catalogue parts for unit_cost lookup
+    const partIds = Array.from(new Set(lines.map((l) => l.partId).filter((x): x is string => !!x)));
+    const partMap = new Map<string, { unit_cost: number }>();
+    if (partIds.length > 0) {
+      const { data } = await client
+        .from('parts')
+        .select('id, unit_cost')
+        .in('id', partIds)
+        .eq('tenant_id', tenantId);
+      for (const r of (data ?? []) as Array<{ id: string; unit_cost: number }>) {
+        partMap.set(r.id, { unit_cost: Number(r.unit_cost ?? 0) });
+      }
+    }
+
+    for (const l of lines) {
+      const taxCodeId = l.taxCodeId ?? defaultTax?.id ?? null;
+      const looked = taxCodeId ? taxMap.get(taxCodeId) : undefined;
+      const taxRate: number = looked ?? Number(defaultTax?.rate ?? 0);
+      const qty = Number(l.quantity);
+      const sell = Number(l.sellPrice);
+      const cost: number = l.unitCost != null
+        ? Number(l.unitCost)
+        : Number((l.partId && partMap.get(l.partId)?.unit_cost) || 0);
+      out.push({
+        part_id: l.partId ?? null,
+        description: l.description,
+        quantity: qty,
+        unit_cost: cost,
+        sell_price: sell,
+        subtotal: Math.round(qty * sell * 100) / 100,
+        tax_code_id: taxCodeId,
+        tax_rate: taxRate,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Writes parts_lines pointing at either an invoice_id or a
+   * proforma_id (the parent column is chosen by `parent`). For
+   * invoice lines that reference a catalogue part, stock is deducted
+   * and an inventory_adjustments audit row is written. Proforma lines
+   * never touch stock — they're quotes.
+   */
+  private async writeStandaloneLines(
+    tenantId: string,
+    parentId: string,
+    parent: 'invoice' | 'proforma',
+    enriched: Awaited<ReturnType<InvoicesService['enrichLines']>>,
+    userId: string,
+  ) {
+    const client = this.supabase.getClient();
+    const rows = enriched.map((l) => ({
+      tenant_id: tenantId,
+      job_card_id: null,
+      invoice_id: parent === 'invoice' ? parentId : null,
+      proforma_id: parent === 'proforma' ? parentId : null,
+      part_id: l.part_id,
+      part_name: l.description,
+      part_number: null,
+      quantity: l.quantity,
+      unit_cost: l.unit_cost,
+      markup_pct: 0,
+      sell_price: l.sell_price,
+      subtotal: l.subtotal,
+      tax_code_id: l.tax_code_id,
+      tax_rate: l.tax_rate,
+      stock_status: parent === 'invoice' ? 'issued' : 'planned',
+      issued_at: parent === 'invoice' ? new Date().toISOString() : null,
+      line_status: 'charged',
+    }));
+
+    const { error } = await client.from('parts_lines').insert(rows);
+    if (error) throw error;
+
+    // Stock deduction: only for invoiced sales of catalogue parts
+    if (parent === 'invoice') {
+      for (const l of enriched) {
+        if (!l.part_id) continue;
+        const { data: part } = await client
+          .from('parts')
+          .select('id, stock_qty, part_number')
+          .eq('id', l.part_id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle();
+        if (!part) continue;
+        const newStock = Math.max(0, Number(part.stock_qty ?? 0) - l.quantity);
+        await client
+          .from('parts')
+          .update({ stock_qty: newStock, updated_by: userId })
+          .eq('id', l.part_id)
+          .eq('tenant_id', tenantId);
+
+        await client.from('inventory_adjustments').insert({
+          tenant_id: tenantId,
+          part_id: l.part_id,
+          quantity_change: -l.quantity,
+          reason: 'OTC sale (stand-alone invoice)',
+          reference: parentId,
+          adjusted_by: userId,
+        });
+      }
+    }
   }
 
   async sendInvoice(tenantId: string, id: string) {

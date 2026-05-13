@@ -20,10 +20,12 @@ import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
   generateInvoiceSchema,
+  createStandaloneInvoiceSchema,
   paginationSchema,
 } from '@mecanix/validators';
 import type {
   GenerateInvoiceInput,
+  CreateStandaloneInvoiceInput,
   PaginationInput,
 } from '@mecanix/validators';
 import type { RequestUser } from '../../common/guards/tenant.guard';
@@ -68,6 +70,17 @@ export class InvoicesController {
     @Body(new ZodValidationPipe(generateInvoiceSchema)) body: GenerateInvoiceInput,
   ) {
     return this.invoicesService.generateFromJobCard(tenantId, user.id, body);
+  }
+
+  @Post('standalone')
+  @Roles('owner', 'manager', 'receptionist')
+  @RequiresCapability('invoices.generate')
+  async createStandalone(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(createStandaloneInvoiceSchema)) body: CreateStandaloneInvoiceInput,
+  ) {
+    return this.invoicesService.createStandalone(tenantId, user.id, body);
   }
 
   @Post(':id/send')
