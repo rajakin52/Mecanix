@@ -224,9 +224,10 @@ export class ReportsService {
 
     const { data: invoices, error } = await client
       .from('invoices')
-      .select('id, balance_due, due_date, created_at')
+      .select('id, invoice_number, balance_due, grand_total, paid_amount, due_date, invoice_date, status, customer:customers(full_name, phone)')
       .eq('tenant_id', tenantId)
-      .not('status', 'in', '("paid","cancelled")');
+      .not('status', 'in', '("paid","cancelled")')
+      .order('due_date', { ascending: true });
 
     if (error) throw error;
 
@@ -238,32 +239,78 @@ export class ReportsService {
       ninetyPlus: { count: 0, totalAmount: 0 },
     };
 
-    for (const row of invoices ?? []) {
-      const balanceDue = (row.balance_due as number) || 0;
-      const dueDate = row.due_date ? new Date(row.due_date as string) : null;
+    const pickOne = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+    type Row = {
+      id: string;
+      invoice_number: string;
+      balance_due: number;
+      grand_total: number;
+      paid_amount: number;
+      due_date: string | null;
+      invoice_date: string | null;
+      status: string;
+      customer: { full_name: string; phone: string | null } | Array<{ full_name: string; phone: string | null }> | null;
+    };
+
+    const rows: Array<{
+      id: string;
+      invoice_number: string;
+      customer_name: string | null;
+      customer_phone: string | null;
+      invoice_date: string | null;
+      due_date: string | null;
+      status: string;
+      grand_total: number;
+      paid_amount: number;
+      balance_due: number;
+      days_overdue: number;
+      bucket: 'current' | '30' | '60' | '90+';
+    }> = [];
+
+    for (const r of (invoices ?? []) as unknown as Row[]) {
+      const balanceDue = Number(r.balance_due ?? 0);
+      const dueDate = r.due_date ? new Date(r.due_date) : null;
+      const customer = pickOne(r.customer);
+      let bucket: 'current' | '30' | '60' | '90+' = 'current';
+      let daysOverdue = 0;
 
       if (!dueDate || dueDate >= now) {
         buckets.current.count++;
         buckets.current.totalAmount += balanceDue;
       } else {
-        const daysOverdue = Math.floor(
-          (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
+        daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
         if (daysOverdue <= 30) {
           buckets.thirtyDays.count++;
           buckets.thirtyDays.totalAmount += balanceDue;
+          bucket = '30';
         } else if (daysOverdue <= 60) {
           buckets.sixtyDays.count++;
           buckets.sixtyDays.totalAmount += balanceDue;
+          bucket = '60';
         } else {
           buckets.ninetyPlus.count++;
           buckets.ninetyPlus.totalAmount += balanceDue;
+          bucket = '90+';
         }
       }
+
+      rows.push({
+        id: r.id,
+        invoice_number: r.invoice_number,
+        customer_name: customer?.full_name ?? null,
+        customer_phone: customer?.phone ?? null,
+        invoice_date: r.invoice_date,
+        due_date: r.due_date,
+        status: r.status,
+        grand_total: Number(r.grand_total ?? 0),
+        paid_amount: Number(r.paid_amount ?? 0),
+        balance_due: round2(balanceDue),
+        days_overdue: daysOverdue,
+        bucket,
+      });
     }
 
-    // Round amounts
     for (const bucket of Object.values(buckets)) {
       bucket.totalAmount = round2(bucket.totalAmount);
     }
@@ -282,7 +329,7 @@ export class ReportsService {
       ),
     };
 
-    return { ...buckets, total };
+    return { ...buckets, total, rows };
   }
 
   async outstandingBillsReport(tenantId: string) {
@@ -290,9 +337,10 @@ export class ReportsService {
 
     const { data: bills, error } = await client
       .from('bills')
-      .select('id, amount, paid_amount, due_date, created_at')
+      .select('id, bill_number, amount, paid_amount, status, due_date, bill_date, vendor:vendors(name)')
       .eq('tenant_id', tenantId)
-      .neq('status', 'paid');
+      .neq('status', 'paid')
+      .order('due_date', { ascending: true });
 
     if (error) throw error;
 
@@ -304,31 +352,75 @@ export class ReportsService {
       ninetyPlus: { count: 0, totalAmount: 0 },
     };
 
-    for (const row of bills ?? []) {
-      const amount = (row.amount as number) || 0;
-      const paidAmount = (row.paid_amount as number) || 0;
+    const pickOne = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+    type Row = {
+      id: string;
+      bill_number: string;
+      amount: number;
+      paid_amount: number;
+      status: string;
+      due_date: string | null;
+      bill_date: string | null;
+      vendor: { name: string } | Array<{ name: string }> | null;
+    };
+
+    const rows: Array<{
+      id: string;
+      bill_number: string;
+      vendor_name: string | null;
+      bill_date: string | null;
+      due_date: string | null;
+      status: string;
+      amount: number;
+      paid_amount: number;
+      outstanding: number;
+      days_overdue: number;
+      bucket: 'current' | '30' | '60' | '90+';
+    }> = [];
+
+    for (const r of (bills ?? []) as unknown as Row[]) {
+      const amount = Number(r.amount ?? 0);
+      const paidAmount = Number(r.paid_amount ?? 0);
       const outstanding = amount - paidAmount;
-      const dueDate = row.due_date ? new Date(row.due_date as string) : null;
+      const dueDate = r.due_date ? new Date(r.due_date) : null;
+      const vendor = pickOne(r.vendor);
+      let bucket: 'current' | '30' | '60' | '90+' = 'current';
+      let daysOverdue = 0;
 
       if (!dueDate || dueDate >= now) {
         buckets.current.count++;
         buckets.current.totalAmount += outstanding;
       } else {
-        const daysOverdue = Math.floor(
-          (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
+        daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
         if (daysOverdue <= 30) {
           buckets.thirtyDays.count++;
           buckets.thirtyDays.totalAmount += outstanding;
+          bucket = '30';
         } else if (daysOverdue <= 60) {
           buckets.sixtyDays.count++;
           buckets.sixtyDays.totalAmount += outstanding;
+          bucket = '60';
         } else {
           buckets.ninetyPlus.count++;
           buckets.ninetyPlus.totalAmount += outstanding;
+          bucket = '90+';
         }
       }
+
+      rows.push({
+        id: r.id,
+        bill_number: r.bill_number,
+        vendor_name: vendor?.name ?? null,
+        bill_date: r.bill_date,
+        due_date: r.due_date,
+        status: r.status,
+        amount,
+        paid_amount: paidAmount,
+        outstanding: round2(outstanding),
+        days_overdue: daysOverdue,
+        bucket,
+      });
     }
 
     for (const bucket of Object.values(buckets)) {
@@ -349,7 +441,7 @@ export class ReportsService {
       ),
     };
 
-    return { ...buckets, total };
+    return { ...buckets, total, rows };
   }
 
   async expenseReport(tenantId: string, startDate: string, endDate: string) {

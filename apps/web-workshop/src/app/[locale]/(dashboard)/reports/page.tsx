@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useFormat } from '@/hooks/use-format';
+import { ReportSection } from '@/components/reports/ReportSection';
 import {
   useRevenueReport,
   useJobCardReport,
@@ -49,6 +50,8 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType>('revenue');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const isSnapshotReport =
+    selectedReport === 'outstandingInvoices' || selectedReport === 'outstandingBills';
 
   const reportOptions: { value: ReportType; label: string }[] = [
     { value: 'revenue', label: t('revenue') },
@@ -109,29 +112,38 @@ export default function ReportsPage() {
           </select>
         </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            {t('from')}
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-        </div>
+        {!isSnapshotReport && (
+          <>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t('from')}
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            {t('to')}
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-        </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                {t('to')}
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+          </>
+        )}
+        {isSnapshotReport && (
+          <div className="self-end text-xs text-gray-500">
+            Snapshot — current state, dates don&rsquo;t apply.
+          </div>
+        )}
       </div>
 
       {/* Report Content */}
@@ -336,39 +348,197 @@ function PartsUsageSection({ startDate, endDate, money, t }: { startDate: string
 
 /* ────────── Outstanding Invoices ────────── */
 
+interface OutstandingInvoiceRow {
+  id: string;
+  invoice_number: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  status: string;
+  grand_total: number;
+  paid_amount: number;
+  balance_due: number;
+  days_overdue: number;
+  bucket: 'current' | '30' | '60' | '90+';
+}
+interface AgingBucket { count: number; totalAmount: number }
+interface OutstandingInvoicesData {
+  current: AgingBucket;
+  thirtyDays: AgingBucket;
+  sixtyDays: AgingBucket;
+  ninetyPlus: AgingBucket;
+  total: AgingBucket;
+  rows?: OutstandingInvoiceRow[];
+}
+
 function OutstandingInvoicesSection({ money, t }: { money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useOutstandingInvoices();
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
-  const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const d = data as OutstandingInvoicesData | undefined;
+
+  const buildCsv = () => {
+    if (!d?.rows) return null;
+    const rows: unknown[][] = [
+      ['Invoice #', 'Customer', 'Phone', 'Invoice date', 'Due date', 'Status', 'Total', 'Paid', 'Balance due', 'Days overdue', 'Bucket'],
+      ...d.rows.map((r) => [
+        r.invoice_number, r.customer_name ?? '', r.customer_phone ?? '',
+        r.invoice_date ?? '', r.due_date ?? '', r.status,
+        r.grand_total, r.paid_amount, r.balance_due, r.days_overdue, r.bucket,
+      ]),
+    ];
+    return rows;
+  };
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
-      <Card label="Total" value={money(Number(d.total ?? 0))} />
-      <Card label="Current" value={money(Number(d.current ?? 0))} />
-      <Card label="30 days" value={money(Number(d.days_30 ?? d['30'] ?? 0))} />
-      <Card label="60 days" value={money(Number(d.days_60 ?? d['60'] ?? 0))} />
-      <Card label="90+ days" value={money(Number(d.days_90_plus ?? d['90+'] ?? d['90'] ?? 0))} />
-    </div>
+    <ReportSection
+      title="Outstanding Invoices"
+      subtitle="Money customers owe you (AR). Snapshot view with ageing buckets."
+      exportCsv={{ filename: 'outstanding-invoices', build: buildCsv }}
+      disableExport={isLoading || !d?.rows || d.rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Card label="Total" value={money(d.total?.totalAmount ?? 0)} />
+            <Card label="Current" value={money(d.current?.totalAmount ?? 0)} />
+            <Card label="≤ 30 days" value={money(d.thirtyDays?.totalAmount ?? 0)} />
+            <Card label="≤ 60 days" value={money(d.sixtyDays?.totalAmount ?? 0)} />
+            <Card label="90+ days" value={money(d.ninetyPlus?.totalAmount ?? 0)} />
+          </div>
+          {d.rows && d.rows.length > 0 ? (
+            <div className="overflow-hidden rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-start">Invoice</th>
+                    <th className="px-3 py-2 text-start">Customer</th>
+                    <th className="px-3 py-2 text-start">Due</th>
+                    <th className="px-3 py-2 text-end">Days overdue</th>
+                    <th className="px-3 py-2 text-end">Balance</th>
+                    <th className="px-3 py-2 text-start">Bucket</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {d.rows.map((r) => (
+                    <tr key={r.id} className={r.bucket === '90+' ? 'bg-red-50/40' : r.bucket === '60' ? 'bg-amber-50/30' : ''}>
+                      <td className="px-3 py-2 font-medium text-primary-600">{r.invoice_number}</td>
+                      <td className="px-3 py-2 text-gray-700">{r.customer_name ?? '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{r.due_date ?? '—'}</td>
+                      <td className="px-3 py-2 text-end text-gray-700">{r.days_overdue || 0}</td>
+                      <td className="px-3 py-2 text-end font-medium text-gray-900">{money(r.balance_due)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">{r.bucket}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-green-700">No outstanding invoices. 🎉</p>
+          )}
+        </>
+      )}
+    </ReportSection>
   );
 }
 
 /* ────────── Outstanding Bills ────────── */
 
+interface OutstandingBillRow {
+  id: string;
+  bill_number: string;
+  vendor_name: string | null;
+  bill_date: string | null;
+  due_date: string | null;
+  status: string;
+  amount: number;
+  paid_amount: number;
+  outstanding: number;
+  days_overdue: number;
+  bucket: 'current' | '30' | '60' | '90+';
+}
+interface OutstandingBillsData {
+  current: AgingBucket;
+  thirtyDays: AgingBucket;
+  sixtyDays: AgingBucket;
+  ninetyPlus: AgingBucket;
+  total: AgingBucket;
+  rows?: OutstandingBillRow[];
+}
+
 function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useOutstandingBills();
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
-  const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const d = data as OutstandingBillsData | undefined;
+
+  const buildCsv = () => {
+    if (!d?.rows) return null;
+    const rows: unknown[][] = [
+      ['Bill #', 'Vendor', 'Bill date', 'Due date', 'Status', 'Amount', 'Paid', 'Outstanding', 'Days overdue', 'Bucket'],
+      ...d.rows.map((r) => [
+        r.bill_number, r.vendor_name ?? '',
+        r.bill_date ?? '', r.due_date ?? '', r.status,
+        r.amount, r.paid_amount, r.outstanding, r.days_overdue, r.bucket,
+      ]),
+    ];
+    return rows;
+  };
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
-      <Card label="Total" value={money(Number(d.total ?? 0))} />
-      <Card label="Current" value={money(Number(d.current ?? 0))} />
-      <Card label="30 days" value={money(Number(d.days_30 ?? d['30'] ?? 0))} />
-      <Card label="60 days" value={money(Number(d.days_60 ?? d['60'] ?? 0))} />
-      <Card label="90+ days" value={money(Number(d.days_90_plus ?? d['90+'] ?? d['90'] ?? 0))} />
-    </div>
+    <ReportSection
+      title="Outstanding Bills"
+      subtitle="Money you owe suppliers (AP). Snapshot view with ageing buckets."
+      exportCsv={{ filename: 'outstanding-bills', build: buildCsv }}
+      disableExport={isLoading || !d?.rows || d.rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Card label="Total" value={money(d.total?.totalAmount ?? 0)} />
+            <Card label="Current" value={money(d.current?.totalAmount ?? 0)} />
+            <Card label="≤ 30 days" value={money(d.thirtyDays?.totalAmount ?? 0)} />
+            <Card label="≤ 60 days" value={money(d.sixtyDays?.totalAmount ?? 0)} />
+            <Card label="90+ days" value={money(d.ninetyPlus?.totalAmount ?? 0)} />
+          </div>
+          {d.rows && d.rows.length > 0 ? (
+            <div className="overflow-hidden rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-start">Bill</th>
+                    <th className="px-3 py-2 text-start">Vendor</th>
+                    <th className="px-3 py-2 text-start">Due</th>
+                    <th className="px-3 py-2 text-end">Days overdue</th>
+                    <th className="px-3 py-2 text-end">Outstanding</th>
+                    <th className="px-3 py-2 text-start">Bucket</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {d.rows.map((r) => (
+                    <tr key={r.id} className={r.bucket === '90+' ? 'bg-red-50/40' : r.bucket === '60' ? 'bg-amber-50/30' : ''}>
+                      <td className="px-3 py-2 font-medium text-gray-900">{r.bill_number}</td>
+                      <td className="px-3 py-2 text-gray-700">{r.vendor_name ?? '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{r.due_date ?? '—'}</td>
+                      <td className="px-3 py-2 text-end text-gray-700">{r.days_overdue || 0}</td>
+                      <td className="px-3 py-2 text-end font-medium text-gray-900">{money(r.outstanding)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">{r.bucket}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-green-700">No outstanding bills. 🎉</p>
+          )}
+        </>
+      )}
+    </ReportSection>
   );
 }
 
