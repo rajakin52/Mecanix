@@ -25,8 +25,14 @@ export default function PrintInvoicePage() {
   const { data: tenant } = useTenant();
 
   const jobCardId = invoice?.job_card_id ?? '';
+  const isStandalone = !jobCardId;
   const { data: labourLines, isLoading: labourLoading } = useLabourLines(jobCardId || '');
-  const { data: partsLines, isLoading: partsLoading } = usePartsLines(jobCardId || '');
+  const { data: jobPartsLines, isLoading: partsLoading } = usePartsLines(jobCardId || '');
+  // For OTC sales, parts_lines come embedded on the invoice (invoice_id path)
+  const standaloneParts = isStandalone
+    ? (((invoice as unknown as { standalone_parts_lines?: Array<Record<string, unknown>> })?.standalone_parts_lines) ?? [])
+    : [];
+  const partsLines = isStandalone ? standaloneParts : jobPartsLines;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const invForVehicle = invoice as Record<string, any> | undefined;
   const vehicleId =

@@ -38,10 +38,17 @@ export default function InvoiceDetailPage() {
   const { data: mpesaConfig } = useMpesaConfigured();
   const mpesaPayMutation = useMpesaPay();
 
-  // Fetch labour and parts lines from the job card
+  // For job-card invoices, fetch labour + parts via the job-card endpoints.
+  // For stand-alone (OTC) invoices, the parts_lines are embedded on the
+  // invoice payload as `standalone_parts_lines`; there are no labour lines.
   const jobCardId = invoice?.job_card_id;
-  const { data: labourLines } = useLabourLines(jobCardId ?? '');
-  const { data: partsLines } = usePartsLines(jobCardId ?? '');
+  const isStandalone = !jobCardId;
+  const { data: jobLabourLines } = useLabourLines(jobCardId ?? '');
+  const { data: jobPartsLines } = usePartsLines(jobCardId ?? '');
+  const labourLines = isStandalone ? [] : jobLabourLines;
+  const partsLines = isStandalone
+    ? ((invoice as unknown as { standalone_parts_lines?: Array<Record<string, unknown>> })?.standalone_parts_lines ?? [])
+    : jobPartsLines;
 
   // Payment modal state
   const [showPayModal, setShowPayModal] = useState(false);
@@ -193,20 +200,25 @@ export default function InvoiceDetailPage() {
               )}
             </div>
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold uppercase text-gray-500">{t('jobCard')}</p>
+              <p className="text-xs font-semibold uppercase text-gray-500">
+                {jc ? t('jobCard') : 'Sale type'}
+              </p>
               {jc ? (
                 <Link href={`/jobs/${invoice.job_card_id}`} className="mt-1 block text-sm font-semibold text-primary-600 hover:underline">
                   {jc.job_number}
                 </Link>
               ) : (
-                <p className="mt-1 text-sm text-gray-400">-</p>
+                <span className="mt-1 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
+                  Over-the-counter sale
+                </span>
               )}
             </div>
           </div>
         );
       })()}
 
-      {/* Labour Lines */}
+      {/* Labour Lines — hidden for stand-alone OTC sales */}
+      {!isStandalone && (
       <div className="mb-6">
         <h2 className="mb-3 text-lg font-semibold text-gray-900">{t('labourTotal')}</h2>
         <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -238,6 +250,7 @@ export default function InvoiceDetailPage() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Parts Lines */}
       <div className="mb-6">

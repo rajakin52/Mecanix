@@ -93,10 +93,26 @@ export class InvoicesService {
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
+    // Fetch parts_lines for stand-alone invoices (no job_card). These
+    // lines have invoice_id set directly. For job-card invoices we
+    // leave this empty — the existing /jobs/:id/parts-lines endpoint
+    // is what the detail page already uses.
+    let standaloneLines: Array<Record<string, unknown>> = [];
+    if (!data.job_card_id) {
+      const { data: lines } = await client
+        .from('parts_lines')
+        .select('*')
+        .eq('invoice_id', id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true });
+      standaloneLines = lines ?? [];
+    }
+
     return {
       ...data,
       payments: payments ?? [],
       credit_notes: creditNotes ?? [],
+      standalone_parts_lines: standaloneLines,
     };
   }
 
