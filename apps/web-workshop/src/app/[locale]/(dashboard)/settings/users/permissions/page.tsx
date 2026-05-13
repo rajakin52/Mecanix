@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, useMemo } from 'react';
+import * as React from 'react';
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useCapabilities, useRoles, type Capability, type Role } from '@/hooks/use-roles';
@@ -97,7 +98,7 @@ export default function PermissionsPage() {
             </thead>
             <tbody>
               {sortedCategories.map((cat) => (
-                <Fragment key={cat}>
+                <React.Fragment key={cat}>
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     <td
                       colSpan={rolesList.length + 1}
@@ -135,7 +136,7 @@ export default function PermissionsPage() {
                       })}
                     </tr>
                   ))}
-                </Fragment>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
