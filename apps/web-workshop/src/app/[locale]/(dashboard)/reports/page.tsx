@@ -45,13 +45,17 @@ type ReportType =
 
 export default function ReportsPage() {
   const t = useTranslations('reports');
-  const { money } = useFormat();
+  const { money, moneyWhole } = useFormat();
 
   const [selectedReport, setSelectedReport] = useState<ReportType>('revenue');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const isSnapshotReport =
+  // Outstanding reports used to be pure snapshots; now they support an
+  // optional date filter (defaults to All dates) + an ageing bucket
+  // filter so the user can isolate, say, "everything >60 days overdue".
+  const isOutstandingReport =
     selectedReport === 'outstandingInvoices' || selectedReport === 'outstandingBills';
+  const [agingFilter, setAgingFilter] = useState<'all' | '0' | '30' | '60' | '90'>('all');
 
   const reportOptions: { value: ReportType; label: string }[] = [
     { value: 'revenue', label: t('revenue') },
@@ -112,37 +116,65 @@ export default function ReportsPage() {
           </select>
         </div>
 
-        {!isSnapshotReport && (
-          <>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('from')}
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
-            </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            {t('from')}
+          </label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('to')}
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              />
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            {t('to')}
+          </label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+
+        {isOutstandingReport && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Age</label>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+              {([
+                ['all', 'All'],
+                ['0', '>0d'],
+                ['30', '>30d'],
+                ['60', '>60d'],
+                ['90', '>90d'],
+              ] as Array<[typeof agingFilter, string]>).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setAgingFilter(k)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                    agingFilter === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          </>
-        )}
-        {isSnapshotReport && (
-          <div className="self-end text-xs text-gray-500">
-            Snapshot — current state, dates don&rsquo;t apply.
           </div>
+        )}
+
+        {(startDate || endDate) && (
+          <button
+            type="button"
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+            className="self-end text-xs font-medium text-gray-600 hover:text-gray-900"
+            title="Clear date range"
+          >
+            Clear dates
+          </button>
         )}
       </div>
 
@@ -161,10 +193,24 @@ export default function ReportsPage() {
           <PartsUsageSection startDate={startDate} endDate={endDate} money={money} t={t} />
         )}
         {selectedReport === 'outstandingInvoices' && (
-          <OutstandingInvoicesSection money={money} t={t} />
+          <OutstandingInvoicesSection
+            money={money}
+            moneyWhole={moneyWhole}
+            startDate={startDate}
+            endDate={endDate}
+            agingFilter={agingFilter}
+            t={t}
+          />
         )}
         {selectedReport === 'outstandingBills' && (
-          <OutstandingBillsSection money={money} t={t} />
+          <OutstandingBillsSection
+            money={money}
+            moneyWhole={moneyWhole}
+            startDate={startDate}
+            endDate={endDate}
+            agingFilter={agingFilter}
+            t={t}
+          />
         )}
         {selectedReport === 'expensesByCategory' && (
           <ExpensesSection startDate={startDate} endDate={endDate} money={money} t={t} />
@@ -222,22 +268,52 @@ function NoData({ t }: { t: TFn }) {
   return <p className="text-sm text-gray-400">{t('noData')}</p>;
 }
 
+function dateRangeLabel(startDate: string, endDate: string): string {
+  if (!startDate && !endDate) return 'All dates';
+  if (startDate && endDate) return `${startDate} → ${endDate}`;
+  if (startDate) return `From ${startDate}`;
+  return `Up to ${endDate}`;
+}
+
 /* ────────── Revenue ────────── */
 
 function RevenueSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useRevenueReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, number> | undefined;
-  if (!d) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Metric', 'Amount'],
+      [t('totalInvoiced'), d.total_invoiced ?? 0],
+      ['Labour', d.labour_total ?? 0],
+      ['Parts', d.parts_total ?? 0],
+      ['Tax', d.tax_total ?? 0],
+      [t('paymentsReceived'), d.payments_received ?? 0],
+    ];
+  };
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <Card label={t('totalInvoiced')} value={money(d.total_invoiced ?? 0)} />
-      <Card label="Labour" value={money(d.labour_total ?? 0)} />
-      <Card label="Parts" value={money(d.parts_total ?? 0)} />
-      <Card label="Tax" value={money(d.tax_total ?? 0)} />
-      <Card label={t('paymentsReceived')} value={money(d.payments_received ?? 0)} />
-    </div>
+    <ReportSection
+      title="Revenue"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'revenue', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Card label={t('totalInvoiced')} value={money(d.total_invoiced ?? 0)} />
+          <Card label="Labour" value={money(d.labour_total ?? 0)} />
+          <Card label="Parts" value={money(d.parts_total ?? 0)} />
+          <Card label="Tax" value={money(d.tax_total ?? 0)} />
+          <Card label={t('paymentsReceived')} value={money(d.payments_received ?? 0)} />
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -245,40 +321,57 @@ function RevenueSection({ startDate, endDate, money, t }: { startDate: string; e
 
 function JobCardsSection({ startDate, endDate, t }: { startDate: string; endDate: string; t: TFn }) {
   const { data, isLoading } = useJobCardReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const statusBreakdown = (d?.by_status ?? d?.status_breakdown ?? {}) as Record<string, number>;
 
-  const statusBreakdown = (d.by_status ?? d.status_breakdown ?? {}) as Record<string, number>;
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Status', 'Count'],
+      ['Total', Number(d.total ?? 0)],
+      ...Object.entries(statusBreakdown).map(([s, c]) => [s, c]),
+    ];
+  };
 
   return (
-    <div>
-      <Card label="Total" value={String(d.total ?? 0)} className="mb-6 max-w-xs" />
-      {Object.keys(statusBreakdown).length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Count</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {Object.entries(statusBreakdown).map(([status, count]) => (
-                <tr key={status}>
-                  <td className="px-6 py-3">
-                    <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                      {status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 font-medium">{count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <ReportSection
+      title="Job Cards"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'job-cards', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <Card label="Total" value={String(d.total ?? 0)} className="mb-4 max-w-xs" />
+          {Object.keys(statusBreakdown).length > 0 && (
+            <div className="overflow-x-auto rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Status</th>
+                    <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {Object.entries(statusBreakdown).map(([status, count]) => (
+                    <tr key={status}>
+                      <td className="px-4 py-2">
+                        <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{status}</span>
+                      </td>
+                      <td className="px-4 py-2 text-end font-medium">{count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </ReportSection>
   );
 }
 
@@ -286,31 +379,54 @@ function JobCardsSection({ startDate, endDate, t }: { startDate: string; endDate
 
 function TechniciansSection({ startDate, endDate, t }: { startDate: string; endDate: string; t: TFn }) {
   const { data, isLoading } = useTechnicianReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  if (rows.length === 0) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Name', 'Hours', 'Jobs'],
+      ...rows.map((r) => [
+        String(r.full_name ?? r.name ?? ''),
+        Number(r.total_hours ?? r.hours ?? 0),
+        Number(r.total_jobs ?? r.jobs ?? 0),
+      ]),
+    ];
+  };
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Name</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Hours</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Jobs</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="px-6 py-3 font-medium">{String(r.full_name ?? r.name ?? '-')}</td>
-              <td className="px-6 py-3">{String(r.total_hours ?? r.hours ?? 0)}</td>
-              <td className="px-6 py-3">{String(r.total_jobs ?? r.jobs ?? 0)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ReportSection
+      title="Technicians"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'technicians', build: buildCsv }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Name</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Hours</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Jobs</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 font-medium text-gray-900">{String(r.full_name ?? r.name ?? '-')}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.total_hours ?? r.hours ?? 0)}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.total_jobs ?? r.jobs ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -318,31 +434,55 @@ function TechniciansSection({ startDate, endDate, t }: { startDate: string; endD
 
 function PartsUsageSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = usePartsUsageReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  if (rows.length === 0) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Part #', 'Description', 'Quantity', 'Value'],
+      ...rows.map((r) => [
+        String(r.part_number ?? ''),
+        String(r.description ?? ''),
+        Number(r.total_qty ?? r.quantity ?? 0),
+        Number(r.total_value ?? r.value ?? 0),
+      ]),
+    ];
+  };
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Part</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Qty</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Value</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="px-6 py-3 font-medium">{String(r.description ?? r.part_number ?? '-')}</td>
-              <td className="px-6 py-3">{String(r.total_qty ?? r.quantity ?? 0)}</td>
-              <td className="px-6 py-3">{money(Number(r.total_value ?? r.value ?? 0))}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ReportSection
+      title="Parts Usage"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'parts-usage', build: buildCsv }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 font-medium text-gray-900">{String(r.description ?? r.part_number ?? '-')}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.total_qty ?? r.quantity ?? 0)}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{money(Number(r.total_value ?? r.value ?? 0))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -372,15 +512,55 @@ interface OutstandingInvoicesData {
   rows?: OutstandingInvoiceRow[];
 }
 
-function OutstandingInvoicesSection({ money, t }: { money: MoneyFn; t: TFn }) {
+function filterOutstandingRows<R extends { invoice_date?: string | null; bill_date?: string | null; due_date: string | null; days_overdue: number }>(
+  rows: R[],
+  startDate: string,
+  endDate: string,
+  agingFilter: 'all' | '0' | '30' | '60' | '90',
+): R[] {
+  const minOverdue = agingFilter === 'all' ? -Infinity : Number(agingFilter);
+  return rows.filter((r) => {
+    if (agingFilter !== 'all' && r.days_overdue < minOverdue) return false;
+    // Optional date filter applies to invoice_date / bill_date if present
+    const docDate = (r as { invoice_date?: string | null; bill_date?: string | null }).invoice_date
+      ?? (r as { bill_date?: string | null }).bill_date
+      ?? null;
+    if (startDate && docDate && docDate < startDate) return false;
+    if (endDate && docDate && docDate > endDate) return false;
+    return true;
+  });
+}
+
+function OutstandingInvoicesSection({
+  money, moneyWhole, startDate, endDate, agingFilter, t,
+}: {
+  money: MoneyFn; moneyWhole: MoneyFn;
+  startDate: string; endDate: string;
+  agingFilter: 'all' | '0' | '30' | '60' | '90';
+  t: TFn;
+}) {
   const { data, isLoading } = useOutstandingInvoices();
   const d = data as OutstandingInvoicesData | undefined;
 
+  const filteredRows = d?.rows ? filterOutstandingRows(d.rows, startDate, endDate, agingFilter) : [];
+  // Recompute buckets from the filtered rows so KPIs match the visible table
+  const recomputedBuckets = filteredRows.reduce(
+    (acc, r) => {
+      acc.total += r.balance_due;
+      if (r.bucket === 'current') acc.current += r.balance_due;
+      else if (r.bucket === '30') acc.thirty += r.balance_due;
+      else if (r.bucket === '60') acc.sixty += r.balance_due;
+      else acc.ninety += r.balance_due;
+      return acc;
+    },
+    { total: 0, current: 0, thirty: 0, sixty: 0, ninety: 0 },
+  );
+
   const buildCsv = () => {
-    if (!d?.rows) return null;
+    if (filteredRows.length === 0) return null;
     const rows: unknown[][] = [
       ['Invoice #', 'Customer', 'Phone', 'Invoice date', 'Due date', 'Status', 'Total', 'Paid', 'Balance due', 'Days overdue', 'Bucket'],
-      ...d.rows.map((r) => [
+      ...filteredRows.map((r) => [
         r.invoice_number, r.customer_name ?? '', r.customer_phone ?? '',
         r.invoice_date ?? '', r.due_date ?? '', r.status,
         r.grand_total, r.paid_amount, r.balance_due, r.days_overdue, r.bucket,
@@ -392,9 +572,9 @@ function OutstandingInvoicesSection({ money, t }: { money: MoneyFn; t: TFn }) {
   return (
     <ReportSection
       title="Outstanding Invoices"
-      subtitle="Money customers owe you (AR). Snapshot view with ageing buckets."
+      subtitle="Money customers owe you (AR). All dates by default — narrow by date or age."
       exportCsv={{ filename: 'outstanding-invoices', build: buildCsv }}
-      disableExport={isLoading || !d?.rows || d.rows.length === 0}
+      disableExport={isLoading || filteredRows.length === 0}
     >
       {isLoading ? (
         <p className="text-sm text-gray-500">...</p>
@@ -403,13 +583,13 @@ function OutstandingInvoicesSection({ money, t }: { money: MoneyFn; t: TFn }) {
       ) : (
         <>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Card label="Total" value={money(d.total?.totalAmount ?? 0)} />
-            <Card label="Current" value={money(d.current?.totalAmount ?? 0)} />
-            <Card label="≤ 30 days" value={money(d.thirtyDays?.totalAmount ?? 0)} />
-            <Card label="≤ 60 days" value={money(d.sixtyDays?.totalAmount ?? 0)} />
-            <Card label="90+ days" value={money(d.ninetyPlus?.totalAmount ?? 0)} />
+            <Card label="Total" value={moneyWhole(recomputedBuckets.total)} />
+            <Card label="Current" value={moneyWhole(recomputedBuckets.current)} />
+            <Card label="≤ 30 days" value={moneyWhole(recomputedBuckets.thirty)} />
+            <Card label="≤ 60 days" value={moneyWhole(recomputedBuckets.sixty)} />
+            <Card label="90+ days" value={moneyWhole(recomputedBuckets.ninety)} />
           </div>
-          {d.rows && d.rows.length > 0 ? (
+          {filteredRows.length > 0 ? (
             <div className="overflow-hidden rounded-md border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
@@ -423,7 +603,7 @@ function OutstandingInvoicesSection({ money, t }: { money: MoneyFn; t: TFn }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {d.rows.map((r) => (
+                  {filteredRows.map((r) => (
                     <tr key={r.id} className={r.bucket === '90+' ? 'bg-red-50/40' : r.bucket === '60' ? 'bg-amber-50/30' : ''}>
                       <td className="px-3 py-2 font-medium text-primary-600">{r.invoice_number}</td>
                       <td className="px-3 py-2 text-gray-700">{r.customer_name ?? '—'}</td>
@@ -469,15 +649,35 @@ interface OutstandingBillsData {
   rows?: OutstandingBillRow[];
 }
 
-function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
+function OutstandingBillsSection({
+  money, moneyWhole, startDate, endDate, agingFilter, t,
+}: {
+  money: MoneyFn; moneyWhole: MoneyFn;
+  startDate: string; endDate: string;
+  agingFilter: 'all' | '0' | '30' | '60' | '90';
+  t: TFn;
+}) {
   const { data, isLoading } = useOutstandingBills();
   const d = data as OutstandingBillsData | undefined;
 
+  const filteredRows = d?.rows ? filterOutstandingRows(d.rows, startDate, endDate, agingFilter) : [];
+  const recomputedBuckets = filteredRows.reduce(
+    (acc, r) => {
+      acc.total += r.outstanding;
+      if (r.bucket === 'current') acc.current += r.outstanding;
+      else if (r.bucket === '30') acc.thirty += r.outstanding;
+      else if (r.bucket === '60') acc.sixty += r.outstanding;
+      else acc.ninety += r.outstanding;
+      return acc;
+    },
+    { total: 0, current: 0, thirty: 0, sixty: 0, ninety: 0 },
+  );
+
   const buildCsv = () => {
-    if (!d?.rows) return null;
+    if (filteredRows.length === 0) return null;
     const rows: unknown[][] = [
       ['Bill #', 'Vendor', 'Bill date', 'Due date', 'Status', 'Amount', 'Paid', 'Outstanding', 'Days overdue', 'Bucket'],
-      ...d.rows.map((r) => [
+      ...filteredRows.map((r) => [
         r.bill_number, r.vendor_name ?? '',
         r.bill_date ?? '', r.due_date ?? '', r.status,
         r.amount, r.paid_amount, r.outstanding, r.days_overdue, r.bucket,
@@ -489,9 +689,9 @@ function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
   return (
     <ReportSection
       title="Outstanding Bills"
-      subtitle="Money you owe suppliers (AP). Snapshot view with ageing buckets."
+      subtitle="Money you owe suppliers (AP). All dates by default — narrow by date or age."
       exportCsv={{ filename: 'outstanding-bills', build: buildCsv }}
-      disableExport={isLoading || !d?.rows || d.rows.length === 0}
+      disableExport={isLoading || filteredRows.length === 0}
     >
       {isLoading ? (
         <p className="text-sm text-gray-500">...</p>
@@ -500,13 +700,13 @@ function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
       ) : (
         <>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Card label="Total" value={money(d.total?.totalAmount ?? 0)} />
-            <Card label="Current" value={money(d.current?.totalAmount ?? 0)} />
-            <Card label="≤ 30 days" value={money(d.thirtyDays?.totalAmount ?? 0)} />
-            <Card label="≤ 60 days" value={money(d.sixtyDays?.totalAmount ?? 0)} />
-            <Card label="90+ days" value={money(d.ninetyPlus?.totalAmount ?? 0)} />
+            <Card label="Total" value={moneyWhole(recomputedBuckets.total)} />
+            <Card label="Current" value={moneyWhole(recomputedBuckets.current)} />
+            <Card label="≤ 30 days" value={moneyWhole(recomputedBuckets.thirty)} />
+            <Card label="≤ 60 days" value={moneyWhole(recomputedBuckets.sixty)} />
+            <Card label="90+ days" value={moneyWhole(recomputedBuckets.ninety)} />
           </div>
-          {d.rows && d.rows.length > 0 ? (
+          {filteredRows.length > 0 ? (
             <div className="overflow-hidden rounded-md border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50 text-xs uppercase text-gray-500">
@@ -520,7 +720,7 @@ function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {d.rows.map((r) => (
+                  {filteredRows.map((r) => (
                     <tr key={r.id} className={r.bucket === '90+' ? 'bg-red-50/40' : r.bucket === '60' ? 'bg-amber-50/30' : ''}>
                       <td className="px-3 py-2 font-medium text-gray-900">{r.bill_number}</td>
                       <td className="px-3 py-2 text-gray-700">{r.vendor_name ?? '—'}</td>
@@ -546,34 +746,53 @@ function OutstandingBillsSection({ money, t }: { money: MoneyFn; t: TFn }) {
 
 function ExpensesSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useExpenseReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  if (rows.length === 0) return <NoData t={t} />;
-
   const total = rows.reduce((sum, r) => sum + Number(r.total ?? r.amount ?? 0), 0);
 
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Category', 'Amount'],
+      ...rows.map((r) => [String(r.category ?? ''), Number(r.total ?? r.amount ?? 0)]),
+      ['Total', total],
+    ];
+  };
+
   return (
-    <div>
-      <Card label="Total" value={money(total)} className="mb-6 max-w-xs" />
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Category</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="px-6 py-3 font-medium">{String(r.category ?? '-')}</td>
-                <td className="px-6 py-3">{money(Number(r.total ?? r.amount ?? 0))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ReportSection
+      title="Expenses by Category"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'expenses', build: buildCsv }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <Card label="Total" value={money(total)} className="mb-4 max-w-xs" />
+          <div className="overflow-x-auto rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Category</th>
+                  <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-2 font-medium text-gray-900">{String(r.category ?? '-')}</td>
+                    <td className="px-4 py-2 text-end text-gray-700">{money(Number(r.total ?? r.amount ?? 0))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -581,25 +800,46 @@ function ExpensesSection({ startDate, endDate, money, t }: { startDate: string; 
 
 function IncomeExpenseSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useIncomeExpenseReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, number> | undefined;
-  if (!d) return <NoData t={t} />;
-
-  const netProfit = (d.income ?? 0) - (d.expenses ?? 0) - (d.bills ?? 0);
+  const netProfit = d ? (d.income ?? 0) - (d.expenses ?? 0) - (d.bills ?? 0) : 0;
   const isPositive = netProfit >= 0;
 
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Metric', 'Amount'],
+      ['Income', d.income ?? 0],
+      ['Expenses', d.expenses ?? 0],
+      ['Bills', d.bills ?? 0],
+      ['Net profit', netProfit],
+    ];
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-      <Card label="Income" value={money(d.income ?? 0)} />
-      <Card label="Expenses" value={money(d.expenses ?? 0)} />
-      <Card label="Bills" value={money(d.bills ?? 0)} />
-      <div className={`rounded-lg border p-6 shadow-sm ${isPositive ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-        <p className="text-sm font-medium text-gray-500">{t('netProfit')}</p>
-        <p className={`mt-2 text-2xl font-bold ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
-          {money(netProfit)}
-        </p>
-      </div>
-    </div>
+    <ReportSection
+      title="Income vs Expense"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'income-expense', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card label="Income" value={money(d.income ?? 0)} />
+          <Card label="Expenses" value={money(d.expenses ?? 0)} />
+          <Card label="Bills" value={money(d.bills ?? 0)} />
+          <div className={`rounded-lg border p-6 shadow-sm ${isPositive ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+            <p className="text-sm font-medium text-gray-500">{t('netProfit')}</p>
+            <p className={`mt-2 text-2xl font-bold ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
+              {money(netProfit)}
+            </p>
+          </div>
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -607,40 +847,61 @@ function IncomeExpenseSection({ startDate, endDate, money, t }: { startDate: str
 
 function InsuranceSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useInsuranceReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const byStatus = (d?.by_status ?? {}) as Record<string, number>;
 
-  const byStatus = (d.by_status ?? {}) as Record<string, number>;
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Metric', 'Value'],
+      ['Total claims', String(d.total_claims ?? 0)],
+      ['Avg approval (hours)', String(d.avg_approval_time ?? d.avg_approval_hours ?? '')],
+      ['Total approved (amount)', Number(d.total_approved ?? 0)],
+      ...Object.entries(byStatus).map(([s, c]) => [`Status: ${s}`, c]),
+    ];
+  };
 
   return (
-    <div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Card label="Total claims" value={String(d.total_claims ?? 0)} />
-        <Card label="Avg approval time" value={`${String(d.avg_approval_time ?? d.avg_approval_hours ?? '-')}h`} />
-        <Card label="Total approved" value={money(Number(d.total_approved ?? 0))} />
-      </div>
-      {Object.keys(byStatus).length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Count</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {Object.entries(byStatus).map(([status, count]) => (
-                <tr key={status}>
-                  <td className="px-6 py-3 font-medium">{status}</td>
-                  <td className="px-6 py-3">{count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <ReportSection
+      title="Insurance"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'insurance', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card label="Total claims" value={String(d.total_claims ?? 0)} />
+            <Card label="Avg approval time" value={`${String(d.avg_approval_time ?? d.avg_approval_hours ?? '-')}h`} />
+            <Card label="Total approved" value={money(Number(d.total_approved ?? 0))} />
+          </div>
+          {Object.keys(byStatus).length > 0 && (
+            <div className="mt-4 overflow-x-auto rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Status</th>
+                    <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {Object.entries(byStatus).map(([status, count]) => (
+                    <tr key={status}>
+                      <td className="px-4 py-2 font-medium text-gray-900">{status}</td>
+                      <td className="px-4 py-2 text-end text-gray-700">{count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </ReportSection>
   );
 }
 
@@ -648,40 +909,61 @@ function InsuranceSection({ startDate, endDate, money, t }: { startDate: string;
 
 function CustomerRetentionSection({ startDate, endDate, t }: { startDate: string; endDate: string; t: TFn }) {
   const { data, isLoading } = useCustomerRetentionReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const topCustomers = (d?.top_customers ?? []) as Array<Record<string, unknown>>;
 
-  const topCustomers = (d.top_customers ?? []) as Array<Record<string, unknown>>;
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Section', 'Customer / Metric', 'Value'],
+      ['Summary', 'Repeat customers', Number(d.repeat ?? 0)],
+      ['Summary', 'New customers', Number(d.new ?? 0)],
+      ['Summary', 'Total', Number(d.total ?? 0)],
+      ...topCustomers.map((c) => ['Top customer', String(c.full_name ?? c.name ?? ''), Number(c.visits ?? c.count ?? 0)]),
+    ];
+  };
 
   return (
-    <div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Card label="Repeat customers" value={String(d.repeat ?? 0)} />
-        <Card label="New customers" value={String(d.new ?? 0)} />
-        <Card label="Total" value={String(d.total ?? 0)} />
-      </div>
-      {topCustomers.length > 0 && (
-        <div className="mt-6 overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Customer</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Visits</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {topCustomers.slice(0, 10).map((c, i) => (
-                <tr key={i}>
-                  <td className="px-6 py-3 font-medium">{String(c.full_name ?? c.name ?? '-')}</td>
-                  <td className="px-6 py-3">{String(c.visits ?? c.count ?? 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <ReportSection
+      title="Customer Retention"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'customer-retention', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Card label="Repeat customers" value={String(d.repeat ?? 0)} />
+            <Card label="New customers" value={String(d.new ?? 0)} />
+            <Card label="Total" value={String(d.total ?? 0)} />
+          </div>
+          {topCustomers.length > 0 && (
+            <div className="mt-4 overflow-x-auto rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Customer</th>
+                    <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Visits</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {topCustomers.slice(0, 10).map((c, i) => (
+                    <tr key={i}>
+                      <td className="px-4 py-2 font-medium text-gray-900">{String(c.full_name ?? c.name ?? '-')}</td>
+                      <td className="px-4 py-2 text-end text-gray-700">{String(c.visits ?? c.count ?? 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </ReportSection>
   );
 }
 
@@ -689,15 +971,35 @@ function CustomerRetentionSection({ startDate, endDate, t }: { startDate: string
 
 function CreditNotesSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useIncomeExpenseReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Metric', 'Value'],
+      ['Count', Number(d.credit_notes_count ?? 0)],
+      ['Total', Number(d.credit_notes_total ?? 0)],
+    ];
+  };
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 max-w-lg">
-      <Card label="Count" value={String(d.credit_notes_count ?? 0)} />
-      <Card label="Total" value={money(Number(d.credit_notes_total ?? 0))} />
-    </div>
+    <ReportSection
+      title="Credit Notes"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'credit-notes', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div className="grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
+          <Card label="Count" value={String(d.credit_notes_count ?? 0)} />
+          <Card label="Total" value={money(Number(d.credit_notes_total ?? 0))} />
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -705,76 +1007,101 @@ function CreditNotesSection({ startDate, endDate, money, t }: { startDate: strin
 
 function InventoryValuationSection({ money, t }: { money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useInventoryValuationReport();
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const summary = (d?.summary ?? {}) as Record<string, number>;
+  const byCategory = (d?.byCategory ?? {}) as Record<string, Record<string, number>>;
+  const byWarehouse = (d?.byWarehouse ?? {}) as Record<string, Record<string, unknown>>;
 
-  const summary = (d.summary ?? {}) as Record<string, number>;
-  const byCategory = (d.byCategory ?? {}) as Record<string, Record<string, number>>;
-  const byWarehouse = (d.byWarehouse ?? {}) as Record<string, Record<string, unknown>>;
+  const buildCsv = () => {
+    if (!d) return null;
+    const rows: unknown[][] = [
+      ['Section', 'Bucket', 'SKUs', 'Units', 'Value'],
+      ['Summary', 'All', summary.totalSkus ?? 0, summary.totalUnits ?? 0, summary.totalValue ?? 0],
+    ];
+    for (const [cat, c] of Object.entries(byCategory)) {
+      rows.push(['Category', cat, c.skus ?? 0, c.units ?? 0, c.value ?? 0]);
+    }
+    for (const [, w] of Object.entries(byWarehouse)) {
+      rows.push(['Warehouse', String(w.warehouseName ?? ''), '', Number(w.units ?? 0), Number(w.value ?? 0)]);
+    }
+    return rows;
+  };
 
   return (
-    <div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-6">
-        <Card label="Total SKUs" value={String(summary.totalSkus ?? 0)} />
-        <Card label="Total Units" value={String(summary.totalUnits ?? 0)} />
-        <Card label="Total Value" value={money(summary.totalValue ?? 0)} />
-      </div>
-
-      {Object.keys(byCategory).length > 0 && (
-        <>
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">By Category</h3>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm mb-6">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Category</th>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">SKUs</th>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Units</th>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {Object.entries(byCategory).map(([cat, data]) => (
-                  <tr key={cat}>
-                    <td className="px-6 py-3 font-medium">{cat}</td>
-                    <td className="px-6 py-3">{data.skus ?? 0}</td>
-                    <td className="px-6 py-3">{data.units ?? 0}</td>
-                    <td className="px-6 py-3">{money(data.value ?? 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <ReportSection
+      title="Inventory Valuation"
+      subtitle="Snapshot — current state, dates don’t apply."
+      exportCsv={{ filename: 'inventory-valuation', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+            <Card label="Total SKUs" value={String(summary.totalSkus ?? 0)} />
+            <Card label="Total Units" value={String(summary.totalUnits ?? 0)} />
+            <Card label="Total Value" value={money(summary.totalValue ?? 0)} />
           </div>
-        </>
-      )}
 
-      {Object.keys(byWarehouse).length > 0 && (
-        <>
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">By Warehouse</h3>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Warehouse</th>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Units</th>
-                  <th className="px-6 py-3 text-start font-medium text-gray-500">Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {Object.entries(byWarehouse).map(([whId, data]) => (
-                  <tr key={whId}>
-                    <td className="px-6 py-3 font-medium">{String(data.warehouseName ?? '-')}</td>
-                    <td className="px-6 py-3">{String(data.units ?? 0)}</td>
-                    <td className="px-6 py-3">{money(Number(data.value ?? 0))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+          {Object.keys(byCategory).length > 0 && (
+            <>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">By Category</h3>
+              <div className="overflow-x-auto rounded-md border border-gray-200 mb-4">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Category</th>
+                      <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">SKUs</th>
+                      <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Units</th>
+                      <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Object.entries(byCategory).map(([cat, c]) => (
+                      <tr key={cat}>
+                        <td className="px-4 py-2 font-medium text-gray-900">{cat}</td>
+                        <td className="px-4 py-2 text-end text-gray-700">{c.skus ?? 0}</td>
+                        <td className="px-4 py-2 text-end text-gray-700">{c.units ?? 0}</td>
+                        <td className="px-4 py-2 text-end text-gray-900">{money(c.value ?? 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {Object.keys(byWarehouse).length > 0 && (
+            <>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">By Warehouse</h3>
+              <div className="overflow-x-auto rounded-md border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warehouse</th>
+                      <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Units</th>
+                      <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Object.entries(byWarehouse).map(([whId, w]) => (
+                      <tr key={whId}>
+                        <td className="px-4 py-2 font-medium text-gray-900">{String(w.warehouseName ?? '-')}</td>
+                        <td className="px-4 py-2 text-end text-gray-700">{String(w.units ?? 0)}</td>
+                        <td className="px-4 py-2 text-end text-gray-900">{money(Number(w.value ?? 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
       )}
-    </div>
+    </ReportSection>
   );
 }
 
@@ -782,57 +1109,83 @@ function InventoryValuationSection({ money, t }: { money: MoneyFn; t: TFn }) {
 
 function StockMovementsSection({ startDate, endDate, t }: { startDate: string; endDate: string; t: TFn }) {
   const { data, isLoading } = useStockMovementsReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const summary = (d?.summary ?? {}) as Record<string, number>;
+  const movements = (d?.movements ?? []) as Array<Record<string, unknown>>;
 
-  const summary = (d.summary ?? {}) as Record<string, number>;
-  const movements = (d.movements ?? []) as Array<Record<string, unknown>>;
+  const buildCsv = () => {
+    if (!d) return null;
+    return [
+      ['Date', 'Part', 'Qty change', 'Reason', 'Reference', 'Adjusted by', 'Warehouse'],
+      ...movements.map((m) => [
+        m.createdAt ? new Date(m.createdAt as string).toISOString().slice(0, 10) : '',
+        String(m.partDescription ?? ''),
+        Number(m.quantityChange ?? 0),
+        String(m.reason ?? ''),
+        String(m.reference ?? ''),
+        String(m.adjustedBy ?? ''),
+        String(m.warehouse ?? ''),
+      ]),
+    ];
+  };
 
   return (
-    <div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-6">
-        <Card label="Total In" value={String(summary.totalIn ?? 0)} className="border-green-200 bg-green-50" />
-        <Card label="Total Out" value={String(summary.totalOut ?? 0)} className="border-red-200 bg-red-50" />
-        <Card label="Net Change" value={String(summary.netChange ?? 0)} />
-      </div>
+    <ReportSection
+      title="Stock Movements"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'stock-movements', build: buildCsv }}
+      disableExport={isLoading || !d || movements.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-4">
+            <Card label="Total In" value={String(summary.totalIn ?? 0)} className="border-green-200 bg-green-50" />
+            <Card label="Total Out" value={String(summary.totalOut ?? 0)} className="border-red-200 bg-red-50" />
+            <Card label="Net Change" value={String(summary.netChange ?? 0)} />
+          </div>
 
-      {movements.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Part</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Qty Change</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Reason</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Reference</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Adjusted By</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Warehouse</th>
-                <th className="px-6 py-3 text-start font-medium text-gray-500">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {movements.map((m, i) => {
-                const qty = Number(m.quantityChange ?? 0);
-                return (
-                  <tr key={i}>
-                    <td className="px-6 py-3 font-medium">{String(m.partDescription ?? '-')}</td>
-                    <td className={`px-6 py-3 font-medium ${qty > 0 ? 'text-green-600' : qty < 0 ? 'text-red-600' : ''}`}>
-                      {qty > 0 ? `+${qty}` : String(qty)}
-                    </td>
-                    <td className="px-6 py-3">{String(m.reason ?? '-')}</td>
-                    <td className="px-6 py-3">{String(m.reference ?? '-')}</td>
-                    <td className="px-6 py-3">{String(m.adjustedBy ?? '-')}</td>
-                    <td className="px-6 py-3">{String(m.warehouse ?? '-')}</td>
-                    <td className="px-6 py-3">{m.createdAt ? new Date(m.createdAt as string).toLocaleDateString() : '-'}</td>
+          {movements.length > 0 && (
+            <div className="overflow-x-auto rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part</th>
+                    <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Reason</th>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Ref</th>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Adjusted by</th>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Warehouse</th>
+                    <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Date</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {movements.map((m, i) => {
+                    const qty = Number(m.quantityChange ?? 0);
+                    return (
+                      <tr key={i}>
+                        <td className="px-4 py-2 font-medium text-gray-900">{String(m.partDescription ?? '-')}</td>
+                        <td className={`px-4 py-2 text-end font-medium ${qty > 0 ? 'text-green-600' : qty < 0 ? 'text-red-600' : ''}`}>
+                          {qty > 0 ? `+${qty}` : String(qty)}
+                        </td>
+                        <td className="px-4 py-2 text-gray-700">{String(m.reason ?? '-')}</td>
+                        <td className="px-4 py-2 text-gray-700">{String(m.reference ?? '-')}</td>
+                        <td className="px-4 py-2 text-gray-700">{String(m.adjustedBy ?? '-')}</td>
+                        <td className="px-4 py-2 text-gray-700">{String(m.warehouse ?? '-')}</td>
+                        <td className="px-4 py-2 text-xs text-gray-500">{m.createdAt ? new Date(m.createdAt as string).toLocaleDateString() : '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
-    </div>
+    </ReportSection>
   );
 }
 
@@ -840,24 +1193,49 @@ function StockMovementsSection({ startDate, endDate, t }: { startDate: string; e
 
 function LowStockSection({ t }: { t: TFn }) {
   const { data, isLoading } = useLowStockReport();
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  if (rows.length === 0) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Part #', 'Description', 'Stock', 'Reorder point', 'Deficit', 'Supplier', 'Last ordered'],
+      ...rows.map((r) => [
+        String(r.partNumber ?? ''),
+        String(r.description ?? ''),
+        Number(r.stockQty ?? 0),
+        Number(r.reorderPoint ?? 0),
+        Number(r.deficit ?? 0),
+        String(r.supplierName ?? ''),
+        r.lastOrderDate ? new Date(r.lastOrderDate as string).toISOString().slice(0, 10) : '',
+      ]),
+    ];
+  };
 
   return (
+    <ReportSection
+      title="Low Stock"
+      subtitle="Snapshot — current state, dates don’t apply."
+      exportCsv={{ filename: 'low-stock', build: buildCsv }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
     <div>
-      <Card label="Items Below Reorder Point" value={rows.length} className="mb-6 max-w-xs" />
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+      <Card label="Items Below Reorder Point" value={rows.length} className="mb-4 max-w-xs" />
+      <div className="overflow-x-auto rounded-md border border-gray-200">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Part #</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Description</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Stock</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Reorder Point</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Deficit</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Supplier</th>
-              <th className="px-6 py-3 text-start font-medium text-gray-500">Last Ordered</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part #</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Description</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Stock</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Reorder</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Deficit</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Supplier</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Last ordered</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -866,15 +1244,15 @@ function LowStockSection({ t }: { t: TFn }) {
               const isCritical = (Number(r.stockQty ?? 0)) === 0;
               return (
                 <tr key={i} className={isCritical ? 'bg-red-50' : ''}>
-                  <td className="px-6 py-3 font-medium">{String(r.partNumber ?? '-')}</td>
-                  <td className="px-6 py-3">{String(r.description ?? '-')}</td>
-                  <td className={`px-6 py-3 font-medium ${isCritical ? 'text-red-600' : 'text-amber-600'}`}>
+                  <td className="px-4 py-2 font-mono text-xs text-gray-700">{String(r.partNumber ?? '-')}</td>
+                  <td className="px-4 py-2 text-gray-900">{String(r.description ?? '-')}</td>
+                  <td className={`px-4 py-2 text-end font-medium ${isCritical ? 'text-red-600' : 'text-amber-600'}`}>
                     {String(r.stockQty ?? 0)}
                   </td>
-                  <td className="px-6 py-3">{String(r.reorderPoint ?? 0)}</td>
-                  <td className="px-6 py-3 font-medium text-red-600">{deficit}</td>
-                  <td className="px-6 py-3">{String(r.supplierName ?? '-')}</td>
-                  <td className="px-6 py-3">{r.lastOrderDate ? new Date(r.lastOrderDate as string).toLocaleDateString() : '-'}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.reorderPoint ?? 0)}</td>
+                  <td className="px-4 py-2 text-end font-medium text-red-600">{deficit}</td>
+                  <td className="px-4 py-2 text-gray-700">{String(r.supplierName ?? '-')}</td>
+                  <td className="px-4 py-2 text-xs text-gray-500">{r.lastOrderDate ? new Date(r.lastOrderDate as string).toLocaleDateString() : '-'}</td>
                 </tr>
               );
             })}
@@ -882,6 +1260,8 @@ function LowStockSection({ t }: { t: TFn }) {
         </table>
       </div>
     </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -889,16 +1269,48 @@ function LowStockSection({ t }: { t: TFn }) {
 
 function PurchaseRequestSummarySection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = usePurchaseRequestSummaryReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
+  const summary = (d?.summary ?? {}) as Record<string, number>;
+  const topByCost = (d?.topByCost ?? []) as Array<Record<string, unknown>>;
 
-  const summary = (d.summary ?? {}) as Record<string, number>;
-  const topByCost = (d.topByCost ?? []) as Array<Record<string, unknown>>;
+  const buildCsv = () => {
+    if (!d) return null;
+    const rows: unknown[][] = [
+      ['Metric', 'Value'],
+      ['Total PRs', summary.totalPrs ?? 0],
+      ['Pending', summary.pendingCount ?? 0],
+      ['Approved', summary.approvedCount ?? 0],
+      ['Rejected', summary.rejectedCount ?? 0],
+      ['Ordered', summary.orderedCount ?? 0],
+      ['Received', summary.receivedCount ?? 0],
+      ['Total est. cost', summary.totalEstimatedCost ?? 0],
+      ['Avg approval (days)', summary.avgApprovalTime ?? 0],
+      [],
+      ['PR #', 'Status', 'Est. cost', 'Created'],
+      ...topByCost.map((r) => [
+        String(r.prNumber ?? ''),
+        String(r.status ?? ''),
+        Number(r.estimatedCost ?? 0),
+        r.createdAt ? new Date(r.createdAt as string).toISOString().slice(0, 10) : '',
+      ]),
+    ];
+    return rows;
+  };
 
   return (
+    <ReportSection
+      title="Purchase Request Summary"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'purchase-requests', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
     <div>
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 mb-4">
         <Card label="Total PRs" value={String(summary.totalPrs ?? 0)} />
         <Card label="Pending" value={String(summary.pendingCount ?? 0)} />
         <Card label="Approved" value={String(summary.approvedCount ?? 0)} />
@@ -941,6 +1353,8 @@ function PurchaseRequestSummarySection({ startDate, endDate, money, t }: { start
         </>
       )}
     </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -948,39 +1362,66 @@ function PurchaseRequestSummarySection({ startDate, endDate, money, t }: { start
 
 function VendorPerformanceSection({ startDate, endDate, money, t }: { startDate: string; endDate: string; money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useVendorPerformanceReport(startDate || undefined, endDate || undefined);
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const rows = (data ?? []) as Array<Record<string, unknown>>;
-  if (rows.length === 0) return <NoData t={t} />;
+
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Vendor', 'POs', 'Total spent', 'Avg delivery (days)', 'On-time %', 'Items ordered', 'Items received'],
+      ...rows.map((r) => [
+        String(r.vendorName ?? ''),
+        Number(r.totalPOs ?? 0),
+        Number(r.totalAmount ?? 0),
+        r.avgDeliveryDays != null ? Number(r.avgDeliveryDays) : '',
+        r.onTimePct != null ? Number(r.onTimePct) : '',
+        Number(r.totalItemsOrdered ?? 0),
+        Number(r.totalItemsReceived ?? 0),
+      ]),
+    ];
+  };
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Vendor</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">POs</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Total Spent</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Avg Delivery (days)</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">On-Time %</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Items Ordered</th>
-            <th className="px-6 py-3 text-start font-medium text-gray-500">Items Received</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {rows.map((r, i) => (
-            <tr key={i}>
-              <td className="px-6 py-3 font-medium">{String(r.vendorName ?? '-')}</td>
-              <td className="px-6 py-3">{String(r.totalPOs ?? 0)}</td>
-              <td className="px-6 py-3">{money(Number(r.totalAmount ?? 0))}</td>
-              <td className="px-6 py-3">{r.avgDeliveryDays != null ? String(r.avgDeliveryDays) : '-'}</td>
-              <td className="px-6 py-3">{r.onTimePct != null ? `${r.onTimePct}%` : '-'}</td>
-              <td className="px-6 py-3">{String(r.totalItemsOrdered ?? 0)}</td>
-              <td className="px-6 py-3">{String(r.totalItemsReceived ?? 0)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ReportSection
+      title="Vendor Performance"
+      subtitle={dateRangeLabel(startDate, endDate)}
+      exportCsv={{ filename: 'vendor-performance', build: buildCsv }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Vendor</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">POs</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Total spent</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Avg delivery (d)</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">On-time %</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Ordered</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Received</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2 font-medium text-gray-900">{String(r.vendorName ?? '-')}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.totalPOs ?? 0)}</td>
+                  <td className="px-4 py-2 text-end text-gray-900">{money(Number(r.totalAmount ?? 0))}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{r.avgDeliveryDays != null ? String(r.avgDeliveryDays) : '-'}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{r.onTimePct != null ? `${r.onTimePct}%` : '-'}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.totalItemsOrdered ?? 0)}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{String(r.totalItemsReceived ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </ReportSection>
   );
 }
 
@@ -990,14 +1431,11 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
   const { data, isLoading } = useWipInventoryReport();
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
-  if (isLoading) return <p className="text-sm text-gray-500">...</p>;
   const d = data as Record<string, unknown> | undefined;
-  if (!d) return <NoData t={t} />;
-
-  const summary = (d.summary ?? {}) as Record<string, unknown>;
+  const summary = (d?.summary ?? {}) as Record<string, unknown>;
   const aging = (summary.aging ?? {}) as Record<string, number>;
   const byJobStatus = (summary.byJobStatus ?? []) as Array<Record<string, unknown>>;
-  const jobs = (d.jobs ?? []) as Array<Record<string, unknown>>;
+  const jobs = (d?.jobs ?? []) as Array<Record<string, unknown>>;
 
   const toggleJob = (jobId: string) => {
     setExpandedJobs((prev) => {
@@ -1008,7 +1446,36 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
     });
   };
 
+  const buildCsv = () => {
+    if (!d) return null;
+    const rows: unknown[][] = [
+      ['Job number', 'Customer', 'Vehicle', 'Status', 'Days open', 'Parts count', 'Cost value', 'Sell value'],
+      ...jobs.map((j) => [
+        String(j.jobNumber ?? ''),
+        String(j.customerName ?? ''),
+        String(j.vehiclePlate ?? ''),
+        String(j.status ?? ''),
+        Number(j.daysOpen ?? 0),
+        Number(j.partsCount ?? 0),
+        Number(j.costValue ?? 0),
+        Number(j.sellValue ?? 0),
+      ]),
+    ];
+    return rows;
+  };
+
   return (
+    <ReportSection
+      title="WIP Inventory"
+      subtitle="Parts on open job cards — snapshot."
+      exportCsv={{ filename: 'wip-inventory', build: buildCsv }}
+      disableExport={isLoading || !d}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !d ? (
+        <NoData t={t} />
+      ) : (
     <div>
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -1155,5 +1622,7 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
         </>
       )}
     </div>
+      )}
+    </ReportSection>
   );
 }

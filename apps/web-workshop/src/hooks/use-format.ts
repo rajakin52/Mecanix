@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { useLocale } from 'next-intl';
 import { useTenantContext } from '@/lib/tenant-context';
-import { formatCurrency, formatDualCurrency, formatDate, formatNumber } from '@/lib/format';
+import { formatCurrency, formatCurrencyWhole, formatDualCurrency, formatDate, formatNumber } from '@/lib/format';
 
 /**
  * Hook that returns locale-aware formatting functions using the tenant's currency.
@@ -21,6 +21,13 @@ export function useFormat() {
 
   const money = useCallback(
     (amount: number | string | null | undefined) => formatCurrency(amount, currency, locale),
+    [currency, locale],
+  );
+
+  // Rounded currency (no cents) — for dashboard KPI cards and totals where
+  // the cents are visual noise and overflow the card.
+  const moneyWhole = useCallback(
+    (amount: number | string | null | undefined) => formatCurrencyWhole(amount, currency, locale),
     [currency, locale],
   );
 
@@ -50,5 +57,5 @@ export function useFormat() {
     [locale],
   );
 
-  return { money, dualMoney, date, number, currency, secondaryCurrency, exchangeRate, locale };
+  return { money, moneyWhole, dualMoney, date, number, currency, secondaryCurrency, exchangeRate, locale };
 }
