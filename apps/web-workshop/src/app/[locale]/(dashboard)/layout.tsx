@@ -104,6 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: t('navInventory'),
       items: [
         { href: '/parts', label: t('parts'), icon: Package },
+        { href: '/parts/parts-sale', label: 'Parts Sale', icon: Receipt },
         { href: '/procurement/suggestions', label: t('reorderSuggestions'), icon: ShoppingCart },
         { href: '/vendors', label: t('vendors'), icon: Truck },
         { href: '/tire-storage', label: t('tireStorage'), icon: Warehouse },

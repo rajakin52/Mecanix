@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { usePathname, Link } from '@/i18n/navigation';
-import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen, BarChart3, LayoutDashboard, Receipt } from 'lucide-react';
+import { Package, Warehouse, ClipboardList, ShoppingCart, Tags, BookOpen, BarChart3, LayoutDashboard } from 'lucide-react';
 
 type CommonKey = 'catalogue' | 'warehouses' | 'procurement' | 'purchaseOrders' | 'pricing' | 'repairCatalog';
 
@@ -12,7 +12,6 @@ const TABS: { href: string; tKey: CommonKey | null; label?: string; icon: typeof
   { href: '/warehouse', tKey: 'warehouses', icon: Warehouse },
   { href: '/procurement', tKey: 'procurement', icon: ClipboardList },
   { href: '/purchase-orders', tKey: 'purchaseOrders', icon: ShoppingCart },
-  { href: '/parts/parts-sale', tKey: null, label: 'Parts Sale', icon: Receipt },
   { href: '/parts/purchases', tKey: null, label: 'Reports', icon: BarChart3 },
   { href: '/settings/pricing', tKey: 'pricing', icon: Tags },
   { href: '/settings/catalog', tKey: 'repairCatalog', icon: BookOpen },
