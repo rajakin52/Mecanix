@@ -77,9 +77,37 @@ export class JobsService {
 
     if (search) {
       const s = sanitizeSearch(search);
-      query = query.or(
-        `job_number.ilike.%${s}%,reported_problem.ilike.%${s}%`,
+
+      // PostgREST can't OR across joined tables, so resolve matching
+      // customer_ids and vehicle_ids first then union into the main OR.
+      const [custHits, vehHits] = await Promise.all([
+        client
+          .from('customers')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,whatsapp_number.ilike.%${s}%`),
+        client
+          .from('vehicles')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .is('deleted_at', null)
+          .ilike('plate', `%${s}%`),
+      ]);
+      const custIds = Array.from(
+        new Set((custHits.data ?? []).map((r) => (r as { id: string }).id).filter(Boolean)),
       );
+      const vehIds = Array.from(
+        new Set((vehHits.data ?? []).map((r) => (r as { id: string }).id).filter(Boolean)),
+      );
+
+      const orParts = [
+        `job_number.ilike.%${s}%`,
+        `reported_problem.ilike.%${s}%`,
+      ];
+      if (custIds.length > 0) orParts.push(`customer_id.in.(${custIds.join(',')})`);
+      if (vehIds.length > 0) orParts.push(`vehicle_id.in.(${vehIds.join(',')})`);
+
+      query = query.or(orParts.join(','));
     }
 
     if (filters.status) {

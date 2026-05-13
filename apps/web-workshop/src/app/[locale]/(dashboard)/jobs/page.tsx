@@ -130,7 +130,7 @@ export default function JobsPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder={t('searchPlaceholder')}
+          placeholder="Search by job #, plate, customer name or phone…"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
