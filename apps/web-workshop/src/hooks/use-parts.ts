@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export interface PartCompatibilityRow {
@@ -72,6 +72,10 @@ export function useParts(
       if (scope?.year) params.set('year', String(scope.year));
       return api.get<PartsResponse>(`/parts?${params}`);
     },
+    // Keep the prior result on screen while a new search is in flight,
+    // otherwise the picker briefly flashes "No matches" between keystrokes
+    // as the query key changes and React Query clears `data` to undefined.
+    placeholderData: keepPreviousData,
   });
 }
 
