@@ -78,7 +78,10 @@ export default function NewPartsSalePage() {
     setFilterYear('');
   };
 
-  const { data: partsData } = useParts(1, debouncedSearch, undefined, vehicleScope);
+  // pageSize=1000 so the picker shows the whole catalogue at once instead
+  // of the first 20. Server-side search still narrows on type for very
+  // large catalogues.
+  const { data: partsData } = useParts(1, debouncedSearch, undefined, vehicleScope, undefined, 1000);
   const parts = partsData?.data ?? [];
   const partOptions = useMemo(
     () => parts.map((p) => ({ value: p.id, label: `${p.part_number ?? '—'} · ${p.description}` })),

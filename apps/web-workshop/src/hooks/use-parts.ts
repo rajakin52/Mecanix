@@ -57,12 +57,13 @@ export function useParts(
   category?: string,
   vehicle?: PartsVehicleScope,
   consumable?: boolean,
+  pageSize = 20,
 ) {
   const scope = vehicle?.make ? vehicle : undefined;
   return useQuery({
-    queryKey: ['parts', page, search, category, scope?.make, scope?.model, scope?.year, consumable],
+    queryKey: ['parts', page, pageSize, search, category, scope?.make, scope?.model, scope?.year, consumable],
     queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' });
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search) params.set('search', search);
       if (category) params.set('category', category);
       if (consumable) params.set('consumable', 'true');

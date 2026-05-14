@@ -99,7 +99,9 @@ export default function PurchaseOrdersPage() {
     const t = setTimeout(() => setDebouncedPartSearch(partSearchInput), 250);
     return () => clearTimeout(t);
   }, [partSearchInput]);
-  const { data: partsData } = useParts(1, debouncedPartSearch, undefined, vehicleScope);
+  // pageSize=1000 so the picker shows the whole catalogue (not just the
+  // first 20). Server-side search narrows it further on type.
+  const { data: partsData } = useParts(1, debouncedPartSearch, undefined, vehicleScope, undefined, 1000);
 
   // Year combobox source: 1990 → next year.
   const yearOptions = useMemo(() => {
