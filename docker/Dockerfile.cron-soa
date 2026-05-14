@@ -1,0 +1,15 @@
+# Tiny image whose only job is to POST to the API's monthly-statements cron
+# endpoint. Railway runs this on the schedule in railway.cron-soa.json; the
+# container exits after the curl call so Railway records each run cleanly.
+FROM alpine:3.20
+
+RUN apk add --no-cache curl ca-certificates
+
+COPY docker/cron-soa.sh /usr/local/bin/cron-soa.sh
+RUN chmod +x /usr/local/bin/cron-soa.sh
+
+# Don't run as root.
+RUN adduser -D -u 1000 cron
+USER cron
+
+CMD ["/usr/local/bin/cron-soa.sh"]
