@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useInvoices, useGenerateInvoice, useFinancialSummary } from '@/hooks/use-invoices';
 import { useJobs } from '@/hooks/use-jobs';
 import { Link } from '@/i18n/navigation';
 import { SkeletonTable, StatusBadge, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
 import { formatNumber } from '@/lib/format';
+import { Search } from 'lucide-react';
 
 const STATUS_KEYS = [
   { key: undefined, tKey: 'all' },
@@ -35,7 +36,14 @@ export default function InvoicesPage() {
     setSortDir(dir);
   };
 
-  const { data, isLoading } = useInvoices(page, activeStatus);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  const { data, isLoading } = useInvoices(page, activeStatus, undefined, debouncedSearch || undefined);
   const { data: summaryData } = useFinancialSummary();
   const generateMutation = useGenerateInvoice();
 
@@ -121,6 +129,17 @@ export default function InvoicesPage() {
             {summary ? formatCurrency(summary.revenue_this_month ?? 0) : '...'}
           </p>
         </div>
+      </div>
+
+      <div className="mb-3 relative max-w-md">
+        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by invoice number or customer name…"
+          className="block w-full rounded-md border border-gray-300 ps-9 pe-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
       </div>
 
       {/* Status Tabs */}

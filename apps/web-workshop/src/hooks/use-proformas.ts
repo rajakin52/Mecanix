@@ -45,13 +45,14 @@ interface ProformasResponse {
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
-export function useProformas(page = 1, status?: string, customerId?: string) {
+export function useProformas(page = 1, status?: string, customerId?: string, search?: string) {
   return useQuery({
-    queryKey: ['proformas', page, status, customerId],
+    queryKey: ['proformas', page, status, customerId, search],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '20' });
       if (status) params.set('status', status);
       if (customerId) params.set('customerId', customerId);
+      if (search && search.trim().length > 0) params.set('search', search.trim());
       return api.get<ProformasResponse>(`/proformas?${params}`);
     },
   });

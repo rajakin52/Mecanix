@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useToast, SkeletonPage } from '@mecanix/ui-web';
 import {
@@ -11,7 +12,7 @@ import {
   useConvertProforma,
 } from '@/hooks/use-proformas';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { ChevronLeft, Send, X, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Send, X, ArrowRight, Printer } from 'lucide-react';
 
 function statusBadge(status: string): string {
   const map: Record<string, string> = {
@@ -30,6 +31,7 @@ export default function ProformaDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const toast = useToast();
+  const locale = useLocale();
 
   const { data: proforma, isLoading } = useProforma(id);
   const send = useSendProforma();
@@ -110,9 +112,15 @@ export default function ProformaDetailPage() {
             </p>
           )}
         </div>
-        {!isFinal && (
-          <div className="flex flex-wrap items-center gap-2">
-            {proforma.status === 'draft' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => window.open(`/${locale}/print/proforma/${id}`, '_blank')}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Print / PDF
+          </button>
+          {!isFinal && proforma.status === 'draft' && (
               <button
                 onClick={handleSend}
                 disabled={send.isPending}
@@ -122,23 +130,26 @@ export default function ProformaDetailPage() {
                 Mark sent
               </button>
             )}
-            <button
-              onClick={handleConvert}
-              disabled={convert.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              <ArrowRight className="h-3.5 w-3.5" />
-              {convert.isPending ? 'Converting…' : 'Convert to Invoice'}
-            </button>
-            <button
-              onClick={() => setCancelOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
-            >
-              <X className="h-3.5 w-3.5" />
-              Cancel
-            </button>
-          </div>
-        )}
+          {!isFinal && (
+            <>
+              <button
+                onClick={handleConvert}
+                disabled={convert.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+                {convert.isPending ? 'Converting…' : 'Convert to Invoice'}
+              </button>
+              <button
+                onClick={() => setCancelOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="mb-4 rounded-lg border border-gray-200 bg-white">

@@ -259,25 +259,29 @@ export default function InvoiceDetailPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part</th>
-                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
-                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Sell Price</th>
-                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Subtotal</th>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Item code</th>
+                <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Description</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Units</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Unit price</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
+                <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Total price</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {partsLines && (partsLines as Array<Record<string, unknown>>).length > 0 ? (
                 (partsLines as Array<Record<string, unknown>>).map((line, idx) => (
                   <tr key={idx}>
+                    <td className="px-4 py-2 font-mono text-xs text-gray-700">{(line.part_number as string) ?? '—'}</td>
                     <td className="px-4 py-2 text-sm text-gray-700">{(line.part_name ?? line.description) as string}</td>
                     <td className="px-4 py-2 text-end text-sm text-gray-700">{line.quantity as number}</td>
                     <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(line.sell_price as number)}</td>
+                    <td className="px-4 py-2 text-end text-sm text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
                     <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="px-4 py-4 text-center text-sm text-gray-400">-</td>
+                  <td colSpan={6} className="px-4 py-4 text-center text-sm text-gray-400">-</td>
                 </tr>
               )}
             </tbody>

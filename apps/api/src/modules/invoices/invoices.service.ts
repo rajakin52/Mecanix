@@ -27,7 +27,7 @@ export class InvoicesService {
 
   async list(tenantId: string, pagination: PaginationInput, filters: InvoiceFilters = {}) {
     const client = this.supabase.getClient();
-    const { page, pageSize } = pagination;
+    const { page, pageSize, search } = pagination;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
@@ -45,6 +45,21 @@ export class InvoicesService {
     }
     if (filters.customerId) {
       query = query.eq('customer_id', filters.customerId);
+    }
+    if (search && search.trim().length > 0) {
+      const q = search.trim();
+      // PostgREST OR can't span joined tables, so we resolve matching
+      // customer IDs first and union them into the OR clause alongside
+      // invoice_number.
+      const { data: custHits } = await client
+        .from('customers')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .ilike('full_name', `%${q}%`);
+      const custIds = (custHits ?? []).map((r) => (r as { id: string }).id);
+      const orParts = [`invoice_number.ilike.%${q}%`];
+      if (custIds.length > 0) orParts.push(`customer_id.in.(${custIds.join(',')})`);
+      query = query.or(orParts.join(','));
     }
 
     query = query.order('created_at', { ascending: false });

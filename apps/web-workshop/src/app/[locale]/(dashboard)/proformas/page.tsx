@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { useProformas } from '@/hooks/use-proformas';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { SkeletonTable, EmptyState } from '@mecanix/ui-web';
+import { Search } from 'lucide-react';
 
 const STATUS_TABS = ['all', 'draft', 'sent', 'accepted', 'converted', 'cancelled'] as const;
 
@@ -23,7 +24,20 @@ function statusBadge(status: string): string {
 export default function ProformasPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const { data, isLoading } = useProformas(page, statusFilter === 'all' ? undefined : statusFilter);
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  // Reset to page 1 whenever the search changes
+  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  const { data, isLoading } = useProformas(
+    page,
+    statusFilter === 'all' ? undefined : statusFilter,
+    undefined,
+    debouncedSearch || undefined,
+  );
 
   return (
     <div>
@@ -46,6 +60,17 @@ export default function ProformasPage() {
             + New parts sale
           </Link>
         </div>
+      </div>
+
+      <div className="mb-3 relative max-w-md">
+        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by proforma number or customer name…"
+          className="block w-full rounded-md border border-gray-300 ps-9 pe-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
       </div>
 
       <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1">
