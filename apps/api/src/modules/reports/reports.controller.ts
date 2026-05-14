@@ -441,6 +441,18 @@ export class ReportsController {
     );
   }
 
+  @Get('statements/aging-receivables')
+  async agingReceivables(
+    @TenantId() tenantId: string,
+    @Query('customerId') customerId?: string,
+    @Query('asOfDate') asOfDate?: string,
+  ) {
+    return this.statementsService.agingReceivables(tenantId, {
+      customerId: customerId || undefined,
+      asOfDate: asOfDate || undefined,
+    });
+  }
+
   @Get('statements/settings')
   async getSoaSettings(@TenantId() tenantId: string) {
     return this.soaMailer.loadSettings(tenantId);

@@ -36,6 +36,107 @@ export interface Statement {
   aging?: AgingBuckets;
 }
 
+export type AgingBucket = 'current' | '30' | '60' | '90' | '90+';
+
+export interface AgingReceivableRow {
+  invoice_id: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  due_date: string | null;
+  days_overdue: number;
+  bucket: AgingBucket;
+  grand_total: number;
+  paid_amount: number;
+  balance_due: number;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+}
+
+export interface AgingTotals {
+  current: number;
+  thirty: number;
+  sixty: number;
+  ninety: number;
+  ninetyPlus: number;
+  total: number;
+  invoice_count: number;
+}
+
+export interface AgingCustomerGroup {
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  invoices: AgingReceivableRow[];
+  totals: AgingTotals;
+}
+
+export interface AgingReceivablesReport {
+  as_of_date: string;
+  customers: AgingCustomerGroup[];
+  totals: AgingTotals;
+}
+
+function makeEmptyTotals(): AgingTotals {
+  return {
+    current: 0,
+    thirty: 0,
+    sixty: 0,
+    ninety: 0,
+    ninetyPlus: 0,
+    total: 0,
+    invoice_count: 0,
+  };
+}
+
+function addToBucket(t: AgingTotals, r: AgingReceivableRow) {
+  t.total += r.balance_due;
+  t.invoice_count++;
+  switch (r.bucket) {
+    case 'current':
+      t.current += r.balance_due;
+      break;
+    case '30':
+      t.thirty += r.balance_due;
+      break;
+    case '60':
+      t.sixty += r.balance_due;
+      break;
+    case '90':
+      t.ninety += r.balance_due;
+      break;
+    case '90+':
+      t.ninetyPlus += r.balance_due;
+      break;
+  }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function roundTotals(t: AgingTotals): AgingTotals {
+  return {
+    current: round2(t.current),
+    thirty: round2(t.thirty),
+    sixty: round2(t.sixty),
+    ninety: round2(t.ninety),
+    ninetyPlus: round2(t.ninetyPlus),
+    total: round2(t.total),
+    invoice_count: t.invoice_count,
+  };
+}
+
+function emptyAgingReport(asOfDate: string): AgingReceivablesReport {
+  return {
+    as_of_date: asOfDate,
+    customers: [],
+    totals: makeEmptyTotals(),
+  };
+}
+
 export interface CustomerBalanceRow {
   customer_id: string;
   full_name: string;
@@ -333,6 +434,167 @@ export class StatementsService {
         total_outstanding: Math.round(r.total_outstanding * 100) / 100,
       }))
       .sort((a, b) => b.total_outstanding - a.total_outstanding);
+  }
+
+  /**
+   * Aging-of-receivables report.
+   *
+   * Returns per-invoice rows with bucket assignment, customer subtotals, and
+   * grand totals — the classic AR aging schedule.
+   *
+   * Honors an `asOfDate` snapshot: when provided, the balance is recomputed
+   * by subtracting payments and credit notes dated AFTER the snapshot, so
+   * the report reflects what was open on that date rather than today.
+   */
+  async agingReceivables(
+    tenantId: string,
+    options: { customerId?: string; asOfDate?: string } = {},
+  ): Promise<AgingReceivablesReport> {
+    const client = this.supabase.getClient();
+    const asOf = options.asOfDate ? new Date(options.asOfDate) : new Date();
+    const asOfDateStr = asOf.toISOString().slice(0, 10);
+    const asOfMs = new Date(asOfDateStr).getTime();
+
+    // Pull every invoice that was issued on or before the as-of date.
+    // We filter to non-cancelled — paid invoices are included so we can
+    // re-add payments/CNs back if they happened after the snapshot.
+    let invoiceQuery = client
+      .from('invoices')
+      .select(
+        'id, customer_id, invoice_number, invoice_date, due_date, grand_total, paid_amount, balance_due, status',
+      )
+      .eq('tenant_id', tenantId)
+      .neq('status', 'cancelled')
+      .lte('invoice_date', asOfDateStr);
+    if (options.customerId) invoiceQuery = invoiceQuery.eq('customer_id', options.customerId);
+    const { data: invoices, error: invErr } = await invoiceQuery;
+    if (invErr) throw invErr;
+
+    const invoiceIds = (invoices ?? []).map((i) => i.id as string);
+    if (invoiceIds.length === 0) {
+      return emptyAgingReport(asOfDateStr);
+    }
+
+    // Customers in one fetch.
+    const customerIds = Array.from(
+      new Set((invoices ?? []).map((i) => i.customer_id as string).filter(Boolean)),
+    );
+    const { data: customerRows } = await client
+      .from('customers')
+      .select('id, full_name, phone, email, company_name')
+      .in('id', customerIds);
+    const customerById = new Map<string, { full_name: string; phone: string | null; email: string | null; company_name: string | null }>();
+    for (const c of customerRows ?? []) {
+      customerById.set(c.id as string, {
+        full_name: (c.full_name as string) ?? '',
+        phone: (c.phone as string | null) ?? null,
+        email: (c.email as string | null) ?? null,
+        company_name: (c.company_name as string | null) ?? null,
+      });
+    }
+
+    // Payments AFTER the as-of date — these are added back to balance.
+    const { data: latePayments } = await client
+      .from('payments')
+      .select('invoice_id, amount, payment_date')
+      .in('invoice_id', invoiceIds)
+      .gt('payment_date', asOfDateStr);
+    const paymentAdjustment = new Map<string, number>();
+    for (const p of latePayments ?? []) {
+      const id = p.invoice_id as string;
+      paymentAdjustment.set(id, (paymentAdjustment.get(id) ?? 0) + Number(p.amount ?? 0));
+    }
+
+    // Credit notes AFTER the as-of date — same treatment.
+    const { data: lateCns } = await client
+      .from('credit_notes')
+      .select('invoice_id, amount, created_at')
+      .in('invoice_id', invoiceIds)
+      .gt('created_at', asOfDateStr);
+    for (const c of lateCns ?? []) {
+      const id = c.invoice_id as string;
+      paymentAdjustment.set(id, (paymentAdjustment.get(id) ?? 0) + Number(c.amount ?? 0));
+    }
+
+    const rows: AgingReceivableRow[] = [];
+    for (const inv of invoices ?? []) {
+      const id = inv.id as string;
+      const todayBalance = Number(inv.balance_due ?? 0);
+      const adjust = paymentAdjustment.get(id) ?? 0;
+      // Snapshot balance = today's balance + (payments/CNs after as-of).
+      // Clamped at the invoice's grand_total just to be safe.
+      const grandTotal = Number(inv.grand_total ?? 0);
+      const snapshotBalance = Math.min(grandTotal, todayBalance + adjust);
+      if (snapshotBalance <= 0) continue;
+
+      const dueDate = inv.due_date as string | null;
+      let daysOverdue = 0;
+      let bucket: AgingBucket = 'current';
+      if (dueDate) {
+        const diff = Math.floor((asOfMs - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24));
+        daysOverdue = Math.max(0, diff);
+      }
+      if (daysOverdue <= 0) bucket = 'current';
+      else if (daysOverdue <= 30) bucket = '30';
+      else if (daysOverdue <= 60) bucket = '60';
+      else if (daysOverdue <= 90) bucket = '90';
+      else bucket = '90+';
+
+      const cust = customerById.get(inv.customer_id as string);
+      rows.push({
+        invoice_id: id,
+        invoice_number: (inv.invoice_number as string) ?? '',
+        invoice_date: (inv.invoice_date as string) ?? null,
+        due_date: dueDate,
+        days_overdue: daysOverdue,
+        bucket,
+        grand_total: grandTotal,
+        paid_amount: Math.max(0, grandTotal - snapshotBalance),
+        balance_due: round2(snapshotBalance),
+        customer_id: (inv.customer_id as string) ?? null,
+        customer_name:
+          cust?.company_name?.trim()?.length ? cust.company_name : (cust?.full_name ?? '—'),
+        customer_phone: cust?.phone ?? null,
+        customer_email: cust?.email ?? null,
+      });
+    }
+
+    // Group into customer buckets.
+    const byCustomer = new Map<string, AgingCustomerGroup>();
+    const totals: AgingTotals = makeEmptyTotals();
+    for (const r of rows) {
+      const key = r.customer_id ?? '__no_customer__';
+      let g = byCustomer.get(key);
+      if (!g) {
+        g = {
+          customer_id: r.customer_id,
+          customer_name: r.customer_name,
+          customer_phone: r.customer_phone,
+          customer_email: r.customer_email,
+          invoices: [],
+          totals: makeEmptyTotals(),
+        };
+        byCustomer.set(key, g);
+      }
+      g.invoices.push(r);
+      addToBucket(g.totals, r);
+      addToBucket(totals, r);
+    }
+
+    // Sort customers by total desc, invoices oldest-due first.
+    const customers = Array.from(byCustomer.values())
+      .map((g) => ({
+        ...g,
+        invoices: g.invoices.sort((a, b) => (b.days_overdue ?? 0) - (a.days_overdue ?? 0)),
+        totals: roundTotals(g.totals),
+      }))
+      .sort((a, b) => b.totals.total - a.totals.total);
+
+    return {
+      as_of_date: asOfDateStr,
+      customers,
+      totals: roundTotals(totals),
+    };
   }
 
   async vendorStatement(

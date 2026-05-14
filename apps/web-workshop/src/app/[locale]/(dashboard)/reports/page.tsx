@@ -10,7 +10,8 @@ import { api } from '@/lib/api';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { useCustomers } from '@/hooks/use-customers';
-import { useCustomerStatement, useCustomerBalances } from '@/hooks/use-reports';
+import { useCustomerStatement, useCustomerBalances, useAgingReceivables } from '@/hooks/use-reports';
+import type { AgingCustomerGroup, AgingReceivableRow } from '@/hooks/use-reports';
 import { formatDate } from '@/lib/format';
 import {
   useRevenueReport,
@@ -39,6 +40,7 @@ type ReportType =
   | 'outstandingInvoices'
   | 'outstandingBills'
   | 'customerStatement'
+  | 'agingReceivables'
   | 'expensesByCategory'
   | 'incomeVsExpense'
   | 'insuranceClaims'
@@ -73,6 +75,7 @@ export default function ReportsPage() {
     { value: 'outstandingInvoices', label: t('outstandingInvoices') },
     { value: 'outstandingBills', label: t('outstandingBills') },
     { value: 'customerStatement', label: 'Statement of Account' },
+    { value: 'agingReceivables', label: 'Aging of Receivables' },
     { value: 'expensesByCategory', label: t('expensesByCategory') },
     { value: 'incomeVsExpense', label: t('incomeVsExpense') },
     { value: 'insuranceClaims', label: t('insuranceClaims') },
@@ -229,6 +232,9 @@ export default function ReportsPage() {
             endDate={endDate}
             t={t}
           />
+        )}
+        {selectedReport === 'agingReceivables' && (
+          <AgingReceivablesSection money={money} moneyWhole={moneyWhole} t={t} />
         )}
         {selectedReport === 'expensesByCategory' && (
           <ExpensesSection startDate={startDate} endDate={endDate} money={money} t={t} />
@@ -1943,6 +1949,383 @@ function CustomerStatementSection({
               </tfoot>
             </table>
           </div>
+        </>
+      )}
+    </ReportSection>
+  );
+}
+
+function AgingReceivablesSection({
+  money,
+  moneyWhole,
+  t,
+}: {
+  money: MoneyFn;
+  moneyWhole: MoneyFn;
+  t: TFn;
+}) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [customerId, setCustomerId] = useState<string>('');
+  const [asOfDate, setAsOfDate] = useState<string>(todayStr);
+  const [bucketFilter, setBucketFilter] =
+    useState<'all' | 'current' | '30' | '60' | '90' | '90+'>('all');
+
+  const { data: customersData } = useCustomers(1, '');
+  const customers = (customersData?.data ?? []) as Array<{ id: string; full_name: string; phone?: string }>;
+  const customerOptions = useMemo(
+    () => [
+      { value: '', label: 'All customers' },
+      ...customers.map((c) => ({
+        value: c.id,
+        label: `${c.full_name}${c.phone ? ' · ' + c.phone : ''}`,
+      })),
+    ],
+    [customers],
+  );
+
+  const { data: report, isLoading } = useAgingReceivables(customerId || undefined, asOfDate);
+
+  // Apply optional bucket filter on the client side without re-querying.
+  const filteredGroups: AgingCustomerGroup[] = useMemo(() => {
+    if (!report) return [];
+    if (bucketFilter === 'all') return report.customers;
+    return report.customers
+      .map((g): AgingCustomerGroup => {
+        const invoices = g.invoices.filter((i) => i.bucket === bucketFilter);
+        if (invoices.length === 0) return { ...g, invoices: [], totals: { ...g.totals, invoice_count: 0, total: 0, current: 0, thirty: 0, sixty: 0, ninety: 0, ninetyPlus: 0 } };
+        const totals = invoices.reduce(
+          (t, r) => {
+            t.total += r.balance_due;
+            t.invoice_count++;
+            if (r.bucket === 'current') t.current += r.balance_due;
+            else if (r.bucket === '30') t.thirty += r.balance_due;
+            else if (r.bucket === '60') t.sixty += r.balance_due;
+            else if (r.bucket === '90') t.ninety += r.balance_due;
+            else t.ninetyPlus += r.balance_due;
+            return t;
+          },
+          { current: 0, thirty: 0, sixty: 0, ninety: 0, ninetyPlus: 0, total: 0, invoice_count: 0 },
+        );
+        return { ...g, invoices, totals };
+      })
+      .filter((g) => g.invoices.length > 0);
+  }, [report, bucketFilter]);
+
+  const filteredTotals = useMemo(() => {
+    const t = { current: 0, thirty: 0, sixty: 0, ninety: 0, ninetyPlus: 0, total: 0, invoice_count: 0 };
+    for (const g of filteredGroups) {
+      t.current += g.totals.current;
+      t.thirty += g.totals.thirty;
+      t.sixty += g.totals.sixty;
+      t.ninety += g.totals.ninety;
+      t.ninetyPlus += g.totals.ninetyPlus;
+      t.total += g.totals.total;
+      t.invoice_count += g.totals.invoice_count;
+    }
+    return t;
+  }, [filteredGroups]);
+
+  const buildXlsx = () => {
+    if (filteredGroups.length === 0) return null;
+    const rows: (string | number)[][] = [
+      ['Customer', 'Phone', 'Invoice #', 'Invoice date', 'Due date', 'Days overdue', 'Bucket', 'Original', 'Paid', 'Balance due'],
+    ];
+    for (const g of filteredGroups) {
+      for (const inv of g.invoices) {
+        rows.push([
+          g.customer_name,
+          g.customer_phone ?? '',
+          inv.invoice_number,
+          inv.invoice_date ?? '',
+          inv.due_date ?? '',
+          inv.days_overdue,
+          inv.bucket,
+          inv.grand_total,
+          inv.paid_amount,
+          inv.balance_due,
+        ]);
+      }
+      rows.push([
+        `Subtotal — ${g.customer_name}`,
+        '',
+        `${g.totals.invoice_count} invoices`,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        g.totals.total,
+      ]);
+    }
+    rows.push([
+      'GRAND TOTAL',
+      '',
+      `${filteredTotals.invoice_count} invoices`,
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      filteredTotals.total,
+    ]);
+    return rows;
+  };
+
+  const bucketStyle = (b: AgingReceivableRow['bucket']): string => {
+    if (b === '90+') return 'bg-red-100 text-red-700';
+    if (b === '90') return 'bg-red-50 text-red-600';
+    if (b === '60') return 'bg-amber-100 text-amber-700';
+    if (b === '30') return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-600';
+  };
+
+  return (
+    <ReportSection
+      title="Aging of Receivables"
+      subtitle={`Snapshot as of ${asOfDate}. ${
+        customerId ? 'Single customer view.' : 'Grouped by customer, oldest invoice first.'
+      }`}
+      exportCsv={{
+        filename: `aging-receivables-${asOfDate}${customerId ? '-customer' : ''}`,
+        build: buildXlsx,
+      }}
+      disableExport={isLoading || filteredGroups.length === 0}
+      rightSlot={
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="w-64">
+            <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              Customer
+            </label>
+            <SearchableSelect
+              value={customerId}
+              options={customerOptions}
+              placeholder="All customers"
+              allowFreeText={false}
+              onChange={setCustomerId}
+            />
+          </div>
+          <div>
+            <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500">
+              As of
+            </label>
+            <input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value || todayStr)}
+              max={todayStr}
+              className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+            />
+          </div>
+        </div>
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Loading…</p>
+      ) : !report || report.customers.length === 0 ? (
+        <p className="py-6 text-center text-sm text-green-700">
+          No open invoices on {asOfDate}. 🎉
+        </p>
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-6">
+            <Card label="Open invoices" value={String(filteredTotals.invoice_count)} />
+            <Card label="Current" value={moneyWhole(filteredTotals.current)} />
+            <Card label="1–30 days" value={moneyWhole(filteredTotals.thirty)} />
+            <Card label="31–60 days" value={moneyWhole(filteredTotals.sixty)} />
+            <Card label="61–90 days" value={moneyWhole(filteredTotals.ninety)} />
+            <Card
+              label="90+ days"
+              value={moneyWhole(filteredTotals.ninetyPlus)}
+              className={filteredTotals.ninetyPlus > 0 ? 'border-red-200 bg-red-50' : ''}
+            />
+          </div>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Bucket
+            </span>
+            {(['all', 'current', '30', '60', '90', '90+'] as const).map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setBucketFilter(b)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                  bucketFilter === b
+                    ? 'border-primary-300 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {b === 'all'
+                  ? 'All'
+                  : b === 'current'
+                    ? 'Current'
+                    : b === '30'
+                      ? '1–30 d'
+                      : b === '60'
+                        ? '31–60 d'
+                        : b === '90'
+                          ? '61–90 d'
+                          : '90+ d'}
+              </button>
+            ))}
+          </div>
+
+          {filteredGroups.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-500">
+              No invoices in the selected bucket.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-start">Invoice</th>
+                    <th className="px-3 py-2 text-start">Invoice date</th>
+                    <th className="px-3 py-2 text-start">Due date</th>
+                    <th className="px-3 py-2 text-end">Days overdue</th>
+                    <th className="px-3 py-2 text-start">Bucket</th>
+                    <th className="px-3 py-2 text-end">Original</th>
+                    <th className="px-3 py-2 text-end">Paid</th>
+                    <th className="px-3 py-2 text-end">Balance due</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredGroups.map((g) => (
+                    <React.Fragment key={g.customer_id ?? g.customer_name}>
+                      <tr className="bg-gray-50">
+                        <td
+                          colSpan={8}
+                          className="px-3 py-2 text-sm font-semibold text-gray-800"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setCustomerId(g.customer_id ?? '')}
+                            className="text-primary-700 hover:underline"
+                          >
+                            {g.customer_name}
+                          </button>
+                          {g.customer_phone && (
+                            <span className="ms-2 text-xs font-normal text-gray-500">
+                              {g.customer_phone}
+                            </span>
+                          )}
+                          <span className="float-end text-xs font-normal text-gray-500">
+                            {g.totals.invoice_count} open · {money(g.totals.total)}
+                          </span>
+                        </td>
+                      </tr>
+                      {g.invoices.map((inv) => (
+                        <tr
+                          key={inv.invoice_id}
+                          className={
+                            inv.bucket === '90+'
+                              ? 'bg-red-50/40'
+                              : inv.bucket === '90'
+                                ? 'bg-red-50/20'
+                                : inv.bucket === '60'
+                                  ? 'bg-amber-50/30'
+                                  : ''
+                          }
+                        >
+                          <td className="px-3 py-2 font-medium text-gray-900">
+                            {inv.invoice_number}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-500">
+                            {inv.invoice_date ? formatDate(inv.invoice_date) : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-500">
+                            {inv.due_date ? formatDate(inv.due_date) : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-end tabular-nums">
+                            <span
+                              className={
+                                inv.days_overdue > 60
+                                  ? 'font-semibold text-red-600'
+                                  : inv.days_overdue > 30
+                                    ? 'font-medium text-amber-700'
+                                    : inv.days_overdue > 0
+                                      ? 'text-yellow-700'
+                                      : 'text-gray-500'
+                              }
+                            >
+                              {inv.days_overdue}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${bucketStyle(
+                                inv.bucket,
+                              )}`}
+                            >
+                              {inv.bucket === 'current' ? 'Current' : `${inv.bucket}d`}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-end text-gray-700">
+                            {money(inv.grand_total)}
+                          </td>
+                          <td className="px-3 py-2 text-end text-emerald-700">
+                            {money(inv.paid_amount)}
+                          </td>
+                          <td className="px-3 py-2 text-end font-semibold text-gray-900">
+                            {money(inv.balance_due)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-50/60 text-xs">
+                        <td colSpan={4}></td>
+                        <td className="px-3 py-1.5 text-gray-500">Subtotal</td>
+                        <td className="px-3 py-1.5 text-end text-gray-700">
+                          {money(
+                            g.invoices.reduce((s, i) => s + i.grand_total, 0),
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-end text-gray-700">
+                          {money(
+                            g.invoices.reduce((s, i) => s + i.paid_amount, 0),
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-end font-semibold text-gray-900">
+                          {money(g.totals.total)}
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-100 font-semibold">
+                  <tr>
+                    <td className="px-3 py-2 text-gray-700" colSpan={3}>
+                      GRAND TOTAL
+                    </td>
+                    <td className="px-3 py-2 text-end text-gray-700">
+                      {filteredTotals.invoice_count}
+                    </td>
+                    <td></td>
+                    <td className="px-3 py-2 text-end text-gray-900">
+                      {money(
+                        filteredGroups.reduce(
+                          (s, g) => s + g.invoices.reduce((ss, i) => ss + i.grand_total, 0),
+                          0,
+                        ),
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-end text-gray-900">
+                      {money(
+                        filteredGroups.reduce(
+                          (s, g) => s + g.invoices.reduce((ss, i) => ss + i.paid_amount, 0),
+                          0,
+                        ),
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-end text-gray-900">
+                      {money(filteredTotals.total)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </>
       )}
     </ReportSection>

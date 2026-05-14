@@ -64,6 +64,63 @@ export function useCustomerBalances() {
   });
 }
 
+export type AgingBucket = 'current' | '30' | '60' | '90' | '90+';
+
+export interface AgingReceivableRow {
+  invoice_id: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  due_date: string | null;
+  days_overdue: number;
+  bucket: AgingBucket;
+  grand_total: number;
+  paid_amount: number;
+  balance_due: number;
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+}
+
+export interface AgingTotals {
+  current: number;
+  thirty: number;
+  sixty: number;
+  ninety: number;
+  ninetyPlus: number;
+  total: number;
+  invoice_count: number;
+}
+
+export interface AgingCustomerGroup {
+  customer_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  invoices: AgingReceivableRow[];
+  totals: AgingTotals;
+}
+
+export interface AgingReceivablesReport {
+  as_of_date: string;
+  customers: AgingCustomerGroup[];
+  totals: AgingTotals;
+}
+
+export function useAgingReceivables(customerId?: string, asOfDate?: string) {
+  const params = new URLSearchParams();
+  if (customerId) params.set('customerId', customerId);
+  if (asOfDate) params.set('asOfDate', asOfDate);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['report-aging-receivables', customerId ?? null, asOfDate ?? null],
+    queryFn: () =>
+      api.get<AgingReceivablesReport>(
+        `/reports/statements/aging-receivables${qs ? `?${qs}` : ''}`,
+      ),
+  });
+}
+
 export function useRevenueReport(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['report-revenue', startDate, endDate],
