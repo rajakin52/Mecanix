@@ -67,7 +67,7 @@ export default function ReportsPage() {
     selectedReport === 'outstandingInvoices' || selectedReport === 'outstandingBills';
   const [agingFilter, setAgingFilter] = useState<'all' | '0' | '30' | '60' | '90'>('all');
 
-  const reportOptions: { value: ReportType; label: string }[] = [
+  const reportOptions: { value: ReportType; label: string }[] = ([
     { value: 'revenue', label: t('revenue') },
     { value: 'jobCards', label: t('jobCards') },
     { value: 'technicians', label: t('technicians') },
@@ -87,7 +87,9 @@ export default function ReportsPage() {
     { value: 'purchaseRequestSummary', label: t('purchaseRequestSummary') },
     { value: 'vendorPerformance', label: t('vendorPerformance') },
     { value: 'wipInventory', label: t('wipInventory') },
-  ];
+  ] satisfies { value: ReportType; label: string }[]).slice().sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+  );
 
   return (
     <div>
