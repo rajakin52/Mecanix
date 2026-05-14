@@ -40,29 +40,48 @@ export class PartsService {
       .eq('is_active', true);
 
     if (search) {
-      // Search across description, part_number, AND compat rows (make/model).
-      // PostgREST can't OR across joined tables, so we resolve matching
-      // compat part_ids first then union into the OR.
-      const compatHits = await client
-        .from('part_vehicle_compat')
-        .select('part_id')
-        .eq('tenant_id', tenantId)
-        .or(`make.ilike.%${search}%,model.ilike.%${search}%`);
-      const compatIds = Array.from(
-        new Set(
-          (compatHits.data ?? [])
-            .map((r) => (r as { part_id: string }).part_id)
-            .filter(Boolean),
-        ),
-      );
-      const orParts = [
-        `description.ilike.%${search}%`,
-        `part_number.ilike.%${search}%`,
-      ];
-      if (compatIds.length > 0) {
-        orParts.push(`id.in.(${compatIds.join(',')})`);
+      // Tokenised AND-of-OR search. The input is split on whitespace
+      // and every token must appear somewhere across (description,
+      // part_number, compat.make, compat.model) — order-independent
+      // and gap-tolerant. So "farol raize" matches a part described
+      // as "Farol Toyota Raize" even though "Toyota" sits between them.
+      //
+      // Implementation note: PostgREST can't OR across joined tables,
+      // so for each token we resolve the matching compat part_ids
+      // separately, then build an OR-clause per token and call .or()
+      // multiple times — successive .or() calls are AND'd together
+      // by Supabase JS, which is exactly the semantics we want.
+      const tokens = search
+        .trim()
+        .split(/\s+/)
+        // Strip commas and parens — PostgREST treats them as structure
+        // in or() values and they'd corrupt the filter string.
+        .map((t) => t.replace(/[(),]/g, '').trim())
+        .filter((t) => t.length > 0)
+        .slice(0, 6); // cap blast radius
+
+      for (const token of tokens) {
+        const compatHits = await client
+          .from('part_vehicle_compat')
+          .select('part_id')
+          .eq('tenant_id', tenantId)
+          .or(`make.ilike.%${token}%,model.ilike.%${token}%`);
+        const compatIds = Array.from(
+          new Set(
+            (compatHits.data ?? [])
+              .map((r) => (r as { part_id: string }).part_id)
+              .filter(Boolean),
+          ),
+        );
+        const orParts = [
+          `description.ilike.%${token}%`,
+          `part_number.ilike.%${token}%`,
+        ];
+        if (compatIds.length > 0) {
+          orParts.push(`id.in.(${compatIds.join(',')})`);
+        }
+        query = query.or(orParts.join(','));
       }
-      query = query.or(orParts.join(','));
     }
 
     if (filters.category) {
