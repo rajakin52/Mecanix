@@ -676,28 +676,48 @@ export class InvoicesService {
     const { error } = await client.from('parts_lines').insert(rows);
     if (error) throw error;
 
-    // Stock deduction: only for invoiced sales of catalogue parts
+    // Stock deduction: only for invoiced sales of catalogue parts.
+    //
+    // The single source of truth for stock is warehouse_stock — parts.stock_qty
+    // is a read-only cache kept in sync by the trigger from migration 00108.
+    // Writing to parts.stock_qty directly is silently overridden, so the
+    // previous version of this code was a no-op and OTC sales weren't
+    // actually deducting stock.
+    //
+    // For OTC we pick the first warehouse_stock row for the part and
+    // decrement there. If a part has no warehouse_stock row we still
+    // record an inventory_adjustments audit row but emit a log line so
+    // the discrepancy is visible. The same pattern is used by the JC
+    // parts flow (parts-lines.service.ts).
     if (parent === 'invoice') {
       for (const l of enriched) {
         if (!l.part_id) continue;
-        const { data: part } = await client
-          .from('parts')
-          .select('id, stock_qty, part_number')
-          .eq('id', l.part_id)
+        const qty = l.quantity;
+
+        const { data: whStock } = await client
+          .from('warehouse_stock')
+          .select('id, quantity')
+          .eq('part_id', l.part_id)
           .eq('tenant_id', tenantId)
+          .limit(1)
           .maybeSingle();
-        if (!part) continue;
-        const newStock = Math.max(0, Number(part.stock_qty ?? 0) - l.quantity);
-        await client
-          .from('parts')
-          .update({ stock_qty: newStock, updated_by: userId })
-          .eq('id', l.part_id)
-          .eq('tenant_id', tenantId);
+
+        if (whStock) {
+          await client
+            .from('warehouse_stock')
+            .update({ quantity: Number(whStock.quantity) - qty })
+            .eq('id', whStock.id)
+            .eq('tenant_id', tenantId);
+        } else {
+          this.logger.warn(
+            `OTC sale of part ${l.part_id} has no warehouse_stock row — audit logged but no stock movement performed`,
+          );
+        }
 
         await client.from('inventory_adjustments').insert({
           tenant_id: tenantId,
           part_id: l.part_id,
-          quantity_change: -l.quantity,
+          quantity_change: -qty,
           reason: 'OTC sale (stand-alone invoice)',
           reference: parentId,
           adjusted_by: userId,
