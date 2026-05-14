@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, Link } from '@/i18n/navigation';
 import { useToast } from '@mecanix/ui-web';
 import { useCustomers } from '@/hooks/use-customers';
-import { useParts } from '@/hooks/use-parts';
+import { useParts, useVehicleMakes, useVehicleModels } from '@/hooks/use-parts';
 import { useCreateStandaloneInvoice, type StandaloneLine } from '@/hooks/use-invoices';
 import { useCreateProforma } from '@/hooks/use-proformas';
 import { SearchableSelect } from '@/components/SearchableSelect';
@@ -50,7 +50,35 @@ export default function NewPartsSalePage() {
     const t = setTimeout(() => setDebouncedSearch(partSearchInput), 250);
     return () => clearTimeout(t);
   }, [partSearchInput]);
-  const { data: partsData } = useParts(1, debouncedSearch, undefined);
+
+  // Vehicle scope: narrows the catalogue to parts that fit the chosen
+  // make/model/year. Parts marked "Fits all vehicles" still appear.
+  // Leave empty to see everything.
+  const [filterMake, setFilterMake] = useState('');
+  const [filterModel, setFilterModel] = useState('');
+  const [filterYear, setFilterYear] = useState('');
+  const vehicleScope = filterMake
+    ? {
+        make: filterMake,
+        model: filterModel || undefined,
+        year: filterYear ? Number(filterYear) : undefined,
+      }
+    : undefined;
+  const { data: vehicleMakes } = useVehicleMakes();
+  const { data: vehicleModels } = useVehicleModels(filterMake || undefined);
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    const out: string[] = [];
+    for (let y = current + 1; y >= 1990; y--) out.push(String(y));
+    return out;
+  }, []);
+  const resetVehicleFilter = () => {
+    setFilterMake('');
+    setFilterModel('');
+    setFilterYear('');
+  };
+
+  const { data: partsData } = useParts(1, debouncedSearch, undefined, vehicleScope);
   const parts = partsData?.data ?? [];
   const partOptions = useMemo(
     () => parts.map((p) => ({ value: p.id, label: `${p.part_number ?? '—'} · ${p.description}` })),
@@ -196,6 +224,59 @@ export default function NewPartsSalePage() {
               allowFreeText={false}
               onChange={setCustomerId}
             />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">
+              Filter parts by vehicle
+            </label>
+            {vehicleScope && (
+              <button
+                type="button"
+                onClick={resetVehicleFilter}
+                className="text-xs font-medium text-gray-600 hover:text-gray-900"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+          <p className="mb-2 text-xs text-gray-500">
+            Parts marked &ldquo;Fits all vehicles&rdquo; always appear. Leave empty to see every part.
+          </p>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <div>
+              <label className="block text-xs text-gray-500">Make</label>
+              <SearchableSelect
+                value={filterMake}
+                options={vehicleMakes ?? []}
+                placeholder="Search make…"
+                onChange={(v) => {
+                  setFilterMake(v);
+                  setFilterModel('');
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500">Model</label>
+              <SearchableSelect
+                value={filterModel}
+                options={vehicleModels ?? []}
+                placeholder={filterMake ? 'Search model…' : 'Pick a make first'}
+                disabled={!filterMake}
+                onChange={setFilterModel}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500">Year</label>
+              <SearchableSelect
+                value={filterYear}
+                options={yearOptions}
+                placeholder="Search year…"
+                onChange={setFilterYear}
+              />
+            </div>
           </div>
         </div>
 
