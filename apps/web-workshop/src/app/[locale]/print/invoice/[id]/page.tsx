@@ -65,11 +65,34 @@ export default function PrintInvoicePage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inv = invoice as Record<string, any>;
   const customer = (inv.customer ?? inv.customers) as { full_name: string; phone?: string; email?: string; tax_id?: string; address?: string; is_corporate?: boolean; company_name?: string } | undefined;
-  const jobCard = (inv.job_card ?? inv.job_cards) as { job_number: string } | undefined;
+  const jobCard = (inv.job_card ?? inv.job_cards) as {
+    job_number: string;
+    reported_problem?: string | null;
+    customer_remarks?: string | null;
+    internal_notes?: string | null;
+    date_opened?: string | null;
+    date_closed?: string | null;
+    service_writer?: { id: string; full_name: string } | null;
+    primary_technician?: { id: string; full_name: string } | null;
+    vehicle?: { plate?: string; vin?: string | null; make?: string; model?: string; year?: number | null; color?: string | null; fuel_type?: string | null; mileage?: number | null } | null;
+  } | undefined;
   const tenantData = tenant as Record<string, unknown> | undefined;
-  const veh = vehicle as { plate?: string; make?: string; model?: string; year?: number | null; color?: string | null; fuel_type?: string | null; mileage?: number | null } | undefined;
+  // Prefer the JC-joined vehicle (richer — includes VIN); fall back to the
+  // separately-fetched vehicle hook for invoices that don't carry the join.
+  const veh = (jobCard?.vehicle ?? vehicle) as {
+    plate?: string;
+    vin?: string | null;
+    make?: string;
+    model?: string;
+    year?: number | null;
+    color?: string | null;
+    fuel_type?: string | null;
+    mileage?: number | null;
+  } | undefined;
   const rec = reception as { odometer_km?: number; fuel_level?: string } | null | undefined;
   const odometer = rec?.odometer_km ?? veh?.mileage ?? null;
+  const serviceAdvisor = jobCard?.service_writer?.full_name ?? null;
+  const technician = jobCard?.primary_technician?.full_name ?? null;
   const fuelLevelLabel = rec?.fuel_level ? FUEL_LEVEL_LABELS[rec.fuel_level] ?? rec.fuel_level : null;
   const isCorporate = !!customer?.is_corporate;
 
@@ -182,6 +205,12 @@ export default function PrintInvoicePage() {
                     </span>
                   </p>
                 )}
+                {veh.vin && (
+                  <p className="col-span-2">
+                    <span className="text-gray-500">VIN / Chassi:</span>{' '}
+                    <span className="font-mono font-semibold">{veh.vin}</span>
+                  </p>
+                )}
                 {odometer != null && (
                   <p>
                     <span className="text-gray-500">Km:</span>{' '}
@@ -194,39 +223,63 @@ export default function PrintInvoicePage() {
                     <span className="font-semibold">{fuelLevelLabel}</span>
                   </p>
                 )}
+                {veh.color && (
+                  <p>
+                    <span className="text-gray-500">Cor:</span>{' '}
+                    <span className="font-semibold">{veh.color}</span>
+                  </p>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Labour lines */}
-        {labour.length > 0 && (
-          <div className="mb-3">
-            <h3 className="mb-1 border-b border-gray-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">Mão de Obra</h3>
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="text-left text-[9px] uppercase tracking-wide text-gray-500">
-                  <th className="py-1 pr-3">Descrição</th>
-                  <th className="py-1 pr-3 text-right">Horas</th>
-                  <th className="py-1 pr-3 text-right">Taxa</th>
-                  <th className="py-1 text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {labour.map((line, i) => (
-                  <tr key={i} className="border-b border-gray-100">
-                    <td className="py-1 pr-3">{line.description as string}</td>
-                    <td className="py-1 pr-3 text-right tabular-nums">{line.hours as number}</td>
-                    <td className="py-1 pr-3 text-right tabular-nums">{formatCurrency(line.rate as number)}</td>
-                    <td className="py-1 text-right font-medium tabular-nums">{formatCurrency(line.subtotal as number)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Job Summary — only for JC-linked (repair) invoices. */}
+        {jobCard && (
+          <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 p-2.5">
+            <h3 className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+              Resumo do Serviço
+            </h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-gray-700">
+              <p>
+                <span className="text-gray-500">Job card:</span>{' '}
+                <span className="font-semibold">{jobCard.job_number}</span>
+              </p>
+              {jobCard.date_opened && (
+                <p>
+                  <span className="text-gray-500">Aberto:</span>{' '}
+                  <span className="font-semibold">{formatDate(jobCard.date_opened)}</span>
+                </p>
+              )}
+              {jobCard.date_closed && (
+                <p>
+                  <span className="text-gray-500">Concluído:</span>{' '}
+                  <span className="font-semibold">{formatDate(jobCard.date_closed)}</span>
+                </p>
+              )}
+              {serviceAdvisor && (
+                <p>
+                  <span className="text-gray-500">Recepcionista:</span>{' '}
+                  <span className="font-semibold">{serviceAdvisor}</span>
+                </p>
+              )}
+              {technician && (
+                <p>
+                  <span className="text-gray-500">Técnico:</span>{' '}
+                  <span className="font-semibold">{technician}</span>
+                </p>
+              )}
+            </div>
+            {jobCard.reported_problem && (
+              <p className="mt-1.5 text-[10px] text-gray-700">
+                <span className="text-gray-500">Problema reportado: </span>
+                <span>{jobCard.reported_problem}</span>
+              </p>
+            )}
           </div>
         )}
 
-        {/* Parts lines */}
+        {/* Parts lines — first per the workshop convention. */}
         {parts.length > 0 && (
           <div className="mb-3">
             <h3 className="mb-1 border-b border-gray-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">Peças</h3>
@@ -247,6 +300,33 @@ export default function PrintInvoicePage() {
                     <td className="py-1 pr-2">{line.part_name as string}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">{line.quantity as number}</td>
                     <td className="py-1 pr-2 text-right tabular-nums">{formatCurrency(line.sell_price as number)}</td>
+                    <td className="py-1 text-right font-medium tabular-nums">{formatCurrency(line.subtotal as number)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Labour lines — only on JC-linked (repair) invoices. */}
+        {!isStandalone && labour.length > 0 && (
+          <div className="mb-3">
+            <h3 className="mb-1 border-b border-gray-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700">Mão de Obra</h3>
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-left text-[9px] uppercase tracking-wide text-gray-500">
+                  <th className="py-1 pr-3">Descrição</th>
+                  <th className="py-1 pr-3 text-right">Horas</th>
+                  <th className="py-1 pr-3 text-right">Taxa</th>
+                  <th className="py-1 text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {labour.map((line, i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="py-1 pr-3">{line.description as string}</td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{line.hours as number}</td>
+                    <td className="py-1 pr-3 text-right tabular-nums">{formatCurrency(line.rate as number)}</td>
                     <td className="py-1 text-right font-medium tabular-nums">{formatCurrency(line.subtotal as number)}</td>
                   </tr>
                 ))}
@@ -292,10 +372,12 @@ export default function PrintInvoicePage() {
 
           {/* Totals (right) */}
           <div className="w-72 border-t-2 border-gray-800 pt-2">
-          <div className="flex justify-between py-0.5 text-[11px]">
-            <span>Mão de Obra:</span>
-            <span className="tabular-nums">{formatCurrency(inv.labour_total as number)}</span>
-          </div>
+          {!isStandalone && (
+            <div className="flex justify-between py-0.5 text-[11px]">
+              <span>Mão de Obra:</span>
+              <span className="tabular-nums">{formatCurrency(inv.labour_total as number)}</span>
+            </div>
+          )}
           <div className="flex justify-between py-0.5 text-[11px]">
             <span>Peças:</span>
             <span className="tabular-nums">{formatCurrency(inv.parts_total as number)}</span>
@@ -403,29 +485,113 @@ export default function PrintInvoicePage() {
 
         {/* Insurance split */}
         {inv.is_insurance && (
-          <div className="mt-6 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm">
-            <h3 className="font-semibold text-blue-900 mb-1">Seguro</h3>
+          <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-2.5 text-[10px]">
+            <h3 className="mb-0.5 font-semibold text-blue-900">Seguro</h3>
             <div className="flex justify-between">
               <span>Parte do Cliente:</span>
-              <span>{formatCurrency(inv.customer_portion as number)}</span>
+              <span className="tabular-nums">{formatCurrency(inv.customer_portion as number)}</span>
             </div>
             <div className="flex justify-between">
               <span>Parte da Seguradora:</span>
-              <span>{formatCurrency(inv.insurance_portion as number)}</span>
+              <span className="tabular-nums">{formatCurrency(inv.insurance_portion as number)}</span>
             </div>
           </div>
         )}
 
-        {/* Notes */}
-        {inv.notes && (
-          <div className="mt-6 text-sm text-gray-600">
-            <p className="font-semibold">Notas:</p>
-            <p>{String(inv.notes)}</p>
+        {/* Warranty / Notes — bundles workshop boilerplate + per-line warranty
+            from the JC labour (warranty_months / warranty_km on each line)
+            + any free-text notes captured at invoice generation. */}
+        {(() => {
+          const linesWithWarranty = labour.filter(
+            (l) => (l.warranty_months as number | null) || (l.warranty_km as number | null),
+          );
+          const hasWarrantyContent = linesWithWarranty.length > 0;
+          const hasNotes = !!inv.notes;
+          const hasJcRemarks = !!jobCard?.customer_remarks;
+          if (!hasWarrantyContent && !hasNotes && !hasJcRemarks && isStandalone) return null;
+          return (
+            <div className="mt-3 rounded-md border border-gray-200 p-2.5">
+              <h3 className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                Garantia &amp; Notas
+              </h3>
+              {!isStandalone && (
+                <p className="text-[10px] text-gray-700">
+                  Mão de obra e peças fornecidas estão cobertas por garantia conforme indicada
+                  por linha abaixo. Não cobre desgaste normal, uso indevido, ou intervenções
+                  realizadas por terceiros após a entrega do veículo.
+                </p>
+              )}
+              {hasWarrantyContent && (
+                <ul className="mt-1 list-disc ps-4 text-[10px] text-gray-700">
+                  {linesWithWarranty.map((l, i) => {
+                    const m = l.warranty_months as number | null;
+                    const km = l.warranty_km as number | null;
+                    const parts: string[] = [];
+                    if (m != null) parts.push(`${m} meses`);
+                    if (km != null) parts.push(`${(km / 1000).toFixed(0)}k km`);
+                    return (
+                      <li key={i}>
+                        <span className="font-medium">{l.description as string}:</span>{' '}
+                        {parts.join(' / ')}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {hasJcRemarks && (
+                <div className="mt-1 text-[10px] text-gray-700">
+                  <span className="text-gray-500">Observações do cliente: </span>
+                  <span>{String(jobCard?.customer_remarks)}</span>
+                </div>
+              )}
+              {hasNotes && (
+                <div className="mt-1 text-[10px] text-gray-700">
+                  <span className="text-gray-500">Notas: </span>
+                  <span>{String(inv.notes)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Next service recommendation — only when the JC has a next-due
+            captured on customer_remarks / internal_notes or on a separate
+            field. For now we surface internal_notes-as-recommendation only
+            when prefixed with "Próxima revisão:" so non-recommendation
+            notes don't leak. */}
+        {jobCard?.internal_notes && /pr[óo]xim[ao]\s+(revis[ãa]o|servi[çc]o|manuten[çc][ãa]o)/i.test(jobCard.internal_notes) && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-2.5">
+            <h3 className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
+              Próximo Serviço Recomendado
+            </h3>
+            <p className="text-[10px] text-gray-700">{jobCard.internal_notes}</p>
+          </div>
+        )}
+
+        {/* Signature — workshop + customer. Print-only feature; reproduces
+            the legal acknowledgement the customer signs on collection. */}
+        {!isStandalone && (
+          <div className="mt-6 grid grid-cols-2 gap-8">
+            <div>
+              <div className="mb-1 h-12 border-b border-gray-400"></div>
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
+                Oficina · {String(tenantData?.name ?? '')}
+              </p>
+            </div>
+            <div>
+              <div className="mb-1 h-12 border-b border-gray-400"></div>
+              <p className="text-[9px] uppercase tracking-wide text-gray-500">
+                Cliente · {customer?.full_name ?? ''}
+              </p>
+              <p className="text-[9px] text-gray-400">
+                Declaro ter recebido o veículo e os serviços identificados nesta factura.
+              </p>
+            </div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="mt-12 border-t border-gray-300 pt-4 text-center text-xs text-gray-400">
+        <div className="mt-6 border-t border-gray-300 pt-2 text-center text-[9px] text-gray-400">
           <p>{String(tenantData?.name ?? 'MECANIX')} — Documento gerado automaticamente</p>
         </div>
       </div>

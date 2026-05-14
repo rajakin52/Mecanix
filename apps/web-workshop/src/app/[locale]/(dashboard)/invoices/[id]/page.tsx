@@ -293,10 +293,12 @@ export default function InvoiceDetailPage() {
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('grandTotal')}</h2>
         <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-500">{t('labourTotal')}</span>
-            <span className="text-gray-900">{formatCurrency(invoice.labour_total)}</span>
-          </div>
+          {!isStandalone && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">{t('labourTotal')}</span>
+              <span className="text-gray-900">{formatCurrency(invoice.labour_total)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">{t('partsTotal')}</span>
             <span className="text-gray-900">{formatCurrency(invoice.parts_total)}</span>

@@ -82,9 +82,15 @@ export class InvoicesService {
   async getById(tenantId: string, id: string) {
     const client = this.supabase.getClient();
 
+    // Enrich the JC join with vehicle (VIN, plate, make/model, mileage)
+    // + service writer (advisor) + primary technician so the printed
+    // repair invoice can render the full repair-shop fact sheet
+    // without separate fetches.
     const { data, error } = await client
       .from('invoices')
-      .select('*, customer:customers(*), job_card:job_cards(*)')
+      .select(
+        '*, customer:customers(*), job_card:job_cards(*, vehicle:vehicles(id, plate, vin, make, model, year, color, fuel_type, mileage), service_writer:users(id, full_name), primary_technician:technicians(id, full_name))',
+      )
       .eq('id', id)
       .eq('tenant_id', tenantId)
 
