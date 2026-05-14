@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { JobsService } from './jobs.service';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -53,7 +54,11 @@ interface RateBundle {
  */
 @Injectable()
 export class MaterialsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => JobsService))
+    private readonly jobsService: JobsService,
+  ) {}
 
   async preview(tenantId: string, jobCardId: string): Promise<MaterialsPreview> {
     const client = this.supabase.getClient();
@@ -187,6 +192,8 @@ export class MaterialsService {
    * and inserts a fresh set from the current preview.
    */
   async apply(tenantId: string, jobCardId: string, userId: string) {
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     const preview = await this.preview(tenantId, jobCardId);
     const client = this.supabase.getClient();
 

@@ -37,6 +37,8 @@ export class PartsLinesService {
     userRole: string,
     input: CreatePartsLineInput,
   ) {
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     // Require vehicle inspection before adding work items
     await this.inspectionsService.requireInspection(tenantId, jobCardId);
 
@@ -193,6 +195,9 @@ export class PartsLinesService {
       throw new NotFoundException('Parts line not found');
     }
 
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, existing.job_card_id as string);
+
     const unitCost = input.unitCost ?? existing.unit_cost;
     const markupPct = input.markupPct ?? existing.markup_pct;
     const quantity = input.quantity ?? existing.quantity;
@@ -331,6 +336,7 @@ export class PartsLinesService {
   }
 
   async delete(tenantId: string, id: string, jobCardId: string) {
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     // Get line data before deleting (for stock return / reservation release)
     const { data: line } = await this.supabase
       .getClient()
@@ -448,6 +454,7 @@ export class PartsLinesService {
    *   - Creates inventory_adjustment records
    */
   async issueParts(tenantId: string, jobCardId: string): Promise<number> {
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     const client = this.supabase.getClient();
 
     // Get all reserved parts lines for this job
@@ -567,6 +574,8 @@ export class PartsLinesService {
     if (line.line_status === 'charged') {
       throw new BadRequestException('Line is already charged');
     }
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, line.job_card_id as string);
 
     // Inspection gate — cannot charge without inspection
     await this.inspectionsService.requireInspection(tenantId, line.job_card_id);

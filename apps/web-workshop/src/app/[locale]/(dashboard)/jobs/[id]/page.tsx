@@ -3,10 +3,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
+import { useSession } from '@/hooks/use-session';
 import { MaterialsChargesPanel } from '@/components/job-card/MaterialsChargesPanel';
 import {
   useJob,
@@ -1354,6 +1355,31 @@ export default function JobDetailPage() {
   const taxCodes = (Array.isArray(taxCodesRaw) ? taxCodesRaw : []).filter((t) => t.is_active);
   const isInvoiced = ((job as Record<string, unknown> | undefined)?.status as string) === 'invoiced';
 
+  // Reopen flow (manager/owner only). Closed JCs are read-only on the
+  // server; this is the explicit exit hatch.
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const canReopen = session?.role === 'owner' || session?.role === 'manager';
+  const [reopening, setReopening] = useState(false);
+  const handleReopen = async () => {
+    if (!job) return;
+    const reason = window.prompt(
+      'Reopen this job card? The invoice will stay as-is — a credit note may be needed if amounts change.\n\nReason for reopening:',
+    );
+    if (!reason || !reason.trim()) return;
+    setReopening(true);
+    try {
+      const jobId = (job as unknown as { id: string }).id;
+      await api.post(`/jobs/${jobId}/reopen`, { reason: reason.trim() });
+      await queryClient.invalidateQueries({ queryKey: ['job', jobId] });
+      await queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    } catch (e) {
+      window.alert(`Reopen failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const [photoLine, setPhotoLine] = useState<{
     kind: 'parts' | 'labour';
     id: string;
@@ -1825,6 +1851,17 @@ export default function JobDetailPage() {
               </>
             )}
           </div>
+        )}
+        {isInvoiced && canReopen && (
+          <button
+            type="button"
+            onClick={handleReopen}
+            disabled={reopening}
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            title="Reopen this invoiced job card so labour/parts can be edited"
+          >
+            {reopening ? 'Reopening…' : 'Reopen job card'}
+          </button>
         )}
       </div>
 

@@ -66,7 +66,7 @@ export function useInvoice(id: string) {
 export function useGenerateInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { jobCardId: string; customerPortion?: number; dueDate?: string; notes?: string }) =>
+    mutationFn: (data: { jobCardId: string; customerPortion?: number; dueDate?: string; notes?: string; closeJobCard?: boolean }) =>
       api.post<Invoice>('/invoices/generate', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['invoices'] });

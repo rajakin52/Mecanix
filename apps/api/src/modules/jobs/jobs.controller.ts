@@ -21,6 +21,7 @@ import {
   paginationSchema,
   splitJobSchema,
   pickupSignatureSchema,
+  reopenJobCardSchema,
 } from '@mecanix/validators';
 import type {
   CreateJobCardInput,
@@ -30,11 +31,14 @@ import type {
   PaginationInput,
   SplitJobInput,
   PickupSignatureInput,
+  ReopenJobCardInput,
 } from '@mecanix/validators';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 
 @Controller('jobs')
-@UseGuards(TenantGuard)
+@UseGuards(TenantGuard, RolesGuard)
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
@@ -85,6 +89,21 @@ export class JobsController {
     @Body(new ZodValidationPipe(updateJobCardSchema)) body: UpdateJobCardInput,
   ) {
     return this.jobsService.update(tenantId, id, user.id, body);
+  }
+
+  /**
+   * Reopen an invoiced job card so labour/parts can be edited again.
+   * Owner/manager only — this is an exception path, not a routine one.
+   */
+  @Post(':id/reopen')
+  @Roles('owner', 'manager')
+  async reopen(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(reopenJobCardSchema)) body: ReopenJobCardInput,
+  ) {
+    return this.jobsService.reopen(tenantId, id, user.id, body.reason);
   }
 
   @Post(':id/status')

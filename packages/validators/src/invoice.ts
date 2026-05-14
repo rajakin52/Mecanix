@@ -6,6 +6,15 @@ export const generateInvoiceSchema = z.object({
   dueDate: z.string().optional(),
   notes: z.string().max(2000).optional(),
   footer: z.string().max(2000).optional(),
+  // When true (default), the job card transitions to 'invoiced' and
+  // becomes read-only until reopened. When false, the invoice is
+  // created but the job card stays open — used for partial invoicing
+  // (parts backorder, progress billing).
+  closeJobCard: z.coerce.boolean().optional().default(true),
+});
+
+export const reopenJobCardSchema = z.object({
+  reason: z.string().min(1).max(500),
 });
 
 export const recordInvoicePaymentSchema = z.object({
@@ -22,6 +31,7 @@ export const createCreditNoteSchema = z.object({
 });
 
 export type GenerateInvoiceInput = z.infer<typeof generateInvoiceSchema>;
+export type ReopenJobCardInput = z.infer<typeof reopenJobCardSchema>;
 export type RecordInvoicePaymentInput = z.infer<typeof recordInvoicePaymentSchema>;
 export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;
 

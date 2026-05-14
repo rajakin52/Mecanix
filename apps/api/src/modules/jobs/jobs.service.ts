@@ -718,6 +718,74 @@ export class JobsService {
     };
   }
 
+  /**
+   * Throw if a job card is invoiced. Line-level services (labour, parts,
+   * materials) call this before any mutation so the financial document
+   * isn't silently desynced from the work record. Reopen the card first
+   * if you actually need to change something.
+   */
+  async assertNotInvoiced(tenantId: string, jobCardId: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('job_cards')
+      .select('status')
+      .eq('id', jobCardId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (error || !data) throw new NotFoundException('Job card not found');
+    if (data.status === 'invoiced') {
+      throw new BadRequestException(
+        'Job card has been invoiced and is closed. Reopen it before adding or modifying items.',
+      );
+    }
+  }
+
+  /**
+   * Reopen an invoiced job card so labour/parts can be edited again.
+   * Sets status back to 'in_progress' (the safest in-work status). The
+   * invoice itself is untouched — the resulting drift is the user's
+   * responsibility, and a credit-note + new invoice flow is the proper
+   * accounting answer once changes settle. Audit-logged.
+   */
+  async reopen(
+    tenantId: string,
+    jobId: string,
+    userId: string,
+    reason: string,
+  ) {
+    const client = this.supabase.getClient();
+    const { data: existing, error: fetchErr } = await client
+      .from('job_cards')
+      .select('id, status')
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId)
+      .single();
+    if (fetchErr || !existing) throw new NotFoundException('Job card not found');
+    if (existing.status !== 'invoiced') {
+      throw new BadRequestException(
+        'Only invoiced job cards can be reopened.',
+      );
+    }
+
+    const { error: updateErr } = await client
+      .from('job_cards')
+      .update({ status: 'in_progress', date_closed: null })
+      .eq('id', jobId)
+      .eq('tenant_id', tenantId);
+    if (updateErr) throw updateErr;
+
+    await client.from('job_status_history').insert({
+      tenant_id: tenantId,
+      job_card_id: jobId,
+      from_status: 'invoiced',
+      to_status: 'in_progress',
+      changed_by: userId,
+      notes: `Reopened: ${reason}`,
+    });
+
+    return { reopened: true, new_status: 'in_progress' };
+  }
+
   async softDelete(tenantId: string, id: string, userId: string) {
     const job = await this.getById(tenantId, id);
 

@@ -51,6 +51,8 @@ export default function InvoicesPage() {
   const [genDueDate, setGenDueDate] = useState('');
   const [genNotes, setGenNotes] = useState('');
   const [genCustomerPortion, setGenCustomerPortion] = useState('');
+  // Default = close the JC on invoice. Uncheck for partial / backorder.
+  const [genCloseJobCard, setGenCloseJobCard] = useState(true);
 
   const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
@@ -61,12 +63,14 @@ export default function InvoicesPage() {
       dueDate: genDueDate || undefined,
       notes: genNotes || undefined,
       customerPortion: genCustomerPortion ? Number(genCustomerPortion) : undefined,
+      closeJobCard: genCloseJobCard,
     });
     setShowGenerateModal(false);
     setGenJobCardId('');
     setGenDueDate('');
     setGenNotes('');
     setGenCustomerPortion('');
+    setGenCloseJobCard(true);
   };
 
   const summary = summaryData as Record<string, number> | undefined;
@@ -285,6 +289,25 @@ export default function InvoicesPage() {
                   rows={2}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
+              </div>
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={genCloseJobCard}
+                    onChange={(e) => setGenCloseJobCard(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium text-gray-900">Close job card on invoice</span>
+                    <span className="ms-1 text-xs text-gray-500">(recommended)</span>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {genCloseJobCard
+                        ? 'Job card moves to "invoiced" and becomes read-only. Reopen later if needed.'
+                        : 'Job card stays open — use for partial invoicing or parts backorder. The next invoice on this job will not duplicate billed lines.'}
+                    </div>
+                  </span>
+                </label>
               </div>
               <div className="flex justify-end gap-2">
                 <button

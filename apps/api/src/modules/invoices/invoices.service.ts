@@ -274,28 +274,42 @@ export class InvoicesService {
       this.logger.warn(`Hash generation skipped for ${invoice.invoice_number}: ${err instanceof Error ? err.message : 'unknown'}`);
     }
 
-    // 9. Update job card status to 'invoiced'
+    // 9. Conditionally close the job card. Defaults to closing — the
+    // common case is one final invoice per job. Partial-invoicing /
+    // backorder workflows pass closeJobCard=false to keep the card
+    // open so more labour/parts can still be added.
     const currentStatus = jobCard.status as string;
+    const shouldClose = input.closeJobCard !== false; // undefined treated as true
 
-    await client
-      .from('job_cards')
-      .update({
-        status: 'invoiced',
-        date_closed: new Date().toISOString(),
+    if (shouldClose) {
+      await client
+        .from('job_cards')
+        .update({
+          status: 'invoiced',
+          date_closed: new Date().toISOString(),
+        })
+        .eq('id', input.jobCardId)
+        .eq('tenant_id', tenantId);
 
-      })
-      .eq('id', input.jobCardId)
-      .eq('tenant_id', tenantId);
-
-    // 10. Insert status history
-    await client.from('job_status_history').insert({
-      tenant_id: tenantId,
-      job_card_id: input.jobCardId,
-      from_status: currentStatus,
-      to_status: 'invoiced',
-      changed_by: userId,
-      notes: `Invoice ${invoiceNumber} generated`,
-    });
+      await client.from('job_status_history').insert({
+        tenant_id: tenantId,
+        job_card_id: input.jobCardId,
+        from_status: currentStatus,
+        to_status: 'invoiced',
+        changed_by: userId,
+        notes: `Invoice ${invoiceNumber} generated — job closed`,
+      });
+    } else {
+      // Audit-log the invoice creation without changing status.
+      await client.from('job_status_history').insert({
+        tenant_id: tenantId,
+        job_card_id: input.jobCardId,
+        from_status: currentStatus,
+        to_status: currentStatus,
+        changed_by: userId,
+        notes: `Invoice ${invoiceNumber} generated — job kept open (partial / backorder)`,
+      });
+    }
 
     return invoice;
   }

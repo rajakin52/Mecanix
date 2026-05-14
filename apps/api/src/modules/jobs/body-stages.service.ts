@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, BadRequestException, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { JobsService } from './jobs.service';
 import type { UpsertJobBodyStagesInput } from '@mecanix/validators';
 
 const FIELD_MAP: Record<keyof UpsertJobBodyStagesInput, string> = {
@@ -23,7 +24,11 @@ const FIELD_MAP: Record<keyof UpsertJobBodyStagesInput, string> = {
 
 @Injectable()
 export class BodyStagesService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => JobsService))
+    private readonly jobsService: JobsService,
+  ) {}
 
   async getByJob(tenantId: string, jobCardId: string) {
     const { data } = await this.supabase
@@ -37,6 +42,8 @@ export class BodyStagesService {
   }
 
   async upsert(tenantId: string, jobCardId: string, input: UpsertJobBodyStagesInput) {
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     const client = this.supabase.getClient();
 
     const { data: job } = await client

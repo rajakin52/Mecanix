@@ -31,6 +31,8 @@ export class LabourLinesService {
     userId: string,
     input: CreateLabourLineInput,
   ) {
+    // Closed-card gate: invoiced cards are read-only until reopened.
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     // Require vehicle inspection before adding work items
     await this.inspectionsService.requireInspection(tenantId, jobCardId);
 
@@ -117,6 +119,9 @@ export class LabourLinesService {
       throw new NotFoundException('Labour line not found');
     }
 
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, existing.job_card_id as string);
+
     const hours = input.hours ?? existing.hours;
     const rate = input.rate ?? existing.rate;
     const subtotal = Math.round(hours * rate * 100) / 100;
@@ -170,6 +175,7 @@ export class LabourLinesService {
   }
 
   async delete(tenantId: string, id: string, jobCardId: string) {
+    await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     const { error } = await this.supabase
       .getClient()
       .from('labour_lines')
@@ -199,6 +205,8 @@ export class LabourLinesService {
       throw new BadRequestException('Line is already charged');
     }
 
+    // Closed-card gate
+    await this.jobsService.assertNotInvoiced(tenantId, line.job_card_id);
     // Inspection gate — cannot charge without inspection
     await this.inspectionsService.requireInspection(tenantId, line.job_card_id);
 
