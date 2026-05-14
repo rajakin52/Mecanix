@@ -37,6 +37,11 @@ export class ReportsController {
     return this.statementsService.customerStatement(tenantId, customerId, startDate, endDate);
   }
 
+  @Get('statements/customer-balances')
+  async customerBalances(@TenantId() tenantId: string) {
+    return this.statementsService.customerBalances(tenantId);
+  }
+
   @Get('statements/vendor/:vendorId')
   async vendorStatement(
     @TenantId() tenantId: string,

@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useFormat } from '@/hooks/use-format';
 import { ReportSection } from '@/components/reports/ReportSection';
+import { SearchableSelect } from '@/components/SearchableSelect';
+import { useCustomers } from '@/hooks/use-customers';
+import { useCustomerStatement, useCustomerBalances } from '@/hooks/use-reports';
+import { formatDate } from '@/lib/format';
 import {
   useRevenueReport,
   useJobCardReport,
@@ -31,6 +35,7 @@ type ReportType =
   | 'partsUsage'
   | 'outstandingInvoices'
   | 'outstandingBills'
+  | 'customerStatement'
   | 'expensesByCategory'
   | 'incomeVsExpense'
   | 'insuranceClaims'
@@ -64,6 +69,7 @@ export default function ReportsPage() {
     { value: 'partsUsage', label: t('partsUsage') },
     { value: 'outstandingInvoices', label: t('outstandingInvoices') },
     { value: 'outstandingBills', label: t('outstandingBills') },
+    { value: 'customerStatement', label: 'Statement of Account' },
     { value: 'expensesByCategory', label: t('expensesByCategory') },
     { value: 'incomeVsExpense', label: t('incomeVsExpense') },
     { value: 'insuranceClaims', label: t('insuranceClaims') },
@@ -209,6 +215,15 @@ export default function ReportsPage() {
             startDate={startDate}
             endDate={endDate}
             agingFilter={agingFilter}
+            t={t}
+          />
+        )}
+        {selectedReport === 'customerStatement' && (
+          <CustomerStatementSection
+            money={money}
+            moneyWhole={moneyWhole}
+            startDate={startDate}
+            endDate={endDate}
             t={t}
           />
         )}
@@ -1622,6 +1637,253 @@ function WipInventorySection({ money, t }: { money: MoneyFn; t: TFn }) {
         </>
       )}
     </div>
+      )}
+    </ReportSection>
+  );
+}
+
+/* ────────── Statement of Account ────────── */
+
+function CustomerStatementSection({
+  money, moneyWhole, startDate, endDate, t,
+}: {
+  money: MoneyFn; moneyWhole: MoneyFn;
+  startDate: string; endDate: string;
+  t: TFn;
+}) {
+  const [customerId, setCustomerId] = useState<string>('');
+  const { data: customersData } = useCustomers(1, '');
+  const customers = (customersData?.data ?? []) as Array<{ id: string; full_name: string; phone?: string }>;
+  const customerOptions = useMemo(
+    () => [
+      { value: '', label: 'All customers' },
+      ...customers.map((c) => ({ value: c.id, label: `${c.full_name}${c.phone ? ' · ' + c.phone : ''}` })),
+    ],
+    [customers],
+  );
+
+  const isAll = !customerId;
+  const { data: balances, isLoading: balLoading } = useCustomerBalances();
+  const { data: statement, isLoading: stmtLoading } = useCustomerStatement(
+    customerId || undefined,
+    startDate || undefined,
+    endDate || undefined,
+  );
+
+  const allRows = balances ?? [];
+  const allTotals = allRows.reduce(
+    (acc, r) => {
+      acc.current += r.current; acc.thirty += r.thirty; acc.sixty += r.sixty; acc.ninety += r.ninety;
+      acc.total += r.total_outstanding; acc.customers++; acc.open_invoices += r.open_invoices;
+      return acc;
+    },
+    { current: 0, thirty: 0, sixty: 0, ninety: 0, total: 0, customers: 0, open_invoices: 0 },
+  );
+
+  const buildAllCsv = () => {
+    if (allRows.length === 0) return null;
+    return [
+      ['Customer', 'Phone', 'Email', 'Open invoices', 'Current', '<=30d', '<=60d', '90+d', 'Total outstanding'],
+      ...allRows.map((r) => [
+        r.full_name, r.phone ?? '', r.email ?? '',
+        r.open_invoices, r.current, r.thirty, r.sixty, r.ninety, r.total_outstanding,
+      ]),
+      ['TOTAL', '', '', allTotals.open_invoices, allTotals.current, allTotals.thirty, allTotals.sixty, allTotals.ninety, allTotals.total],
+    ];
+  };
+
+  const buildOneCsv = () => {
+    if (!statement) return null;
+    return [
+      ['Date', 'Type', 'Reference', 'Description', 'Due date', 'Days overdue', 'Debit', 'Credit', 'Running balance'],
+      ...statement.transactions.map((tx) => [
+        tx.date, tx.type, tx.reference, tx.description,
+        tx.due_date ?? '', tx.days_overdue ?? '',
+        tx.debit, tx.credit, tx.runningBalance,
+      ]),
+    ];
+  };
+
+  const agingBadge = (b: string | null | undefined) => {
+    if (!b) return '';
+    if (b === '90+') return 'bg-red-100 text-red-700';
+    if (b === '60') return 'bg-amber-100 text-amber-800';
+    if (b === '30') return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-600';
+  };
+
+  return (
+    <ReportSection
+      title="Statement of Account"
+      subtitle={isAll
+        ? 'All customers with open balances. Pick one for a detailed statement.'
+        : `Per-customer statement. ${startDate || endDate ? dateRangeLabel(startDate, endDate) : 'All dates.'}`}
+      exportCsv={isAll
+        ? { filename: 'customer-balances', build: buildAllCsv }
+        : { filename: `statement-${String(statement?.entity?.full_name ?? 'customer').replace(/\s+/g, '-').toLowerCase()}`, build: buildOneCsv }}
+      disableExport={isAll ? balLoading || allRows.length === 0 : stmtLoading || !statement}
+      rightSlot={
+        <div className="w-64">
+          <SearchableSelect
+            value={customerId}
+            options={customerOptions}
+            placeholder="All customers"
+            allowFreeText={false}
+            onChange={setCustomerId}
+          />
+        </div>
+      }
+    >
+      {isAll ? (
+        balLoading ? (
+          <p className="text-sm text-gray-500">...</p>
+        ) : allRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-green-700">No customers with open balances. &#127881;</p>
+        ) : (
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <Card label="Customers" value={String(allTotals.customers)} />
+              <Card label="Current" value={moneyWhole(allTotals.current)} />
+              <Card label="<= 30 days" value={moneyWhole(allTotals.thirty)} />
+              <Card label="<= 60 days" value={moneyWhole(allTotals.sixty)} />
+              <Card label="90+ days" value={moneyWhole(allTotals.ninety)} />
+            </div>
+            <div className="overflow-hidden rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-start">Customer</th>
+                    <th className="px-3 py-2 text-end">Open inv.</th>
+                    <th className="px-3 py-2 text-end">Current</th>
+                    <th className="px-3 py-2 text-end">&lt;=30d</th>
+                    <th className="px-3 py-2 text-end">&lt;=60d</th>
+                    <th className="px-3 py-2 text-end">90+d</th>
+                    <th className="px-3 py-2 text-end">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {allRows.map((r) => (
+                    <tr key={r.customer_id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => setCustomerId(r.customer_id)}
+                          className="font-medium text-primary-600 hover:underline"
+                        >
+                          {r.full_name}
+                        </button>
+                        {r.phone && <div className="text-xs text-gray-500">{r.phone}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-end text-gray-700">{r.open_invoices}</td>
+                      <td className="px-3 py-2 text-end text-gray-700">{money(r.current)}</td>
+                      <td className="px-3 py-2 text-end text-yellow-700">{money(r.thirty)}</td>
+                      <td className="px-3 py-2 text-end text-amber-700">{money(r.sixty)}</td>
+                      <td className="px-3 py-2 text-end font-medium text-red-600">{money(r.ninety)}</td>
+                      <td className="px-3 py-2 text-end font-bold text-gray-900">{money(r.total_outstanding)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 font-semibold">
+                  <tr>
+                    <td className="px-3 py-2 text-gray-700">TOTAL</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{allTotals.open_invoices}</td>
+                    <td className="px-3 py-2 text-end text-gray-900">{money(allTotals.current)}</td>
+                    <td className="px-3 py-2 text-end text-yellow-700">{money(allTotals.thirty)}</td>
+                    <td className="px-3 py-2 text-end text-amber-700">{money(allTotals.sixty)}</td>
+                    <td className="px-3 py-2 text-end text-red-600">{money(allTotals.ninety)}</td>
+                    <td className="px-3 py-2 text-end text-gray-900">{money(allTotals.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )
+      ) : stmtLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !statement ? (
+        <NoData t={t} />
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{String(statement.entity.full_name ?? '-')}</div>
+              <div className="text-xs text-gray-500">
+                {statement.entity.phone ? `${statement.entity.phone} - ` : ''}
+                {statement.entity.email ?? ''}
+              </div>
+            </div>
+            <div className="text-end">
+              <div className="text-xs text-gray-500">Closing balance</div>
+              <div className="text-2xl font-bold text-gray-900">{moneyWhole(statement.closingBalance)}</div>
+            </div>
+          </div>
+
+          {statement.aging && statement.aging.total > 0 && (
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Card label="Current" value={moneyWhole(statement.aging.current)} />
+              <Card label="<= 30 days" value={moneyWhole(statement.aging.thirty)} />
+              <Card label="<= 60 days" value={moneyWhole(statement.aging.sixty)} />
+              <Card label="90+ days" value={moneyWhole(statement.aging.ninety)} />
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 text-start">Date</th>
+                  <th className="px-3 py-2 text-start">Type</th>
+                  <th className="px-3 py-2 text-start">Reference</th>
+                  <th className="px-3 py-2 text-start">Due</th>
+                  <th className="px-3 py-2 text-end">Days overdue</th>
+                  <th className="px-3 py-2 text-end">Debit</th>
+                  <th className="px-3 py-2 text-end">Credit</th>
+                  <th className="px-3 py-2 text-end">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr className="bg-gray-50/50">
+                  <td colSpan={7} className="px-3 py-1.5 text-xs italic text-gray-500">Opening balance</td>
+                  <td className="px-3 py-1.5 text-end text-xs text-gray-700">{money(statement.openingBalance)}</td>
+                </tr>
+                {statement.transactions.map((tx, i) => (
+                  <tr key={i} className={tx.aging_bucket === '90+' ? 'bg-red-50/40' : tx.aging_bucket === '60' ? 'bg-amber-50/30' : ''}>
+                    <td className="px-3 py-2 text-xs text-gray-500">{formatDate(tx.date)}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        tx.type === 'invoice' ? 'bg-blue-100 text-blue-700' :
+                        tx.type === 'payment' ? 'bg-green-100 text-green-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>{tx.type}</span>
+                    </td>
+                    <td className="px-3 py-2 font-medium text-gray-900">{tx.reference}</td>
+                    <td className="px-3 py-2 text-xs text-gray-500">{tx.due_date ? formatDate(tx.due_date) : '-'}</td>
+                    <td className="px-3 py-2 text-end">
+                      {tx.aging_bucket ? (
+                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${agingBadge(tx.aging_bucket)}`}>
+                          {tx.days_overdue ?? 0}d
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-end text-gray-700">{tx.debit > 0 ? money(tx.debit) : ''}</td>
+                    <td className="px-3 py-2 text-end text-green-700">{tx.credit > 0 ? money(tx.credit) : ''}</td>
+                    <td className="px-3 py-2 text-end font-medium text-gray-900">{money(tx.runningBalance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 font-semibold">
+                <tr>
+                  <td colSpan={5} className="px-3 py-2 text-end text-gray-700">Totals</td>
+                  <td className="px-3 py-2 text-end text-gray-900">{money(statement.totalDebits)}</td>
+                  <td className="px-3 py-2 text-end text-green-700">{money(statement.totalCredits)}</td>
+                  <td className="px-3 py-2 text-end text-gray-900">{money(statement.closingBalance)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
       )}
     </ReportSection>
   );

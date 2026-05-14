@@ -9,6 +9,61 @@ function buildParams(startDate?: string, endDate?: string) {
   return params.toString() ? `?${params}` : '';
 }
 
+export interface StatementTxn {
+  date: string;
+  type: 'invoice' | 'payment' | 'credit_note' | 'bill' | 'bill_payment';
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  due_date?: string | null;
+  balance_due?: number | null;
+  days_overdue?: number | null;
+  aging_bucket?: 'current' | '30' | '60' | '90+' | null;
+  status?: string | null;
+}
+export interface AgingBuckets {
+  current: number; thirty: number; sixty: number; ninety: number; total: number;
+}
+export interface CustomerStatement {
+  entity: { id: string; full_name: string; phone?: string; email?: string; company_name?: string; current_balance?: number };
+  openingBalance: number;
+  transactions: StatementTxn[];
+  closingBalance: number;
+  totalDebits: number;
+  totalCredits: number;
+  aging?: AgingBuckets;
+}
+
+export function useCustomerStatement(customerId: string | undefined, startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-customer-statement', customerId, startDate, endDate],
+    queryFn: () => api.get<CustomerStatement>(`/reports/statements/customer/${customerId}${buildParams(startDate, endDate)}`),
+    enabled: !!customerId,
+  });
+}
+
+export interface CustomerBalanceRow {
+  customer_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  open_invoices: number;
+  current: number;
+  thirty: number;
+  sixty: number;
+  ninety: number;
+  total_outstanding: number;
+}
+
+export function useCustomerBalances() {
+  return useQuery({
+    queryKey: ['report-customer-balances'],
+    queryFn: () => api.get<CustomerBalanceRow[]>('/reports/statements/customer-balances'),
+  });
+}
+
 export function useRevenueReport(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['report-revenue', startDate, endDate],

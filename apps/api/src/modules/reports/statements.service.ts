@@ -9,6 +9,20 @@ export interface StatementTransaction {
   debit: number;
   credit: number;
   runningBalance: number;
+  // Invoice-specific fields (null on payments / credit notes)
+  due_date?: string | null;
+  balance_due?: number | null;
+  days_overdue?: number | null;
+  status?: string | null;
+  aging_bucket?: 'current' | '30' | '60' | '90+' | null;
+}
+
+export interface AgingBuckets {
+  current: number;
+  thirty: number;
+  sixty: number;
+  ninety: number;
+  total: number;
 }
 
 export interface Statement {
@@ -18,6 +32,21 @@ export interface Statement {
   closingBalance: number;
   totalDebits: number;
   totalCredits: number;
+  /** Aging of unpaid invoices in the statement window (current AR). */
+  aging?: AgingBuckets;
+}
+
+export interface CustomerBalanceRow {
+  customer_id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  open_invoices: number;
+  current: number;
+  thirty: number;
+  sixty: number;
+  ninety: number;
+  total_outstanding: number;
 }
 
 @Injectable()
@@ -45,7 +74,7 @@ export class StatementsService {
     // Get all invoices for this customer
     let invoiceQuery = client
       .from('invoices')
-      .select('id, invoice_number, invoice_date, grand_total, status')
+      .select('id, invoice_number, invoice_date, due_date, grand_total, balance_due, status')
       .eq('customer_id', customerId)
       .eq('tenant_id', tenantId)
       .neq('status', 'cancelled')
@@ -106,8 +135,31 @@ export class StatementsService {
       openingBalance = priorInvoiceTotal - priorPaymentTotal;
     }
 
-    // Add invoices
+    // Add invoices (with aging info for unpaid lines)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayMs = new Date(todayStr).getTime();
     for (const inv of invoices ?? []) {
+      const balanceDue = Number(inv.balance_due ?? 0);
+      const isPaid = inv.status === 'paid' || balanceDue <= 0;
+      let daysOverdue: number | null = null;
+      let bucket: 'current' | '30' | '60' | '90+' | null = null;
+      if (!isPaid) {
+        const dueDate = inv.due_date as string | null;
+        if (dueDate) {
+          const dueMs = new Date(dueDate).getTime();
+          const diffDays = Math.floor((todayMs - dueMs) / (1000 * 60 * 60 * 24));
+          daysOverdue = Math.max(0, diffDays);
+        } else {
+          daysOverdue = 0;
+        }
+        bucket = daysOverdue <= 0
+          ? 'current'
+          : daysOverdue <= 30
+            ? '30'
+            : daysOverdue <= 60
+              ? '60'
+              : '90+';
+      }
       transactions.push({
         date: inv.invoice_date,
         type: 'invoice',
@@ -116,6 +168,11 @@ export class StatementsService {
         debit: Number(inv.grand_total),
         credit: 0,
         runningBalance: 0,
+        due_date: (inv.due_date as string | null) ?? null,
+        balance_due: balanceDue,
+        days_overdue: daysOverdue,
+        aging_bucket: bucket,
+        status: inv.status as string,
       });
     }
 
@@ -160,6 +217,24 @@ export class StatementsService {
       totalCredits += tx.credit;
     }
 
+    // Aging summary — only over the invoice rows in this statement window
+    const aging: AgingBuckets = { current: 0, thirty: 0, sixty: 0, ninety: 0, total: 0 };
+    for (const tx of transactions) {
+      if (tx.type !== 'invoice' || !tx.aging_bucket) continue;
+      const due = Number(tx.balance_due ?? 0);
+      if (due <= 0) continue;
+      aging.total += due;
+      if (tx.aging_bucket === 'current') aging.current += due;
+      else if (tx.aging_bucket === '30') aging.thirty += due;
+      else if (tx.aging_bucket === '60') aging.sixty += due;
+      else aging.ninety += due;
+    }
+    aging.current = Math.round(aging.current * 100) / 100;
+    aging.thirty = Math.round(aging.thirty * 100) / 100;
+    aging.sixty = Math.round(aging.sixty * 100) / 100;
+    aging.ninety = Math.round(aging.ninety * 100) / 100;
+    aging.total = Math.round(aging.total * 100) / 100;
+
     return {
       entity: customer,
       openingBalance,
@@ -167,7 +242,97 @@ export class StatementsService {
       closingBalance: Math.round(balance * 100) / 100,
       totalDebits: Math.round(totalDebits * 100) / 100,
       totalCredits: Math.round(totalCredits * 100) / 100,
+      aging,
     };
+  }
+
+  /**
+   * "All customers" view: one row per customer with open balance and
+   * ageing buckets. Powers the SOA report's "All" mode. Customers with
+   * nothing outstanding are omitted.
+   */
+  async customerBalances(tenantId: string): Promise<CustomerBalanceRow[]> {
+    const client = this.supabase.getClient();
+
+    const { data: invoices, error } = await client
+      .from('invoices')
+      .select('customer_id, balance_due, due_date, status, customer:customers(id, full_name, phone, email)')
+      .eq('tenant_id', tenantId)
+      .not('status', 'in', '("paid","cancelled")')
+      .gt('balance_due', 0);
+    if (error) throw error;
+
+    const todayMs = Date.now();
+    const pickOne = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+    type Acc = {
+      customer_id: string;
+      full_name: string;
+      phone: string | null;
+      email: string | null;
+      open_invoices: number;
+      current: number;
+      thirty: number;
+      sixty: number;
+      ninety: number;
+      total_outstanding: number;
+    };
+    const map = new Map<string, Acc>();
+
+    type Row = {
+      customer_id: string;
+      balance_due: number;
+      due_date: string | null;
+      status: string;
+      customer: { id: string; full_name: string; phone: string | null; email: string | null } | Array<{ id: string; full_name: string; phone: string | null; email: string | null }> | null;
+    };
+
+    for (const r of (invoices ?? []) as unknown as Row[]) {
+      const cust = pickOne(r.customer);
+      if (!cust) continue;
+      let bucket: 'current' | 'thirty' | 'sixty' | 'ninety';
+      if (r.due_date) {
+        const overdueDays = Math.floor((todayMs - new Date(r.due_date).getTime()) / (1000 * 60 * 60 * 24));
+        bucket = overdueDays <= 0
+          ? 'current'
+          : overdueDays <= 30 ? 'thirty'
+            : overdueDays <= 60 ? 'sixty' : 'ninety';
+      } else {
+        bucket = 'current';
+      }
+      const balance = Number(r.balance_due ?? 0);
+      const existing = map.get(cust.id);
+      if (existing) {
+        existing.open_invoices++;
+        existing[bucket] += balance;
+        existing.total_outstanding += balance;
+      } else {
+        map.set(cust.id, {
+          customer_id: cust.id,
+          full_name: cust.full_name,
+          phone: cust.phone,
+          email: cust.email,
+          open_invoices: 1,
+          current: bucket === 'current' ? balance : 0,
+          thirty: bucket === 'thirty' ? balance : 0,
+          sixty: bucket === 'sixty' ? balance : 0,
+          ninety: bucket === 'ninety' ? balance : 0,
+          total_outstanding: balance,
+        });
+      }
+    }
+
+    return Array.from(map.values())
+      .map((r) => ({
+        ...r,
+        current: Math.round(r.current * 100) / 100,
+        thirty: Math.round(r.thirty * 100) / 100,
+        sixty: Math.round(r.sixty * 100) / 100,
+        ninety: Math.round(r.ninety * 100) / 100,
+        total_outstanding: Math.round(r.total_outstanding * 100) / 100,
+      }))
+      .sort((a, b) => b.total_outstanding - a.total_outstanding);
   }
 
   async vendorStatement(
