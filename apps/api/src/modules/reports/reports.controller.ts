@@ -1,12 +1,13 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { StatementsService } from './statements.service';
-import { TenantGuard } from '../../common/guards/tenant.guard';
+import { SoaMailerService } from './soa-mailer.service';
+import { TenantGuard, type RequestUser } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CapabilityGuard } from '../../common/guards/capability.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequiresCapability } from '../../common/decorators/requires-capability.decorator';
-import { TenantId } from '../../common/decorators/user.decorator';
+import { CurrentUser, TenantId } from '../../common/decorators/user.decorator';
 
 function getDefaultDateRange(): { startDate: string; endDate: string } {
   const now = new Date();
@@ -25,6 +26,7 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly statementsService: StatementsService,
+    private readonly soaMailer: SoaMailerService,
   ) {}
 
   @Get('statements/customer/:customerId')
@@ -437,5 +439,56 @@ export class ReportsController {
       startDate || defaults.startDate,
       endDate || defaults.endDate,
     );
+  }
+
+  @Get('statements/settings')
+  async getSoaSettings(@TenantId() tenantId: string) {
+    return this.soaMailer.loadSettings(tenantId);
+  }
+
+  @Post('statements/settings')
+  @Roles('owner', 'manager')
+  async updateSoaSettings(
+    @TenantId() tenantId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    // Coerce types from the form (numbers, booleans, strings).
+    const patch: Record<string, unknown> = {};
+    if ('enabled' in body) patch['enabled'] = Boolean(body['enabled']);
+    if ('send_day' in body) patch['send_day'] = Number(body['send_day']);
+    if ('send_hour_utc' in body) patch['send_hour_utc'] = Number(body['send_hour_utc']);
+    if ('from_name' in body) patch['from_name'] = body['from_name'] || null;
+    if ('from_email' in body) patch['from_email'] = body['from_email'] || null;
+    if ('reply_to' in body) patch['reply_to'] = body['reply_to'] || null;
+    if ('subject_template' in body) patch['subject_template'] = String(body['subject_template'] ?? '');
+    if ('intro_template' in body) patch['intro_template'] = String(body['intro_template'] ?? '');
+    if ('whatsapp_fallback' in body) patch['whatsapp_fallback'] = Boolean(body['whatsapp_fallback']);
+    return this.soaMailer.updateSettings(tenantId, patch);
+  }
+
+  /**
+   * Send statements ad-hoc. With `customerIds` supplied, sends only those
+   * (one button per customer in the SOA report). Without, sends to every
+   * customer with an open balance — used by the "Run now" button in
+   * Settings → Statements.
+   */
+  @Post('statements/send')
+  @RequiresCapability('reports.view')
+  async sendStatements(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() body: { customerIds?: string[]; periodMonths?: number; test?: boolean },
+  ) {
+    return this.soaMailer.sendBatch(
+      tenantId,
+      body.test ? 'test' : 'manual',
+      user.id,
+      { customerIds: body.customerIds, periodMonths: body.periodMonths },
+    );
+  }
+
+  @Get('statements/send-history')
+  async sendHistory(@TenantId() tenantId: string) {
+    return this.soaMailer.listRecentBatches(tenantId, 20);
   }
 }

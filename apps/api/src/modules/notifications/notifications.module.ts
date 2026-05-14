@@ -6,13 +6,14 @@ import { NotificationsService } from './notifications.service';
 import { WhatsAppService } from './whatsapp.service';
 import { SmsService } from './sms.service';
 import { PushService } from './push.service';
+import { EmailService } from './email.service';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { PurchaseRequestsModule } from '../purchase-requests/purchase-requests.module';
 
 @Module({
   imports: [SupabaseModule, forwardRef(() => PurchaseRequestsModule)],
   controllers: [NotificationsController, CronController, WebhookController],
-  providers: [NotificationsService, WhatsAppService, SmsService, PushService],
-  exports: [NotificationsService, WhatsAppService, SmsService, PushService],
+  providers: [NotificationsService, WhatsAppService, SmsService, PushService, EmailService],
+  exports: [NotificationsService, WhatsAppService, SmsService, PushService, EmailService],
 })
 export class NotificationsModule {}

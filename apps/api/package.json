@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "pdfkit": "^0.18.0",
     "reflect-metadata": "^0.2.0",
+    "resend": "^4.0.1",
     "rxjs": "^7.8.0",
     "sharp": "^0.34.5",
     "xlsx": "^0.18.5",

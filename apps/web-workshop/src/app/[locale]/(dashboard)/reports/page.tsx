@@ -2,8 +2,11 @@
 
 import React, { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { Send, Loader2 } from 'lucide-react';
+import { useToast } from '@mecanix/ui-web';
 import { Link } from '@/i18n/navigation';
 import { useFormat } from '@/hooks/use-format';
+import { api } from '@/lib/api';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { useCustomers } from '@/hooks/use-customers';
@@ -1670,6 +1673,29 @@ function CustomerStatementSection({
     endDate || undefined,
   );
 
+  const toast = useToast();
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const sendOne = async (id: string, name: string) => {
+    setSendingId(id);
+    try {
+      const result = await api.post<{ sent_email: number; sent_whatsapp: number; failed: number; skipped: number }>(
+        '/reports/statements/send',
+        { customerIds: [id] },
+      );
+      if (result.sent_email + result.sent_whatsapp > 0) {
+        toast.success(`Statement sent to ${name} (${result.sent_email ? 'email' : 'WhatsApp'})`);
+      } else if (result.failed > 0) {
+        toast.error(`Failed to send statement to ${name}`);
+      } else {
+        toast.error(`Skipped ${name} — no contact info or no provider configured`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Send failed');
+    } finally {
+      setSendingId(null);
+    }
+  };
+
   const allRows = balances ?? [];
   const allTotals = allRows.reduce(
     (acc, r) => {
@@ -1759,6 +1785,7 @@ function CustomerStatementSection({
                     <th className="px-3 py-2 text-end">&lt;=60d</th>
                     <th className="px-3 py-2 text-end">90+d</th>
                     <th className="px-3 py-2 text-end">Total</th>
+                    <th className="px-3 py-2 text-end"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1780,6 +1807,22 @@ function CustomerStatementSection({
                       <td className="px-3 py-2 text-end text-amber-700">{money(r.sixty)}</td>
                       <td className="px-3 py-2 text-end font-medium text-red-600">{money(r.ninety)}</td>
                       <td className="px-3 py-2 text-end font-bold text-gray-900">{money(r.total_outstanding)}</td>
+                      <td className="px-3 py-2 text-end">
+                        <button
+                          type="button"
+                          onClick={() => sendOne(r.customer_id, r.full_name)}
+                          disabled={sendingId === r.customer_id || (!r.email && !r.phone)}
+                          title={!r.email && !r.phone ? 'No email or phone on file' : 'Email statement now'}
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          {sendingId === r.customer_id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Send className="h-3.5 w-3.5" />
+                          )}
+                          Send
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1792,6 +1835,7 @@ function CustomerStatementSection({
                     <td className="px-3 py-2 text-end text-amber-700">{money(allTotals.sixty)}</td>
                     <td className="px-3 py-2 text-end text-red-600">{money(allTotals.ninety)}</td>
                     <td className="px-3 py-2 text-end text-gray-900">{money(allTotals.total)}</td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -1804,7 +1848,7 @@ function CustomerStatementSection({
         <NoData t={t} />
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-gray-900">{String(statement.entity.full_name ?? '-')}</div>
               <div className="text-xs text-gray-500">
@@ -1812,9 +1856,25 @@ function CustomerStatementSection({
                 {statement.entity.email ?? ''}
               </div>
             </div>
-            <div className="text-end">
-              <div className="text-xs text-gray-500">Closing balance</div>
-              <div className="text-2xl font-bold text-gray-900">{moneyWhole(statement.closingBalance)}</div>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => sendOne(customerId, String(statement.entity.full_name ?? 'customer'))}
+                disabled={sendingId === customerId || (!statement.entity.email && !statement.entity.phone)}
+                title={!statement.entity.email && !statement.entity.phone ? 'No email or phone on file' : 'Email statement now'}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              >
+                {sendingId === customerId ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Send statement
+              </button>
+              <div className="text-end">
+                <div className="text-xs text-gray-500">Closing balance</div>
+                <div className="text-2xl font-bold text-gray-900">{moneyWhole(statement.closingBalance)}</div>
+              </div>
             </div>
           </div>
 
