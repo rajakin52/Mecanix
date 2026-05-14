@@ -91,10 +91,14 @@ export function SearchableSelect({
   }, [query, labelForValue, allowFreeText, onChange]);
 
   const filtered = useMemo(() => {
+    // Server-driven mode: the parent already filtered to matching options
+    // (possibly via fields the label doesn't display, e.g. vehicle compat
+    // make/model). Don't re-filter or we'll hide valid hits.
+    if (onInputChange) return norm;
     const q = query.trim().toLowerCase();
     if (!q) return norm;
     return norm.filter((o) => o.label.toLowerCase().includes(q));
-  }, [norm, query]);
+  }, [norm, query, onInputChange]);
 
   const selectOption = (opt: SearchableSelectOption) => {
     onChange(opt.value);
