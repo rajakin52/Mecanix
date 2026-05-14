@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, Link } from '@/i18n/navigation';
 import { useToast } from '@mecanix/ui-web';
 import { useCustomers } from '@/hooks/use-customers';
@@ -41,7 +41,16 @@ export default function NewPartsSalePage() {
     }));
   }, [customersData]);
 
-  const { data: partsData } = useParts(1, '', undefined);
+  // Server-side parts search — useParts pages 20 at a time, so a static
+  // load only ever surfaces the first 20 of the catalogue. Track the
+  // user's typed query, debounce, and refetch.
+  const [partSearchInput, setPartSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(partSearchInput), 250);
+    return () => clearTimeout(t);
+  }, [partSearchInput]);
+  const { data: partsData } = useParts(1, debouncedSearch, undefined);
   const parts = partsData?.data ?? [];
   const partOptions = useMemo(
     () => parts.map((p) => ({ value: p.id, label: `${p.part_number ?? '—'} · ${p.description}` })),
@@ -218,6 +227,7 @@ export default function NewPartsSalePage() {
                         placeholder="Search part…"
                         allowFreeText={false}
                         onChange={(v) => onPickPart(idx, v)}
+                        onInputChange={setPartSearchInput}
                       />
                     </div>
                     <div className="col-span-12 sm:col-span-4">

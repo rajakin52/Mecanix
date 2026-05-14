@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { usePurchaseOrders, useCreatePurchaseOrder, useVendors } from '@/hooks/use-purchases';
@@ -91,7 +91,15 @@ export default function PurchaseOrdersPage() {
   const { data: plates } = useVehiclePlates();
   const { data: jobNumbers } = useJobNumbers();
   const resolveVehicle = useResolveVehicle();
-  const { data: partsData } = useParts(1, '', undefined, vehicleScope);
+  // Server-side parts search: the catalogue is paged at 20 items, so
+  // without debounced search only the first 20 ever show up.
+  const [partSearchInput, setPartSearchInput] = useState('');
+  const [debouncedPartSearch, setDebouncedPartSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedPartSearch(partSearchInput), 250);
+    return () => clearTimeout(t);
+  }, [partSearchInput]);
+  const { data: partsData } = useParts(1, debouncedPartSearch, undefined, vehicleScope);
 
   // Year combobox source: 1990 → next year.
   const yearOptions = useMemo(() => {
@@ -579,6 +587,7 @@ export default function PurchaseOrdersPage() {
                               placeholder="Search part…"
                               allowFreeText={false}
                               onChange={(v) => handleLinePartChange(idx, v)}
+                              onInputChange={setPartSearchInput}
                             />
                           </div>
                           <div className="flex-1">

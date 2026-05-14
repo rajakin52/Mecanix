@@ -23,6 +23,13 @@ interface SearchableSelectProps {
    * makes no sense (e.g. the Part picker).
    */
   allowFreeText?: boolean;
+  /**
+   * Fired whenever the user types in the input. Use this to drive a
+   * server-side search (debounce in the caller) when the catalogue is
+   * too large to load up front. The internal client-side filter still
+   * runs on whatever options the parent passes back.
+   */
+  onInputChange?: (query: string) => void;
   className?: string;
   inputClassName?: string;
 }
@@ -46,6 +53,7 @@ export function SearchableSelect({
   placeholder,
   disabled,
   allowFreeText = true,
+  onInputChange,
   className = '',
   inputClassName = '',
 }: SearchableSelectProps) {
@@ -113,9 +121,11 @@ export function SearchableSelect({
         placeholder={placeholder}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
-          setQuery(e.target.value);
+          const next = e.target.value;
+          setQuery(next);
           setOpen(true);
           setHighlightIdx(0);
+          if (onInputChange) onInputChange(next);
         }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') {
