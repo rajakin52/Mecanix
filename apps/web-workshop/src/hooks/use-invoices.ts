@@ -83,6 +83,8 @@ export interface StandaloneLine {
   unitCost?: number;
   sellPrice: number;
   taxCodeId?: string;
+  discountPct?: number;
+  discountAmount?: number;
 }
 
 export interface StandaloneInvoiceInput {
@@ -90,6 +92,8 @@ export interface StandaloneInvoiceInput {
   lines: StandaloneLine[];
   dueDate?: string;
   notes?: string;
+  discountPct?: number;
+  discountAmount?: number;
 }
 
 export function useCreateStandaloneInvoice() {

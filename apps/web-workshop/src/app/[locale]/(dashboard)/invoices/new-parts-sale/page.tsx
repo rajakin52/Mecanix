@@ -17,9 +17,19 @@ interface LineRow {
   quantity: string;
   unitCost: string;
   sellPrice: string;
+  discountPct: string;
+  discountAmount: string;
 }
 
-const EMPTY_LINE: LineRow = { partId: '', description: '', quantity: '1', unitCost: '0', sellPrice: '0' };
+const EMPTY_LINE: LineRow = {
+  partId: '',
+  description: '',
+  quantity: '1',
+  unitCost: '0',
+  sellPrice: '0',
+  discountPct: '0',
+  discountAmount: '0',
+};
 
 export default function NewPartsSalePage() {
   const router = useRouter();
@@ -30,6 +40,8 @@ export default function NewPartsSalePage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineRow[]>([{ ...EMPTY_LINE }]);
+  const [invoiceDiscountPct, setInvoiceDiscountPct] = useState('0');
+  const [invoiceDiscountAmount, setInvoiceDiscountAmount] = useState('0');
   const [error, setError] = useState<string | null>(null);
 
   const { data: customersData } = useCustomers(1, '');
@@ -119,11 +131,28 @@ export default function NewPartsSalePage() {
   const addLine = () => setLines((rows) => [...rows, { ...EMPTY_LINE }]);
   const removeLine = (idx: number) => setLines((rows) => rows.filter((_, i) => i !== idx));
 
-  const total = lines.reduce((sum, l) => {
+  // Live preview — mirrors the backend math so the user can sanity-check
+  // discounts before submitting. VAT not included here; that's resolved
+  // server-side from the line tax codes.
+  const linesGross = lines.reduce((sum, l) => {
     const q = Number(l.quantity) || 0;
     const p = Number(l.sellPrice) || 0;
     return sum + q * p;
   }, 0);
+  const lineDiscounts = lines.reduce((sum, l) => {
+    const q = Number(l.quantity) || 0;
+    const p = Number(l.sellPrice) || 0;
+    const gross = q * p;
+    const dPct = Number(l.discountPct) || 0;
+    const dAmt = Number(l.discountAmount) || 0;
+    return sum + Math.min(gross, (gross * dPct) / 100 + dAmt);
+  }, 0);
+  const linesNet = linesGross - lineDiscounts;
+  const invoiceDiscount = Math.min(
+    linesNet,
+    (linesNet * (Number(invoiceDiscountPct) || 0)) / 100 + (Number(invoiceDiscountAmount) || 0),
+  );
+  const total = linesNet - invoiceDiscount;
 
   const handleSubmit = async () => {
     setError(null);
@@ -153,8 +182,13 @@ export default function NewPartsSalePage() {
         quantity: qty,
         unitCost: l.unitCost === '' ? undefined : Number(l.unitCost),
         sellPrice: sell,
+        discountPct: Number(l.discountPct) || 0,
+        discountAmount: Number(l.discountAmount) || 0,
       });
     }
+
+    const invDiscPct = Number(invoiceDiscountPct) || 0;
+    const invDiscAmt = Number(invoiceDiscountAmount) || 0;
 
     try {
       if (output === 'invoice') {
@@ -163,6 +197,8 @@ export default function NewPartsSalePage() {
           lines: cleanLines,
           dueDate: dueDate || undefined,
           notes: notes || undefined,
+          discountPct: invDiscPct,
+          discountAmount: invDiscAmt,
         });
         toast.success(`Invoice ${inv.invoice_number} created`);
         router.push(`/invoices/${inv.id}`);
@@ -172,6 +208,8 @@ export default function NewPartsSalePage() {
           lines: cleanLines,
           validUntil: validUntil || undefined,
           notes: notes || undefined,
+          discountPct: invDiscPct,
+          discountAmount: invDiscAmt,
         });
         toast.success(`Proforma ${pro.proforma_number} created`);
         router.push(`/proformas/${pro.id}`);
@@ -299,7 +337,11 @@ export default function NewPartsSalePage() {
             {lines.map((line, idx) => {
               const qty = Number(line.quantity) || 0;
               const sell = Number(line.sellPrice) || 0;
-              const sub = qty * sell;
+              const gross = qty * sell;
+              const dPct = Number(line.discountPct) || 0;
+              const dAmt = Number(line.discountAmount) || 0;
+              const lineDisc = Math.min(gross, (gross * dPct) / 100 + dAmt);
+              const sub = gross - lineDisc;
               return (
                 <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-3">
                   <div className="grid grid-cols-12 gap-2">
@@ -354,9 +396,42 @@ export default function NewPartsSalePage() {
                         className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
                       />
                     </div>
+                    <div className="col-span-6 sm:col-span-1">
+                      <label className="block text-xs text-gray-500">Disc %</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={line.discountPct}
+                        onChange={(e) => updateLine(idx, { discountPct: e.target.value })}
+                        className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-1">
+                      <label className="block text-xs text-gray-500">Disc amt</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={line.discountAmount}
+                        onChange={(e) => updateLine(idx, { discountAmount: e.target.value })}
+                        className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
                   </div>
                   <div className="mt-2 flex items-center justify-between">
-                    <div className="text-xs text-gray-500">Subtotal: <span className="font-medium text-gray-900">{formatCurrency(sub)}</span></div>
+                    <div className="text-xs text-gray-500">
+                      {lineDisc > 0 ? (
+                        <>
+                          Gross <span className="text-gray-700">{formatCurrency(gross)}</span>
+                          {' · '}Disc <span className="text-red-600">−{formatCurrency(lineDisc)}</span>
+                          {' · '}Subtotal <span className="font-medium text-gray-900">{formatCurrency(sub)}</span>
+                        </>
+                      ) : (
+                        <>Subtotal <span className="font-medium text-gray-900">{formatCurrency(sub)}</span></>
+                      )}
+                    </div>
                     {lines.length > 1 && (
                       <button
                         type="button"
@@ -372,10 +447,54 @@ export default function NewPartsSalePage() {
             })}
           </div>
 
-          <div className="mt-4 flex justify-end">
-            <div className="rounded-md bg-gray-100 px-4 py-2 text-sm">
-              <span className="text-gray-500">Lines total (pre-tax): </span>
-              <span className="text-base font-semibold text-gray-900">{formatCurrency(total)}</span>
+          {/* Invoice-global discount + totals preview */}
+          <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div>
+                <label className="block text-xs text-gray-500">Invoice discount %</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={invoiceDiscountPct}
+                  onChange={(e) => setInvoiceDiscountPct(e.target.value)}
+                  className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500">Invoice discount amt</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={invoiceDiscountAmount}
+                  onChange={(e) => setInvoiceDiscountAmount(e.target.value)}
+                  className="mt-0.5 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                />
+              </div>
+            </div>
+            <div className="mt-3 space-y-1 text-sm">
+              <div className="flex justify-between text-gray-500">
+                <span>Lines gross</span>
+                <span>{formatCurrency(linesGross)}</span>
+              </div>
+              {lineDiscounts > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Line discounts</span>
+                  <span>−{formatCurrency(lineDiscounts)}</span>
+                </div>
+              )}
+              {invoiceDiscount > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Invoice discount</span>
+                  <span>−{formatCurrency(invoiceDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-gray-200 pt-1 text-base font-semibold text-gray-900">
+                <span>Lines total (pre-tax)</span>
+                <span>{formatCurrency(total)}</span>
+              </div>
             </div>
           </div>
         </div>

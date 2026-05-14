@@ -11,6 +11,10 @@ export const generateInvoiceSchema = z.object({
   // created but the job card stays open — used for partial invoicing
   // (parts backorder, progress billing).
   closeJobCard: z.coerce.boolean().optional().default(true),
+  // Invoice-global discount. Applied to the lines total before VAT.
+  // pct and amount are additive; the math engine clamps to lines_total.
+  discountPct: z.coerce.number().min(0).max(100).optional().default(0),
+  discountAmount: z.coerce.number().min(0).optional().default(0),
 });
 
 export const reopenJobCardSchema = z.object({
@@ -48,6 +52,9 @@ export const standaloneLineSchema = z
     unitCost: z.coerce.number().min(0).optional(),
     sellPrice: z.coerce.number().min(0),
     taxCodeId: z.string().uuid().optional(),
+    // Line-level discount. pct and amount are additive.
+    discountPct: z.coerce.number().min(0).max(100).optional().default(0),
+    discountAmount: z.coerce.number().min(0).optional().default(0),
   });
 
 export const createStandaloneInvoiceSchema = z.object({
@@ -56,6 +63,8 @@ export const createStandaloneInvoiceSchema = z.object({
   dueDate: z.string().optional(),
   notes: z.string().max(2000).optional(),
   footer: z.string().max(2000).optional(),
+  discountPct: z.coerce.number().min(0).max(100).optional().default(0),
+  discountAmount: z.coerce.number().min(0).optional().default(0),
 });
 
 export const createProformaSchema = z.object({
@@ -64,6 +73,8 @@ export const createProformaSchema = z.object({
   validUntil: z.string().optional(),
   notes: z.string().max(2000).optional(),
   footer: z.string().max(2000).optional(),
+  discountPct: z.coerce.number().min(0).max(100).optional().default(0),
+  discountAmount: z.coerce.number().min(0).optional().default(0),
 });
 
 export const updateProformaSchema = z.object({
@@ -72,6 +83,8 @@ export const updateProformaSchema = z.object({
   validUntil: z.string().optional().nullable(),
   notes: z.string().max(2000).optional(),
   footer: z.string().max(2000).optional(),
+  discountPct: z.coerce.number().min(0).max(100).optional(),
+  discountAmount: z.coerce.number().min(0).optional(),
 });
 
 export const cancelProformaSchema = z.object({

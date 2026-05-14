@@ -66,7 +66,7 @@ export class ProformasService {
     const { data, error } = await client
       .from('proformas')
       .select(
-        '*, customer:customers(*), lines:parts_lines(id, part_name, part_number, quantity, unit_cost, sell_price, subtotal, tax_rate, tax_code_id, part_id)',
+        '*, customer:customers(*), lines:parts_lines(id, part_name, part_number, quantity, unit_cost, sell_price, subtotal, tax_rate, tax_code_id, part_id, discount_pct, discount_amount)',
       )
       .eq('id', id)
       .eq('tenant_id', tenantId)
@@ -94,13 +94,22 @@ export class ProformasService {
     if (rpcErr) throw rpcErr;
 
     const enriched = await this.invoices.enrichLines(tenantId, input.lines, null, customer.id);
-    const totals = this.totals(enriched, customer);
+    const totals = this.totals(enriched, customer, {
+      discountPct: input.discountPct,
+      discountAmount: input.discountAmount,
+    });
 
     if (totals.grandTotal <= 0) {
       throw new BadRequestException(
         'Proforma grand total is zero. Set a positive sell price on at least one line, or configure a default markup in Pricing settings.',
       );
     }
+
+    const lineDiscountsTotal = enriched.reduce(
+      (s, l) => s + (l.gross_subtotal - l.subtotal),
+      0,
+    );
+    const totalDiscount = Math.round((lineDiscountsTotal + totals.invoiceDiscount) * 100) / 100;
 
     const { data: proforma, error: insErr } = await client
       .from('proformas')
@@ -115,6 +124,9 @@ export class ProformasService {
         tax_amount: totals.totalVat,
         vat_by_rate: totals.vatByRate,
         grand_total: totals.grandTotal,
+        discount_pct: Number(input.discountPct ?? 0),
+        discount_amount: Number(input.discountAmount ?? 0),
+        total_discount: totalDiscount,
         notes: input.notes || null,
         footer: input.footer || null,
         created_by: userId,
@@ -140,6 +152,10 @@ export class ProformasService {
     if (input.notes !== undefined) updateData['notes'] = input.notes ?? null;
     if (input.footer !== undefined) updateData['footer'] = input.footer ?? null;
 
+    // Invoice-global discount fields apply even without line changes.
+    if (input.discountPct !== undefined) updateData['discount_pct'] = Number(input.discountPct);
+    if (input.discountAmount !== undefined) updateData['discount_amount'] = Number(input.discountAmount);
+
     // If lines were provided, recompute totals and replace lines
     if (input.lines !== undefined) {
       const customerId = (input.customerId ?? proforma.customer_id) as string;
@@ -150,17 +166,30 @@ export class ProformasService {
         .eq('id', customerId)
         .eq('tenant_id', tenantId)
         .maybeSingle();
-      const totals = this.totals(enriched, customer);
+      // Use the resolved invoice-global discount (either freshly provided
+      // or carried over from the existing proforma row).
+      const effPct = input.discountPct ?? Number(proforma.discount_pct ?? 0);
+      const effAmt = input.discountAmount ?? Number(proforma.discount_amount ?? 0);
+      const totals = this.totals(enriched, customer, {
+        discountPct: effPct,
+        discountAmount: effAmt,
+      });
       if (totals.grandTotal <= 0) {
         throw new BadRequestException(
           'Proforma grand total is zero. Set a positive sell price on at least one line.',
         );
       }
+      const lineDiscountsTotal = enriched.reduce(
+        (s, l) => s + (l.gross_subtotal - l.subtotal),
+        0,
+      );
       updateData['parts_total'] = totals.partsTotal;
       updateData['subtotal'] = totals.subtotal;
       updateData['tax_amount'] = totals.totalVat;
       updateData['vat_by_rate'] = totals.vatByRate;
       updateData['grand_total'] = totals.grandTotal;
+      updateData['total_discount'] =
+        Math.round((lineDiscountsTotal + totals.invoiceDiscount) * 100) / 100;
 
       // Replace lines
       await client.from('parts_lines').delete().eq('tenant_id', tenantId).eq('proforma_id', id);
@@ -237,6 +266,8 @@ export class ProformasService {
       unit_cost: number;
       sell_price: number;
       tax_code_id: string | null;
+      discount_pct: number | null;
+      discount_amount: number | null;
     };
     const lineRows = (proforma.lines ?? []) as unknown as LineRow[];
     if (lineRows.length === 0) {
@@ -249,6 +280,8 @@ export class ProformasService {
       unitCost: Number(l.unit_cost),
       sellPrice: Number(l.sell_price),
       taxCodeId: l.tax_code_id ?? undefined,
+      discountPct: Number(l.discount_pct ?? 0),
+      discountAmount: Number(l.discount_amount ?? 0),
     }));
 
     const invoice = await this.invoices.createStandalone(tenantId, userId, {
@@ -256,6 +289,8 @@ export class ProformasService {
       lines,
       notes: (proforma.notes as string | null) ?? undefined,
       footer: (proforma.footer as string | null) ?? undefined,
+      discountPct: Number(proforma.discount_pct ?? 0),
+      discountAmount: Number(proforma.discount_amount ?? 0),
     });
 
     const client = this.supabase.getClient();
@@ -275,6 +310,7 @@ export class ProformasService {
   private totals(
     enriched: Array<{ subtotal: number; tax_rate: number }>,
     customer: { vat_captive_pct?: number; withholds_service_retention?: boolean } | null,
+    discount?: { discountPct?: number; discountAmount?: number },
   ) {
     return computeInvoiceTotals({
       labourLines: [],
@@ -283,6 +319,8 @@ export class ProformasService {
       customerRetains: Boolean(customer?.withholds_service_retention),
       isTaxable: true,
       isInsurance: false,
+      invoiceDiscountPct: Number(discount?.discountPct ?? 0),
+      invoiceDiscountAmount: Number(discount?.discountAmount ?? 0),
     });
   }
 }

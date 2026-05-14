@@ -233,6 +233,8 @@ export class InvoicesService {
       isTaxable: Boolean(jobCard.is_taxable),
       isInsurance: Boolean(jobCard.is_insurance),
       customerPortionOverride: input.customerPortion,
+      invoiceDiscountPct: Number(input.discountPct ?? 0),
+      invoiceDiscountAmount: Number(input.discountAmount ?? 0),
     });
 
     // 13. Insert invoice with the new fields.
@@ -263,6 +265,9 @@ export class InvoicesService {
         due_date: input.dueDate || null,
         notes: input.notes || null,
         footer: input.footer || null,
+        discount_pct: Number(input.discountPct ?? 0),
+        discount_amount: Number(input.discountAmount ?? 0),
+        total_discount: totals.invoiceDiscount,
         created_by: userId,
       })
       .select()
@@ -414,7 +419,18 @@ export class InvoicesService {
       customerRetains,
       isTaxable: true,
       isInsurance: false,
+      invoiceDiscountPct: Number(input.discountPct ?? 0),
+      invoiceDiscountAmount: Number(input.discountAmount ?? 0),
     });
+
+    // Total discount actually applied (line + invoice-global combined).
+    // Useful for the PDF + reports. lineDiscountsTotal = sum of each line's
+    // (gross_subtotal - subtotal).
+    const lineDiscountsTotal = enriched.reduce(
+      (s, l) => s + (l.gross_subtotal - l.subtotal),
+      0,
+    );
+    const totalDiscount = Math.round((lineDiscountsTotal + totals.invoiceDiscount) * 100) / 100;
 
     // Refuse zero-value invoices — usually means the user picked a part
     // whose catalogue sell_price is 0 and skipped manually entering one.
@@ -452,6 +468,9 @@ export class InvoicesService {
         due_date: input.dueDate || null,
         notes: input.notes || null,
         footer: input.footer || null,
+        discount_pct: Number(input.discountPct ?? 0),
+        discount_amount: Number(input.discountAmount ?? 0),
+        total_discount: totalDiscount,
         created_by: userId,
       })
       .select()
@@ -530,7 +549,12 @@ export class InvoicesService {
       tax_code_id: string | null;
       tax_rate: number;
     };
-    const out: Enriched[] = [];
+    type EnrichedWithDiscount = Enriched & {
+      discount_pct: number;
+      discount_amount: number;
+      gross_subtotal: number; // qty × sell_price (pre-line-discount)
+    };
+    const out: EnrichedWithDiscount[] = [];
 
     // Resolve tax codes referenced on lines
     const taxIds = Array.from(new Set(lines.map((l) => l.taxCodeId).filter((x): x is string => !!x)));
@@ -617,6 +641,14 @@ export class InvoicesService {
         if (sell < minSell) sell = minSell;
       }
 
+      // Line-level discount. pct and amount are additive (pct first).
+      const grossSubtotal = Math.round(qty * sell * 100) / 100;
+      const discPct = Number(l.discountPct ?? 0);
+      const discAmt = Number(l.discountAmount ?? 0);
+      const rawDiscount = (grossSubtotal * discPct) / 100 + discAmt;
+      const lineDiscount = Math.min(rawDiscount, grossSubtotal);
+      const subtotal = Math.round((grossSubtotal - lineDiscount) * 100) / 100;
+
       out.push({
         part_id: l.partId ?? null,
         part_number: part?.part_number ?? null,
@@ -625,9 +657,12 @@ export class InvoicesService {
         unit_cost: cost,
         sell_price: sell,
         sell_price_source: sellSource,
-        subtotal: Math.round(qty * sell * 100) / 100,
+        subtotal,
         tax_code_id: taxCodeId,
         tax_rate: taxRate,
+        discount_pct: discPct,
+        discount_amount: discAmt,
+        gross_subtotal: grossSubtotal,
       });
     }
     return out;
@@ -663,6 +698,8 @@ export class InvoicesService {
       subtotal: l.subtotal,
       tax_code_id: l.tax_code_id,
       tax_rate: l.tax_rate,
+      discount_pct: l.discount_pct,
+      discount_amount: l.discount_amount,
       // Stock semantics:
       //  invoice  → 'issued' (stock actually leaves the shelf)
       //  proforma → null (it's a quote — no stock movement). The CHECK

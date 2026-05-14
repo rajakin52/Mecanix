@@ -11,6 +11,9 @@
  *    labour total, withheld by the customer against their income-tax liability.
  *  - Insurance jobs: an explicit customer_portion split is honoured; otherwise
  *    the full net-of-withholdings amount is billed to the customer.
+ *  - Discounts: invoice-global discount (pct + amount, additive) applied
+ *    pre-VAT and distributed proportionally across each line's VAT band, so
+ *    vat_by_rate stays correct on the post-discount base.
  */
 
 export interface InvoiceLine {
@@ -26,12 +29,18 @@ export interface InvoiceMathInput {
   isTaxable: boolean;
   isInsurance: boolean;
   customerPortionOverride?: number | null;
+  // Invoice-global discount applied to lines total BEFORE VAT.
+  // Distributed proportionally so vat_by_rate stays correct per band.
+  invoiceDiscountPct?: number;
+  invoiceDiscountAmount?: number;
 }
 
 export interface InvoiceMathResult {
-  labourTotal: number;
+  labourTotal: number;       // gross — pre-line-discount values caller already passed in
   partsTotal: number;
-  subtotal: number;
+  grossLinesTotal: number;   // labour + parts before any invoice-global discount
+  invoiceDiscount: number;   // currency amount of invoice-global discount actually applied
+  subtotal: number;          // lines total post invoice-global discount
   vatByRate: Record<string, number>;
   totalVat: number;
   captiveAmount: number;
@@ -49,12 +58,28 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 export function computeInvoiceTotals(input: InvoiceMathInput): InvoiceMathResult {
   const labourTotal = input.labourLines.reduce((s, l) => s + (l.subtotal || 0), 0);
   const partsTotal = input.partsLines.reduce((s, p) => s + (p.subtotal || 0), 0);
+  const grossLinesTotal = labourTotal + partsTotal;
+
+  // Resolve invoice-global discount. pct and amount are additive
+  // (pct first, then amount). Clamped at the gross lines total so
+  // the post-discount subtotal can't go negative.
+  const invDiscPct = Number(input.invoiceDiscountPct ?? 0);
+  const invDiscAmt = Number(input.invoiceDiscountAmount ?? 0);
+  const rawInvoiceDiscount = (grossLinesTotal * invDiscPct) / 100 + invDiscAmt;
+  const invoiceDiscount = Math.min(rawInvoiceDiscount, grossLinesTotal);
+
+  // Discount factor applied to each line's subtotal when computing VAT.
+  // Must be applied pre-VAT so AGT-correct VAT by band reflects the
+  // discounted base.
+  const discountFactor = grossLinesTotal > 0
+    ? 1 - invoiceDiscount / grossLinesTotal
+    : 1;
 
   const vatByRate: Record<string, number> = {};
   const addVat = (subtotal: number, rate: number | null | undefined) => {
     if (!input.isTaxable) return;
     const r = Number(rate ?? 0);
-    const vat = subtotal * (r / 100);
+    const vat = subtotal * discountFactor * (r / 100);
     const key = r.toFixed(2);
     vatByRate[key] = (vatByRate[key] ?? 0) + vat;
   };
@@ -65,10 +90,12 @@ export function computeInvoiceTotals(input: InvoiceMathInput): InvoiceMathResult
 
   const captiveAmount = totalVat * (input.customerCaptivePct / 100);
 
+  // Retention base also follows the discount factor — withholding is on
+  // the actual labour billed, not the gross before discount.
   const retentionPct = input.customerRetains ? 6.5 : 0;
-  const retentionAmount = labourTotal * (retentionPct / 100);
+  const retentionAmount = labourTotal * discountFactor * (retentionPct / 100);
 
-  const subtotal = labourTotal + partsTotal;
+  const subtotal = grossLinesTotal - invoiceDiscount;
   const grandTotal = subtotal + totalVat;
   const clientOwes = grandTotal - captiveAmount - retentionAmount;
 
@@ -90,6 +117,8 @@ export function computeInvoiceTotals(input: InvoiceMathInput): InvoiceMathResult
   return {
     labourTotal: round2(labourTotal),
     partsTotal: round2(partsTotal),
+    grossLinesTotal: round2(grossLinesTotal),
+    invoiceDiscount: round2(invoiceDiscount),
     subtotal: round2(subtotal),
     vatByRate: vatByRateRounded,
     totalVat: round2(totalVat),

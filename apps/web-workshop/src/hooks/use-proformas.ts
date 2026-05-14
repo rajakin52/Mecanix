@@ -71,6 +71,8 @@ export interface CreateProformaInput {
   lines: StandaloneLine[];
   validUntil?: string;
   notes?: string;
+  discountPct?: number;
+  discountAmount?: number;
 }
 
 export function useCreateProforma() {

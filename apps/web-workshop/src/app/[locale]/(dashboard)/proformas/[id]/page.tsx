@@ -152,41 +152,98 @@ export default function ProformaDetailPage() {
         </div>
       </div>
 
+      {/* Customer block — mirrors the invoice detail layout so the user
+          sees everything they'd see on an invoice. */}
+      {proforma.customer && (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Customer</p>
+          <p className="mt-1 text-sm font-semibold text-gray-900">
+            {(proforma.customer as Record<string, unknown>).company_name as string ||
+              proforma.customer.full_name}
+          </p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+            {proforma.customer.phone && <span>{proforma.customer.phone}</span>}
+            {(proforma.customer as Record<string, unknown>).email
+              ? (<span>{(proforma.customer as Record<string, unknown>).email as string}</span>)
+              : null}
+            {(proforma.customer as Record<string, unknown>).tax_id
+              ? (<span>NIF: {(proforma.customer as Record<string, unknown>).tax_id as string}</span>)
+              : null}
+          </div>
+          {(proforma.customer as Record<string, unknown>).address ? (
+            <p className="mt-1 text-xs text-gray-400">
+              {(proforma.customer as Record<string, unknown>).address as string}
+            </p>
+          ) : null}
+        </div>
+      )}
+
       <div className="mb-4 rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part #</th>
+              <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Item code</th>
               <th className="px-4 py-2 text-start text-xs font-semibold uppercase text-gray-500">Description</th>
-              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Units</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Unit price</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Disc.</th>
               <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">VAT</th>
-              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Subtotal</th>
+              <th className="px-4 py-2 text-end text-xs font-semibold uppercase text-gray-500">Total price</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {(proforma.lines ?? []).map((line) => (
-              <tr key={line.id}>
-                <td className="px-4 py-2 font-mono text-xs text-gray-700">{line.part_number ?? '—'}</td>
-                <td className="px-4 py-2 text-gray-700">{line.part_name}</td>
-                <td className="px-4 py-2 text-end text-gray-700">{line.quantity}</td>
-                <td className="px-4 py-2 text-end text-gray-700">{formatCurrency(line.sell_price)}</td>
-                <td className="px-4 py-2 text-end text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
-                <td className="px-4 py-2 text-end font-medium text-gray-900">{formatCurrency(line.subtotal)}</td>
-              </tr>
-            ))}
+            {(proforma.lines ?? []).map((line) => {
+              const lineAny = line as Record<string, unknown>;
+              const dPct = Number(lineAny['discount_pct'] ?? 0);
+              const dAmt = Number(lineAny['discount_amount'] ?? 0);
+              const hasDisc = dPct > 0 || dAmt > 0;
+              return (
+                <tr key={line.id}>
+                  <td className="px-4 py-2 font-mono text-xs text-gray-700">{line.part_number ?? '—'}</td>
+                  <td className="px-4 py-2 text-gray-700">{line.part_name}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{line.quantity}</td>
+                  <td className="px-4 py-2 text-end text-gray-700">{formatCurrency(line.sell_price)}</td>
+                  <td className="px-4 py-2 text-end text-gray-500">
+                    {hasDisc
+                      ? `${dPct > 0 ? `${dPct.toFixed(1)}%` : ''}${dPct > 0 && dAmt > 0 ? ' + ' : ''}${dAmt > 0 ? formatCurrency(dAmt) : ''}`
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-end text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
+                  <td className="px-4 py-2 text-end font-medium text-gray-900">{formatCurrency(line.subtotal)}</td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot className="bg-gray-50 text-sm">
+            {Number((proforma as unknown as Record<string, unknown>)['discount_amount'] ?? 0) > 0 ||
+            Number((proforma as unknown as Record<string, unknown>)['discount_pct'] ?? 0) > 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-2 text-end text-gray-600">
+                  Invoice discount
+                  {Number((proforma as unknown as Record<string, unknown>)['discount_pct'] ?? 0) > 0 &&
+                    ` (${Number((proforma as unknown as Record<string, unknown>)['discount_pct']).toFixed(1)}%)`}
+                </td>
+                <td className="px-4 py-2 text-end text-red-700">
+                  −{formatCurrency(
+                    Number(
+                      (proforma as unknown as Record<string, unknown>)['total_discount'] ??
+                        (proforma as unknown as Record<string, unknown>)['discount_amount'] ??
+                        0,
+                    ),
+                  )}
+                </td>
+              </tr>
+            ) : null}
             <tr>
-              <td colSpan={5} className="px-4 py-2 text-end text-gray-600">Subtotal</td>
+              <td colSpan={6} className="px-4 py-2 text-end text-gray-600">Subtotal</td>
               <td className="px-4 py-2 text-end text-gray-900">{formatCurrency(proforma.subtotal)}</td>
             </tr>
             <tr>
-              <td colSpan={5} className="px-4 py-2 text-end text-gray-600">VAT</td>
+              <td colSpan={6} className="px-4 py-2 text-end text-gray-600">VAT</td>
               <td className="px-4 py-2 text-end text-gray-900">{formatCurrency(proforma.tax_amount)}</td>
             </tr>
             <tr>
-              <td colSpan={5} className="px-4 py-3 text-end text-base font-semibold text-gray-700">Total</td>
+              <td colSpan={6} className="px-4 py-3 text-end text-base font-semibold text-gray-700">Total</td>
               <td className="px-4 py-3 text-end text-base font-bold text-gray-900">{formatCurrency(proforma.grand_total)}</td>
             </tr>
           </tfoot>
