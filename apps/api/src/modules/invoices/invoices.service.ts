@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
 import { PricingService } from '../pricing/pricing.service';
+import { CostingService } from '../parts/costing.service';
 import type { GenerateInvoiceInput, PaginationInput, CreateStandaloneInvoiceInput, StandaloneLineInput } from '@mecanix/validators';
 import { computeInvoiceTotals } from './invoice-math';
 
@@ -23,6 +24,7 @@ export class InvoicesService {
     private readonly supabase: SupabaseService,
     private readonly agtService: AgtService,
     private readonly pricingService: PricingService,
+    private readonly costingService: CostingService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: InvoiceFilters = {}) {
@@ -741,15 +743,13 @@ export class InvoicesService {
     //
     // The single source of truth for stock is warehouse_stock — parts.stock_qty
     // is a read-only cache kept in sync by the trigger from migration 00108.
-    // Writing to parts.stock_qty directly is silently overridden, so the
-    // previous version of this code was a no-op and OTC sales weren't
-    // actually deducting stock.
-    //
     // For OTC we pick the first warehouse_stock row for the part and
-    // decrement there. If a part has no warehouse_stock row we still
-    // record an inventory_adjustments audit row but emit a log line so
-    // the discrepancy is visible. The same pattern is used by the JC
-    // parts flow (parts-lines.service.ts).
+    // decrement there.
+    //
+    // Additionally we now consume from the parts_cost_layers ledger per the
+    // tenant's chosen cost method (FIFO/LIFO/WAC). The actual cost drawn is
+    // snapshotted back onto this parts_line so margin reports stay correct
+    // even when costs drift after the sale.
     if (parent === 'invoice') {
       for (const l of enriched) {
         if (!l.part_id) continue;
@@ -772,6 +772,25 @@ export class InvoicesService {
         } else {
           this.logger.warn(
             `OTC sale of part ${l.part_id} has no warehouse_stock row — audit logged but no stock movement performed`,
+          );
+        }
+
+        // Draw layers and snapshot the method-resolved unit cost onto the
+        // line. last_cost just returns parts.unit_cost; FIFO/LIFO/WAC
+        // consume the layer ledger.
+        try {
+          const draw = await this.costingService.consume(tenantId, l.part_id, qty);
+          if (draw.unitCost > 0) {
+            await client
+              .from('parts_lines')
+              .update({ unit_cost: draw.unitCost })
+              .eq('invoice_id', parentId)
+              .eq('part_id', l.part_id)
+              .eq('tenant_id', tenantId);
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Cost-layer consume failed for part ${l.part_id} on invoice ${parentId}: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
 

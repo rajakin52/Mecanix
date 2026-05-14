@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { WarehouseService } from '../warehouse/warehouse.service';
+import { CostingService } from '../parts/costing.service';
 import type { CreatePurchaseOrderInput, CreatePoLineInput, ReceiveGoodsInput, PaginationInput } from '@mecanix/validators';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class PurchaseOrdersService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly warehouse: WarehouseService,
+    private readonly costing: CostingService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, vendorId?: string) {
@@ -227,6 +229,29 @@ export class PurchaseOrdersService {
         reference: poId,
         adjusted_by: userId,
       });
+
+    // Cost-layer ledger: record this receipt so FIFO/LIFO/WAC consumers
+    // can draw down accurate cost. Use landed_unit_cost when set (landed
+    // costs were distributed before receipt), else the raw PO unit_cost.
+    const layerCost = Number(line.landed_unit_cost ?? line.unit_cost ?? 0);
+    if (line.part_id && layerCost > 0) {
+      try {
+        await this.costing.recordReceipt({
+          tenantId,
+          partId: line.part_id as string,
+          warehouseId,
+          qty: input.receivedQty,
+          unitCost: layerCost,
+          sourceType: 'po_receipt',
+          sourceReference: input.lineId,
+          userId,
+        });
+      } catch (err) {
+        // Non-blocking — the receipt itself succeeded. Layer write failures
+        // are logged in CostingService.
+        void err;
+      }
+    }
 
     // Check if all lines are fully received
     const { data: allLines } = await client

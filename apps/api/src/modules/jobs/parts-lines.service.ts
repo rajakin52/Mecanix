@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { PricingService } from '../pricing/pricing.service';
 import { StockPolicyService } from '../parts/stock-policy.service';
+import { CostingService } from '../parts/costing.service';
 import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
 
 @Injectable()
 export class PartsLinesService {
+  private readonly logger = new Logger(PartsLinesService.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     @Inject(forwardRef(() => JobsService))
@@ -15,6 +18,7 @@ export class PartsLinesService {
     private readonly inspectionsService: InspectionsService,
     private readonly pricingService: PricingService,
     private readonly stockPolicyService: StockPolicyService,
+    private readonly costingService: CostingService,
   ) {}
 
   /** Refuse to mutate a line that's already on an invoice (JC or OTC). */
@@ -575,6 +579,26 @@ export class PartsLinesService {
         })
         .eq('id', line.id)
         .eq('tenant_id', tenantId);
+
+      // Consume cost layers per tenant method and snapshot the actual
+      // unit cost on the parts_line so margin reports stay accurate even
+      // if costs drift after issue.
+      if (part?.id) {
+        try {
+          const draw = await this.costingService.consume(tenantId, part.id as string, qty);
+          if (draw.unitCost > 0) {
+            await client
+              .from('parts_lines')
+              .update({ unit_cost: draw.unitCost })
+              .eq('id', line.id)
+              .eq('tenant_id', tenantId);
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Cost-layer consume failed on issue for part ${part.id}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
 
       issuedCount++;
     }
