@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote, useCreatePaymentLink } from '@/hooks/use-invoices';
+import { LinePricingDetails } from '@/components/invoices/LinePricingDetails';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
 import { Link } from '@/i18n/navigation';
@@ -269,16 +270,32 @@ export default function InvoiceDetailPage() {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {partsLines && (partsLines as Array<Record<string, unknown>>).length > 0 ? (
-                (partsLines as Array<Record<string, unknown>>).map((line, idx) => (
-                  <tr key={idx}>
-                    <td className="px-4 py-2 font-mono text-xs text-gray-700">{(line.part_number as string) ?? '—'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700">{(line.part_name ?? line.description) as string}</td>
-                    <td className="px-4 py-2 text-end text-sm text-gray-700">{line.quantity as number}</td>
-                    <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(line.sell_price as number)}</td>
-                    <td className="px-4 py-2 text-end text-sm text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
-                    <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
-                  </tr>
-                ))
+                (partsLines as Array<Record<string, unknown>>).map((line, idx) => {
+                  const cost = Number(line.unit_cost ?? 0);
+                  const sell = Number(line.sell_price ?? 0);
+                  const currentMargin = sell > 0 ? ((sell - cost) / sell) * 100 : null;
+                  return (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 font-mono text-xs text-gray-700">{(line.part_number as string) ?? '—'}</td>
+                      <td className="px-4 py-2 text-sm text-gray-700">
+                        {(line.part_name ?? line.description) as string}
+                        {line.id ? (
+                          <LinePricingDetails
+                            lineId={line.id as string}
+                            costMethod={line.cost_method as string | null}
+                            sellPriceSource={line.sell_price_source as string | null}
+                            marginAtIssue={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                            currentMargin={currentMargin}
+                          />
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-2 text-end text-sm text-gray-700">{line.quantity as number}</td>
+                      <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(sell)}</td>
+                      <td className="px-4 py-2 text-end text-sm text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
+                      <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="px-4 py-4 text-center text-sm text-gray-400">-</td>

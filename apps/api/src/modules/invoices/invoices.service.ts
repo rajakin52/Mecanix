@@ -726,6 +726,14 @@ export class InvoicesService {
       tax_rate: l.tax_rate,
       discount_pct: l.discount_pct,
       discount_amount: l.discount_amount,
+      // Pricing-decision snapshot (audit trail). cost_method is set later
+      // by the consume() call for invoice lines; nullable here so proforma
+      // (no consume) is fine.
+      sell_price_source: l.sell_price_source,
+      margin_pct_at_issue:
+        l.sell_price > 0 && l.unit_cost > 0
+          ? Math.round(((l.sell_price - l.unit_cost) / l.sell_price) * 100000) / 1000
+          : null,
       // Stock semantics:
       //  invoice  → 'issued' (stock actually leaves the shelf)
       //  proforma → null (it's a quote — no stock movement). The CHECK
@@ -777,13 +785,22 @@ export class InvoicesService {
 
         // Draw layers and snapshot the method-resolved unit cost onto the
         // line. last_cost just returns parts.unit_cost; FIFO/LIFO/WAC
-        // consume the layer ledger.
+        // consume the layer ledger. Also persist cost_method so the audit
+        // trail shows which method was applied at issue.
         try {
           const draw = await this.costingService.consume(tenantId, l.part_id, qty);
           if (draw.unitCost > 0) {
+            const newMargin =
+              l.sell_price > 0
+                ? Math.round(((l.sell_price - draw.unitCost) / l.sell_price) * 100000) / 1000
+                : null;
             await client
               .from('parts_lines')
-              .update({ unit_cost: draw.unitCost })
+              .update({
+                unit_cost: draw.unitCost,
+                cost_method: draw.method,
+                margin_pct_at_issue: newMargin,
+              })
               .eq('invoice_id', parentId)
               .eq('part_id', l.part_id)
               .eq('tenant_id', tenantId);

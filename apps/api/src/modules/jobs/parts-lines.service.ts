@@ -5,6 +5,7 @@ import { InspectionsService } from '../inspections/inspections.service';
 import { PricingService } from '../pricing/pricing.service';
 import { StockPolicyService } from '../parts/stock-policy.service';
 import { CostingService } from '../parts/costing.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { CreatePartsLineInput, UpdatePartsLineInput } from '@mecanix/validators';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class PartsLinesService {
     private readonly pricingService: PricingService,
     private readonly stockPolicyService: StockPolicyService,
     private readonly costingService: CostingService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   /** Refuse to mutate a line that's already on an invoice (JC or OTC). */
@@ -185,6 +187,25 @@ export class PartsLinesService {
       if (updated) Object.assign(line as Record<string, unknown>, updated);
     }
 
+    // Snapshot the pricing decision for the audit trail. sell_price_source
+    // = 'manual' when the user overrode the resolved markup, 'auto_markup'
+    // when the engine drove it. cost_method is left null on JC parts lines
+    // at create time — consume() fills it when the line transitions to
+    // issued via issueParts/chargePlannedLine.
+    const marginAtIssue =
+      sellPrice > 0 && input.unitCost > 0
+        ? Math.round(((sellPrice - input.unitCost) / sellPrice) * 100000) / 1000
+        : null;
+    await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .update({
+        sell_price_source: priceOverridden ? 'manual' : 'auto_markup',
+        margin_pct_at_issue: marginAtIssue,
+      })
+      .eq('id', (line as { id: string }).id)
+      .eq('tenant_id', tenantId);
+
     await this.jobsService.recalculateTotals(tenantId, jobCardId);
 
     return line;
@@ -220,6 +241,16 @@ export class PartsLinesService {
     const quantity = input.quantity ?? existing.quantity;
     const sellPrice = Math.round(unitCost * (1 + markupPct / 100) * 100) / 100;
     const subtotal = Math.round(quantity * sellPrice * 100) / 100;
+
+    // Capture the before-state for the audit row.
+    const beforeAudit = {
+      unit_cost: Number(existing.unit_cost),
+      sell_price: Number(existing.sell_price),
+      markup_pct: Number(existing.markup_pct),
+      quantity: Number(existing.quantity),
+      discount_pct: Number(existing.discount_pct ?? 0),
+      discount_amount: Number(existing.discount_amount ?? 0),
+    };
 
     const updateData: Record<string, unknown> = {
       sell_price: sellPrice,
@@ -345,6 +376,37 @@ export class PartsLinesService {
             .eq('tenant_id', tenantId);
         }
       }
+    }
+
+    // Audit trail — capture what actually changed so the UI can show
+    // "originally X, now Y" per field. Skip the write if nothing
+    // pricing-relevant moved.
+    const afterAudit = {
+      unit_cost: Number(data.unit_cost),
+      sell_price: Number(data.sell_price),
+      markup_pct: Number(data.markup_pct),
+      quantity: Number(data.quantity),
+      discount_pct: Number(data.discount_pct ?? 0),
+      discount_amount: Number(data.discount_amount ?? 0),
+    };
+    const changedFields = (Object.keys(beforeAudit) as Array<keyof typeof beforeAudit>).filter(
+      (k) => beforeAudit[k] !== afterAudit[k],
+    );
+    if (changedFields.length > 0) {
+      await this.auditLog.record(tenantId, userId, null, {
+        action: 'parts_line.updated',
+        entityType: 'parts_line',
+        entityId: id,
+        summary: `Parts line updated — fields: ${changedFields.join(', ')}`,
+        beforeState: beforeAudit,
+        afterState: afterAudit,
+        metadata: {
+          job_card_id: existing.job_card_id,
+          part_id: existing.part_id,
+          part_name: existing.part_name,
+          changed_fields: changedFields,
+        },
+      });
     }
 
     await this.jobsService.recalculateTotals(tenantId, existing.job_card_id);
