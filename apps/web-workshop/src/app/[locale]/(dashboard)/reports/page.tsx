@@ -1969,6 +1969,14 @@ function AgingReceivablesSection({
   const [asOfDate, setAsOfDate] = useState<string>(todayStr);
   const [bucketFilter, setBucketFilter] =
     useState<'all' | 'current' | '30' | '60' | '90' | '90+'>('all');
+  // "Summary" rolls up per-customer totals only; "Detailed" shows every
+  // unpaid invoice grouped by customer. The default matches the typical
+  // mental model: list-of-clients view when scanning all of them, deep
+  // dive when narrowing to one.
+  const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
+  React.useEffect(() => {
+    setViewMode(customerId ? 'detailed' : 'summary');
+  }, [customerId]);
 
   const { data: customersData } = useCustomers(1, '');
   const customers = (customersData?.data ?? []) as Array<{ id: string; full_name: string; phone?: string }>;
@@ -2027,6 +2035,38 @@ function AgingReceivablesSection({
 
   const buildXlsx = () => {
     if (filteredGroups.length === 0) return null;
+    if (viewMode === 'summary') {
+      const rows: (string | number)[][] = [
+        ['Customer', 'Phone', 'Email', 'Open inv.', 'Current', '1–30 d', '31–60 d', '61–90 d', '90+ d', 'Total outstanding'],
+      ];
+      for (const g of filteredGroups) {
+        rows.push([
+          g.customer_name,
+          g.customer_phone ?? '',
+          g.customer_email ?? '',
+          g.totals.invoice_count,
+          g.totals.current,
+          g.totals.thirty,
+          g.totals.sixty,
+          g.totals.ninety,
+          g.totals.ninetyPlus,
+          g.totals.total,
+        ]);
+      }
+      rows.push([
+        'TOTAL',
+        '',
+        '',
+        filteredTotals.invoice_count,
+        filteredTotals.current,
+        filteredTotals.thirty,
+        filteredTotals.sixty,
+        filteredTotals.ninety,
+        filteredTotals.ninetyPlus,
+        filteredTotals.total,
+      ]);
+      return rows;
+    }
     const rows: (string | number)[][] = [
       ['Customer', 'Phone', 'Invoice #', 'Invoice date', 'Due date', 'Days overdue', 'Bucket', 'Original', 'Paid', 'Balance due'],
     ];
@@ -2085,7 +2125,11 @@ function AgingReceivablesSection({
     <ReportSection
       title="Aging of Receivables"
       subtitle={`Snapshot as of ${asOfDate}. ${
-        customerId ? 'Single customer view.' : 'Grouped by customer, oldest invoice first.'
+        viewMode === 'summary'
+          ? 'Summary — one row per customer.'
+          : customerId
+            ? 'Detailed — every open invoice for this customer.'
+            : 'Detailed — every open invoice, grouped by customer.'
       }`}
       exportCsv={{
         filename: `aging-receivables-${asOfDate}${customerId ? '-customer' : ''}`,
@@ -2142,6 +2186,28 @@ function AgingReceivablesSection({
             />
           </div>
 
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              View
+            </span>
+            <div className="inline-flex overflow-hidden rounded-md border border-gray-300">
+              {(['summary', 'detailed'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setViewMode(m)}
+                  className={`px-3 py-1 text-xs font-medium ${
+                    viewMode === m
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {m === 'summary' ? 'Summary' : 'Detailed'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
               Bucket
@@ -2176,6 +2242,63 @@ function AgingReceivablesSection({
             <p className="py-4 text-center text-sm text-gray-500">
               No invoices in the selected bucket.
             </p>
+          ) : viewMode === 'summary' ? (
+            <div className="overflow-hidden rounded-md border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-start">Customer</th>
+                    <th className="px-3 py-2 text-end">Open inv.</th>
+                    <th className="px-3 py-2 text-end">Current</th>
+                    <th className="px-3 py-2 text-end">1–30 d</th>
+                    <th className="px-3 py-2 text-end">31–60 d</th>
+                    <th className="px-3 py-2 text-end">61–90 d</th>
+                    <th className="px-3 py-2 text-end">90+ d</th>
+                    <th className="px-3 py-2 text-end">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredGroups.map((g) => (
+                    <tr
+                      key={g.customer_id ?? g.customer_name}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => setCustomerId(g.customer_id ?? '')}
+                          className="font-medium text-primary-700 hover:underline"
+                        >
+                          {g.customer_name}
+                        </button>
+                        {g.customer_phone && (
+                          <div className="text-xs text-gray-500">{g.customer_phone}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-end text-gray-700">{g.totals.invoice_count}</td>
+                      <td className="px-3 py-2 text-end text-gray-700">{money(g.totals.current)}</td>
+                      <td className="px-3 py-2 text-end text-yellow-700">{money(g.totals.thirty)}</td>
+                      <td className="px-3 py-2 text-end text-amber-700">{money(g.totals.sixty)}</td>
+                      <td className="px-3 py-2 text-end font-medium text-red-600">{money(g.totals.ninety)}</td>
+                      <td className="px-3 py-2 text-end font-semibold text-red-700">{money(g.totals.ninetyPlus)}</td>
+                      <td className="px-3 py-2 text-end font-bold text-gray-900">{money(g.totals.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 font-semibold">
+                  <tr>
+                    <td className="px-3 py-2 text-gray-700">TOTAL</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{filteredTotals.invoice_count}</td>
+                    <td className="px-3 py-2 text-end text-gray-900">{money(filteredTotals.current)}</td>
+                    <td className="px-3 py-2 text-end text-yellow-700">{money(filteredTotals.thirty)}</td>
+                    <td className="px-3 py-2 text-end text-amber-700">{money(filteredTotals.sixty)}</td>
+                    <td className="px-3 py-2 text-end text-red-600">{money(filteredTotals.ninety)}</td>
+                    <td className="px-3 py-2 text-end text-red-700">{money(filteredTotals.ninetyPlus)}</td>
+                    <td className="px-3 py-2 text-end text-gray-900">{money(filteredTotals.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           ) : (
             <div className="overflow-hidden rounded-md border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
