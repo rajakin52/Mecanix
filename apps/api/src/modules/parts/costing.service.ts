@@ -337,6 +337,48 @@ export class CostingService {
       };
     }
 
+    // highest_cost: charge the most-expensive layer currently in stock
+    // (conservative — never undercut your most expensive purchase). Draws
+    // layers from highest unit_cost down until qty is satisfied.
+    if (method === 'highest_cost') {
+      const { data: layers } = await client
+        .from('parts_cost_layers')
+        .select('id, unit_cost, quantity_remaining')
+        .eq('tenant_id', tenantId)
+        .eq('part_id', partId)
+        .gt('quantity_remaining', 0)
+        .order('unit_cost', { ascending: false });
+      const rows = (layers ?? []) as Array<{ id: string; unit_cost: number; quantity_remaining: number }>;
+      let remaining = qty;
+      let totalCost = 0;
+      let drawn = 0;
+      let layersConsumed = 0;
+      for (const layer of rows) {
+        if (remaining <= 0) break;
+        const take = Math.min(Number(layer.quantity_remaining), remaining);
+        totalCost += take * Number(layer.unit_cost);
+        drawn += take;
+        remaining -= take;
+        await client
+          .from('parts_cost_layers')
+          .update({ quantity_remaining: Math.max(0, Number(layer.quantity_remaining) - take) })
+          .eq('id', layer.id)
+          .eq('tenant_id', tenantId);
+        layersConsumed++;
+      }
+      let unitCost = drawn > 0 ? totalCost / drawn : 0;
+      if (remaining > 0) {
+        const fallback = await this.getCurrentCostFallback(tenantId, partId);
+        unitCost = (totalCost + remaining * fallback) / qty;
+      }
+      return {
+        unitCost: Math.round(unitCost * 10000) / 10000,
+        method,
+        layersConsumed,
+        shortfall: Math.max(0, remaining),
+      };
+    }
+
     // FIFO / LIFO: draw layers one at a time in the appropriate order
     // until qty is satisfied or we run out.
     const fifo = method !== 'lifo';
@@ -418,6 +460,19 @@ export class CostingService {
         ? rows.reduce((s, l) => s + Number(l.unit_cost) * Number(l.quantity_remaining), 0) / totalQty
         : await this.getCurrentCostFallback(tenantId, partId);
       return { unitCost: Math.round(wac * 10000) / 10000, method };
+    }
+    if (method === 'highest_cost') {
+      const { data } = await client
+        .from('parts_cost_layers')
+        .select('unit_cost')
+        .eq('tenant_id', tenantId)
+        .eq('part_id', partId)
+        .gt('quantity_remaining', 0)
+        .order('unit_cost', { ascending: false })
+        .limit(1);
+      const top = (data ?? [])[0];
+      if (top) return { unitCost: Math.round(Number(top.unit_cost) * 10000) / 10000, method };
+      return { unitCost: await this.getCurrentCostFallback(tenantId, partId), method };
     }
     const fifo = method !== 'lifo';
     const { data: layers } = await client

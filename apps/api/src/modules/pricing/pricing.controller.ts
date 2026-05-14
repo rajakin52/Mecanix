@@ -45,6 +45,22 @@ export class PricingController {
     return this.pricingService.listGroups(tenantId);
   }
 
+  /**
+   * Price-list preview — projects expected sell prices across the catalogue
+   * for a chosen (price-group, cost-method). Read-only.
+   */
+  @Get('price-list-preview')
+  async pricelistPreview(
+    @TenantId() tenantId: string,
+    @Query('priceGroupId') priceGroupId?: string,
+    @Query('costMethod') costMethod?: string,
+  ) {
+    return this.pricingService.previewPriceList(tenantId, {
+      priceGroupId: priceGroupId || null,
+      costMethod: costMethod || null,
+    });
+  }
+
   @Get('groups/:id')
   async getGroup(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.pricingService.getGroup(tenantId, id);

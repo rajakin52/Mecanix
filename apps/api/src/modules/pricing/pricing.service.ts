@@ -191,6 +191,152 @@ export class PricingService {
 
   // ── Pricing Settings ──────────────────────────────────────
 
+  /**
+   * Price list preview: project the catalogue's expected sell price for a
+   * given (price-group, cost-method) combination. Doesn't write anything —
+   * purely a read for the Settings → Pricing visibility page.
+   *
+   * Each row resolves:
+   *   markup_pct  = group rule for the part's category > group default >
+   *                 tenant default (already what resolveMarkup does)
+   *   unit_cost   = method-aware cost (peekCost wraps the layer logic)
+   *   sell_price  = cost × (1 + markup/100), respecting minimum_margin_pct
+   */
+  async previewPriceList(
+    tenantId: string,
+    args: { priceGroupId?: string | null; costMethod?: string | null },
+  ): Promise<Array<Record<string, unknown>>> {
+    const client = this.supabase.getClient();
+    const settings = await this.getPricingSettings(tenantId);
+    const method = (args.costMethod ?? settings.defaultCostMethod) || 'last_cost';
+    const tenantDefault = Number(settings.defaultMarkupPct ?? 0);
+    const minMarginPct = Number(settings.minimumMarginPct ?? 0);
+
+    // Resolve the group + its rules in one query so we can look up rules
+    // by category without N+1 hits.
+    type Rule = { part_category: string; markup_pct: number };
+    let groupDefault = tenantDefault;
+    const ruleByCategory = new Map<string, number>();
+    if (args.priceGroupId) {
+      const { data: group } = await client
+        .from('price_groups')
+        .select('id, default_markup_pct, is_active')
+        .eq('id', args.priceGroupId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (group && group.is_active !== false) {
+        groupDefault = Number(group.default_markup_pct ?? tenantDefault);
+        const { data: rules } = await client
+          .from('price_group_rules')
+          .select('part_category, markup_pct')
+          .eq('price_group_id', args.priceGroupId);
+        for (const r of (rules ?? []) as Rule[]) {
+          ruleByCategory.set(r.part_category, Number(r.markup_pct));
+        }
+      }
+    }
+
+    const { data: parts } = await client
+      .from('parts')
+      .select('id, part_number, description, category, unit_cost')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .order('description', { ascending: true });
+
+    type PartRow = { id: string; part_number: string | null; description: string; category: string | null; unit_cost: number | null };
+    const out: Array<Record<string, unknown>> = [];
+    for (const p of (parts ?? []) as PartRow[]) {
+      const markupPct = p.category && ruleByCategory.has(p.category)
+        ? (ruleByCategory.get(p.category) as number)
+        : groupDefault;
+      // peekCost lives on CostingService — we don't want a circular dep,
+      // so resolve the layer-cost inline here using the same algorithm.
+      const unitCost = await this.peekCostInline(tenantId, p.id, method);
+      let sell = unitCost > 0 ? unitCost * (1 + markupPct / 100) : Number(p.unit_cost ?? 0);
+      if (sell > 0 && unitCost > 0 && minMarginPct > 0) {
+        const minSell = unitCost / (1 - minMarginPct / 100);
+        if (sell < minSell) sell = minSell;
+      }
+      const margin = sell > 0 ? ((sell - unitCost) / sell) * 100 : 0;
+      out.push({
+        part_id: p.id,
+        part_number: p.part_number,
+        description: p.description,
+        category: p.category,
+        unit_cost: Math.round(unitCost * 100) / 100,
+        markup_pct: Math.round(markupPct * 100) / 100,
+        sell_price: Math.round(sell * 100) / 100,
+        margin_pct: Math.round(margin * 10) / 10,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Inline copy of CostingService.peekCost — separate to avoid a circular
+   * module dependency. Behaviour must stay in sync; see costing.service.ts.
+   */
+  private async peekCostInline(
+    tenantId: string,
+    partId: string,
+    method: string,
+  ): Promise<number> {
+    const client = this.supabase.getClient();
+    if (method === 'last_cost') {
+      const { data } = await client
+        .from('parts')
+        .select('unit_cost')
+        .eq('id', partId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      return Number(data?.unit_cost ?? 0);
+    }
+    if (method === 'weighted_average') {
+      const { data } = await client
+        .from('parts_cost_layers')
+        .select('unit_cost, quantity_remaining')
+        .eq('tenant_id', tenantId)
+        .eq('part_id', partId)
+        .gt('quantity_remaining', 0);
+      const rows = (data ?? []) as Array<{ unit_cost: number; quantity_remaining: number }>;
+      const total = rows.reduce((s, l) => s + Number(l.quantity_remaining), 0);
+      if (total > 0) {
+        return rows.reduce((s, l) => s + Number(l.unit_cost) * Number(l.quantity_remaining), 0) / total;
+      }
+    }
+    if (method === 'fifo' || method === 'lifo') {
+      const { data } = await client
+        .from('parts_cost_layers')
+        .select('unit_cost, received_at')
+        .eq('tenant_id', tenantId)
+        .eq('part_id', partId)
+        .gt('quantity_remaining', 0)
+        .order('received_at', { ascending: method === 'fifo' })
+        .limit(1);
+      const rows = (data ?? []) as Array<{ unit_cost: number; received_at: string }>;
+      if (rows[0]) return Number(rows[0].unit_cost);
+    }
+    if (method === 'highest_cost') {
+      const { data } = await client
+        .from('parts_cost_layers')
+        .select('unit_cost')
+        .eq('tenant_id', tenantId)
+        .eq('part_id', partId)
+        .gt('quantity_remaining', 0)
+        .order('unit_cost', { ascending: false })
+        .limit(1);
+      const top = (data ?? [])[0] as { unit_cost: number } | undefined;
+      if (top) return Number(top.unit_cost);
+    }
+    const { data } = await client
+      .from('parts')
+      .select('unit_cost')
+      .eq('id', partId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    return Number(data?.unit_cost ?? 0);
+  }
+
   async getPricingSettings(tenantId: string) {
     const { data } = await this.supabase
       .getClient()

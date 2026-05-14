@@ -16,7 +16,9 @@ import {
   useCopyGroupRules,
   useBulkUpdateCategoryMarkup,
   useBulkRecalculateSellPrices,
+  usePriceListPreview,
 } from '@/hooks/use-pricing';
+import { downloadXlsx } from '@/lib/csv';
 import { useCatalogCategories } from '@/hooks/use-catalog';
 import { useToast } from '@mecanix/ui-web';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
@@ -69,6 +71,44 @@ export default function PricingSettingsPage() {
   // Margin calculator state
   const [calcCost, setCalcCost] = useState('');
   const [calcSell, setCalcSell] = useState('');
+
+  // Price list preview state — pick (group, cost method) to project the
+  // resulting catalogue sell prices live.
+  const [previewGroupId, setPreviewGroupId] = useState<string>('');
+  const [previewCostMethod, setPreviewCostMethod] = useState<string>('');
+  const [previewSearch, setPreviewSearch] = useState('');
+  const { data: previewRows, isLoading: previewLoading } = usePriceListPreview(
+    previewGroupId || null,
+    previewCostMethod || null,
+  );
+  const filteredPreview = (previewRows ?? []).filter((r) => {
+    if (!previewSearch.trim()) return true;
+    const q = previewSearch.trim().toLowerCase();
+    return (
+      (r.part_number ?? '').toLowerCase().includes(q) ||
+      (r.description ?? '').toLowerCase().includes(q) ||
+      (r.category ?? '').toLowerCase().includes(q)
+    );
+  });
+  const previewExport = () => {
+    if (filteredPreview.length === 0) return;
+    const rows: (string | number)[][] = [
+      ['Part #', 'Description', 'Category', 'Unit cost', 'Markup %', 'Sell price', 'Margin %'],
+      ...filteredPreview.map((r) => [
+        r.part_number ?? '',
+        r.description,
+        r.category ?? '',
+        r.unit_cost,
+        r.markup_pct,
+        r.sell_price,
+        r.margin_pct,
+      ]),
+    ];
+    const groupName = previewGroupId
+      ? (groups ?? []).find((g) => g.id === previewGroupId)?.name ?? 'group'
+      : 'default';
+    downloadXlsx(`price-list-${groupName}-${previewCostMethod || 'default'}`, rows);
+  };
 
   // New group form
   const [showNewGroup, setShowNewGroup] = useState(false);
@@ -298,13 +338,17 @@ export default function PricingSettingsPage() {
               className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
               <option value="last_cost">Last Cost — uses the most recent purchase price</option>
-              <option value="weighted_average">Weighted Average (WAC) — average cost weighted by quantity</option>
-              <option value="fifo">FIFO — first-in, first-out cost assignment</option>
+              <option value="weighted_average">Weighted Average (WAC) — average of items in stock</option>
+              <option value="fifo">FIFO — first-in, first-out</option>
+              <option value="lifo">LIFO — last-in, first-out</option>
+              <option value="highest_cost">Highest in stock — most expensive layer still on shelf</option>
             </select>
             <div className="rounded-md bg-gray-50 border border-gray-100 p-3 text-xs text-gray-600 space-y-1">
-              <p><strong>Last Cost:</strong> Simplest method. Uses the price from the most recent purchase order. Best for stable pricing.</p>
-              <p><strong>Weighted Average (WAC):</strong> Smooths out price fluctuations. Recalculated on every new purchase. Recommended for most workshops.</p>
+              <p><strong>Last Cost:</strong> Simplest. Uses the price from the most recent purchase order. Best when prices are stable.</p>
+              <p><strong>Weighted Average (WAC):</strong> Smooths out fluctuations. Recalculated on every new receipt. Recommended for most workshops.</p>
               <p><strong>FIFO:</strong> Matches costs to the order they were purchased. Required in some accounting jurisdictions.</p>
+              <p><strong>LIFO:</strong> Charges the most recent receipts first. Useful when input prices keep rising and you want COGS to reflect that.</p>
+              <p><strong>Highest in stock:</strong> Conservative — uses the highest-cost layer still on the shelf, so sell prices never undercut your most expensive purchase.</p>
             </div>
             <button
               onClick={handleSaveSettings}
@@ -685,6 +729,136 @@ export default function PricingSettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Price List Preview ─────────────────────────────── */}
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Price list preview</h2>
+              <p className="text-sm text-gray-500">
+                Project the expected sell price for each part using the chosen
+                customer price group and cost method. The math mirrors what the
+                pricing engine applies on every new invoice line.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={previewExport}
+              disabled={filteredPreview.length === 0}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Export to Excel
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Customer price group</label>
+              <select
+                value={previewGroupId}
+                onChange={(e) => setPreviewGroupId(e.target.value)}
+                className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">Default (tenant)</option>
+                {(groups ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Cost method</label>
+              <select
+                value={previewCostMethod}
+                onChange={(e) => setPreviewCostMethod(e.target.value)}
+                className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="">Tenant default ({costMeth})</option>
+                <option value="last_cost">Last cost</option>
+                <option value="weighted_average">Weighted average (WAC)</option>
+                <option value="fifo">FIFO</option>
+                <option value="lifo">LIFO</option>
+                <option value="highest_cost">Highest in stock</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Filter</label>
+              <input
+                type="text"
+                value={previewSearch}
+                onChange={(e) => setPreviewSearch(e.target.value)}
+                placeholder="Part #, description, category…"
+                className="block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-x-auto rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 text-start">Part #</th>
+                  <th className="px-3 py-2 text-start">Description</th>
+                  <th className="px-3 py-2 text-start">Category</th>
+                  <th className="px-3 py-2 text-end">Unit cost</th>
+                  <th className="px-3 py-2 text-end">Markup %</th>
+                  <th className="px-3 py-2 text-end">Sell price</th>
+                  <th className="px-3 py-2 text-end">Margin %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {previewLoading ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-4 text-center text-sm text-gray-400">
+                      Computing…
+                    </td>
+                  </tr>
+                ) : filteredPreview.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-4 text-center text-sm text-gray-400">
+                      No matching parts.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredPreview.slice(0, 500).map((r) => (
+                    <tr key={r.part_id} className="hover:bg-gray-50">
+                      <td className="px-3 py-1.5 font-mono text-xs text-gray-700">
+                        {r.part_number ?? '—'}
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-900">{r.description}</td>
+                      <td className="px-3 py-1.5 text-xs text-gray-500">{r.category ?? '—'}</td>
+                      <td className="px-3 py-1.5 text-end tabular-nums text-gray-700">
+                        {r.unit_cost.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-3 py-1.5 text-end tabular-nums text-gray-700">
+                        {r.markup_pct.toFixed(1)}%
+                      </td>
+                      <td className="px-3 py-1.5 text-end tabular-nums font-medium text-gray-900">
+                        {r.sell_price.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td
+                        className={`px-3 py-1.5 text-end tabular-nums ${
+                          r.margin_pct < 0
+                            ? 'text-red-600'
+                            : r.margin_pct < 10
+                              ? 'text-amber-700'
+                              : 'text-emerald-700'
+                        }`}
+                      >
+                        {r.margin_pct.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredPreview.length > 500 && (
+            <p className="mt-2 text-xs text-gray-500">
+              Showing the first 500 rows. Use the filter or export to Excel to see the rest.
+            </p>
+          )}
         </div>
       </div>
     </div>

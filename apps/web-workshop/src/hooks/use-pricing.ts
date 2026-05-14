@@ -160,3 +160,29 @@ export function useBulkRecalculateSellPrices() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['parts'] }),
   });
 }
+
+export interface PriceListPreviewRow {
+  part_id: string;
+  part_number: string | null;
+  description: string;
+  category: string | null;
+  unit_cost: number;
+  markup_pct: number;
+  sell_price: number;
+  margin_pct: number;
+}
+
+export function usePriceListPreview(priceGroupId: string | null, costMethod: string | null) {
+  const params = new URLSearchParams();
+  if (priceGroupId) params.set('priceGroupId', priceGroupId);
+  if (costMethod) params.set('costMethod', costMethod);
+  const qs = params.toString();
+  return useQuery({
+    queryKey: ['pricing-price-list-preview', priceGroupId ?? null, costMethod ?? null],
+    queryFn: () =>
+      api.get<PriceListPreviewRow[]>(
+        `/pricing/price-list-preview${qs ? `?${qs}` : ''}`,
+      ),
+    staleTime: 30_000,
+  });
+}
