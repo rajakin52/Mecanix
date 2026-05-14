@@ -12,6 +12,7 @@ import {
 } from '@/hooks/use-report-builder';
 import { useMyBranches } from '@/hooks/use-branches';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable, useToast } from '@mecanix/ui-web';
 
 interface RunResult {
@@ -19,8 +20,6 @@ interface RunResult {
   columns: ReportColumn[];
   rows: Array<Record<string, unknown>>;
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export default function ReportBuilderPage() {
   const toast = useToast();
@@ -87,29 +86,23 @@ export default function ReportBuilderPage() {
   };
 
   const handleExport = async () => {
-    if (!selected) return;
+    if (!selected || !result) return;
     try {
-      const res = await fetch(`${API_URL}/report-builder/export-csv`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}`,
-        },
-        body: JSON.stringify({ reportType: selected.type, filters: effectiveFilters }),
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const text = await res.text();
-      // UTF-8 BOM prefix so Excel renders accents correctly when opening the CSV
-      const blob = new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
+      // Build the .xlsx straight from the already-loaded result. The
+      // CSV endpoint stays available but we no longer round-trip
+      // through it — a real Excel file is better than CSV anyway.
+      const headers = result.columns.map((c) => c.label);
+      const dataRows = result.rows.map((r) =>
+        result.columns.map((c) => {
+          const v = r[c.key];
+          if (v == null) return '';
+          if (c.format === 'currency' || c.format === 'integer') return Number(v);
+          if (c.format === 'percent') return Number(v);
+          return String(v);
+        }),
+      );
       const stamp = new Date().toISOString().slice(0, 10);
-      a.download = `${selected.type}-${stamp}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      downloadXlsx(`${selected.type}-${stamp}`, [headers, ...dataRows], result.name.slice(0, 31));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed');
     }
@@ -254,7 +247,7 @@ export default function ReportBuilderPage() {
                   disabled={!result}
                   className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  Export CSV
+                  Export Excel
                 </button>
               </div>
 

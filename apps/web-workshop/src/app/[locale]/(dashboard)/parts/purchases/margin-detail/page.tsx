@@ -7,7 +7,7 @@ import { InventoryTabs } from '../../inventory-tabs';
 import { DateRangePicker, todayRange, type DateRange } from '@/components/DateRangePicker';
 import { useMarginDetail } from '@/hooks/use-purchase-reports';
 import { formatCurrency } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -36,7 +36,7 @@ export default function MarginDetailPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`margin-detail-${mode}-${range.startDate}_${range.endDate}.csv`, [
+    downloadXlsx(`margin-detail-${mode}-${range.startDate}_${range.endDate}.csv`, [
       ['Part #', 'Description', 'Quantity', 'Revenue', 'Cost', 'Margin', 'Margin %'],
       ...data.rows.map((r) => [
         r.part_number ?? '', r.description, r.quantity, r.revenue, r.cost, r.margin, r.margin_pct,

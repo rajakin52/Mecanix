@@ -4,7 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../inventory-tabs';
 import { usePendingDeliveries } from '@/hooks/use-purchase-reports';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export default function PendingDeliveriesPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`pending-deliveries-${new Date().toISOString().slice(0, 10)}.csv`, [
+    downloadXlsx(`pending-deliveries-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['PO', 'Status', 'Vendor', 'Order date', 'Expected', 'Overdue', 'Part #', 'Description', 'Ordered', 'Received', 'Outstanding', 'Unit cost', 'Outstanding value'],
       ...data.rows.map((r) => [
         r.po_number, r.po_status, r.vendor_name ?? '', r.order_date, r.expected_date ?? '',

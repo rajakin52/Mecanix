@@ -7,7 +7,7 @@ import { InventoryTabs } from '../../inventory-tabs';
 import { DateRangePicker, todayRange, type DateRange } from '@/components/DateRangePicker';
 import { usePartsDelivered } from '@/hooks/use-purchase-reports';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -42,7 +42,7 @@ export default function DeliveredPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`parts-delivered-${range.startDate}_${range.endDate}.csv`, [
+    downloadXlsx(`parts-delivered-${range.startDate}_${range.endDate}.csv`, [
       ['Issued at', 'Part #', 'Description', 'Qty', 'Unit cost', 'Sell price', 'Revenue', 'Margin', 'Job', 'Status', 'Customer', 'Plate'],
       ...data.rows.map((r) => [
         r.issued_at, r.part_number ?? '', r.description, r.quantity, r.unit_cost, r.sell_price,

@@ -7,6 +7,7 @@ import { Link } from '@/i18n/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useDebounce } from '@/hooks/use-debounce';
+import { downloadXlsx } from '@/lib/csv';
 import { useParts, useCreatePart, useUpdatePart, useLowStock, useVehicleMakes, useVehicleModels, useExportParts, type CataloguePart } from '@/hooks/use-parts';
 import { useTecDocSearch, useTecDocVehicles } from '@/hooks/use-tecdoc';
 import { SkeletonTable, useToast, EmptyState, SortableHeader, sortData, type SortDirection } from '@mecanix/ui-web';
@@ -255,35 +256,25 @@ function summariseCompatibility(
   };
 }
 
-function csvCell(v: unknown): string {
-  if (v == null) return '';
-  const s = String(v);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function buildCatalogueCsv(parts: CataloguePart[]): string {
-  const headers = [
+function buildCatalogueRows(parts: CataloguePart[]): unknown[][] {
+  const rows: unknown[][] = [[
     'Part number', 'Description', 'Category', 'Make', 'Model', 'Year from', 'Year to',
     'Stock', 'Reorder point', 'Unit cost', 'Sell price', 'IVA', 'Vendor', 'Location',
-  ];
-  const lines: string[] = [headers.map(csvCell).join(',')];
+  ]];
   for (const p of parts) {
     const summary = summariseCompatibility(p.is_universal, p.compatibility);
-    let yearFrom = '';
-    let yearTo = '';
+    let yearFrom: string | number = '';
+    let yearTo: string | number = '';
     if (p.is_universal) {
       yearFrom = 'ALL';
       yearTo = 'ALL';
     } else if (p.compatibility && p.compatibility.length > 0) {
       const fs = p.compatibility.map((c) => c.year_from).filter((y): y is number => y != null);
       const ts = p.compatibility.map((c) => c.year_to).filter((y): y is number => y != null);
-      yearFrom = fs.length ? String(Math.min(...fs)) : '';
-      yearTo = ts.length ? String(Math.max(...ts)) : '';
+      yearFrom = fs.length ? Math.min(...fs) : '';
+      yearTo = ts.length ? Math.max(...ts) : '';
     }
-    lines.push([
+    rows.push([
       p.part_number ?? '',
       p.description,
       p.category ?? '',
@@ -298,9 +289,9 @@ function buildCatalogueCsv(parts: CataloguePart[]): string {
       p.tax_code ? `${p.tax_code.code} (${p.tax_code.rate}%)` : '',
       p.vendor?.name ?? '',
       p.location ?? '',
-    ].map(csvCell).join(','));
+    ]);
   }
-  return lines.join('\n');
+  return rows;
 }
 
 function compatRowsToPayload(rows: CompatRow[]): Array<{ make: string; model?: string | null; yearFrom: number; yearTo: number }> {
@@ -592,18 +583,8 @@ export default function PartsPage() {
   const handleExport = async () => {
     try {
       const parts = await exportMutation.mutateAsync();
-      const csv = buildCatalogueCsv(parts);
-      // UTF-8 BOM so Excel renders accents (ç, ã, ó, etc.) correctly
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
       const stamp = new Date().toISOString().slice(0, 10);
-      link.download = `parts-catalogue-${stamp}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      downloadXlsx(`parts-catalogue-${stamp}`, buildCatalogueRows(parts), 'Parts');
       toast.success(`Exported ${parts.length} parts`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Export failed');

@@ -4,7 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../inventory-tabs';
 import { useConsumablesStock } from '@/hooks/use-purchase-reports';
 import { formatCurrency } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -13,7 +13,7 @@ export default function ConsumablesPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`consumables-stock-${new Date().toISOString().slice(0, 10)}.csv`, [
+    downloadXlsx(`consumables-stock-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['Part #', 'Description', 'Category', 'Location', 'Stock', 'Reserved', 'Available', 'Reorder pt', 'Unit cost', 'Stock value'],
       ...data.rows.map((r) => [
         r.part_number ?? '', r.description, r.category ?? '', r.location ?? '',

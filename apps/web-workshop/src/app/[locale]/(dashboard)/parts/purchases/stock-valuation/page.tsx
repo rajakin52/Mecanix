@@ -4,7 +4,7 @@ import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../inventory-tabs';
 import { useStockValuation } from '@/hooks/use-purchase-reports';
 import { formatCurrency } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -12,7 +12,7 @@ export default function StockValuationPage() {
   const { data, isLoading } = useStockValuation();
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`stock-valuation-${new Date().toISOString().slice(0, 10)}.csv`, [
+    downloadXlsx(`stock-valuation-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['Part #', 'Description', 'Category', 'Location', 'Stock', 'Reserved', 'Available', 'Unit cost', 'Stock value', 'Sell price', 'Potential revenue'],
       ...data.rows.map((r) => [
         r.part_number ?? '', r.description, r.category ?? '', r.location ?? '',

@@ -5,7 +5,7 @@ import { Link } from '@/i18n/navigation';
 import { InventoryTabs } from '../../inventory-tabs';
 import { useSlowMoving } from '@/hooks/use-purchase-reports';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function SlowMovingPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`slow-moving-${days}d-${new Date().toISOString().slice(0, 10)}.csv`, [
+    downloadXlsx(`slow-moving-${days}d-${new Date().toISOString().slice(0, 10)}.csv`, [
       ['Part #', 'Description', 'Category', 'In stock', 'Unit cost', 'Tied-up value', 'Created'],
       ...data.rows.map((r) => [
         r.part_number ?? '', r.description, r.category ?? '',

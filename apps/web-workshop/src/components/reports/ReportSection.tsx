@@ -1,16 +1,20 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 
 interface ReportSectionProps {
   title: string;
   subtitle?: string;
   /**
-   * Optional CSV export. Provide a function returning the CSV grid
+   * Optional Excel export. Provide a function returning the row grid
    * (rows[0] is the header) and the export button is rendered. The
-   * underlying `downloadCsv` helper writes a UTF-8 BOM so Excel
-   * opens the file with accents intact.
+   * underlying `downloadXlsx` helper produces a real .xlsx workbook
+   * via SheetJS — numbers stay numbers, accents render correctly,
+   * and no CSV import dialog appears in Excel.
+   *
+   * Kept the prop name `exportCsv` for backwards compatibility with
+   * callers that already wired it up.
    */
   exportCsv?: {
     filename: string;
@@ -37,10 +41,9 @@ export function ReportSection({
     const rows = exportCsv.build();
     if (!rows || rows.length <= 1) return; // header only
     const stamp = new Date().toISOString().slice(0, 10);
-    const name = exportCsv.filename.endsWith('.csv')
-      ? exportCsv.filename
-      : `${exportCsv.filename}-${stamp}.csv`;
-    downloadCsv(name, rows);
+    // Strip any pre-existing .csv extension; downloadXlsx adds .xlsx
+    const base = exportCsv.filename.replace(/\.csv$/i, '').replace(/\.xlsx$/i, '');
+    downloadXlsx(`${base}-${stamp}`, rows, title.slice(0, 31));
   };
 
   return (
@@ -58,10 +61,10 @@ export function ReportSection({
               onClick={handleExport}
               disabled={disableExport}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              title="Export to Excel (CSV with UTF-8 BOM)"
+              title="Export to Excel (.xlsx)"
             >
               <Download className="h-3 w-3" />
-              Export
+              Export Excel
             </button>
           )}
         </div>

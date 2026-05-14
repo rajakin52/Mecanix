@@ -6,7 +6,7 @@ import { InventoryTabs } from '../../inventory-tabs';
 import { DateRangePicker, todayRange, type DateRange } from '@/components/DateRangePicker';
 import { useAbcAnalysis } from '@/hooks/use-purchase-reports';
 import { formatCurrency } from '@/lib/format';
-import { downloadCsv } from '@/lib/csv';
+import { downloadXlsx } from '@/lib/csv';
 import { SkeletonTable } from '@mecanix/ui-web';
 import { ChevronLeft } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export default function AbcAnalysisPage() {
 
   const handleExport = () => {
     if (!data) return;
-    downloadCsv(`abc-analysis-${range.startDate}_${range.endDate}.csv`, [
+    downloadXlsx(`abc-analysis-${range.startDate}_${range.endDate}.csv`, [
       ['Rank', 'Class', 'Part #', 'Description', 'Quantity', 'Revenue', 'Rev %', 'Cumulative %'],
       ...data.rows.map((r) => [
         r.rank, r.class, r.part_number ?? '', r.description, r.quantity,
