@@ -43,9 +43,13 @@ export const createStockTransferSchema = z.object({
   lines: z.array(stockTransferLineSchema).min(1).max(500),
 });
 
+export const landedCostAllocationEnum = z.enum(['by_value', 'by_quantity']);
+export type LandedCostAllocation = z.infer<typeof landedCostAllocationEnum>;
+
 export const landedCostSchema = z.object({
   type: z.string().min(1).max(100),
   amount: z.coerce.number().min(0),
+  allocation_method: landedCostAllocationEnum.default('by_value'),
 });
 
 export const applyLandedCostsSchema = z.object({

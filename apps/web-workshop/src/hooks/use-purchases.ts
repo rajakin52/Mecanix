@@ -194,3 +194,22 @@ export function useRecordPayment() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['bills'] }),
   });
 }
+
+export interface LandedCostInput {
+  type: string;
+  amount: number;
+  allocation_method: 'by_value' | 'by_quantity';
+}
+
+export function useApplyLandedCosts(poId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (additionalCosts: LandedCostInput[]) =>
+      api.post(`/purchase-orders/${poId}/landed-costs`, { additionalCosts }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] });
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+      qc.invalidateQueries({ queryKey: ['parts'] });
+    },
+  });
+}

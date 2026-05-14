@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { usePurchaseOrder, useReceiveGoods } from '@/hooks/use-purchases';
+import { LandedCostsPanel } from '@/components/purchase-orders/LandedCostsPanel';
 
 function statusBadge(status: string | undefined) {
   if (!status) return 'bg-gray-100 text-gray-600';
@@ -186,6 +187,25 @@ export default function PurchaseOrderDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Landed costs */}
+      {lines.length > 0 && (
+        <LandedCostsPanel
+          poId={id}
+          lines={lines.map((l) => ({
+            id: l.id as string,
+            description: (l.description as string) ?? '',
+            part_id: (l.part_id as string | null) ?? null,
+            quantity: safe(l.quantity),
+            unit_cost: safe(l.unit_cost),
+            landed_unit_cost: l.landed_unit_cost == null ? null : Number(l.landed_unit_cost),
+          }))}
+          initialCosts={(() => {
+            const raw = (poData as unknown as Record<string, unknown>).additional_costs;
+            return Array.isArray(raw) ? (raw as Array<{ type: string; amount: number; allocation_method?: 'by_value' | 'by_quantity' }>) : undefined;
+          })()}
+        />
+      )}
 
       {/* Receive Modal */}
       {receiveLineId && (

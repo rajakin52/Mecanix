@@ -157,24 +157,56 @@ export class CostingService {
   }
 
   /**
-   * Distribute additional costs (freight, customs, etc.) across PO lines proportionally.
+   * Distribute additional costs (freight, customs, handling, etc.) across
+   * PO lines according to each cost's allocation method:
+   *   - by_value: proportional to line value (unit_cost × quantity). Standard
+   *     for freight / insurance — bigger-ticket items absorb more.
+   *   - by_quantity: equal share per unit. Standard for fixed-per-item costs
+   *     like customs broker / clearing fees / per-line handling.
+   *
+   * Each cost is distributed independently then summed into the final
+   * landed unit cost.
    */
   distributeLandedCosts(
     lines: Array<{ unitCost: number; quantity: number }>,
-    additionalCosts: Array<{ type: string; amount: number }>,
+    additionalCosts: Array<{ type: string; amount: number; allocation_method?: 'by_value' | 'by_quantity' }>,
   ): number[] {
-    const totalAdditional = additionalCosts.reduce((sum, c) => sum + c.amount, 0);
-    if (totalAdditional <= 0) return lines.map((l) => l.unitCost);
+    if (lines.length === 0) return [];
 
     const totalPOValue = lines.reduce((sum, l) => sum + l.unitCost * l.quantity, 0);
-    if (totalPOValue <= 0) return lines.map((l) => l.unitCost);
+    const totalPOQty = lines.reduce((sum, l) => sum + l.quantity, 0);
 
-    return lines.map((line) => {
-      const lineValue = line.unitCost * line.quantity;
-      const proportion = lineValue / totalPOValue;
-      const additionalPerUnit = (totalAdditional * proportion) / line.quantity;
-      return Math.round((line.unitCost + additionalPerUnit) * 100) / 100;
-    });
+    // Accumulated per-unit add-on for each line
+    const perUnitAddOn = lines.map(() => 0);
+
+    for (const cost of additionalCosts) {
+      const amount = Number(cost.amount) || 0;
+      if (amount <= 0) continue;
+      const method = cost.allocation_method ?? 'by_value';
+
+      if (method === 'by_quantity') {
+        if (totalPOQty <= 0) continue;
+        const perUnit = amount / totalPOQty;
+        for (let i = 0; i < lines.length; i++) {
+          perUnitAddOn[i] = (perUnitAddOn[i] ?? 0) + perUnit;
+        }
+      } else {
+        // by_value (default)
+        if (totalPOValue <= 0) continue;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i]!;
+          const lineValue = line.unitCost * line.quantity;
+          const proportion = lineValue / totalPOValue;
+          if (line.quantity > 0) {
+            perUnitAddOn[i] = (perUnitAddOn[i] ?? 0) + (amount * proportion) / line.quantity;
+          }
+        }
+      }
+    }
+
+    return lines.map((line, i) =>
+      Math.round((line.unitCost + (perUnitAddOn[i] ?? 0)) * 100) / 100,
+    );
   }
 
   /**
@@ -183,7 +215,7 @@ export class CostingService {
   async applyLandedCosts(
     tenantId: string,
     poId: string,
-    additionalCosts: Array<{ type: string; amount: number }>,
+    additionalCosts: Array<{ type: string; amount: number; allocation_method?: 'by_value' | 'by_quantity' }>,
   ) {
     const client = this.supabase.getClient();
 

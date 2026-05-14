@@ -14,9 +14,11 @@ import {
   type PartPurchaseHistory,
   type PartPurchaseHistoryRow,
 } from '@/hooks/use-parts';
+import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
 import { useToast } from '@mecanix/ui-web';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { downloadXlsx } from '@/lib/csv';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { InventoryTabs } from '../parts/inventory-tabs';
 
@@ -126,6 +128,74 @@ export default function PurchaseOrdersPage() {
       });
       return next;
     });
+  };
+
+  const downloadImportTemplate = () => {
+    downloadXlsx(
+      'po-lines-template',
+      [
+        ['part_number', 'description', 'quantity', 'unit_cost'],
+        ['ABC-001', 'Brake pads — front', 10, 25.50],
+        ['XYZ-200', 'Oil filter', 25, 4.80],
+        ['', 'Description-only line (no catalogue match)', 1, 100],
+      ],
+      'PO lines',
+    );
+  };
+
+  const handleImportLines = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const ws = wb.Sheets[wb.SheetNames[0]!];
+      if (!ws) {
+        toast.error('Empty workbook');
+        return;
+      }
+      type Row = { part_number?: string; description?: string; quantity?: number | string; unit_cost?: number | string };
+      const rows = XLSX.utils.sheet_to_json<Row>(ws, { defval: '' });
+      if (rows.length === 0) {
+        toast.error('No rows found in the file');
+        return;
+      }
+
+      // Resolve part_ids by part_number against the catalogue
+      const wantedNumbers = rows
+        .map((r) => String(r.part_number ?? '').trim())
+        .filter((n) => n.length > 0);
+      const partByNumber = new Map<string, { id: string; description: string; unit_cost: number }>();
+      for (const p of parts) {
+        if (p.part_number) {
+          partByNumber.set(p.part_number, {
+            id: p.id,
+            description: p.description,
+            unit_cost: Number(p.unit_cost ?? 0),
+          });
+        }
+      }
+
+      const newLines = rows.map((r) => {
+        const pn = String(r.part_number ?? '').trim();
+        const hit = pn ? partByNumber.get(pn) : undefined;
+        const qty = Number(r.quantity ?? 1) || 1;
+        const cost = Number(r.unit_cost ?? hit?.unit_cost ?? 0) || 0;
+        const desc = String(r.description ?? '').trim() || hit?.description || pn || '—';
+        return {
+          partId: hit?.id ?? '',
+          description: desc,
+          quantity: qty,
+          unitCost: cost,
+        };
+      });
+
+      setForm((f) => ({ ...f, lines: newLines }));
+      setLineHints({});
+      const matched = newLines.filter((l) => l.partId).length;
+      toast.success(`Imported ${newLines.length} line${newLines.length === 1 ? '' : 's'} (${matched} matched to catalogue, ${wantedNumbers.length - matched} unmatched)`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to read file');
+    }
   };
 
   const handleLinePartChange = async (idx: number, partId: string) => {
@@ -451,15 +521,34 @@ export default function PurchaseOrdersPage() {
 
               {/* Lines */}
               <div>
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <label className="block text-sm font-medium text-gray-700">{t('lines')}</label>
-                  <button
-                    type="button"
-                    onClick={addLine}
-                    className="text-sm font-medium text-primary-600 hover:text-primary-700"
-                  >
-                    + {t('addLine')}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={downloadImportTemplate}
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                      title="Download xlsx template"
+                    >
+                      Template
+                    </button>
+                    <label className="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900">
+                      Import Excel
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        onChange={(e) => e.target.files && handleImportLines(e.target.files[0])}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addLine}
+                      className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                    >
+                      + {t('addLine')}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {form.lines.map((line, idx) => {
