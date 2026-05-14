@@ -151,31 +151,43 @@ export class InvoicesService {
       );
     }
 
-    // 2. Get labour lines with their snapshotted tax rate — charged only
+    // 2. Get labour lines with their snapshotted tax rate — charged AND
+    // not yet billed on another invoice. The billed_on_invoice_id filter
+    // is what makes partial invoicing safe: subsequent invoices on the
+    // same JC skip lines already billed on a prior invoice.
     const { data: labourLines } = await client
       .from('labour_lines')
-      .select('subtotal, tax_rate')
+      .select('id, subtotal, tax_rate')
       .eq('job_card_id', input.jobCardId)
       .eq('tenant_id', tenantId)
-      .eq('line_status', 'charged');
+      .eq('line_status', 'charged')
+      .is('billed_on_invoice_id', null);
 
     const labourTotal = (labourLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),
       0,
     );
 
-    // 3. Get parts lines with their snapshotted tax rate — charged only
+    // 3. Get parts lines with their snapshotted tax rate — charged AND
+    // not yet billed.
     const { data: partsLines } = await client
       .from('parts_lines')
-      .select('subtotal, tax_rate')
+      .select('id, subtotal, tax_rate')
       .eq('job_card_id', input.jobCardId)
       .eq('tenant_id', tenantId)
-      .eq('line_status', 'charged');
+      .eq('line_status', 'charged')
+      .is('billed_on_invoice_id', null);
 
     const partsTotal = (partsLines ?? []).reduce(
       (sum: number, line: { subtotal: number }) => sum + (line.subtotal || 0),
       0,
     );
+
+    if ((labourLines ?? []).length === 0 && (partsLines ?? []).length === 0) {
+      throw new BadRequestException(
+        'Nothing to invoice — every charged line on this job card has already been billed on a prior invoice. Add new labour or parts before issuing another invoice.',
+      );
+    }
 
     // 4. Generate invoice number via RPC
     const { data: invoiceNumber, error: rpcError } = await client.rpc(
@@ -240,6 +252,26 @@ export class InvoicesService {
       .single();
 
     if (insertError) throw insertError;
+
+    // 8a. Freeze every line that contributed to this invoice. From here
+    // on the line is read-only — only a credit note + replacement line
+    // can change billed amounts.
+    const labourIds = (labourLines ?? []).map((l) => (l as { id: string }).id);
+    const partsIds = (partsLines ?? []).map((l) => (l as { id: string }).id);
+    if (labourIds.length > 0) {
+      await client
+        .from('labour_lines')
+        .update({ billed_on_invoice_id: invoice.id })
+        .in('id', labourIds)
+        .eq('tenant_id', tenantId);
+    }
+    if (partsIds.length > 0) {
+      await client
+        .from('parts_lines')
+        .update({ billed_on_invoice_id: invoice.id })
+        .in('id', partsIds)
+        .eq('tenant_id', tenantId);
+    }
 
     // 8b. Generate hash chain (AGT compliance)
     try {

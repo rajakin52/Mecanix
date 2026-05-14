@@ -12,6 +12,15 @@ export class LabourLinesService {
     private readonly inspectionsService: InspectionsService,
   ) {}
 
+  /** Refuse to mutate a line that's already been billed on an invoice. */
+  private assertNotBilled(line: Record<string, unknown>): void {
+    if (line['billed_on_invoice_id']) {
+      throw new BadRequestException(
+        'This labour line has already been billed on an invoice and cannot be edited. Issue a credit note + a replacement line instead.',
+      );
+    }
+  }
+
   async list(tenantId: string, jobCardId: string) {
     const { data, error } = await this.supabase
       .getClient()
@@ -119,6 +128,9 @@ export class LabourLinesService {
       throw new NotFoundException('Labour line not found');
     }
 
+    // Frozen-line gate: previously-billed lines are immutable regardless
+    // of JC status (so post-reopen edits can't poison an issued invoice).
+    this.assertNotBilled(existing);
     // Closed-card gate
     await this.jobsService.assertNotInvoiced(tenantId, existing.job_card_id as string);
 
@@ -175,6 +187,15 @@ export class LabourLinesService {
   }
 
   async delete(tenantId: string, id: string, jobCardId: string) {
+    // Frozen-line gate first — we need the row to check it.
+    const { data: existing } = await this.supabase
+      .getClient()
+      .from('labour_lines')
+      .select('billed_on_invoice_id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (existing) this.assertNotBilled(existing);
     await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     const { error } = await this.supabase
       .getClient()

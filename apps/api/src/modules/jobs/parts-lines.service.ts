@@ -17,6 +17,15 @@ export class PartsLinesService {
     private readonly stockPolicyService: StockPolicyService,
   ) {}
 
+  /** Refuse to mutate a line that's already on an invoice (JC or OTC). */
+  private assertNotBilled(line: Record<string, unknown>): void {
+    if (line['billed_on_invoice_id'] || line['invoice_id']) {
+      throw new BadRequestException(
+        'This parts line has already been billed on an invoice and cannot be edited. Issue a credit note + a replacement line instead.',
+      );
+    }
+  }
+
   async list(tenantId: string, jobCardId: string) {
     const { data, error } = await this.supabase
       .getClient()
@@ -195,8 +204,12 @@ export class PartsLinesService {
       throw new NotFoundException('Parts line not found');
     }
 
-    // Closed-card gate
-    await this.jobsService.assertNotInvoiced(tenantId, existing.job_card_id as string);
+    // Frozen-line gate
+    this.assertNotBilled(existing);
+    // Closed-card gate (only if attached to a JC)
+    if (existing.job_card_id) {
+      await this.jobsService.assertNotInvoiced(tenantId, existing.job_card_id as string);
+    }
 
     const unitCost = input.unitCost ?? existing.unit_cost;
     const markupPct = input.markupPct ?? existing.markup_pct;
@@ -336,6 +349,15 @@ export class PartsLinesService {
   }
 
   async delete(tenantId: string, id: string, jobCardId: string) {
+    // Frozen-line gate
+    const { data: lineCheck } = await this.supabase
+      .getClient()
+      .from('parts_lines')
+      .select('billed_on_invoice_id, invoice_id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (lineCheck) this.assertNotBilled(lineCheck);
     await this.jobsService.assertNotInvoiced(tenantId, jobCardId);
     // Get line data before deleting (for stock return / reservation release)
     const { data: line } = await this.supabase
