@@ -16,8 +16,10 @@ interface AuditEntry {
 }
 
 interface LinePricingDetailsProps {
-  /** parts_lines row id (audit_log.entity_id) */
+  /** parts_lines or labour_lines row id (audit_log.entity_id) */
   lineId: string;
+  /** Which entity_type to query — 'parts_line' or 'labour_line'. Default 'parts_line'. */
+  entityType?: 'parts_line' | 'labour_line';
   /** Snapshot values captured at issue time. */
   costMethod?: string | null;
   sellPriceSource?: string | null;
@@ -51,6 +53,7 @@ const SOURCE_LABELS: Record<string, string> = {
  */
 export function LinePricingDetails({
   lineId,
+  entityType = 'parts_line',
   costMethod,
   sellPriceSource,
   marginAtIssue,
@@ -59,10 +62,10 @@ export function LinePricingDetails({
   const [open, setOpen] = useState(false);
 
   const { data: audit, isLoading } = useQuery({
-    queryKey: ['line-audit', lineId],
+    queryKey: ['line-audit', entityType, lineId],
     queryFn: () =>
       api.get<AuditEntry[]>(
-        `/audit-log?entityType=parts_line&entityId=${lineId}`,
+        `/audit-log?entityType=${entityType}&entityId=${lineId}`,
       ),
     enabled: open,
     staleTime: 30_000,

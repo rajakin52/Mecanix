@@ -236,7 +236,18 @@ export default function InvoiceDetailPage() {
               {labourLines && (labourLines as Array<Record<string, unknown>>).length > 0 ? (
                 (labourLines as Array<Record<string, unknown>>).map((line, idx) => (
                   <tr key={idx}>
-                    <td className="px-4 py-2 text-sm text-gray-700">{line.description as string}</td>
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {line.description as string}
+                      {line.id ? (
+                        <LinePricingDetails
+                          lineId={line.id as string}
+                          entityType="labour_line"
+                          sellPriceSource={line.sell_price_source as string | null}
+                          marginAtIssue={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                          currentMargin={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-4 py-2 text-end text-sm text-gray-700">{line.hours as number}</td>
                     <td className="px-4 py-2 text-end text-sm text-gray-700">{formatCurrency(line.rate as number)}</td>
                     <td className="px-4 py-2 text-end text-sm font-medium text-gray-900">{formatCurrency(line.subtotal as number)}</td>

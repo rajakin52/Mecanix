@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { SupabaseService } from '../supabase/supabase.service';
 import { JobsService } from './jobs.service';
 import { InspectionsService } from '../inspections/inspections.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { CreateLabourLineInput, UpdateLabourLineInput } from '@mecanix/validators';
 
 @Injectable()
@@ -10,7 +11,27 @@ export class LabourLinesService {
     private readonly supabase: SupabaseService,
     private readonly jobsService: JobsService,
     private readonly inspectionsService: InspectionsService,
+    private readonly auditLog: AuditLogService,
   ) {}
+
+  /**
+   * Resolve labour cost-per-hour for a technician (column added in
+   * migration 00110). Falls back to 0 when the column isn't set —
+   * margin snapshot will then be null and the UI hides the badge.
+   */
+  private async getTechnicianCostPerHour(
+    tenantId: string,
+    technicianId: string,
+  ): Promise<number> {
+    const { data } = await this.supabase
+      .getClient()
+      .from('technicians')
+      .select('cost_per_hour')
+      .eq('id', technicianId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    return Number(data?.cost_per_hour ?? 0);
+  }
 
   /** Refuse to mutate a line that's already been billed on an invoice. */
   private assertNotBilled(line: Record<string, unknown>): void {
@@ -80,6 +101,19 @@ export class LabourLinesService {
       taxRate = defaultTax?.rate != null ? Number(defaultTax.rate) : null;
     }
 
+    // Pricing-decision snapshot: labour has no cost-layer ledger (no
+    // analogue of FIFO/LIFO/WAC for hours), so cost_method isn't stored.
+    // sell_price_source is 'manual' — labour rates are nearly always
+    // entered by hand by the receptionist. margin_pct_at_issue uses the
+    // technician's cost_per_hour when known.
+    let marginAtIssue: number | null = null;
+    if (input.technicianId && input.rate > 0) {
+      const costPerHour = await this.getTechnicianCostPerHour(tenantId, input.technicianId);
+      if (costPerHour > 0) {
+        marginAtIssue = Math.round(((input.rate - costPerHour) / input.rate) * 100000) / 1000;
+      }
+    }
+
     const { data, error } = await this.supabase
       .getClient()
       .from('labour_lines')
@@ -98,6 +132,8 @@ export class LabourLinesService {
         warranty_starts_at:
           input.warrantyMonths != null || input.warrantyKm != null ? new Date().toISOString() : null,
         labour_type: input.labourType ?? 'mechanical',
+        sell_price_source: 'manual',
+        margin_pct_at_issue: marginAtIssue,
       })
       .select()
       .single();
@@ -137,6 +173,18 @@ export class LabourLinesService {
     const hours = input.hours ?? existing.hours;
     const rate = input.rate ?? existing.rate;
     const subtotal = Math.round(hours * rate * 100) / 100;
+
+    // Audit-trail before-state snapshot.
+    const beforeAudit = {
+      hours: Number(existing.hours),
+      rate: Number(existing.rate),
+      subtotal: Number(existing.subtotal),
+      description: String(existing.description ?? ''),
+      technician_id: (existing.technician_id as string | null) ?? null,
+      labour_type: (existing.labour_type as string | null) ?? null,
+      discount_pct: Number(existing.discount_pct ?? 0),
+      discount_amount: Number(existing.discount_amount ?? 0),
+    };
 
     const updateData: Record<string, unknown> = {
       subtotal,
@@ -180,6 +228,36 @@ export class LabourLinesService {
       .single();
 
     if (error) throw error;
+
+    // Audit-trail after-state snapshot + write the diff. Skip if nothing
+    // pricing-relevant moved.
+    const afterAudit = {
+      hours: Number(data.hours),
+      rate: Number(data.rate),
+      subtotal: Number(data.subtotal),
+      description: String(data.description ?? ''),
+      technician_id: (data.technician_id as string | null) ?? null,
+      labour_type: (data.labour_type as string | null) ?? null,
+      discount_pct: Number(data.discount_pct ?? 0),
+      discount_amount: Number(data.discount_amount ?? 0),
+    };
+    const changedFields = (Object.keys(beforeAudit) as Array<keyof typeof beforeAudit>).filter(
+      (k) => beforeAudit[k] !== afterAudit[k],
+    );
+    if (changedFields.length > 0) {
+      await this.auditLog.record(tenantId, userId, null, {
+        action: 'labour_line.updated',
+        entityType: 'labour_line',
+        entityId: id,
+        summary: `Labour line updated — fields: ${changedFields.join(', ')}`,
+        beforeState: beforeAudit,
+        afterState: afterAudit,
+        metadata: {
+          job_card_id: existing.job_card_id,
+          changed_fields: changedFields,
+        },
+      });
+    }
 
     await this.jobsService.recalculateTotals(tenantId, existing.job_card_id);
 
