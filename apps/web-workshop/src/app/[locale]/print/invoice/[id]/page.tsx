@@ -554,19 +554,55 @@ export default function PrintInvoicePage() {
           );
         })()}
 
-        {/* Next service recommendation — only when the JC has a next-due
-            captured on customer_remarks / internal_notes or on a separate
-            field. For now we surface internal_notes-as-recommendation only
-            when prefixed with "Próxima revisão:" so non-recommendation
-            notes don't leak. */}
-        {jobCard?.internal_notes && /pr[óo]xim[ao]\s+(revis[ãa]o|servi[çc]o|manuten[çc][ãa]o)/i.test(jobCard.internal_notes) && (
-          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-2.5">
-            <h3 className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
-              Próximo Serviço Recomendado
-            </h3>
-            <p className="text-[10px] text-gray-700">{jobCard.internal_notes}</p>
-          </div>
-        )}
+        {/* Next service recommendations — sourced from the structured
+            service_reminders table, keyed on the vehicle. Shows every
+            active reminder sorted by soonest next_date, then next_mileage. */}
+        {(() => {
+          const reminders =
+            ((inv['next_service_reminders'] as Array<Record<string, unknown>> | undefined) ??
+              []).filter((r) => r);
+          if (reminders.length === 0) return null;
+          return (
+            <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-2.5">
+              <h3 className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
+                Próximo Serviço Recomendado
+              </h3>
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="text-left text-[9px] uppercase tracking-wide text-emerald-700/70">
+                    <th className="py-0.5 pr-3">Serviço</th>
+                    <th className="py-0.5 pr-3">Próxima data</th>
+                    <th className="py-0.5 pr-3">Próxima km</th>
+                    <th className="py-0.5">Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reminders.map((r, i) => {
+                    const nextDate = r['next_date'] as string | null;
+                    const nextMileage = r['next_mileage'] as number | null;
+                    const notes = r['notes'] as string | null;
+                    return (
+                      <tr key={i} className="border-t border-emerald-200/60">
+                        <td className="py-0.5 pr-3 font-medium text-gray-800">
+                          {String(r['service_name'] ?? '—')}
+                        </td>
+                        <td className="py-0.5 pr-3 text-gray-700">
+                          {nextDate ? formatDate(nextDate) : '—'}
+                        </td>
+                        <td className="py-0.5 pr-3 tabular-nums text-gray-700">
+                          {nextMileage != null
+                            ? `${nextMileage.toLocaleString('pt-PT')} km`
+                            : '—'}
+                        </td>
+                        <td className="py-0.5 text-gray-600">{notes ?? ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
 
         {/* Signature — workshop + customer. Print-only feature; reproduces
             the legal acknowledgement the customer signs on collection. */}

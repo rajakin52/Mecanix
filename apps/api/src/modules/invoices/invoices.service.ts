@@ -100,6 +100,23 @@ export class InvoicesService {
       throw new NotFoundException('Invoice not found');
     }
 
+    // Active service reminders for the vehicle on the JC — surfaced on the
+    // repair-invoice print page as the "Next Service Recommendation" block.
+    let nextServiceReminders: Array<Record<string, unknown>> = [];
+    const vehicleId =
+      ((data.job_card as Record<string, unknown> | null)?.['vehicle_id'] as string | undefined) ?? null;
+    if (vehicleId) {
+      const { data: reminders } = await client
+        .from('service_reminders')
+        .select('id, service_name, reminder_type, next_mileage, next_date, notes')
+        .eq('tenant_id', tenantId)
+        .eq('vehicle_id', vehicleId)
+        .eq('status', 'active')
+        .order('next_date', { ascending: true, nullsFirst: false })
+        .order('next_mileage', { ascending: true, nullsFirst: false });
+      nextServiceReminders = (reminders ?? []) as Array<Record<string, unknown>>;
+    }
+
     // Fetch payments
     const { data: payments } = await client
       .from('payments')
@@ -136,6 +153,7 @@ export class InvoicesService {
       payments: payments ?? [],
       credit_notes: creditNotes ?? [],
       standalone_parts_lines: standaloneLines,
+      next_service_reminders: nextServiceReminders,
     };
   }
 
