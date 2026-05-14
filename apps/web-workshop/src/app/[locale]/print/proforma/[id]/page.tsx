@@ -69,75 +69,77 @@ export default function PrintProformaPage() {
       </div>
 
       <div
-        className="mx-auto max-w-[210mm] bg-white p-8 font-sans text-gray-900"
+        className="mx-auto max-w-[210mm] bg-white p-6 font-sans text-[11px] leading-snug text-gray-900"
         style={{ minHeight: '297mm' }}
       >
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between border-b-2 border-gray-800 pb-6">
+        <div className="mb-3 flex items-start justify-between border-b-2 border-gray-800 pb-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{String(tenantData?.name ?? 'MECANIX')}</h1>
-            {tenantData?.address ? <p className="mt-1 text-sm text-gray-600">{String(tenantData.address)}</p> : null}
-            {tenantData?.phone ? <p className="text-sm text-gray-600">Tel: {String(tenantData.phone)}</p> : null}
-            {tenantData?.email ? <p className="text-sm text-gray-600">{String(tenantData.email)}</p> : null}
-            {tenantData?.tax_id ? <p className="text-sm text-gray-600">NIF: {String(tenantData.tax_id)}</p> : null}
+            <h1 className="text-xl font-bold text-gray-900">{String(tenantData?.name ?? 'MECANIX')}</h1>
+            {tenantData?.address ? <p className="mt-0.5 text-[10px] text-gray-600">{String(tenantData.address)}</p> : null}
+            <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-gray-600">
+              {tenantData?.phone ? <span>Tel: {String(tenantData.phone)}</span> : null}
+              {tenantData?.email ? <span>{String(tenantData.email)}</span> : null}
+              {tenantData?.tax_id ? <span>NIF: {String(tenantData.tax_id)}</span> : null}
+            </div>
           </div>
           <div className="text-end">
-            <h2 className="text-2xl font-bold text-gray-700">FACTURA PRO-FORMA</h2>
-            <p className="mt-2 text-lg font-semibold">{proforma.proforma_number}</p>
-            <p className="mt-1 text-xs text-gray-500">
+            <h2 className="text-lg font-bold text-gray-700">FACTURA PRO-FORMA</h2>
+            <p className="mt-0.5 text-sm font-semibold">{proforma.proforma_number}</p>
+            <p className="mt-0.5 text-[9px] text-gray-500">
               Não é um documento fiscal · Sujeito a IVA na facturação
             </p>
-            <p className="mt-3 text-sm text-gray-600">Emitido: {dateFmt(proforma.issue_date)}</p>
+            <p className="mt-1 text-[10px] text-gray-600">Emitido: {dateFmt(proforma.issue_date)}</p>
             {proforma.valid_until && (
-              <p className="text-sm text-gray-600">Válido até: {dateFmt(proforma.valid_until)}</p>
+              <p className="text-[10px] font-semibold text-gray-800">Válido até: {dateFmt(proforma.valid_until)}</p>
             )}
           </div>
         </div>
 
         {/* Customer */}
-        <div className="mb-6 grid grid-cols-2 gap-6">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Cliente</p>
-            {customer ? (
-              <>
-                <p className="text-sm font-semibold text-gray-900">{customer.full_name}</p>
-                {customer.phone && <p className="text-sm text-gray-600">{customer.phone}</p>}
-                {customer.email && <p className="text-sm text-gray-600">{customer.email}</p>}
-                {customer.tax_id && <p className="text-sm text-gray-600">NIF: {customer.tax_id}</p>}
-                {customer.address && <p className="text-sm text-gray-600">{customer.address}</p>}
-              </>
-            ) : (
-              <p className="text-sm text-gray-400">—</p>
-            )}
-          </div>
+        <div className="mb-3 rounded-md border border-gray-200 p-2.5">
+          <p className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-gray-500">Cliente</p>
+          {customer ? (
+            <>
+              <p className="text-sm font-semibold text-gray-900">{customer.full_name}</p>
+              <div className="mt-0.5 text-[10px] text-gray-600">
+                {customer.phone && <div>Tel: {customer.phone}</div>}
+                {customer.email && <div>{customer.email}</div>}
+                {customer.tax_id && <div>NIF: {customer.tax_id}</div>}
+                {customer.address && <div>{customer.address}</div>}
+              </div>
+            </>
+          ) : (
+            <p className="text-[10px] text-gray-400">—</p>
+          )}
         </div>
 
         {/* Lines */}
-        <table className="mb-6 w-full text-sm">
+        <table className="mb-3 w-full text-[11px]">
           <thead className="border-b-2 border-gray-800">
             <tr className="text-start">
-              <th className="py-2 text-start text-xs font-semibold uppercase text-gray-600">Código</th>
-              <th className="py-2 text-start text-xs font-semibold uppercase text-gray-600">Descrição</th>
-              <th className="py-2 text-end text-xs font-semibold uppercase text-gray-600">Qtd</th>
-              <th className="py-2 text-end text-xs font-semibold uppercase text-gray-600">P. unit.</th>
-              <th className="py-2 text-end text-xs font-semibold uppercase text-gray-600">IVA</th>
-              <th className="py-2 text-end text-xs font-semibold uppercase text-gray-600">Total</th>
+              <th className="py-1 text-start text-[9px] font-semibold uppercase tracking-wide text-gray-600">Código</th>
+              <th className="py-1 text-start text-[9px] font-semibold uppercase tracking-wide text-gray-600">Descrição</th>
+              <th className="py-1 text-end text-[9px] font-semibold uppercase tracking-wide text-gray-600">Qtd</th>
+              <th className="py-1 text-end text-[9px] font-semibold uppercase tracking-wide text-gray-600">P. unit.</th>
+              <th className="py-1 text-end text-[9px] font-semibold uppercase tracking-wide text-gray-600">IVA</th>
+              <th className="py-1 text-end text-[9px] font-semibold uppercase tracking-wide text-gray-600">Total</th>
             </tr>
           </thead>
           <tbody>
             {lines.map((line) => (
               <tr key={line.id} className="border-b border-gray-100">
-                <td className="py-1.5 font-mono text-xs">{line.part_number ?? '—'}</td>
-                <td className="py-1.5">{line.part_name}</td>
-                <td className="py-1.5 text-end">{line.quantity}</td>
-                <td className="py-1.5 text-end">{fmt(line.sell_price)}</td>
-                <td className="py-1.5 text-end text-gray-500">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
-                <td className="py-1.5 text-end font-medium">{fmt(line.subtotal)}</td>
+                <td className="py-1 pr-2 font-mono text-[10px]">{line.part_number ?? '—'}</td>
+                <td className="py-1 pr-2">{line.part_name}</td>
+                <td className="py-1 pr-2 text-end tabular-nums">{line.quantity}</td>
+                <td className="py-1 pr-2 text-end tabular-nums">{fmt(line.sell_price)}</td>
+                <td className="py-1 pr-2 text-end text-gray-500 tabular-nums">{Number(line.tax_rate ?? 0).toFixed(0)}%</td>
+                <td className="py-1 text-end font-medium tabular-nums">{fmt(line.subtotal)}</td>
               </tr>
             ))}
             {lines.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-3 text-center text-gray-400">
+                <td colSpan={6} className="py-2 text-center text-gray-400">
                   Sem linhas
                 </td>
               </tr>
@@ -145,13 +147,65 @@ export default function PrintProformaPage() {
           </tbody>
         </table>
 
-        {/* Totals */}
-        <div className="mb-6 flex justify-end">
-          <table className="w-72 text-sm">
+        {/* Totals + bank details */}
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+          {/* Bank details — same as invoice; useful for proforma quotes too. */}
+          {tenantData && (
+            (tenantData['bank_name'] as string | null) ||
+            (tenantData['bank_iban'] as string | null) ||
+            (tenantData['bank_account_number'] as string | null) ||
+            (tenantData['bank_swift'] as string | null)
+          ) ? (
+            <div className="max-w-xs flex-1 rounded-md border border-gray-300 bg-gray-50 p-2.5 text-[10px]">
+              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-gray-700">
+                Dados Bancários para Pagamento
+              </div>
+              {tenantData['bank_name'] ? (
+                <div>
+                  <span className="text-gray-500">Banco: </span>
+                  <span className="font-medium">{String(tenantData['bank_name'])}</span>
+                </div>
+              ) : null}
+              {tenantData['bank_account_number'] ? (
+                <div>
+                  <span className="text-gray-500">Conta: </span>
+                  <span className="font-mono">{String(tenantData['bank_account_number'])}</span>
+                </div>
+              ) : null}
+              {tenantData['bank_iban'] ? (
+                <div>
+                  <span className="text-gray-500">IBAN: </span>
+                  <span className="font-mono">{String(tenantData['bank_iban'])}</span>
+                </div>
+              ) : null}
+              {tenantData['bank_swift'] ? (
+                <div>
+                  <span className="text-gray-500">SWIFT/BIC: </span>
+                  <span className="font-mono">{String(tenantData['bank_swift'])}</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <table className="w-72 text-[11px]">
             <tbody>
+              {Number(
+                (proforma as unknown as Record<string, unknown>)['total_discount'] ?? 0,
+              ) > 0 && (
+                <tr>
+                  <td className="py-0.5 text-red-700">
+                    Desconto
+                    {Number((proforma as unknown as Record<string, unknown>)['discount_pct'] ?? 0) > 0 &&
+                      ` (${Number((proforma as unknown as Record<string, unknown>)['discount_pct']).toFixed(1)}%)`}
+                  </td>
+                  <td className="py-0.5 text-end text-red-700 tabular-nums">
+                    −{fmt(Number((proforma as unknown as Record<string, unknown>)['total_discount']))}
+                  </td>
+                </tr>
+              )}
               <tr>
-                <td className="py-1 text-gray-600">Subtotal</td>
-                <td className="py-1 text-end">{fmt(proforma.subtotal)}</td>
+                <td className="py-0.5 text-gray-600">Subtotal</td>
+                <td className="py-0.5 text-end tabular-nums">{fmt(proforma.subtotal)}</td>
               </tr>
               {proforma.vat_by_rate &&
                 Object.entries(proforma.vat_by_rate)
@@ -159,20 +213,20 @@ export default function PrintProformaPage() {
                   .sort(([a], [b]) => Number(b) - Number(a))
                   .map(([rate, amt]) => (
                     <tr key={rate}>
-                      <td className="py-1 text-gray-600">IVA {Number(rate).toFixed(0)}%</td>
-                      <td className="py-1 text-end">{fmt(Number(amt))}</td>
+                      <td className="py-0.5 text-gray-600">IVA {Number(rate).toFixed(0)}%</td>
+                      <td className="py-0.5 text-end tabular-nums">{fmt(Number(amt))}</td>
                     </tr>
                   ))}
               {(!proforma.vat_by_rate ||
                 Object.keys(proforma.vat_by_rate).length === 0) && (
                 <tr>
-                  <td className="py-1 text-gray-600">IVA</td>
-                  <td className="py-1 text-end">{fmt(proforma.tax_amount)}</td>
+                  <td className="py-0.5 text-gray-600">IVA</td>
+                  <td className="py-0.5 text-end tabular-nums">{fmt(proforma.tax_amount)}</td>
                 </tr>
               )}
               <tr className="border-t-2 border-gray-800">
-                <td className="pt-2 text-base font-bold">Total</td>
-                <td className="pt-2 text-end text-base font-bold">{fmt(proforma.grand_total)}</td>
+                <td className="pt-1 text-sm font-bold">Total</td>
+                <td className="pt-1 text-end text-sm font-bold tabular-nums">{fmt(proforma.grand_total)}</td>
               </tr>
             </tbody>
           </table>
