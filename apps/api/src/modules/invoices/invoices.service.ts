@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import * as crypto from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
+import { PricingService } from '../pricing/pricing.service';
 import type { GenerateInvoiceInput, PaginationInput, CreateStandaloneInvoiceInput, StandaloneLineInput } from '@mecanix/validators';
 import { computeInvoiceTotals } from './invoice-math';
 
@@ -21,6 +22,7 @@ export class InvoicesService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly agtService: AgtService,
+    private readonly pricingService: PricingService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: InvoiceFilters = {}) {
@@ -378,7 +380,7 @@ export class InvoicesService {
       .limit(1)
       .maybeSingle();
 
-    const enriched = await this.enrichLines(tenantId, input.lines, defaultTax);
+    const enriched = await this.enrichLines(tenantId, input.lines, defaultTax, customer.id);
 
     // 3. Generate invoice number
     const { data: invoiceNumber, error: rpcErr } = await client.rpc(
@@ -398,6 +400,14 @@ export class InvoicesService {
       isTaxable: true,
       isInsurance: false,
     });
+
+    // Refuse zero-value invoices — usually means the user picked a part
+    // whose catalogue sell_price is 0 and skipped manually entering one.
+    if (totals.grandTotal <= 0) {
+      throw new BadRequestException(
+        'Invoice grand total is zero. Set a positive sell price on at least one line, or configure a default markup in Pricing settings so the system can auto-price catalogue parts.',
+      );
+    }
 
     // 4. Insert invoice (job_card_id = null thanks to migration 00115)
     const { data: invoice, error: invErr } = await client
@@ -471,18 +481,36 @@ export class InvoicesService {
    * tenant default), pulls unit_cost from parts catalogue when partId
    * is given, and computes subtotal.
    */
-  private async enrichLines(
+  /**
+   * Hydrate stand-alone (OTC / proforma) lines:
+   * - snapshots `part_number` from the catalogue so the invoice PDF
+   *   shows the item code (used to be hardcoded null on writes — bug)
+   * - resolves tax rate from the line's tax code, then the line's part's
+   *   tax code, then the tenant default
+   * - if the caller didn't enter a sell price (or entered 0) AND we
+   *   know the cost, applies the pricing engine: cost × (1 + resolved
+   *   markup%), respecting the customer's price group, category rules,
+   *   and tenant `minimum_margin_pct`. Catalogue's stored `sell_price`
+   *   is honored when present and non-zero.
+   *
+   * `customerId` drives the markup resolution (price groups). null is
+   * fine — falls back to tenant defaults.
+   */
+  async enrichLines(
     tenantId: string,
     lines: StandaloneLineInput[],
     defaultTax: { id: string; rate: number } | null,
+    customerId: string | null,
   ) {
     const client = this.supabase.getClient();
     type Enriched = {
       part_id: string | null;
+      part_number: string | null;
       description: string;
       quantity: number;
       unit_cost: number;
       sell_price: number;
+      sell_price_source: 'manual' | 'catalogue' | 'auto_markup';
       subtotal: number;
       tax_code_id: string | null;
       tax_rate: number;
@@ -503,35 +531,85 @@ export class InvoicesService {
       }
     }
 
-    // Resolve catalogue parts for unit_cost lookup
+    // Resolve catalogue parts for cost / catalogue sell_price / category /
+    // part_number lookup.
     const partIds = Array.from(new Set(lines.map((l) => l.partId).filter((x): x is string => !!x)));
-    const partMap = new Map<string, { unit_cost: number }>();
+    type PartLookup = {
+      unit_cost: number;
+      sell_price: number;
+      category: string | null;
+      part_number: string | null;
+    };
+    const partMap = new Map<string, PartLookup>();
     if (partIds.length > 0) {
       const { data } = await client
         .from('parts')
-        .select('id, unit_cost')
+        .select('id, unit_cost, sell_price, category, part_number')
         .in('id', partIds)
         .eq('tenant_id', tenantId);
-      for (const r of (data ?? []) as Array<{ id: string; unit_cost: number }>) {
-        partMap.set(r.id, { unit_cost: Number(r.unit_cost ?? 0) });
+      for (const r of (data ?? []) as Array<{
+        id: string;
+        unit_cost: number | null;
+        sell_price: number | null;
+        category: string | null;
+        part_number: string | null;
+      }>) {
+        partMap.set(r.id, {
+          unit_cost: Number(r.unit_cost ?? 0),
+          sell_price: Number(r.sell_price ?? 0),
+          category: r.category,
+          part_number: r.part_number,
+        });
       }
     }
+
+    // Tenant pricing settings — drives the minimum-margin floor.
+    const pricing = await this.pricingService.getPricingSettings(tenantId);
+    const minMarginPct = Number(pricing.minimumMarginPct ?? 0);
 
     for (const l of lines) {
       const taxCodeId = l.taxCodeId ?? defaultTax?.id ?? null;
       const looked = taxCodeId ? taxMap.get(taxCodeId) : undefined;
       const taxRate: number = looked ?? Number(defaultTax?.rate ?? 0);
       const qty = Number(l.quantity);
-      const sell = Number(l.sellPrice);
+      const part = l.partId ? partMap.get(l.partId) : undefined;
+
+      // Cost: explicit input > catalogue > 0
       const cost: number = l.unitCost != null
         ? Number(l.unitCost)
-        : Number((l.partId && partMap.get(l.partId)?.unit_cost) || 0);
+        : Number(part?.unit_cost ?? 0);
+
+      // Sell price resolution waterfall.
+      let sell = Number(l.sellPrice ?? 0);
+      let sellSource: 'manual' | 'catalogue' | 'auto_markup' = 'manual';
+      if (sell <= 0 && part && part.sell_price > 0) {
+        sell = part.sell_price;
+        sellSource = 'catalogue';
+      }
+      if (sell <= 0 && cost > 0) {
+        const { markupPct } = await this.pricingService.resolveMarkup(
+          tenantId,
+          customerId,
+          part?.category ?? null,
+        );
+        sell = Math.round(cost * (1 + markupPct / 100) * 100) / 100;
+        sellSource = 'auto_markup';
+      }
+      // Minimum margin floor — only when we have a positive cost to
+      // compare against. Margin = (sell - cost) / sell × 100.
+      if (sell > 0 && cost > 0 && minMarginPct > 0) {
+        const minSell = Math.round((cost / (1 - minMarginPct / 100)) * 100) / 100;
+        if (sell < minSell) sell = minSell;
+      }
+
       out.push({
         part_id: l.partId ?? null,
+        part_number: part?.part_number ?? null,
         description: l.description,
         quantity: qty,
         unit_cost: cost,
         sell_price: sell,
+        sell_price_source: sellSource,
         subtotal: Math.round(qty * sell * 100) / 100,
         tax_code_id: taxCodeId,
         tax_rate: taxRate,
@@ -547,7 +625,7 @@ export class InvoicesService {
    * and an inventory_adjustments audit row is written. Proforma lines
    * never touch stock — they're quotes.
    */
-  private async writeStandaloneLines(
+  async writeStandaloneLines(
     tenantId: string,
     parentId: string,
     parent: 'invoice' | 'proforma',
@@ -562,7 +640,7 @@ export class InvoicesService {
       proforma_id: parent === 'proforma' ? parentId : null,
       part_id: l.part_id,
       part_name: l.description,
-      part_number: null,
+      part_number: l.part_number, // snapshot from catalogue
       quantity: l.quantity,
       unit_cost: l.unit_cost,
       markup_pct: 0,
@@ -570,7 +648,12 @@ export class InvoicesService {
       subtotal: l.subtotal,
       tax_code_id: l.tax_code_id,
       tax_rate: l.tax_rate,
-      stock_status: parent === 'invoice' ? 'issued' : 'planned',
+      // Stock semantics:
+      //  invoice  → 'issued' (stock actually leaves the shelf)
+      //  proforma → null (it's a quote — no stock movement). The CHECK
+      //             constraint added in 00037 only allows reserved/issued/
+      //             returned, so we must NOT write 'planned' here.
+      stock_status: parent === 'invoice' ? 'issued' : null,
       issued_at: parent === 'invoice' ? new Date().toISOString() : null,
       line_status: 'charged',
     }));

@@ -81,8 +81,14 @@ export class ProformasService {
     );
     if (rpcErr) throw rpcErr;
 
-    const enriched = await this.invoices['enrichLines'](tenantId, input.lines, null);
+    const enriched = await this.invoices.enrichLines(tenantId, input.lines, null, customer.id);
     const totals = this.totals(enriched, customer);
+
+    if (totals.grandTotal <= 0) {
+      throw new BadRequestException(
+        'Proforma grand total is zero. Set a positive sell price on at least one line, or configure a default markup in Pricing settings.',
+      );
+    }
 
     const { data: proforma, error: insErr } = await client
       .from('proformas')
@@ -105,7 +111,7 @@ export class ProformasService {
       .single();
     if (insErr) throw insErr;
 
-    await this.invoices['writeStandaloneLines'](tenantId, proforma.id, 'proforma', enriched, userId);
+    await this.invoices.writeStandaloneLines(tenantId, proforma.id, 'proforma', enriched, userId);
     return proforma;
   }
 
@@ -124,8 +130,8 @@ export class ProformasService {
 
     // If lines were provided, recompute totals and replace lines
     if (input.lines !== undefined) {
-      const enriched = await this.invoices['enrichLines'](tenantId, input.lines, null);
       const customerId = (input.customerId ?? proforma.customer_id) as string;
+      const enriched = await this.invoices.enrichLines(tenantId, input.lines, null, customerId);
       const { data: customer } = await client
         .from('customers')
         .select('vat_captive_pct, withholds_service_retention')
@@ -133,6 +139,11 @@ export class ProformasService {
         .eq('tenant_id', tenantId)
         .maybeSingle();
       const totals = this.totals(enriched, customer);
+      if (totals.grandTotal <= 0) {
+        throw new BadRequestException(
+          'Proforma grand total is zero. Set a positive sell price on at least one line.',
+        );
+      }
       updateData['parts_total'] = totals.partsTotal;
       updateData['subtotal'] = totals.subtotal;
       updateData['tax_amount'] = totals.totalVat;
@@ -141,7 +152,7 @@ export class ProformasService {
 
       // Replace lines
       await client.from('parts_lines').delete().eq('tenant_id', tenantId).eq('proforma_id', id);
-      await this.invoices['writeStandaloneLines'](tenantId, id, 'proforma', enriched, userId);
+      await this.invoices.writeStandaloneLines(tenantId, id, 'proforma', enriched, userId);
     }
 
     const { data, error } = await client

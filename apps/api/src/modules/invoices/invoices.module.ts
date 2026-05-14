@@ -7,9 +7,10 @@ import { CreditNotesController, CreditNotesRegisterController } from './credit-n
 import { CreditNotesService } from './credit-notes.service';
 import { AgtModule } from '../agt/agt.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PricingModule } from '../pricing/pricing.module';
 
 @Module({
-  imports: [AgtModule, NotificationsModule],
+  imports: [AgtModule, NotificationsModule, PricingModule],
   controllers: [InvoicesController, PublicInvoicesController, PaymentsController, CreditNotesController, CreditNotesRegisterController],
   providers: [InvoicesService, PaymentsService, CreditNotesService],
   exports: [InvoicesService, PaymentsService, CreditNotesService],
