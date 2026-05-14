@@ -7,9 +7,10 @@ import { BillsController } from './bills.controller';
 import { BillsService } from './bills.service';
 import { PartsModule } from '../parts/parts.module';
 import { WarehouseModule } from '../warehouse/warehouse.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [PartsModule, WarehouseModule],
+  imports: [PartsModule, WarehouseModule, NotificationsModule],
   controllers: [VendorsController, PurchaseOrdersController, BillsController],
   providers: [VendorsService, PurchaseOrdersService, BillsService],
   exports: [VendorsService, PurchaseOrdersService, BillsService],

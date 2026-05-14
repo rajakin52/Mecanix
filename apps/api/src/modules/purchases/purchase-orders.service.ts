@@ -281,6 +281,180 @@ export class PurchaseOrdersService {
     return data;
   }
 
+  /**
+   * Resolve tenant approval config from tenants.settings jsonb.
+   *   po_approval_threshold (numeric, default 0 = always require)
+   *   po_approver_roles    (string[], default ['owner','manager'])
+   */
+  private async getApprovalConfig(tenantId: string): Promise<{ threshold: number; roles: string[] }> {
+    const { data } = await this.supabase
+      .getClient()
+      .from('tenants')
+      .select('settings')
+      .eq('id', tenantId)
+      .maybeSingle();
+    const settings = (data?.settings ?? {}) as Record<string, unknown>;
+    const thresholdRaw = settings.po_approval_threshold;
+    const threshold = thresholdRaw == null || thresholdRaw === '' ? 0 : Number(thresholdRaw);
+    const rolesRaw = settings.po_approver_roles;
+    const roles = Array.isArray(rolesRaw) && rolesRaw.length > 0
+      ? (rolesRaw as string[])
+      : ['owner', 'manager'];
+    return { threshold: Number.isFinite(threshold) ? threshold : 0, roles };
+  }
+
+  /**
+   * Move a draft PO into the approval pipeline. If the PO total is below
+   * the tenant's po_approval_threshold, it auto-approves (bypasses the
+   * pending_approval state). Otherwise it lands in pending_approval and
+   * awaits an approver.
+   *
+   * Returns { po, autoApproved, needsApproverNotification } so the
+   * controller can fan-out the WhatsApp notification only when needed.
+   */
+  async submitForApproval(tenantId: string, id: string, userId: string) {
+    const po = await this.getById(tenantId, id);
+    if (po.status !== 'draft') {
+      throw new BadRequestException(`Only drafts can be submitted (current: ${po.status})`);
+    }
+
+    const total = Number(po.total_amount ?? 0);
+    const cfg = await this.getApprovalConfig(tenantId);
+    const autoApproved = cfg.threshold > 0 && total < cfg.threshold;
+    const now = new Date().toISOString();
+
+    const update: Record<string, unknown> = {
+      submitted_at: now,
+      submitted_by: userId,
+    };
+    if (autoApproved) {
+      update.status = 'approved';
+      update.approved_at = now;
+      update.approved_by = userId;
+    } else {
+      update.status = 'pending_approval';
+    }
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('purchase_orders')
+      .update(update)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    return {
+      po: data,
+      autoApproved,
+      needsApproverNotification: !autoApproved,
+      approverRoles: cfg.roles,
+    };
+  }
+
+  /**
+   * Approve a PO. Caller's role must be in the tenant's
+   * po_approver_roles list (checked in the controller via the request
+   * user's role).
+   */
+  async approve(tenantId: string, id: string, userId: string) {
+    const po = await this.getById(tenantId, id);
+    if (po.status !== 'pending_approval') {
+      throw new BadRequestException(`PO is ${po.status}, not pending approval`);
+    }
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('purchase_orders')
+      .update({
+        status: 'approved',
+        approved_at: now,
+        approved_by: userId,
+        rejected_at: null,
+        rejected_by: null,
+        rejection_reason: null,
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async reject(tenantId: string, id: string, userId: string, reason: string) {
+    const po = await this.getById(tenantId, id);
+    if (po.status !== 'pending_approval') {
+      throw new BadRequestException(`PO is ${po.status}, not pending approval`);
+    }
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('purchase_orders')
+      .update({
+        status: 'rejected',
+        rejected_at: now,
+        rejected_by: userId,
+        rejection_reason: reason.trim(),
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Reopen a rejected PO for editing — moves back to draft so the
+   * creator can fix issues and re-submit.
+   */
+  async reopen(tenantId: string, id: string, userId: string) {
+    const po = await this.getById(tenantId, id);
+    if (po.status !== 'rejected') {
+      throw new BadRequestException(`Can only reopen rejected POs (current: ${po.status})`);
+    }
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('purchase_orders')
+      .update({
+        status: 'draft',
+        submitted_at: null,
+        submitted_by: null,
+        rejected_at: null,
+        rejected_by: null,
+        rejection_reason: null,
+        approved_at: null,
+        approved_by: null,
+      })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Lookup users with approver role(s) — used by the controller to
+   * fan-out WhatsApp notifications.
+   */
+  async getApproverUsers(tenantId: string): Promise<Array<{ id: string; full_name: string | null; phone: string | null; whatsapp_number: string | null }>> {
+    const { roles } = await this.getApprovalConfig(tenantId);
+    const { data } = await this.supabase
+      .getClient()
+      .from('users')
+      .select('id, full_name, phone, whatsapp_number')
+      .eq('tenant_id', tenantId)
+      .in('role', roles)
+      .eq('is_active', true);
+    return (data ?? []) as Array<{ id: string; full_name: string | null; phone: string | null; whatsapp_number: string | null }>;
+  }
+
   private async recalculateTotal(tenantId: string, poId: string) {
     const client = this.supabase.getClient();
 

@@ -24,7 +24,7 @@ import { InventoryTabs } from '../parts/inventory-tabs';
 
 const FALLBACK_MAKES = ['Toyota', 'Nissan', 'Mitsubishi', 'Honda', 'Hyundai', 'Kia', 'Ford', 'Volkswagen', 'BMW', 'Mercedes'];
 
-const STATUS_TABS = ['all', 'draft', 'sent', 'partial', 'complete'] as const;
+const STATUS_TABS = ['all', 'draft', 'pending_approval', 'approved', 'rejected', 'sent', 'partial', 'complete'] as const;
 
 function safe(val: unknown): number {
   return typeof val === 'number' ? val : Number(val) || 0;
@@ -33,11 +33,23 @@ function safe(val: unknown): number {
 function statusBadge(status: string) {
   const map: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-700',
+    pending_approval: 'bg-amber-100 text-amber-800',
+    approved: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
     sent: 'bg-blue-100 text-blue-700',
     partial: 'bg-yellow-100 text-yellow-700',
     complete: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700',
   };
   return map[status] ?? 'bg-gray-100 text-gray-600';
+}
+
+function statusLabel(s: string): string {
+  switch (s) {
+    case 'all': return 'All';
+    case 'pending_approval': return 'Pending approval';
+    default: return s.charAt(0).toUpperCase() + s.slice(1);
+  }
 }
 
 export default function PurchaseOrdersPage() {
@@ -309,7 +321,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       {/* Status tabs */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="mb-4 flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab}
@@ -320,7 +332,7 @@ export default function PurchaseOrdersPage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {tab === 'all' ? tc('viewAll') : t(`status_${tab}`)}
+            {statusLabel(tab)}
           </button>
         ))}
       </div>
@@ -354,7 +366,7 @@ export default function PurchaseOrdersPage() {
                         <td className="px-4 py-3 text-sm text-gray-700">{vendorLabel as string}</td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(po.status)}`}>
-                            {t(`status_${po.status}`)}
+                            {statusLabel(po.status)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{new Date(po.order_date).toLocaleDateString()}</td>

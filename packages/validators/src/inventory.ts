@@ -170,6 +170,11 @@ export const createPurchaseOrderSchema = z.object({
   lines: z.array(poLineSchema).min(1),
 });
 
+export const rejectPurchaseOrderSchema = z.object({
+  reason: z.string().min(1).max(2000),
+});
+export type RejectPurchaseOrderInput = z.infer<typeof rejectPurchaseOrderSchema>;
+
 export const createPoLineSchema = poLineSchema;
 
 export const receiveGoodsSchema = z.object({

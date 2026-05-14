@@ -201,6 +201,50 @@ export interface LandedCostInput {
   allocation_method: 'by_value' | 'by_quantity';
 }
 
+export function useSubmitPO(poId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post(`/purchase-orders/${poId}/submit`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] });
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
+export function useApprovePO(poId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post(`/purchase-orders/${poId}/approve`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] });
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
+export function useRejectPO(poId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) => api.post(`/purchase-orders/${poId}/reject`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] });
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
+export function useReopenPO(poId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post(`/purchase-orders/${poId}/reopen`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] });
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
 export function useApplyLandedCosts(poId: string) {
   const qc = useQueryClient();
   return useMutation({
