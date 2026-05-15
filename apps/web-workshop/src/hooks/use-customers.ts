@@ -28,6 +28,36 @@ export function useCustomer(id: string) {
   });
 }
 
+export interface CustomerLtv {
+  customer_id: string;
+  customer_since: string;
+  invoice_count: number;
+  first_invoice_date: string | null;
+  last_invoice_date: string | null;
+  days_since_last_visit: number | null;
+  lifetime_revenue: number;
+  lifetime_paid: number;
+  outstanding_balance: number;
+  lifetime_parts_revenue: number;
+  lifetime_labour_revenue: number;
+  credit_notes_total: number;
+  parts_revenue: number;
+  parts_cost: number;
+  parts_margin: number;
+  parts_margin_pct: number;
+  parts_line_count: number;
+  average_invoice_value: number;
+}
+
+export function useCustomerLtv(id: string) {
+  return useQuery({
+    queryKey: ['customer-ltv', id],
+    queryFn: () => api.get<CustomerLtv>(`/customers/${id}/ltv`),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateCustomer() {
   const queryClient = useQueryClient();
   return useMutation({

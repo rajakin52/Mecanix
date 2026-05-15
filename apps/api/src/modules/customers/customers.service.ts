@@ -295,4 +295,132 @@ export class CustomersService {
 
     return Array.from(matches.values()).sort((a, b) => b.match_score - a.match_score);
   }
+
+  /**
+   * Lifetime-value rollup for one customer. Joins invoices + payments +
+   * credit_notes + parts_lines and returns a single object the UI can
+   * render as a stat strip.
+   *
+   * Margin uses each parts_line's snapshot unit_cost (= the COGS as
+   * resolved by the cost-method ledger at issue) against its subtotal.
+   * Labour is treated as 100% margin since we don't yet snapshot
+   * technician cost-per-hour on labour_lines.
+   */
+  async getLifetimeValue(tenantId: string, customerId: string) {
+    const client = this.supabase.getClient();
+
+    // Make sure the customer exists / belongs to the tenant before
+    // doing the (expensive) aggregation queries.
+    const { data: cust } = await client
+      .from('customers')
+      .select('id, full_name, created_at')
+      .eq('id', customerId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (!cust) throw new NotFoundException('Customer not found');
+
+    // Invoices (non-cancelled).
+    const { data: invoices } = await client
+      .from('invoices')
+      .select('id, invoice_date, grand_total, paid_amount, balance_due, status, parts_total, labour_total')
+      .eq('tenant_id', tenantId)
+      .eq('customer_id', customerId)
+      .neq('status', 'cancelled');
+    const invs = (invoices ?? []) as Array<{
+      id: string;
+      invoice_date: string;
+      grand_total: number;
+      paid_amount: number;
+      balance_due: number;
+      status: string;
+      parts_total: number;
+      labour_total: number;
+    }>;
+    const invoiceCount = invs.length;
+    const lifetimeRevenue = invs.reduce((s, i) => s + Number(i.grand_total ?? 0), 0);
+    const lifetimePaid = invs.reduce((s, i) => s + Number(i.paid_amount ?? 0), 0);
+    const outstandingBalance = invs.reduce((s, i) => s + Number(i.balance_due ?? 0), 0);
+    const lifetimePartsRevenue = invs.reduce((s, i) => s + Number(i.parts_total ?? 0), 0);
+    const lifetimeLabourRevenue = invs.reduce((s, i) => s + Number(i.labour_total ?? 0), 0);
+    const firstInvoiceDate = invs
+      .map((i) => i.invoice_date)
+      .sort()[0] ?? null;
+    const lastInvoiceDate = invs
+      .map((i) => i.invoice_date)
+      .sort()
+      .reverse()[0] ?? null;
+
+    // Credit notes — subtract from net.
+    const invoiceIds = invs.map((i) => i.id);
+    let creditNotesTotal = 0;
+    if (invoiceIds.length > 0) {
+      const { data: cns } = await client
+        .from('credit_notes')
+        .select('amount')
+        .in('invoice_id', invoiceIds);
+      creditNotesTotal = (cns ?? []).reduce((s, c) => s + Number((c as { amount: number }).amount ?? 0), 0);
+    }
+
+    // Parts margin: revenue (parts_lines.subtotal) − cost (qty × unit_cost),
+    // restricted to lines billed on this customer's invoices.
+    let partsRevenue = 0;
+    let partsCost = 0;
+    let partsLineCount = 0;
+    if (invoiceIds.length > 0) {
+      // JC-anchored lines (billed_on_invoice_id refs)
+      const { data: jcLines } = await client
+        .from('parts_lines')
+        .select('quantity, unit_cost, subtotal')
+        .eq('tenant_id', tenantId)
+        .in('billed_on_invoice_id', invoiceIds);
+      for (const r of (jcLines ?? []) as Array<{ quantity: number; unit_cost: number; subtotal: number }>) {
+        partsRevenue += Number(r.subtotal ?? 0);
+        partsCost += Number(r.quantity ?? 0) * Number(r.unit_cost ?? 0);
+        partsLineCount++;
+      }
+      // OTC-anchored lines (invoice_id directly)
+      const { data: otcLines } = await client
+        .from('parts_lines')
+        .select('quantity, unit_cost, subtotal')
+        .eq('tenant_id', tenantId)
+        .in('invoice_id', invoiceIds);
+      for (const r of (otcLines ?? []) as Array<{ quantity: number; unit_cost: number; subtotal: number }>) {
+        partsRevenue += Number(r.subtotal ?? 0);
+        partsCost += Number(r.quantity ?? 0) * Number(r.unit_cost ?? 0);
+        partsLineCount++;
+      }
+    }
+    const partsMargin = partsRevenue - partsCost;
+    const partsMarginPct = partsRevenue > 0 ? (partsMargin / partsRevenue) * 100 : 0;
+
+    // Days since last visit (= last invoice).
+    const daysSinceLast = lastInvoiceDate
+      ? Math.floor((Date.now() - new Date(lastInvoiceDate).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    return {
+      customer_id: customerId,
+      customer_since: cust.created_at,
+      invoice_count: invoiceCount,
+      first_invoice_date: firstInvoiceDate,
+      last_invoice_date: lastInvoiceDate,
+      days_since_last_visit: daysSinceLast,
+      lifetime_revenue: round2(lifetimeRevenue),
+      lifetime_paid: round2(lifetimePaid),
+      outstanding_balance: round2(outstandingBalance),
+      lifetime_parts_revenue: round2(lifetimePartsRevenue),
+      lifetime_labour_revenue: round2(lifetimeLabourRevenue),
+      credit_notes_total: round2(creditNotesTotal),
+      parts_revenue: round2(partsRevenue),
+      parts_cost: round2(partsCost),
+      parts_margin: round2(partsMargin),
+      parts_margin_pct: Math.round(partsMarginPct * 10) / 10,
+      parts_line_count: partsLineCount,
+      average_invoice_value: invoiceCount > 0
+        ? round2(lifetimeRevenue / invoiceCount)
+        : 0,
+    };
+  }
 }

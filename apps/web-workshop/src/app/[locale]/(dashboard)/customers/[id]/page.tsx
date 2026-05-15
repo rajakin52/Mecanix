@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
+import { useCustomer, useCustomerLtv, useUpdateCustomer, useDeleteCustomer } from '@/hooks/use-customers';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { useLoyalty, useLoyaltyTransactions, useEarnPoints, useRedeemPoints } from '@/hooks/use-loyalty';
 import { useCustomerComms } from '@/hooks/use-comms';
@@ -194,6 +194,7 @@ export default function CustomerDetailPage() {
   const [redeemDesc, setRedeemDesc] = useState('');
 
   const { data: customer, isLoading, isError } = useCustomer(id);
+  const { data: ltv } = useCustomerLtv(id);
   const { data: vehiclesData, isLoading: vehiclesLoading } = useVehicles(1, '', id);
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
@@ -278,6 +279,64 @@ export default function CustomerDetailPage() {
           &larr; {t('back')}
         </Link>
       </div>
+
+      {/* Lifetime value snapshot — billing + margin rollup across every
+          invoice ever issued to this customer. Read-only summary that
+          frames the rest of the page. */}
+      {ltv && ltv.invoice_count > 0 && (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Lifetime snapshot
+            </h2>
+            <span className="text-xs text-gray-500">
+              {ltv.invoice_count} invoice{ltv.invoice_count === 1 ? '' : 's'}
+              {ltv.first_invoice_date && (
+                <> · since {new Date(ltv.first_invoice_date).toLocaleDateString()}</>
+              )}
+              {ltv.days_since_last_visit != null && (
+                <> · last visit {ltv.days_since_last_visit}d ago</>
+              )}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Stat
+              label="Lifetime revenue"
+              value={ltv.lifetime_revenue.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })}
+              hint="Sum of grand totals"
+            />
+            <Stat
+              label="Lifetime paid"
+              value={ltv.lifetime_paid.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })}
+              hint="Across all payments"
+              tone="emerald"
+            />
+            <Stat
+              label="Outstanding"
+              value={ltv.outstanding_balance.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })}
+              hint="Unpaid balance"
+              tone={ltv.outstanding_balance > 0 ? 'red' : 'gray'}
+            />
+            <Stat
+              label="Avg invoice"
+              value={ltv.average_invoice_value.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })}
+              hint={`${ltv.invoice_count} total`}
+            />
+            <Stat
+              label="Parts margin"
+              value={`${ltv.parts_margin_pct.toFixed(1)}%`}
+              hint={`${ltv.parts_margin.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })} on ${ltv.parts_line_count} lines`}
+              tone={ltv.parts_margin_pct < 0 ? 'red' : ltv.parts_margin_pct < 10 ? 'amber' : 'emerald'}
+            />
+            <Stat
+              label="Credit notes"
+              value={ltv.credit_notes_total.toLocaleString(undefined, { style: 'currency', currency: 'AOA' })}
+              hint="Returned to customer"
+              tone={ltv.credit_notes_total > 0 ? 'amber' : 'gray'}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Customer Profile Card */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -835,6 +894,36 @@ function CustomerCommsPanel({ customerId }: { customerId: string }) {
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+  tone = 'gray',
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: 'gray' | 'emerald' | 'red' | 'amber';
+}) {
+  const toneClass: Record<string, string> = {
+    gray: 'text-gray-900',
+    emerald: 'text-emerald-700',
+    red: 'text-red-600',
+    amber: 'text-amber-700',
+  };
+  return (
+    <div className="rounded-md border border-gray-100 bg-gray-50/60 p-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </div>
+      <div className={`mt-0.5 text-base font-bold tabular-nums ${toneClass[tone]}`}>
+        {value}
+      </div>
+      {hint && <div className="text-[10px] text-gray-500">{hint}</div>}
     </div>
   );
 }

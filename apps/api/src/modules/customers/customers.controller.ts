@@ -66,6 +66,20 @@ export class CustomersController {
     return this.customersService.getById(tenantId, id);
   }
 
+  /**
+   * Lifetime-value + margin snapshot for a single customer. Reads
+   * directly off invoices/payments/credit_notes/parts_lines and rolls
+   * up the per-customer numbers the detail page surfaces above the
+   * statement-of-account.
+   */
+  @Get(':id/ltv')
+  async getLtv(
+    @TenantId() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.customersService.getLifetimeValue(tenantId, id);
+  }
+
   @Post()
   @RequiresCapability('customers.manage')
   async create(
