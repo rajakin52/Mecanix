@@ -90,10 +90,15 @@ export class InvoicesService {
     // + service writer (advisor) + primary technician so the printed
     // repair invoice can render the full repair-shop fact sheet
     // without separate fetches.
+    //
+    // PostgREST needs the FK constraint name spelled out for the users
+    // join because job_cards has multiple FKs to users (created_by,
+    // updated_by, deleted_by, pickup_signed_by, service_writer_id).
+    // Without the hint it returns PGRST201 (ambiguous embedding).
     const { data, error } = await client
       .from('invoices')
       .select(
-        '*, customer:customers(*), job_card:job_cards(*, vehicle:vehicles(id, plate, vin, make, model, year, color, fuel_type, mileage), service_writer:users(id, full_name), primary_technician:technicians(id, full_name))',
+        '*, customer:customers(*), job_card:job_cards(*, vehicle:vehicles(id, plate, vin, make, model, year, color, fuel_type, mileage), service_writer:users!job_cards_service_writer_id_fkey(id, full_name), primary_technician:technicians(id, full_name))',
       )
       .eq('id', id)
       .eq('tenant_id', tenantId)
