@@ -205,7 +205,25 @@ export default function InvoicesPage() {
                         {formatCurrency(inv.balance_due)}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <StatusBadge status={inv.status} />
+                        <div className="flex flex-wrap items-center gap-1">
+                          <StatusBadge status={inv.status} />
+                          {(() => {
+                            const bal = Number(inv.balance_due ?? 0);
+                            const due = inv.due_date as string | null;
+                            if (bal <= 0 || !due) return null;
+                            const dueMs = new Date(due).getTime();
+                            const days = Math.floor((Date.now() - dueMs) / (1000 * 60 * 60 * 24));
+                            if (days <= 0) return null;
+                            return (
+                              <span
+                                className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700"
+                                title={`Due ${new Date(due).toLocaleDateString(locale)}`}
+                              >
+                                Overdue {days}d
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {new Date(inv.invoice_date).toLocaleDateString(locale)}
@@ -266,7 +284,23 @@ export default function InvoicesPage() {
                 <label className="block text-sm font-medium text-gray-700">{t('selectJobCard')}</label>
                 <select
                   value={genJobCardId}
-                  onChange={(e) => setGenJobCardId(e.target.value)}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setGenJobCardId(id);
+                    // Pre-fill due date from the picked JC's customer
+                    // credit_terms_days (defaults to 30). User can still
+                    // override before submitting.
+                    if (!id) return;
+                    const job = eligibleJobs.find((j) => j.id === id);
+                    const cust = (job as Record<string, unknown> | undefined)?.customer
+                      ?? (job as Record<string, unknown> | undefined)?.customers;
+                    const days = Number(
+                      (cust as Record<string, unknown> | undefined)?.['credit_terms_days'] ?? 30,
+                    );
+                    const d = new Date();
+                    d.setDate(d.getDate() + days);
+                    setGenDueDate(d.toISOString().slice(0, 10));
+                  }}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 >
                   <option value="">{t('selectJobCard')}</option>

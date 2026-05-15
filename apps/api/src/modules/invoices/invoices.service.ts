@@ -247,16 +247,27 @@ export class InvoicesService {
 
     if (rpcError) throw rpcError;
 
-    // 5. Fetch customer tax profile (cativo + retention).
+    // 5. Fetch customer tax profile (cativo + retention) and credit terms.
     const { data: customer } = await client
       .from('customers')
-      .select('vat_captive_pct, withholds_service_retention')
+      .select('vat_captive_pct, withholds_service_retention, credit_terms_days')
       .eq('id', jobCard.customer_id)
       .eq('tenant_id', tenantId)
       .single();
 
     const customerCaptivePct = Number(customer?.vat_captive_pct ?? 0);
     const customerRetains = Boolean(customer?.withholds_service_retention);
+    const customerTermsDays = Number(customer?.credit_terms_days ?? 30);
+
+    // Auto-default due_date if the caller didn't supply one. Today +
+    // the customer's credit terms days.
+    const dueDateFinal: string = input.dueDate
+      ? input.dueDate
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + customerTermsDays);
+          return d.toISOString().slice(0, 10);
+        })();
 
     const totals = computeInvoiceTotals({
       labourLines: (labourLines ?? []) as Array<{ subtotal: number; tax_rate: number | null }>,
@@ -300,7 +311,7 @@ export class InvoicesService {
         paid_amount: 0,
         balance_due: totals.clientOwes,
         is_insurance: jobCard.is_insurance ?? false,
-        due_date: input.dueDate || null,
+        due_date: dueDateFinal,
         notes: input.notes || null,
         footer: input.footer || null,
         discount_pct: Number(input.discountPct ?? 0),
@@ -418,15 +429,26 @@ export class InvoicesService {
   ) {
     const client = this.supabase.getClient();
 
-    // 1. Validate customer + fetch tax profile
+    // 1. Validate customer + fetch tax profile + credit terms
     const { data: customer, error: custErr } = await client
       .from('customers')
-      .select('id, full_name, vat_captive_pct, withholds_service_retention')
+      .select('id, full_name, vat_captive_pct, withholds_service_retention, credit_terms_days')
       .eq('id', input.customerId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
     if (custErr) throw custErr;
     if (!customer) throw new NotFoundException('Customer not found');
+
+    // Auto-default the due_date from customer credit terms when the
+    // caller didn't pick one explicitly.
+    const customerTermsDays = Number(customer.credit_terms_days ?? 30);
+    const dueDateFinal: string = input.dueDate
+      ? input.dueDate
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + customerTermsDays);
+          return d.toISOString().slice(0, 10);
+        })();
 
     // 2. Resolve a default tax code for lines that don't carry one
     const { data: defaultTax } = await client
@@ -505,7 +527,7 @@ export class InvoicesService {
         paid_amount: 0,
         balance_due: totals.clientOwes,
         is_insurance: false,
-        due_date: input.dueDate || null,
+        due_date: dueDateFinal,
         notes: input.notes || null,
         footer: input.footer || null,
         discount_pct: Number(input.discountPct ?? 0),

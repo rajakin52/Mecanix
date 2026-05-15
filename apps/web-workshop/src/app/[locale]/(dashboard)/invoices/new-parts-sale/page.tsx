@@ -281,7 +281,19 @@ export default function NewPartsSalePage() {
                   options={customers}
                   placeholder="Search customer…"
                   allowFreeText={false}
-                  onChange={setCustomerId}
+                  onChange={(id) => {
+                    setCustomerId(id);
+                    // Pre-fill due date from the customer's credit terms
+                    // (defaults to 30 days). User can still override.
+                    if (!id) return;
+                    const list = customersData?.data ?? [];
+                    const c = list.find((x) => x.id === id) as unknown as
+                      Record<string, unknown> | undefined;
+                    const days = Number(c?.['credit_terms_days'] ?? 30);
+                    const d = new Date();
+                    d.setDate(d.getDate() + days);
+                    setDueDate(d.toISOString().slice(0, 10));
+                  }}
                 />
               </div>
             </div>
