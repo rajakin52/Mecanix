@@ -58,6 +58,9 @@ interface SoaBatchSummary {
   sent_whatsapp: number;
   failed: number;
   skipped: number;
+  delivered?: number;
+  bounced?: number;
+  complained?: number;
 }
 
 const DEFAULTS: SoaSettings = {
@@ -372,6 +375,7 @@ export default function StatementsSettingsPage() {
             {history.length === 0 ? (
               <p className="text-sm text-gray-500">No runs yet.</p>
             ) : (
+              <>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500">
@@ -381,6 +385,9 @@ export default function StatementsSettingsPage() {
                     <th className="py-1 text-right">WhatsApp</th>
                     <th className="py-1 text-right">Failed</th>
                     <th className="py-1 text-right">Skipped</th>
+                    <th className="py-1 text-right">Delivered</th>
+                    <th className="py-1 text-right">Bounced</th>
+                    <th className="py-1 text-right">Spam</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -398,10 +405,26 @@ export default function StatementsSettingsPage() {
                       <td className="py-1 text-right tabular-nums">{b.sent_whatsapp}</td>
                       <td className="py-1 text-right tabular-nums text-red-600">{b.failed}</td>
                       <td className="py-1 text-right tabular-nums text-gray-400">{b.skipped}</td>
+                      <td className="py-1 text-right tabular-nums text-emerald-700">
+                        {b.delivered ?? 0}
+                      </td>
+                      <td className="py-1 text-right tabular-nums text-amber-700">
+                        {b.bounced ?? 0}
+                      </td>
+                      <td className="py-1 text-right tabular-nums text-red-600">
+                        {b.complained ?? 0}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <p className="mt-2 text-xs text-gray-500">
+                Delivered / Bounced / Spam come from Resend webhooks (POST
+                /api/v1/webhook/resend). Configure the endpoint in
+                Resend → Webhooks with this URL and pick at least
+                <span className="font-mono"> email.delivered, email.bounced, email.complained</span>.
+              </p>
+              </>
             )}
           </SettingsSection>
         </>

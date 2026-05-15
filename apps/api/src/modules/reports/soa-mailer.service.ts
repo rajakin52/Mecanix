@@ -568,7 +568,7 @@ export class SoaMailerService {
     const { data, error } = await this.supabase
       .getClient()
       .from('soa_send_log')
-      .select('batch_id, triggered_by, channel, status, created_at')
+      .select('batch_id, triggered_by, channel, status, delivery_status, created_at')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit * 20); // pull more rows; we'll group below
@@ -579,6 +579,7 @@ export class SoaMailerService {
       triggered_by: string;
       channel: string;
       status: string;
+      delivery_status: string | null;
       created_at: string;
     };
     const batches = new Map<string, {
@@ -590,6 +591,11 @@ export class SoaMailerService {
       sent_whatsapp: number;
       failed: number;
       skipped: number;
+      // Delivery rollup from Resend webhooks. Only populated for rows
+      // where status='sent' and a webhook event later landed.
+      delivered: number;
+      bounced: number;
+      complained: number;
     }>();
     for (const r of (data ?? []) as Row[]) {
       let b = batches.get(r.batch_id);
@@ -603,6 +609,9 @@ export class SoaMailerService {
           sent_whatsapp: 0,
           failed: 0,
           skipped: 0,
+          delivered: 0,
+          bounced: 0,
+          complained: 0,
         };
         batches.set(r.batch_id, b);
       }
@@ -611,6 +620,9 @@ export class SoaMailerService {
       if (r.status === 'sent' && r.channel === 'whatsapp') b.sent_whatsapp++;
       if (r.status === 'failed') b.failed++;
       if (r.status.startsWith('skipped_')) b.skipped++;
+      if (r.delivery_status === 'delivered') b.delivered++;
+      if (r.delivery_status === 'bounced') b.bounced++;
+      if (r.delivery_status === 'complained') b.complained++;
     }
     return Array.from(batches.values()).slice(0, limit);
   }
