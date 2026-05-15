@@ -590,6 +590,65 @@ export class AuthService {
     return { magicLink: data.properties.action_link };
   }
 
+  /**
+   * Self-service password change. Verifies the current password by
+   * attempting an anon-client sign-in (cheap and authoritative) before
+   * setting the new one via admin.updateUserById.
+   */
+  async changeOwnPassword(
+    authId: string,
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ success: true }> {
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('New password must differ from current password');
+    }
+    const anon = this.supabase.createAnonClient();
+    const { error: verifyErr } = await anon.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+    if (verifyErr) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    const admin = this.supabase.getAuthClient();
+    const { error: updErr } = await admin.updateUserById(authId, { password: newPassword });
+    if (updErr) {
+      throw new BadRequestException(updErr.message);
+    }
+    this.logger.log(`User ${authId} changed own password`);
+    return { success: true };
+  }
+
+  /**
+   * Self-service profile update. Touches public.users only — role,
+   * is_active, tenant_id etc are owner/manager-only and live on the
+   * tenants user-admin endpoints.
+   */
+  async updateOwnProfile(
+    userId: string,
+    tenantId: string,
+    patch: { fullName?: string; phone?: string; avatarUrl?: string | null },
+  ) {
+    const client = this.supabase.getClient();
+    const updates: Record<string, unknown> = { updated_by: userId };
+    if (patch.fullName !== undefined) updates.full_name = patch.fullName;
+    if (patch.phone !== undefined) updates.phone = patch.phone;
+    if (patch.avatarUrl !== undefined) updates.avatar_url = patch.avatarUrl;
+    const { data, error } = await client
+      .from('users')
+      .update(updates)
+      .eq('id', userId)
+      .eq('tenant_id', tenantId)
+      .select('id, email, full_name, role, phone, avatar_url, is_active')
+      .single();
+    if (error || !data) {
+      throw new BadRequestException(error?.message ?? 'Profile update failed');
+    }
+    return data;
+  }
+
   private getTimezone(country: string): string {
     const map: Record<string, string> = {
       AO: 'Africa/Luanda',

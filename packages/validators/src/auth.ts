@@ -108,6 +108,24 @@ export const adminChangePasswordSchema = z.object({
   password: z.string().min(8).max(72),
 });
 
+// Self-service: change your own password while logged in. Requires
+// the current password so a stolen session token alone can't lock
+// the legitimate user out.
+export const changeOwnPasswordSchema = z.object({
+  currentPassword: z.string().min(8).max(72),
+  newPassword: z.string().min(8).max(72),
+});
+
+// Self-service: edit your own profile fields. Only the fields the
+// user is allowed to change themselves — role and active state stay
+// under owner/manager control. Locale is tenant-wide for now (no
+// per-user locale column).
+export const updateOwnProfileSchema = z.object({
+  fullName: z.string().min(2).max(100).optional(),
+  phone: z.string().max(20).optional(),
+  avatarUrl: z.string().url().max(500).nullable().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
@@ -122,3 +140,5 @@ export type SetTenantSettingInput = z.infer<typeof setTenantSettingSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminChangePasswordInput = z.infer<typeof adminChangePasswordSchema>;
+export type ChangeOwnPasswordInput = z.infer<typeof changeOwnPasswordSchema>;
+export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;

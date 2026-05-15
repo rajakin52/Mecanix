@@ -4,8 +4,9 @@ import { useRouter, Link, usePathname } from '@/i18n/navigation';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { TenantProvider } from '@/lib/tenant-context';
-import { clearImpersonation } from '@/lib/impersonation';
+import { clearImpersonation, captureUserImpersonationFromUrl } from '@/lib/impersonation';
 import { TenantSwitcher, DesktopTopBar, ImpersonationBanner } from '@/components/TenantSwitcher';
+import { UserImpersonationBanner } from '@/components/UserImpersonationBanner';
 import { ToastProvider } from '@mecanix/ui-web';
 // Using <img> instead of next/image for static assets compatibility
 import {
@@ -148,6 +149,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
       return;
     }
+    // If we landed here via an impersonation magic link, the redirect
+    // URL carries `?impersonated=1` — capture it into sessionStorage so
+    // the banner can detect this session was a user-impersonation
+    // session, then scrub the param from the URL.
+    captureUserImpersonationFromUrl();
     setMounted(true);
   }, [router]);
 
@@ -415,6 +421,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Settings className={`h-[18px] w-[18px] flex-shrink-0 ${isActive('/settings') ? 'text-brand-gold' : 'text-secondary-400 group-hover:text-white'}`} />
             {!collapsed && <span>{t('settings')}</span>}
           </Link>
+          <Link
+            href="/settings/account"
+            onClick={() => setSidebarOpen(false)}
+            className={`
+              group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
+              ${isActive('/settings/account')
+                ? 'bg-brand-gold/15 text-brand-gold'
+                : 'text-secondary-300 hover:bg-secondary-700 hover:text-white'
+              }
+              ${collapsed ? 'justify-center px-2' : ''}
+            `}
+            title="My account"
+          >
+            <Users className={`h-[18px] w-[18px] flex-shrink-0 ${isActive('/settings/account') ? 'text-brand-gold' : 'text-secondary-400 group-hover:text-white'}`} />
+            {!collapsed && <span>My account</span>}
+          </Link>
           <button
             onClick={handleLogout}
             className={`group mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-secondary-400 transition-colors hover:bg-red-500/10 hover:text-red-400 ${collapsed ? 'justify-center px-2' : ''}`}
@@ -427,6 +449,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <div className="flex flex-1 flex-col">
+        <UserImpersonationBanner />
         <ImpersonationBanner />
 
         {/* Top bar (mobile) */}

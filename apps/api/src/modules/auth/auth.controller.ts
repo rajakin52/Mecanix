@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -8,6 +8,8 @@ import {
   customerSignUpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changeOwnPasswordSchema,
+  updateOwnProfileSchema,
 } from '@mecanix/validators';
 import type {
   LoginInput,
@@ -16,6 +18,8 @@ import type {
   CustomerSignUpInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  ChangeOwnPasswordInput,
+  UpdateOwnProfileInput,
 } from '@mecanix/validators';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -97,5 +101,35 @@ export class AuthController {
   @UseGuards(TenantGuard)
   async profile(@CurrentUser() user: RequestUser) {
     return this.authService.getProfile(user.authId, user.tenantId);
+  }
+
+  // Self-service profile edit — fullName / phone / locale / avatarUrl.
+  // Role / is_active / tenant changes stay on the owner-managed
+  // /tenants/me/users/:userId endpoint.
+  @Patch('profile')
+  @UseGuards(TenantGuard)
+  async updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(updateOwnProfileSchema)) body: UpdateOwnProfileInput,
+  ) {
+    return this.authService.updateOwnProfile(user.id, user.tenantId, body);
+  }
+
+  // Self-service password change. Requires the current password — a
+  // stolen access token alone shouldn't be enough to lock the legit
+  // user out of their account.
+  @Post('change-password')
+  @UseGuards(TenantGuard)
+  @RateLimit(5, 60)
+  async changeOwnPassword(
+    @CurrentUser() user: RequestUser,
+    @Body(new ZodValidationPipe(changeOwnPasswordSchema)) body: ChangeOwnPasswordInput,
+  ) {
+    return this.authService.changeOwnPassword(
+      user.authId,
+      user.email,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 }
