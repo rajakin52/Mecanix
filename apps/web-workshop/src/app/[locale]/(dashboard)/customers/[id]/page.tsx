@@ -234,6 +234,7 @@ export default function CustomerDetailPage() {
           ? Number(customer.shop_supplies_pct) * 100
           : null,
         shopSuppliesCap: customer.shop_supplies_cap ?? null,
+        preferredLanguage: (customer.preferred_language as 'en' | 'pt-PT' | 'pt-BR' | null | undefined) ?? null,
       });
     }
   }, [customer, reset]);
@@ -671,6 +672,16 @@ export default function CustomerDetailPage() {
                     <option key={pg.id} value={pg.id}>{pg.name} ({pg.default_markup_pct}%)</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
+                <select {...register('preferredLanguage')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white">
+                  <option value="">Use workshop default</option>
+                  <option value="pt-PT">Português (PT)</option>
+                  <option value="pt-BR">Português (BR)</option>
+                  <option value="en">English</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Overrides the workshop locale for this customer&apos;s emails, WhatsApp, and statements.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{tc('address')}</label>

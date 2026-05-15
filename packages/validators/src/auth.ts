@@ -28,6 +28,7 @@ export const updateWorkshopUserSchema = z.object({
   /** UUID of a public.custom_roles row. null removes the override. */
   customRoleId: z.string().uuid().nullable().optional(),
   isActive: z.boolean().optional(),
+  preferredLanguage: z.enum(['en', 'pt-PT', 'pt-BR']).nullable().optional(),
 });
 
 // ── Custom roles ─────────────────────────────────────────────────
@@ -122,12 +123,12 @@ export const changeOwnPasswordSchema = z.object({
 
 // Self-service: edit your own profile fields. Only the fields the
 // user is allowed to change themselves — role and active state stay
-// under owner/manager control. Locale is tenant-wide for now (no
-// per-user locale column).
+// under owner/manager control.
 export const updateOwnProfileSchema = z.object({
   fullName: z.string().min(2).max(100).optional(),
   phone: z.string().max(20).optional(),
   avatarUrl: z.string().url().max(500).nullable().optional(),
+  preferredLanguage: z.enum(['en', 'pt-PT', 'pt-BR']).nullable().optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

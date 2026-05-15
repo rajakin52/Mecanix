@@ -19,6 +19,8 @@ export interface Customer {
   materials_rate_body?: number | null;
   shop_supplies_pct?: number | null;
   shop_supplies_cap?: number | null;
+  // Locale override for outbound comms. null → tenant.locale.
+  preferred_language?: 'en' | 'pt-PT' | 'pt-BR' | null;
   created_at: string;
   updated_at: string;
   created_by?: string;

@@ -23,17 +23,21 @@ export default function AccountSettingsPage() {
   // Profile form
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState<'' | 'en' | 'pt-PT' | 'pt-BR'>('');
   const [profileMsg, setProfileMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     if (session) {
       setFullName(session.full_name ?? '');
       setPhone(session.phone ?? '');
+      const pref = (session as unknown as { preferred_language?: string | null }).preferred_language ?? '';
+      if (pref === 'en' || pref === 'pt-PT' || pref === 'pt-BR') setPreferredLanguage(pref);
+      else setPreferredLanguage('');
     }
   }, [session]);
 
   const profileMutation = useMutation({
-    mutationFn: (body: { fullName?: string; phone?: string }) =>
+    mutationFn: (body: { fullName?: string; phone?: string; preferredLanguage?: 'en' | 'pt-PT' | 'pt-BR' | null }) =>
       api.patch('/auth/profile', body),
     onSuccess: () => {
       setProfileMsg({ kind: 'ok', text: 'Profile updated.' });
@@ -54,6 +58,7 @@ export default function AccountSettingsPage() {
     profileMutation.mutate({
       fullName: fullName.trim(),
       phone: phone.trim(),
+      preferredLanguage: preferredLanguage === '' ? null : preferredLanguage,
     });
   };
 
@@ -132,6 +137,20 @@ export default function AccountSettingsPage() {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               placeholder="+244 9XX XXX XXX"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
+            <select
+              value={preferredLanguage}
+              onChange={(e) => setPreferredLanguage(e.target.value as '' | 'en' | 'pt-PT' | 'pt-BR')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm bg-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">Use workshop default</option>
+              <option value="pt-PT">Português (PT)</option>
+              <option value="pt-BR">Português (BR)</option>
+              <option value="en">English</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500">Used for password-reset emails and other personal notifications.</p>
           </div>
           {profileMsg && (
             <p className={`text-sm ${profileMsg.kind === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>

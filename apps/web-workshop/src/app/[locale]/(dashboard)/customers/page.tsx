@@ -280,6 +280,16 @@ export default function CustomersPage() {
                       </select>
                     </div>
                     <div>
+                      <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
+                      <select {...register('preferredLanguage')} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200">
+                        <option value="">Use workshop default</option>
+                        <option value="pt-PT">Português (PT)</option>
+                        <option value="pt-BR">Português (BR)</option>
+                        <option value="en">English</option>
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">Overrides the workshop locale for this customer&apos;s emails, WhatsApp, and statements.</p>
+                    </div>
+                    <div>
                       <label className="block text-sm font-medium text-gray-700">{t('taxId')}</label>
                       <input {...register('taxId')} placeholder="NIF / Tax ID"
                         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />

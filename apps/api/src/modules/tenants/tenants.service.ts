@@ -45,7 +45,7 @@ export class TenantsService {
     const { data, error } = await this.supabase
       .getClient()
       .from('users')
-      .select('id, email, full_name, role, phone, avatar_url, is_active, created_at')
+      .select('id, email, full_name, role, phone, avatar_url, preferred_language, is_active, created_at')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: true });
 
@@ -77,6 +77,7 @@ export class TenantsService {
       role?: 'owner' | 'manager' | 'technician' | 'receptionist';
       customRoleId?: string | null;
       isActive?: boolean;
+      preferredLanguage?: 'en' | 'pt-PT' | 'pt-BR' | null;
     },
   ) {
     const client = this.supabase.getClient();
@@ -157,13 +158,14 @@ export class TenantsService {
     if (updates.role !== undefined) payload.role = updates.role;
     if (updates.customRoleId !== undefined) payload.custom_role_id = updates.customRoleId;
     if (updates.isActive !== undefined) payload.is_active = updates.isActive;
+    if (updates.preferredLanguage !== undefined) payload.preferred_language = updates.preferredLanguage;
 
     const { data, error } = await client
       .from('users')
       .update(payload)
       .eq('id', targetId)
       .eq('tenant_id', tenantId)
-      .select('id, email, full_name, role, phone, avatar_url, is_active, created_at')
+      .select('id, email, full_name, role, phone, avatar_url, preferred_language, is_active, created_at')
       .single();
 
     if (error) throw error;

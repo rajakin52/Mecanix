@@ -23,6 +23,8 @@ export const createCustomerSchema = z.object({
   creditLimit: z.coerce.number().min(0).optional(),
   priceGroupId: z.string().uuid().optional().or(z.literal('')),
   preferredChannel: z.enum(['whatsapp', 'email', 'app', 'sms']).optional(),
+  // Locale override for this customer's outbound comms. Null → tenants.locale.
+  preferredLanguage: z.enum(['en', 'pt-PT', 'pt-BR']).nullable().optional(),
   // Angola tax treatment
   vatCaptivePct: z.union([z.literal(0), z.literal(50), z.literal(100)]).default(0),
   withholdsServiceRetention: z.boolean().default(false),

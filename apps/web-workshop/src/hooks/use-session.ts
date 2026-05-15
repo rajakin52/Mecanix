@@ -11,6 +11,7 @@ export interface SessionProfile {
   tenant_id: string;
   phone: string | null;
   avatar_url: string | null;
+  preferred_language: 'en' | 'pt-PT' | 'pt-BR' | null;
   is_active: boolean;
   is_super_admin: boolean;
   home_tenant_id: string;

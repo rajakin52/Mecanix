@@ -396,7 +396,7 @@ export class AuthService {
 
     const { data: user, error } = await client
       .from('users')
-      .select('id, tenant_id, email, full_name, role, custom_role_id, phone, avatar_url, is_active, is_super_admin')
+      .select('id, tenant_id, email, full_name, role, custom_role_id, phone, avatar_url, preferred_language, is_active, is_super_admin')
       .eq('auth_id', authId)
       .single();
 
@@ -492,20 +492,26 @@ export class AuthService {
     const finalRedirect = redirectTo || defaultRedirect || undefined;
 
     // Resolve the locale to render in. Order of preference:
-    //   1. tenant.locale (looked up via users.email → tenant_id)
-    //   2. localeHint (frontend's current UI locale)
-    //   3. 'pt-PT' (Mecanix primary market)
+    //   1. users.preferred_language (per-user override)
+    //   2. tenant.locale (looked up via users.email → tenant_id)
+    //   3. localeHint (frontend's current UI locale)
+    //   4. 'pt-PT' (Mecanix primary market)
     let locale: 'en' | 'pt-PT' | 'pt-BR' = 'pt-PT';
+    const isSupported = (l: unknown): l is 'en' | 'pt-PT' | 'pt-BR' =>
+      l === 'en' || l === 'pt-PT' || l === 'pt-BR';
     try {
       const { data: userRow } = await client
         .from('users')
-        .select('tenant_id, tenants:tenant_id(locale)')
+        .select('tenant_id, preferred_language, tenants:tenant_id(locale)')
         .eq('email', email)
         .maybeSingle();
+      const userPref = (userRow as { preferred_language?: string | null } | null)?.preferred_language;
       const tenantLocale = (userRow as { tenants?: { locale?: string } } | null)?.tenants?.locale;
-      if (tenantLocale === 'en' || tenantLocale === 'pt-PT' || tenantLocale === 'pt-BR') {
+      if (isSupported(userPref)) {
+        locale = userPref;
+      } else if (isSupported(tenantLocale)) {
         locale = tenantLocale;
-      } else if (localeHint === 'en' || localeHint === 'pt-PT' || localeHint === 'pt-BR') {
+      } else if (isSupported(localeHint)) {
         locale = localeHint;
       }
     } catch {
@@ -696,19 +702,20 @@ export class AuthService {
   async updateOwnProfile(
     userId: string,
     tenantId: string,
-    patch: { fullName?: string; phone?: string; avatarUrl?: string | null },
+    patch: { fullName?: string; phone?: string; avatarUrl?: string | null; preferredLanguage?: string | null },
   ) {
     const client = this.supabase.getClient();
     const updates: Record<string, unknown> = { updated_by: userId };
     if (patch.fullName !== undefined) updates.full_name = patch.fullName;
     if (patch.phone !== undefined) updates.phone = patch.phone;
     if (patch.avatarUrl !== undefined) updates.avatar_url = patch.avatarUrl;
+    if (patch.preferredLanguage !== undefined) updates.preferred_language = patch.preferredLanguage;
     const { data, error } = await client
       .from('users')
       .update(updates)
       .eq('id', userId)
       .eq('tenant_id', tenantId)
-      .select('id, email, full_name, role, phone, avatar_url, is_active')
+      .select('id, email, full_name, role, phone, avatar_url, preferred_language, is_active')
       .single();
     if (error || !data) {
       throw new BadRequestException(error?.message ?? 'Profile update failed');

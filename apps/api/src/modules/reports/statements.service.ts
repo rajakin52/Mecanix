@@ -142,6 +142,7 @@ export interface CustomerBalanceRow {
   full_name: string;
   phone: string | null;
   email: string | null;
+  preferred_language: string | null;
   open_invoices: number;
   current: number;
   thirty: number;
@@ -357,7 +358,7 @@ export class StatementsService {
 
     const { data: invoices, error } = await client
       .from('invoices')
-      .select('customer_id, balance_due, due_date, status, customer:customers(id, full_name, phone, email)')
+      .select('customer_id, balance_due, due_date, status, customer:customers(id, full_name, phone, email, preferred_language)')
       .eq('tenant_id', tenantId)
       .not('status', 'in', '("paid","cancelled")')
       .gt('balance_due', 0);
@@ -372,6 +373,7 @@ export class StatementsService {
       full_name: string;
       phone: string | null;
       email: string | null;
+      preferred_language: string | null;
       open_invoices: number;
       current: number;
       thirty: number;
@@ -381,12 +383,13 @@ export class StatementsService {
     };
     const map = new Map<string, Acc>();
 
+    type CustomerEmbed = { id: string; full_name: string; phone: string | null; email: string | null; preferred_language: string | null };
     type Row = {
       customer_id: string;
       balance_due: number;
       due_date: string | null;
       status: string;
-      customer: { id: string; full_name: string; phone: string | null; email: string | null } | Array<{ id: string; full_name: string; phone: string | null; email: string | null }> | null;
+      customer: CustomerEmbed | CustomerEmbed[] | null;
     };
 
     for (const r of (invoices ?? []) as unknown as Row[]) {
@@ -414,6 +417,7 @@ export class StatementsService {
           full_name: cust.full_name,
           phone: cust.phone,
           email: cust.email,
+          preferred_language: cust.preferred_language,
           open_invoices: 1,
           current: bucket === 'current' ? balance : 0,
           thirty: bucket === 'thirty' ? balance : 0,

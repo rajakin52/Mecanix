@@ -221,6 +221,7 @@ export class SoaMailerService {
       full_name: string;
       phone: string | null;
       email: string | null;
+      preferred_language: string | null;
       open_invoices: number;
       total_outstanding: number;
     };
@@ -231,6 +232,12 @@ export class SoaMailerService {
     endDate: string;
   }): Promise<SoaSendRow> {
     const { tenant, settings, customer } = args;
+    // Prefer the customer's own language override; fall back to tenant locale.
+    const isSupportedLocale = (l: unknown): l is 'en' | 'pt-PT' | 'pt-BR' =>
+      l === 'en' || l === 'pt-PT' || l === 'pt-BR';
+    const effectiveLocale = isSupportedLocale(customer.preferred_language)
+      ? customer.preferred_language
+      : (tenant.locale || 'pt-PT');
 
     if (customer.total_outstanding <= 0) {
       const row: SoaSendRow = {
@@ -285,7 +292,7 @@ export class SoaMailerService {
       tenant: {
         name: tenant.name,
         currency: tenant.currency,
-        locale: tenant.locale,
+        locale: effectiveLocale,
         address: tenant.address,
         phone: tenant.phone,
         email: tenant.email,
@@ -297,7 +304,7 @@ export class SoaMailerService {
 
     // Prefer email if available and provider is configured
     if (customer.email && this.email.hasProvider()) {
-      const monthName = new Date().toLocaleDateString(tenant.locale || 'pt-PT', {
+      const monthName = new Date().toLocaleDateString(effectiveLocale, {
         month: 'long',
         year: 'numeric',
       });
@@ -312,7 +319,7 @@ export class SoaMailerService {
         total_outstanding: this.formatMoney(
           customer.total_outstanding,
           tenant.currency,
-          tenant.locale,
+          effectiveLocale,
         ),
       });
       const html = this.buildHtml({
@@ -399,7 +406,7 @@ export class SoaMailerService {
       const wa = await this.whatsapp.sendTemplate(
         customer.phone,
         'soa_monthly_notice',
-        tenant.locale.startsWith('pt') ? 'pt_PT' : 'en',
+        effectiveLocale.startsWith('pt') ? 'pt_PT' : 'en',
         [
           {
             type: 'body',
@@ -410,7 +417,7 @@ export class SoaMailerService {
                 text: this.formatMoney(
                   customer.total_outstanding,
                   tenant.currency,
-                  tenant.locale,
+                  effectiveLocale,
                 ),
               },
               { type: 'text', text: tenant.name },
