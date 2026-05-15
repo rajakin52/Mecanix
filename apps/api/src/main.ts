@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import rateLimit from '@fastify/rate-limit';
+import rawBody from 'fastify-raw-body';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -8,6 +9,18 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter({ logger: true, bodyLimit: 20 * 1024 * 1024 /* 20MB for photo uploads */ }),
   );
+
+  // Capture raw body so webhook handlers can verify HMAC / Svix signatures.
+  // runFirst: true ensures we hold onto the bytes before any parser touches
+  // them. Off by default — opt-in per route via { config: { rawBody: true } }
+  // — but we set global: true because @Req() in NestJS doesn't carry the
+  // Fastify route config through cleanly and the memory cost is tiny.
+  await app.register(rawBody, {
+    field: 'rawBody',
+    global: true,
+    encoding: 'utf8',
+    runFirst: true,
+  });
 
   // Global rate limiting — 100 req/min per IP
   await app.register(rateLimit, {

@@ -1,5 +1,16 @@
-import { Body, Controller, Headers, Logger, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  Logger,
+  Post,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { FastifyRequest } from 'fastify';
+import { Webhook, WebhookVerificationError } from 'svix';
 import { SupabaseService } from '../supabase/supabase.service';
 
 /**
@@ -17,10 +28,11 @@ import { SupabaseService } from '../supabase/supabase.service';
  * for emails we didn't send (anything that doesn't match a row) are
  * silently dropped — Resend retries, but the noise isn't worth surfacing.
  *
- * Signature verification: if RESEND_WEBHOOK_SECRET is set, we treat the
- * request body as Svix-signed and verify svix-id / svix-timestamp /
- * svix-signature. If not, we accept any well-formed body — fine for the
- * sandbox/staging tier; tighten before going production-public.
+ * Signature verification: when RESEND_WEBHOOK_SECRET is set we verify
+ * the svix-id / svix-timestamp / svix-signature triple against the raw
+ * request body using the Svix SDK (Resend signs in the Svix format).
+ * If the secret is empty we accept any well-formed payload — useful in
+ * dev / before the signing secret has been generated in the dashboard.
  */
 @Controller('webhook/resend')
 export class ResendWebhookController {
@@ -36,13 +48,39 @@ export class ResendWebhookController {
 
   @Post()
   async handle(
-    @Headers('svix-signature') _svixSignature: string | undefined,
+    @Req() req: FastifyRequest & { rawBody?: string },
+    @Headers('svix-id') svixId: string | undefined,
+    @Headers('svix-timestamp') svixTimestamp: string | undefined,
+    @Headers('svix-signature') svixSignature: string | undefined,
     @Body() body: Record<string, unknown>,
   ): Promise<{ received: boolean; matched?: boolean }> {
-    // TODO: when RESEND_WEBHOOK_SECRET is set, verify the svix signature
-    // using the svix sdk before accepting the payload. Skipping for now
-    // so the wiring works in sandbox / before the user generates the
-    // signing secret in the Resend dashboard.
+    if (this.secret) {
+      if (!svixId || !svixTimestamp || !svixSignature) {
+        this.logger.warn('Resend webhook rejected: missing svix headers');
+        throw new BadRequestException('Missing svix signature headers');
+      }
+      if (!req.rawBody) {
+        // fastify-raw-body wasn't registered or the body wasn't captured.
+        // Refuse rather than verify against a re-stringified payload —
+        // re-stringify can change byte-order and break the HMAC.
+        this.logger.error('Resend webhook rejected: rawBody unavailable');
+        throw new BadRequestException('Raw body unavailable for verification');
+      }
+      try {
+        const wh = new Webhook(this.secret);
+        wh.verify(req.rawBody, {
+          'svix-id': svixId,
+          'svix-timestamp': svixTimestamp,
+          'svix-signature': svixSignature,
+        });
+      } catch (err) {
+        if (err instanceof WebhookVerificationError) {
+          this.logger.warn(`Resend webhook signature invalid: ${err.message}`);
+          throw new UnauthorizedException('Invalid webhook signature');
+        }
+        throw err;
+      }
+    }
 
     const eventType = String(body['type'] ?? '');
     const data = (body['data'] as Record<string, unknown>) ?? {};
