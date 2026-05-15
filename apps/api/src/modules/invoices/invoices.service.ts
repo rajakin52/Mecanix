@@ -278,7 +278,12 @@ export class InvoicesService {
         invoice_number: invoiceNumber,
         job_card_id: input.jobCardId,
         customer_id: jobCard.customer_id,
-        status: 'draft',
+        // Invoices start as 'sent' — once they have an FT number + AGT
+        // hash they're fiscally issued, so leaving them in 'draft' was
+        // a misleading limbo state. Payment-reminder cron and payment-link
+        // creation both gate on status != 'draft', so this fix also
+        // unblocks those flows for newly-created invoices.
+        status: 'sent',
         labour_total: totals.labourTotal,
         parts_total: totals.partsTotal,
         subtotal: totals.subtotal,
@@ -481,7 +486,9 @@ export class InvoicesService {
         invoice_number: invoiceNumber,
         job_card_id: null,
         customer_id: customer.id,
-        status: 'draft',
+        // OTC invoices start as 'sent' for the same reason JC-linked
+        // ones do — see comment in createFromJobCard above.
+        status: 'sent',
         labour_total: 0,
         parts_total: totals.partsTotal,
         subtotal: totals.subtotal,
