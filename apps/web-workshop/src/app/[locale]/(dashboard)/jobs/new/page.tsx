@@ -98,6 +98,7 @@ export default function NewJobWizard() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [plateSearch, setPlateSearch] = useState('');
+  const [plateSuggestions, setPlateSuggestions] = useState<Vehicle[]>([]);
 
   // Branch picker (multi-location tenants). Defaults to the user's
   // primary branch; single-branch tenants don't see the picker.
@@ -375,26 +376,41 @@ export default function NewJobWizard() {
   const allCatalog = Array.isArray(allCatalogData) ? allCatalogData : [];
 
   // ── Vehicle plate search ──
+  // The /vehicles?search endpoint does an ILIKE %s% across plate, vin,
+  // make, model — so a typo like "LD1234" can fuzzy-match any vehicle
+  // whose make/model happens to contain those chars. We only want to
+  // auto-select on an *exact* plate (or VIN) match; anything else falls
+  // through to "create new", with fuzzy hits surfaced as suggestions.
   const handlePlateSearch = async () => {
     if (!plateSearch.trim()) return;
+    const typed = plateSearch.trim().toUpperCase();
     try {
-      const data = await api.get<{ data: Vehicle[] } | Vehicle[]>(`/vehicles?search=${encodeURIComponent(plateSearch)}&pageSize=5`);
+      const data = await api.get<{ data: Vehicle[] } | Vehicle[]>(`/vehicles?search=${encodeURIComponent(plateSearch)}&pageSize=10`);
       const list = Array.isArray(data) ? data : (data as { data: Vehicle[] }).data ?? [];
-      if (list.length > 0) {
-        setSelectedVehicle(list[0]!);
-        // Auto-fill customer
-        if (list[0]!.customer_id) {
+
+      const exact = list.find(
+        (v) => (v.plate ?? '').toUpperCase() === typed
+            || (v.vin ?? '').toUpperCase() === typed,
+      );
+
+      if (exact) {
+        setSelectedVehicle(exact);
+        if (exact.customer_id) {
           try {
-            const cust = await api.get<Customer>(`/customers/${list[0]!.customer_id}`);
+            const cust = await api.get<Customer>(`/customers/${exact.customer_id}`);
             setSelectedCustomer(cust);
           } catch (err) {
             console.error('customer lookup failed', err);
           }
         }
-      } else {
-        setShowNewVehicle(true);
-        setNewVehicle((v) => ({ ...v, plate: plateSearch.toUpperCase() }));
+        return;
       }
+
+      // No exact hit — surface fuzzy matches as suggestions and offer
+      // to create a new vehicle with the typed plate.
+      setPlateSuggestions(list);
+      setShowNewVehicle(true);
+      setNewVehicle((v) => ({ ...v, plate: typed }));
     } catch (err) {
       console.error('plate search failed', err);
       alert(`Plate search failed: ${err instanceof Error ? err.message : 'unknown error'}`);
@@ -824,6 +840,47 @@ export default function NewJobWizard() {
             {showNewVehicle && (
               <div className="rounded-xl bg-white p-6 shadow-sm border-2 border-primary-200">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Vehicle</h3>
+
+                {/* Fuzzy-match suggestions — when the typed plate/VIN had
+                    no exact hit but the search returned partial matches,
+                    show them so the user can pick instead of creating a
+                    new vehicle with a typo'd plate. */}
+                {plateSuggestions.length > 0 ? (
+                  <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
+                    <div className="text-xs font-semibold text-blue-900">
+                      No exact match for &ldquo;{plateSearch.toUpperCase()}&rdquo;.
+                      {' '}Did you mean one of these?
+                    </div>
+                    <ul className="mt-2 space-y-1 text-xs">
+                      {plateSuggestions.slice(0, 5).map((v) => (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setSelectedVehicle(v);
+                              setShowNewVehicle(false);
+                              setPlateSuggestions([]);
+                              if (v.customer_id) {
+                                try {
+                                  const cust = await api.get<Customer>(`/customers/${v.customer_id}`);
+                                  setSelectedCustomer(cust);
+                                } catch {/* ignore */}
+                              }
+                            }}
+                            className="rounded bg-white px-2 py-1 text-left text-xs font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+                          >
+                            <span className="font-mono">{v.plate}</span>
+                            <span className="ms-2 text-gray-700">{v.make} {v.model}{v.year ? ` (${v.year})` : ''}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-blue-700">
+                      Or continue below to register a new vehicle with plate
+                      <span className="font-mono"> {plateSearch.toUpperCase()}</span>.
+                    </p>
+                  </div>
+                ) : null}
 
                 {vehicleDuplicates && vehicleDuplicates.length > 0 ? (
                   <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3">
