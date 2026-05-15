@@ -1211,7 +1211,7 @@ export default function PartsPage() {
                     setScanning(true);
                     try {
                       const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/parts/scan/${encodeURIComponent(scanInput.trim())}`, {
-                        headers: { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` },
+                        credentials: 'include',
                       }).then(r => r.json());
                       setScanResult(result.data ?? result);
                     } catch { setScanResult({ found: false }); }
@@ -1228,7 +1228,7 @@ export default function PartsPage() {
                   setScanning(true);
                   try {
                     const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/parts/scan/${encodeURIComponent(scanInput.trim())}`, {
-                      headers: { Authorization: `Bearer ${localStorage.getItem('access_token') ?? ''}` },
+                      credentials: 'include',
                     }).then(r => r.json());
                     setScanResult(result.data ?? result);
                   } catch { setScanResult({ found: false }); }

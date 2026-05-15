@@ -144,15 +144,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-    // If we landed here via an impersonation magic link, the redirect
-    // URL carries `?impersonated=1` — capture it into sessionStorage so
-    // the banner can detect this session was a user-impersonation
-    // session, then scrub the param from the URL.
+    // No explicit token gate — auth lives in an httpOnly cookie that JS
+    // can't read. If the cookie is absent or invalid the first API call
+    // (typically useSession in a child) returns 401, the api.ts wrapper
+    // tries to refresh, and on failure routes to /login. We only stay
+    // here to capture the impersonation flag from the magic-link redirect.
     captureUserImpersonationFromUrl();
     setMounted(true);
   }, [router]);
@@ -238,11 +234,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       (g) => !g.title || pinnedGroups.has(g.title) || collapsedGroups.has(g.title),
     ) && collapsedGroups.size > 0;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (!window.confirm(t('logoutConfirm'))) return;
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    // Never carry impersonation across sessions.
+    // Hit /auth/logout to clear the httpOnly cookies. Best-effort —
+    // even if the network call fails (offline, server down), we still
+    // bounce the user to /login so the session is gone from their POV.
+    try {
+      await fetch(
+        (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1') + '/auth/logout',
+        { method: 'POST', credentials: 'include' },
+      );
+    } catch {
+      /* ignore */
+    }
+    // Legacy: clear any leftover localStorage tokens from before the
+    // cookie migration. Safe to remove a few months after deploy.
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('access_token');
+      window.localStorage.removeItem('refresh_token');
+    }
     clearImpersonation();
     router.push('/login');
   };

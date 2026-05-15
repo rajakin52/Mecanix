@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Req, Res, UseGuards, UsePipes } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import {
@@ -32,6 +33,43 @@ import { CurrentUser } from '../../common/decorators/user.decorator';
 import type { RequestUser } from '../../common/guards/tenant.guard';
 import { RateLimitGuard, RateLimit } from '../../common/guards/rate-limit.guard';
 
+// Cookie names. Two cookies (access + refresh) — same pattern Supabase
+// uses internally. httpOnly + Secure (in prod) + SameSite=None (also
+// only in prod, since web + api live on different domains). Dev gets
+// SameSite=Lax + Secure=false so localhost flows work without HTTPS.
+const ACCESS_COOKIE = 'mecanix_access';
+const REFRESH_COOKIE = 'mecanix_refresh';
+
+function sessionCookieOptions(maxAgeSeconds: number) {
+  const isProd = process.env['NODE_ENV'] === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    // Web and API live on different domains in prod (vercel.app vs
+    // railway.app) → SameSite must be 'none' for the cookie to ride
+    // along on cross-site fetches. In dev they're both on localhost
+    // (same-site) so Lax suffices and we don't need Secure either.
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/',
+    maxAge: maxAgeSeconds,
+  };
+}
+
+function setSessionCookies(
+  reply: FastifyReply,
+  session: { accessToken: string; refreshToken: string },
+) {
+  // 1 hour for access, 30 days for refresh — matches Supabase defaults.
+  reply.setCookie(ACCESS_COOKIE, session.accessToken, sessionCookieOptions(60 * 60));
+  reply.setCookie(REFRESH_COOKIE, session.refreshToken, sessionCookieOptions(60 * 60 * 24 * 30));
+}
+
+function clearSessionCookies(reply: FastifyReply) {
+  const opts = sessionCookieOptions(0);
+  reply.clearCookie(ACCESS_COOKIE, opts);
+  reply.clearCookie(REFRESH_COOKIE, opts);
+}
+
 @Controller('auth')
 @UseGuards(RateLimitGuard)
 export class AuthController {
@@ -47,8 +85,18 @@ export class AuthController {
   @Post('login')
   @UsePipes(new ZodValidationPipe(loginSchema))
   @RateLimit(10, 60)
-  async login(@Body() body: LoginInput) {
-    return this.authService.login(body);
+  async login(
+    @Body() body: LoginInput,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    const result = await this.authService.login(body);
+    // Set httpOnly cookies for web clients. Mobile clients ignore the
+    // Set-Cookie header and use session.accessToken from the body as
+    // before — same response shape, dual delivery.
+    if (result.session?.accessToken && result.session?.refreshToken) {
+      setSessionCookies(reply, result.session);
+    }
+    return result;
   }
 
   @Post('customer-signup')
@@ -60,8 +108,32 @@ export class AuthController {
 
   @Post('refresh')
   @RateLimit(20, 60)
-  async refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  async refresh(
+    @Body('refreshToken') refreshTokenFromBody: string | undefined,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
+    // Web clients have no body — they rely on the httpOnly refresh
+    // cookie ride-along. Mobile clients keep sending the body.
+    const refreshToken = refreshTokenFromBody ?? (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE];
+    if (!refreshToken) {
+      return { success: false, error: { code: 'NO_REFRESH_TOKEN', message: 'No refresh token provided' } };
+    }
+    const result = await this.authService.refreshToken(refreshToken);
+    if (result?.accessToken && result?.refreshToken) {
+      setSessionCookies(reply, result);
+    }
+    return result;
+  }
+
+  // Explicit logout — clears the session cookies. The Supabase refresh
+  // token isn't revoked here (Supabase doesn't expose that on the
+  // service-role admin SDK without complications); the cookies just
+  // disappear, which is enough for browser sessions.
+  @Post('logout')
+  logout(@Res({ passthrough: true }) reply: FastifyReply) {
+    clearSessionCookies(reply);
+    return { success: true };
   }
 
   // Always returns { success: true } regardless of whether the email

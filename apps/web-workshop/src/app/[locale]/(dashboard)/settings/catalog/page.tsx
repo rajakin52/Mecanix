@@ -101,7 +101,8 @@ export default function CatalogPage() {
                 try {
                   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/catalog/seed-defaults`, {
                     method: 'POST',
-                    headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}`, 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
                   });
                   if (!res.ok) {
                     const body = await res.text();

@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import rateLimit from '@fastify/rate-limit';
+import cookie from '@fastify/cookie';
 import rawBody from 'fastify-raw-body';
 import { AppModule } from './app.module';
 
@@ -20,6 +21,15 @@ async function bootstrap() {
     global: true,
     encoding: 'utf8',
     runFirst: true,
+  });
+
+  // Cookie support for web-app session auth. Web clients receive the
+  // access + refresh tokens as httpOnly cookies on /auth/login and
+  // /auth/refresh; mobile clients continue to use Bearer headers. The
+  // TenantGuard reads either one. COOKIE_SECRET is required in prod —
+  // dev falls back to a fixed string so local development isn't blocked.
+  await app.register(cookie, {
+    secret: process.env['COOKIE_SECRET'] ?? 'dev-cookie-secret-change-me',
   });
 
   // Global rate limiting — 100 req/min per IP

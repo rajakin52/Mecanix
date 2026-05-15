@@ -1705,7 +1705,7 @@ export default function JobDetailPage() {
       try {
         const resp = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL ?? ''}/pricing/resolve?customerId=${customerId}`,
-          { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } },
+          { credentials: 'include' },
         );
         const json = await resp.json();
         if (!cancelled && json.success && json.data) {

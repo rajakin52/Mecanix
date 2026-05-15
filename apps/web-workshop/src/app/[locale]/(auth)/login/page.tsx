@@ -25,11 +25,9 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await api.post<{
-        session: { accessToken: string; refreshToken: string };
-      }>('/auth/login', data);
-      localStorage.setItem('access_token', result.session.accessToken);
-      localStorage.setItem('refresh_token', result.session.refreshToken);
+      // Cookies are set by the backend via Set-Cookie; we don't need
+      // to touch the response — just route to the dashboard.
+      await api.post('/auth/login', data);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));

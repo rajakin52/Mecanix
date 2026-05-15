@@ -35,11 +35,21 @@ export class TenantGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers['authorization'] as string | undefined;
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    // Mobile clients send Authorization: Bearer <token>. Web clients
+    // rely on the httpOnly mecanix_access cookie set by /auth/login.
+    // Bearer takes precedence so mobile tooling stays explicit.
+    let token: string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else {
+      const cookies = (request.cookies as Record<string, string> | undefined) ?? {};
+      token = cookies['mecanix_access'];
+    }
+
+    if (!token) {
       throw new UnauthorizedException('Missing authorization token');
     }
 
-    const token = authHeader.slice(7);
     const client = this.supabase.getClient();
 
     const { data, error } = await client.auth.getUser(token);
