@@ -1,0 +1,52 @@
+name: SOA Monthly Statements Cron
+
+# Replaces the Railway cron-service approach that was never wired up.
+# Runs daily at 07:00 UTC and posts to the Mecanix API's
+# /cron/monthly-statements endpoint. The handler then decides which
+# tenants to process based on each tenant's soa.send_day.
+#
+# Why GitHub Actions instead of Railway cron:
+#  - No new Railway service / billing
+#  - Logs live in the Actions tab; one entry per day
+#  - Failures email the repo admins automatically
+#  - Workflow file is version-controlled with the rest of the code
+#
+# Set the CRON_SECRET secret in:
+#   GitHub repo → Settings → Secrets and variables → Actions → New secret
+#   Name: CRON_SECRET
+#   Value: mecanix-cron-2026   (matches the default in CronController)
+
+on:
+  schedule:
+    # 07:00 UTC daily. GitHub Actions schedules are in UTC and can be
+    # delayed up to ~15 minutes during periods of high load — fine for
+    # a once-a-day batch.
+    - cron: '0 7 * * *'
+  # Allow manual triggering from the Actions tab for testing.
+  workflow_dispatch:
+
+jobs:
+  monthly-statements:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /cron/monthly-statements
+        env:
+          API_URL: https://api-production-9d84.up.railway.app/api/v1
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set"
+            exit 1
+          fi
+          response=$(curl -sS --fail-with-body \
+            -X POST \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 600 \
+            "$API_URL/cron/monthly-statements")
+          echo "$response"
+          # Pretty-print summaries for the log if any tenant fired today.
+          processed=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('tenants_processed',0))")
+          echo "tenants_processed: $processed"
