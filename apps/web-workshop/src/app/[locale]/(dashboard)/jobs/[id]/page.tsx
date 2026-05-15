@@ -10,6 +10,7 @@ import { formatNumber } from '@/lib/format';
 import { useSession } from '@/hooks/use-session';
 import { LinePricingDetails } from '@/components/invoices/LinePricingDetails';
 import { MaterialsChargesPanel } from '@/components/job-card/MaterialsChargesPanel';
+import { NextServicePanel } from '@/components/job-card/NextServicePanel';
 import {
   useJob,
   useUpdateJob,
@@ -2569,6 +2570,14 @@ export default function JobDetailPage() {
 
       {/* Materials Charges (body-shop recovery) */}
       <MaterialsChargesPanel jobCardId={id} />
+
+      {/* Next service reminder for this vehicle */}
+      {typedJob.vehicle_id && typedJob.customer_id && (
+        <NextServicePanel
+          vehicleId={typedJob.vehicle_id as string}
+          customerId={typedJob.customer_id as string}
+        />
+      )}
 
       {/* Parts Lines */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
