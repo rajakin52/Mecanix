@@ -352,7 +352,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       className={`rounded p-0.5 transition-colors ${
                         isPinned
                           ? 'text-brand-gold hover:text-brand-gold/80'
-                          : 'text-secondary-500 opacity-0 group-hover/grouphead:opacity-100 hover:text-secondary-200'
+                          : 'text-secondary-500 hover:text-secondary-200'
                       }`}
                       title={
                         isPinned
