@@ -28,6 +28,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code = 'DUPLICATE';
         message = 'A record with this information already exists';
       }
+      // Fastify plugin errors (rate-limit, body-parser, etc.) carry
+      // their own statusCode but aren't HttpException. Surface the real
+      // code so a 429 isn't masked as a 500 (which previously hid the
+      // real cause of refresh-loop failures during cookie migration).
+      else if (typeof exc?.statusCode === 'number' && exc.statusCode >= 400 && exc.statusCode < 600) {
+        status = exc.statusCode as number;
+        message = (exc.message as string) ?? message;
+        code = (exc.code as string) ?? `HTTP_${status}`;
+      }
     }
 
     if (exception instanceof HttpException) {

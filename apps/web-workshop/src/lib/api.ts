@@ -50,12 +50,13 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
     // 401: ask the backend to refresh the cookie pair. The browser sends
     // the httpOnly refresh cookie automatically; the response sets a new
     // access cookie on success. Then retry the original request.
+    // No body / no Content-Type — Fastify's strict JSON parser would
+    // otherwise 500 on an empty application/json request.
     if (res.status === 401 && typeof window !== 'undefined') {
       try {
         const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
         });
         const refreshJson = await refreshRes.json();
         if (refreshJson.success && refreshJson.data?.accessToken) {
