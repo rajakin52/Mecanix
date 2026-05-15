@@ -142,7 +142,7 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
   @RateLimit(5, 60)
   async forgotPassword(@Body() body: ForgotPasswordInput) {
-    return this.authService.requestPasswordReset(body.email, body.redirectTo);
+    return this.authService.requestPasswordReset(body.email, body.redirectTo, body.locale);
   }
 
   // The access_token comes from the hash on the redirect URL after the

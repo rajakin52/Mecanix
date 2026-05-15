@@ -90,9 +90,13 @@ export const customerSignUpSchema = z.object({
 
 // Public: kick off a password reset by email. redirectTo points at the
 // frontend page that will receive the Supabase access_token hash.
+// locale is a soft hint — the backend prefers the user's tenant.locale
+// when the email is on file, and falls back to this if the user is
+// unknown (so the response stays deterministic).
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),
   redirectTo: z.string().url().optional(),
+  locale: z.enum(['en', 'pt-PT', 'pt-BR']).optional(),
 });
 
 // Public-with-token: finalises the reset using the Supabase access_token

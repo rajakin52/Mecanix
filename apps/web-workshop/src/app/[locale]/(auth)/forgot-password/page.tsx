@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
     setError('');
     try {
       const redirectTo = `${window.location.origin}/${locale}/reset-password`;
-      await api.post('/auth/forgot-password', { email: email.trim(), redirectTo });
+      await api.post('/auth/forgot-password', { email: email.trim(), redirectTo, locale });
       setSubmitted(true);
     } catch (err) {
       // The backend always returns success — anything we catch here is

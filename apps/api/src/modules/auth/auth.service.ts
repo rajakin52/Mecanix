@@ -12,6 +12,39 @@ import { PermissionsService } from '../../common/permissions/permissions.service
 import { EmailService } from '../notifications/email.service';
 import type { SignUpInput, LoginInput, CustomerSignUpInput } from '@mecanix/validators';
 
+// Reset-password email copy. Lives inline (not in @mecanix/i18n) because
+// the i18n package targets frontends and pulling it into the backend
+// adds a build dep for five strings. Add more locales here as needed.
+const PASSWORD_RESET_STRINGS: Record<
+  'en' | 'pt-PT' | 'pt-BR',
+  { subject: string; intro: string; instructions: string; cta: string; fallback: string; disclaimer: string }
+> = {
+  en: {
+    subject: 'Reset your Mecanix password',
+    intro: 'You requested a password reset for your Mecanix account.',
+    instructions: 'Click the button below to choose a new password. This link is single-use and expires in 1 hour.',
+    cta: 'Reset password',
+    fallback: "If the button doesn't work, paste this URL into your browser:",
+    disclaimer: "If you didn't ask for this reset, ignore this email — nothing will change.",
+  },
+  'pt-PT': {
+    subject: 'Redefinir a sua palavra-passe Mecanix',
+    intro: 'Foi solicitada uma redefinição de palavra-passe para a sua conta Mecanix.',
+    instructions: 'Clique no botão abaixo para escolher uma nova palavra-passe. Este link só pode ser usado uma vez e expira em 1 hora.',
+    cta: 'Redefinir palavra-passe',
+    fallback: 'Se o botão não funcionar, copie e cole o URL abaixo no seu navegador:',
+    disclaimer: 'Se não solicitou esta redefinição, ignore este email — nada será alterado.',
+  },
+  'pt-BR': {
+    subject: 'Redefinir sua senha Mecanix',
+    intro: 'Foi solicitada uma redefinição de senha para sua conta Mecanix.',
+    instructions: 'Clique no botão abaixo para escolher uma nova senha. Este link é de uso único e expira em 1 hora.',
+    cta: 'Redefinir senha',
+    fallback: 'Se o botão não funcionar, copie e cole a URL abaixo no seu navegador:',
+    disclaimer: 'Se você não solicitou esta redefinição, ignore este email — nada será alterado.',
+  },
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -440,11 +473,44 @@ export class AuthService {
    * recovery URL, then ships it through Resend so the email is branded
    * (Supabase's own SMTP path would also work but the template control
    * is poor and not all projects have it wired up).
+   *
+   * Localisation: if the email is on file we look up the user's owning
+   * tenant and use its locale (tenants.locale — there's no per-user
+   * locale column). Callers can override via the `locale` param; the
+   * common case is the web frontend passing the current UI locale.
+   * For unknown emails we still send (deterministic from outside) but
+   * fall back to pt-PT — Mecanix's primary market.
    */
-  async requestPasswordReset(email: string, redirectTo?: string): Promise<{ success: true }> {
+  async requestPasswordReset(
+    email: string,
+    redirectTo?: string,
+    localeHint?: string,
+  ): Promise<{ success: true }> {
     const admin = this.supabase.getAuthClient();
+    const client = this.supabase.getClient();
     const defaultRedirect = this.config.get<string>('PASSWORD_RESET_REDIRECT_URL', '');
     const finalRedirect = redirectTo || defaultRedirect || undefined;
+
+    // Resolve the locale to render in. Order of preference:
+    //   1. tenant.locale (looked up via users.email → tenant_id)
+    //   2. localeHint (frontend's current UI locale)
+    //   3. 'pt-PT' (Mecanix primary market)
+    let locale: 'en' | 'pt-PT' | 'pt-BR' = 'pt-PT';
+    try {
+      const { data: userRow } = await client
+        .from('users')
+        .select('tenant_id, tenants:tenant_id(locale)')
+        .eq('email', email)
+        .maybeSingle();
+      const tenantLocale = (userRow as { tenants?: { locale?: string } } | null)?.tenants?.locale;
+      if (tenantLocale === 'en' || tenantLocale === 'pt-PT' || tenantLocale === 'pt-BR') {
+        locale = tenantLocale;
+      } else if (localeHint === 'en' || localeHint === 'pt-PT' || localeHint === 'pt-BR') {
+        locale = localeHint;
+      }
+    } catch {
+      /* fall back to default */
+    }
 
     try {
       const { data, error } = await admin.generateLink({
@@ -459,19 +525,20 @@ export class AuthService {
       }
 
       const link = data.properties.action_link;
+      const t = PASSWORD_RESET_STRINGS[locale];
       const html = `
-        <p>You requested a password reset for your Mecanix account.</p>
-        <p>Click the button below to choose a new password. This link is single-use and expires in 1 hour.</p>
+        <p>${t.intro}</p>
+        <p>${t.instructions}</p>
         <p style="margin: 24px 0;">
-          <a href="${link}" style="display: inline-block; background: #0087FF; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset password</a>
+          <a href="${link}" style="display: inline-block; background: #0087FF; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">${t.cta}</a>
         </p>
-        <p style="color: #666; font-size: 12px;">If the button doesn't work, paste this URL into your browser:<br/>${link}</p>
-        <p style="color: #666; font-size: 12px;">If you didn't ask for this reset, ignore this email — nothing will change.</p>
+        <p style="color: #666; font-size: 12px;">${t.fallback}<br/>${link}</p>
+        <p style="color: #666; font-size: 12px;">${t.disclaimer}</p>
       `;
 
       await this.email.send({
         to: email,
-        subject: 'Reset your Mecanix password',
+        subject: t.subject,
         html,
       });
     } catch (err) {
