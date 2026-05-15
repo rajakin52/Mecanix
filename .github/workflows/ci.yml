@@ -33,3 +33,18 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # Read-only smoke against prod Supabase. Catches schema-invariant
+      # regressions (orphan rows, broken PostgREST embeds, drifted stock
+      # cache). ~30s, no writes. Skipped if SB_URL / SB_KEY aren't set
+      # (forks / external PRs).
+      - name: Smoke (prod read-only)
+        env:
+          SB_URL: ${{ secrets.SB_URL }}
+          SB_KEY: ${{ secrets.SB_KEY }}
+        run: |
+          if [ -z "$SB_URL" ] || [ -z "$SB_KEY" ]; then
+            echo "SB_URL / SB_KEY repo secrets not set — skipping smoke"
+            exit 0
+          fi
+          pnpm --filter @mecanix/scripts smoke
