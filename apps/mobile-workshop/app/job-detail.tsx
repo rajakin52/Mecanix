@@ -402,9 +402,9 @@ export default function JobDetailScreen() {
               {job.vehicle.make} {job.vehicle.model}{' '}
               {job.vehicle.year ? `(${job.vehicle.year})` : ''}
             </Text>
-            {(job.vehicle as Record<string, unknown>).vin && (
+            {(job.vehicle as { vin?: string }).vin && (
               <Text style={{ fontSize: 11, color: '#8E8E93', fontFamily: 'monospace', marginTop: 2 }}>
-                VIN: {String((job.vehicle as Record<string, unknown>).vin)}
+                VIN: {(job.vehicle as { vin?: string }).vin}
               </Text>
             )}
           </TouchableOpacity>
