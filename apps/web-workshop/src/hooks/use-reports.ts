@@ -269,6 +269,25 @@ export function useVendorPerformanceReport(startDate?: string, endDate?: string)
   });
 }
 
+export interface PartsMarginByCostMethodRow {
+  cost_method: string;
+  line_count: number;
+  revenue: number;
+  cost: number;
+  margin: number;
+  margin_pct: number;
+}
+
+export function usePartsMarginByCostMethod(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['report-parts-margin-by-cost-method', startDate, endDate],
+    queryFn: () =>
+      api.get<PartsMarginByCostMethodRow[]>(
+        `/reports/parts-margin-by-cost-method${buildParams(startDate, endDate)}`,
+      ),
+  });
+}
+
 export function useWipInventoryReport() {
   return useQuery({
     queryKey: ['report-wip-inventory'],

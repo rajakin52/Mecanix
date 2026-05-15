@@ -2685,6 +2685,68 @@ export class ReportsService {
     return out;
   }
 
+  /**
+   * Parts margin grouped by the cost method actually used at issue time.
+   * Useful for spotting whether one method is systematically yielding
+   * better/worse margins than another (e.g. FIFO during rising input
+   * prices producing thinner margins than WAC).
+   *
+   * Returns one row per (cost_method) with revenue/cost/margin and the
+   * count of lines, restricted to lines issued in the given window.
+   */
+  async partsMarginByCostMethod(
+    tenantId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<Array<{
+    cost_method: string;
+    line_count: number;
+    revenue: number;
+    cost: number;
+    margin: number;
+    margin_pct: number;
+  }>> {
+    const client = this.supabase.getClient();
+    const { data, error } = await client
+      .from('parts_lines')
+      .select('quantity, unit_cost, sell_price, subtotal, cost_method')
+      .eq('tenant_id', tenantId)
+      .eq('stock_status', 'issued')
+      .gte('issued_at', startDate)
+      .lte('issued_at', endDate);
+    if (error) throw error;
+
+    type Row = { quantity: number; unit_cost: number; sell_price: number; subtotal: number; cost_method: string | null };
+    const buckets = new Map<string, { line_count: number; revenue: number; cost: number }>();
+    for (const r of (data ?? []) as Row[]) {
+      // Lines issued before migration 00121 have cost_method = null;
+      // treat them as 'last_cost' (the old hardcoded behavior) so the
+      // bucket label reflects what actually drove pricing at that time.
+      const key = r.cost_method ?? 'last_cost';
+      const qty = Number(r.quantity ?? 0);
+      const revenue = Number(r.subtotal ?? 0) || qty * Number(r.sell_price ?? 0);
+      const cost = qty * Number(r.unit_cost ?? 0);
+      const cur = buckets.get(key) ?? { line_count: 0, revenue: 0, cost: 0 };
+      cur.line_count++;
+      cur.revenue += revenue;
+      cur.cost += cost;
+      buckets.set(key, cur);
+    }
+    return Array.from(buckets.entries())
+      .map(([cost_method, b]) => {
+        const margin = b.revenue - b.cost;
+        return {
+          cost_method,
+          line_count: b.line_count,
+          revenue: round2(b.revenue),
+          cost: round2(b.cost),
+          margin: round2(margin),
+          margin_pct: b.revenue > 0 ? round2((margin / b.revenue) * 100) : 0,
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+  }
+
   private async aggregatePartsMargin(
     client: ReturnType<SupabaseService['getClient']>,
     tenantId: string,

@@ -10,7 +10,7 @@ import { api } from '@/lib/api';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { SearchableSelect } from '@/components/SearchableSelect';
 import { useCustomers } from '@/hooks/use-customers';
-import { useCustomerStatement, useCustomerBalances, useAgingReceivables } from '@/hooks/use-reports';
+import { useCustomerStatement, useCustomerBalances, useAgingReceivables, usePartsMarginByCostMethod } from '@/hooks/use-reports';
 import type { AgingCustomerGroup, AgingReceivableRow } from '@/hooks/use-reports';
 import { formatDate } from '@/lib/format';
 import {
@@ -41,6 +41,7 @@ type ReportType =
   | 'outstandingBills'
   | 'customerStatement'
   | 'agingReceivables'
+  | 'marginByCostMethod'
   | 'expensesByCategory'
   | 'incomeVsExpense'
   | 'insuranceClaims'
@@ -76,6 +77,7 @@ export default function ReportsPage() {
     { value: 'outstandingBills', label: t('outstandingBills') },
     { value: 'customerStatement', label: 'Statement of Account' },
     { value: 'agingReceivables', label: 'Aging of Receivables' },
+    { value: 'marginByCostMethod', label: 'Margin by Cost Method' },
     { value: 'expensesByCategory', label: t('expensesByCategory') },
     { value: 'incomeVsExpense', label: t('incomeVsExpense') },
     { value: 'insuranceClaims', label: t('insuranceClaims') },
@@ -237,6 +239,14 @@ export default function ReportsPage() {
         )}
         {selectedReport === 'agingReceivables' && (
           <AgingReceivablesSection money={money} moneyWhole={moneyWhole} t={t} />
+        )}
+        {selectedReport === 'marginByCostMethod' && (
+          <MarginByCostMethodSection
+            money={money}
+            startDate={startDate}
+            endDate={endDate}
+            t={t}
+          />
         )}
         {selectedReport === 'expensesByCategory' && (
           <ExpensesSection startDate={startDate} endDate={endDate} money={money} t={t} />
@@ -2452,6 +2462,138 @@ function AgingReceivablesSection({
             </div>
           )}
         </>
+      )}
+    </ReportSection>
+  );
+}
+
+const COST_METHOD_LABELS: Record<string, string> = {
+  last_cost: 'Last cost',
+  weighted_average: 'WAC',
+  fifo: 'FIFO',
+  lifo: 'LIFO',
+  highest_cost: 'Highest in stock',
+};
+
+function MarginByCostMethodSection({
+  money,
+  startDate,
+  endDate,
+  t,
+}: {
+  money: MoneyFn;
+  startDate: string;
+  endDate: string;
+  t: TFn;
+}) {
+  const { data, isLoading } = usePartsMarginByCostMethod(
+    startDate || undefined,
+    endDate || undefined,
+  );
+  const rows = data ?? [];
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.line_count += r.line_count;
+      acc.revenue += r.revenue;
+      acc.cost += r.cost;
+      acc.margin += r.margin;
+      return acc;
+    },
+    { line_count: 0, revenue: 0, cost: 0, margin: 0 },
+  );
+  const totalMarginPct = totals.revenue > 0 ? (totals.margin / totals.revenue) * 100 : 0;
+
+  const buildCsv = () => {
+    if (rows.length === 0) return null;
+    return [
+      ['Cost method', 'Lines', 'Revenue', 'Cost', 'Margin', 'Margin %'],
+      ...rows.map((r) => [
+        COST_METHOD_LABELS[r.cost_method] ?? r.cost_method,
+        r.line_count,
+        r.revenue,
+        r.cost,
+        r.margin,
+        r.margin_pct,
+      ]),
+      ['TOTAL', totals.line_count, totals.revenue, totals.cost, totals.margin, totalMarginPct],
+    ];
+  };
+
+  return (
+    <ReportSection
+      title="Margin by Cost Method"
+      subtitle={`Parts margin grouped by the cost method recorded at issue time. ${dateRangeLabel(startDate, endDate)}`}
+      exportCsv={{
+        filename: `margin-by-cost-method-${startDate || 'all'}-${endDate || 'all'}`,
+        build: buildCsv,
+      }}
+      disableExport={isLoading || rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Loading…</p>
+      ) : rows.length === 0 ? (
+        <NoData t={t} />
+      ) : (
+        <div className="overflow-hidden rounded-md border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-3 py-2 text-start">Cost method</th>
+                <th className="px-3 py-2 text-end">Lines</th>
+                <th className="px-3 py-2 text-end">Revenue</th>
+                <th className="px-3 py-2 text-end">Cost</th>
+                <th className="px-3 py-2 text-end">Margin</th>
+                <th className="px-3 py-2 text-end">Margin %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r) => (
+                <tr key={r.cost_method} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 font-medium text-gray-900">
+                    {COST_METHOD_LABELS[r.cost_method] ?? r.cost_method}
+                  </td>
+                  <td className="px-3 py-2 text-end tabular-nums text-gray-700">{r.line_count}</td>
+                  <td className="px-3 py-2 text-end tabular-nums">{money(r.revenue)}</td>
+                  <td className="px-3 py-2 text-end tabular-nums text-gray-600">{money(r.cost)}</td>
+                  <td className="px-3 py-2 text-end tabular-nums font-semibold text-gray-900">
+                    {money(r.margin)}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-end tabular-nums ${
+                      r.margin_pct < 0
+                        ? 'text-red-600'
+                        : r.margin_pct < 10
+                          ? 'text-amber-700'
+                          : 'text-emerald-700'
+                    }`}
+                  >
+                    {r.margin_pct.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-50 font-semibold">
+              <tr>
+                <td className="px-3 py-2 text-gray-700">TOTAL</td>
+                <td className="px-3 py-2 text-end tabular-nums text-gray-700">{totals.line_count}</td>
+                <td className="px-3 py-2 text-end tabular-nums">{money(totals.revenue)}</td>
+                <td className="px-3 py-2 text-end tabular-nums text-gray-600">{money(totals.cost)}</td>
+                <td className="px-3 py-2 text-end tabular-nums text-gray-900">{money(totals.margin)}</td>
+                <td
+                  className={`px-3 py-2 text-end tabular-nums ${
+                    totalMarginPct < 0
+                      ? 'text-red-600'
+                      : totalMarginPct < 10
+                        ? 'text-amber-700'
+                        : 'text-emerald-700'
+                  }`}
+                >
+                  {totalMarginPct.toFixed(1)}%
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
     </ReportSection>
   );

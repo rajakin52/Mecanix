@@ -441,6 +441,20 @@ export class ReportsController {
     );
   }
 
+  @Get('parts-margin-by-cost-method')
+  async partsMarginByCostMethod(
+    @TenantId() tenantId: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const defaults = getDefaultDateRange();
+    return this.reportsService.partsMarginByCostMethod(
+      tenantId,
+      startDate || defaults.startDate,
+      endDate || defaults.endDate,
+    );
+  }
+
   @Get('statements/aging-receivables')
   async agingReceivables(
     @TenantId() tenantId: string,

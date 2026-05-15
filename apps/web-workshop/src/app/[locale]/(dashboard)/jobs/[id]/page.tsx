@@ -8,6 +8,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 import { useSession } from '@/hooks/use-session';
+import { LinePricingDetails } from '@/components/invoices/LinePricingDetails';
 import { MaterialsChargesPanel } from '@/components/job-card/MaterialsChargesPanel';
 import {
   useJob,
@@ -2383,6 +2384,15 @@ export default function JobDetailPage() {
                       }
                     }}
                   />
+                  {line.id ? (
+                    <LinePricingDetails
+                      lineId={String(line.id)}
+                      entityType="labour_line"
+                      sellPriceSource={(line.sell_price_source as string | null) ?? null}
+                      marginAtIssue={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                      currentMargin={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                    />
+                  ) : null}
                 </td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">
                   <EditableCell
@@ -2587,7 +2597,23 @@ export default function JobDetailPage() {
               const lineVat = Math.round((Number(line.subtotal ?? 0) * lineRate)) / 100;
               return (
               <tr key={line.id as string}>
-                <td className="px-4 py-2 text-sm text-gray-900">{line.part_name as string}</td>
+                <td className="px-4 py-2 text-sm text-gray-900">
+                  {line.part_name as string}
+                  {line.id ? (() => {
+                    const cost = Number(line.unit_cost ?? 0);
+                    const sell = Number(line.sell_price ?? 0);
+                    const currentMargin = sell > 0 ? ((sell - cost) / sell) * 100 : null;
+                    return (
+                      <LinePricingDetails
+                        lineId={String(line.id)}
+                        costMethod={(line.cost_method as string | null) ?? null}
+                        sellPriceSource={(line.sell_price_source as string | null) ?? null}
+                        marginAtIssue={line.margin_pct_at_issue != null ? Number(line.margin_pct_at_issue) : null}
+                        currentMargin={currentMargin}
+                      />
+                    );
+                  })() : null}
+                </td>
                 <td className="px-4 py-2 text-sm text-gray-600">{(line.part_number as string) || '-'}</td>
                 <td className="px-4 py-2 text-end text-sm text-gray-600">
                   <EditableCell
