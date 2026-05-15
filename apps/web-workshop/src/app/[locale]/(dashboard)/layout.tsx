@@ -36,11 +36,16 @@ import {
   FileCheck,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 
-// localStorage key for which group sections the user has collapsed.
-// Stored as a JSON-encoded array of group titles.
+// localStorage keys for the per-group sidebar state. Stored as
+// JSON-encoded arrays of group titles.
 const COLLAPSED_GROUPS_KEY = 'mecanix.sidebar.collapsedGroups';
+const PINNED_GROUPS_KEY = 'mecanix.sidebar.pinnedGroups';
 
 interface NavItem {
   href: string;
@@ -71,16 +76,70 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return new Set();
     }
   });
+  // Groups the user has pinned — these stay expanded when "Collapse all"
+  // is clicked. Independent persistence so toggling collapse doesn't
+  // touch the pinned set.
+  const [pinnedGroups, setPinnedGroups] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem(PINNED_GROUPS_KEY);
+      return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const writeCollapsed = (next: Set<string>) => {
+    try {
+      localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+    } catch {/* ignore quota errors */}
+  };
+  const writePinned = (next: Set<string>) => {
+    try {
+      localStorage.setItem(PINNED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+    } catch {/* ignore quota errors */}
+  };
   const toggleGroup = (title: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(title)) next.delete(title);
       else next.add(title);
-      try {
-        localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
-      } catch {/* ignore quota errors */}
+      writeCollapsed(next);
       return next;
     });
+  };
+  const togglePin = (title: string) => {
+    setPinnedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      writePinned(next);
+      return next;
+    });
+    // Pinning a group should also force-expand it (consistent with
+    // "this is always visible to me"). Unpinning leaves the current
+    // collapsed state alone.
+    if (!pinnedGroups.has(title)) {
+      setCollapsedGroups((prev) => {
+        if (!prev.has(title)) return prev;
+        const next = new Set(prev);
+        next.delete(title);
+        writeCollapsed(next);
+        return next;
+      });
+    }
+  };
+  const collapseAll = () => {
+    // Collapse every non-pinned group whose title is non-empty.
+    const next = new Set<string>();
+    for (const g of navGroups) {
+      if (g.title && !pinnedGroups.has(g.title)) next.add(g.title);
+    }
+    setCollapsedGroups(next);
+    writeCollapsed(next);
+  };
+  const expandAll = () => {
+    setCollapsedGroups(new Set());
+    writeCollapsed(new Set());
   };
 
   useEffect(() => {
@@ -165,6 +224,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return pathname.startsWith(href);
   };
 
+  // Once navGroups is in scope we can compute whether every non-pinned
+  // titled group is collapsed — toggles the "collapse all / expand all"
+  // button's icon and behavior.
+  const allCollapsed =
+    navGroups.every(
+      (g) => !g.title || pinnedGroups.has(g.title) || collapsedGroups.has(g.title),
+    ) && collapsedGroups.size > 0;
+
   const handleLogout = () => {
     if (!window.confirm(t('logoutConfirm'))) return;
     localStorage.removeItem('access_token');
@@ -231,31 +298,71 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-3" role="navigation" aria-label="Main navigation">
+          {!collapsed && (
+            <div className="mb-2 flex items-center justify-end px-2">
+              <button
+                type="button"
+                onClick={allCollapsed ? expandAll : collapseAll}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-secondary-300 hover:bg-secondary-700 hover:text-white"
+                title={allCollapsed ? 'Expand all sections' : 'Collapse all unpinned sections'}
+              >
+                {allCollapsed ? (
+                  <>
+                    <ChevronsUpDown className="h-3 w-3" /> Expand all
+                  </>
+                ) : (
+                  <>
+                    <ChevronsDownUp className="h-3 w-3" /> Collapse all
+                  </>
+                )}
+              </button>
+            </div>
+          )}
           {navGroups.map((group, gi) => {
             // Per-group collapse is only honored when the full sidebar
             // is expanded (otherwise the title is hidden anyway and the
             // user has no way to expand without first widening the bar).
-            // Force-expand the group if the active route lives inside it,
-            // so users never get "lost" in a section they're currently in.
+            // Pinned groups also stay expanded — that's the whole point
+            // of pinning. And the group is force-expanded if the active
+            // route lives inside it, so users never get lost.
+            const isPinned = pinnedGroups.has(group.title);
             const userCollapsed = collapsedGroups.has(group.title);
             const containsActive = group.items.some((it) => isActive(it.href));
-            const sectionHidden = !collapsed && userCollapsed && !containsActive;
+            const sectionHidden = !collapsed && userCollapsed && !containsActive && !isPinned;
             return (
               <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
                 {group.title && !collapsed && (
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.title)}
-                    className="mb-1 flex w-full items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-secondary-400 hover:text-secondary-200"
-                    aria-expanded={!sectionHidden}
-                  >
-                    {sectionHidden ? (
-                      <ChevronRight className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                    <span>{group.title}</span>
-                  </button>
+                  <div className="mb-1 flex items-center gap-1 px-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.title)}
+                      className="flex flex-1 items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-secondary-400 hover:text-secondary-200"
+                      aria-expanded={!sectionHidden}
+                    >
+                      {sectionHidden ? (
+                        <ChevronRight className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      <span>{group.title}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePin(group.title)}
+                      className={`rounded p-0.5 transition-colors ${
+                        isPinned
+                          ? 'text-brand-gold hover:text-brand-gold/80'
+                          : 'text-secondary-500 opacity-0 group-hover/grouphead:opacity-100 hover:text-secondary-200'
+                      }`}
+                      title={
+                        isPinned
+                          ? 'Pinned — unpin to let "Collapse all" affect this section'
+                          : 'Pin this section so it stays expanded when collapsing all'
+                      }
+                    >
+                      {isPinned ? <Pin className="h-3 w-3" /> : <PinOff className="h-3 w-3" />}
+                    </button>
+                  </div>
                 )}
                 {collapsed && gi > 0 && <div className="mx-2 mb-2 border-t border-secondary-700" />}
                 {!sectionHidden && (
