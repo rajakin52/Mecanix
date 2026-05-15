@@ -99,6 +99,11 @@ export default function NewJobWizard() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [plateSearch, setPlateSearch] = useState('');
   const [plateSuggestions, setPlateSuggestions] = useState<Vehicle[]>([]);
+  // True after a search that didn't find an exact plate/VIN match.
+  // Drives the "Vehicle not found" panel — separate from showNewVehicle
+  // so the user explicitly decides whether to create one.
+  const [vehicleNotFound, setVehicleNotFound] = useState(false);
+  const [notFoundQuery, setNotFoundQuery] = useState('');
 
   // Branch picker (multi-location tenants). Defaults to the user's
   // primary branch; single-branch tenants don't see the picker.
@@ -378,9 +383,11 @@ export default function NewJobWizard() {
   // ── Vehicle plate search ──
   // The /vehicles?search endpoint does an ILIKE %s% across plate, vin,
   // make, model — so a typo like "LD1234" can fuzzy-match any vehicle
-  // whose make/model happens to contain those chars. We only want to
-  // auto-select on an *exact* plate (or VIN) match; anything else falls
-  // through to "create new", with fuzzy hits surfaced as suggestions.
+  // whose make/model happens to contain those chars. We only auto-select
+  // on an *exact* plate (or VIN) match. Anything else surfaces the
+  // "Vehicle not found" panel — the user then explicitly chooses to
+  // either pick a fuzzy suggestion or create a new vehicle. We never
+  // auto-open the registration form anymore.
   const handlePlateSearch = async () => {
     if (!plateSearch.trim()) return;
     const typed = plateSearch.trim().toUpperCase();
@@ -394,6 +401,10 @@ export default function NewJobWizard() {
       );
 
       if (exact) {
+        // Clear any prior not-found state from previous searches.
+        setVehicleNotFound(false);
+        setPlateSuggestions([]);
+        setShowNewVehicle(false);
         setSelectedVehicle(exact);
         if (exact.customer_id) {
           try {
@@ -406,10 +417,13 @@ export default function NewJobWizard() {
         return;
       }
 
-      // No exact hit — surface fuzzy matches as suggestions and offer
-      // to create a new vehicle with the typed plate.
+      // No exact hit — render the "not found" panel with any fuzzy
+      // suggestions. The user has to click "Create new vehicle" to
+      // open the registration form.
       setPlateSuggestions(list);
-      setShowNewVehicle(true);
+      setVehicleNotFound(true);
+      setNotFoundQuery(typed);
+      setShowNewVehicle(false);
       setNewVehicle((v) => ({ ...v, plate: typed }));
     } catch (err) {
       console.error('plate search failed', err);
@@ -836,29 +850,34 @@ export default function NewJobWizard() {
               </div>
             )}
 
-            {/* New vehicle inline form */}
-            {showNewVehicle && (
-              <div className="rounded-xl bg-white p-6 shadow-sm border-2 border-primary-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Vehicle</h3>
+            {/* "Vehicle not found" panel — shown after a search with no
+                exact plate/VIN match. The user must click "Create new
+                vehicle" to open the registration form; we no longer
+                pop it open automatically. Fuzzy hits surface here as
+                "Did you mean..." suggestions before the create button. */}
+            {vehicleNotFound && !showNewVehicle && !selectedVehicle && (
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-amber-900">
+                  Vehicle not found
+                </h3>
+                <p className="mt-1 text-sm text-amber-800">
+                  No vehicle matches plate or VIN
+                  <span className="ms-1 font-mono font-semibold">{notFoundQuery}</span>.
+                </p>
 
-                {/* Fuzzy-match suggestions — when the typed plate/VIN had
-                    no exact hit but the search returned partial matches,
-                    show them so the user can pick instead of creating a
-                    new vehicle with a typo'd plate. */}
-                {plateSuggestions.length > 0 ? (
-                  <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3">
-                    <div className="text-xs font-semibold text-blue-900">
-                      No exact match for &ldquo;{plateSearch.toUpperCase()}&rdquo;.
-                      {' '}Did you mean one of these?
+                {plateSuggestions.length > 0 && (
+                  <div className="mt-3 rounded-md bg-white p-3 ring-1 ring-amber-200">
+                    <div className="text-xs font-semibold text-gray-700">
+                      Did you mean one of these?
                     </div>
-                    <ul className="mt-2 space-y-1 text-xs">
+                    <ul className="mt-2 space-y-1">
                       {plateSuggestions.slice(0, 5).map((v) => (
                         <li key={v.id}>
                           <button
                             type="button"
                             onClick={async () => {
                               setSelectedVehicle(v);
-                              setShowNewVehicle(false);
+                              setVehicleNotFound(false);
                               setPlateSuggestions([]);
                               if (v.customer_id) {
                                 try {
@@ -867,7 +886,7 @@ export default function NewJobWizard() {
                                 } catch {/* ignore */}
                               }
                             }}
-                            className="rounded bg-white px-2 py-1 text-left text-xs font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+                            className="w-full rounded bg-blue-50 px-2 py-1 text-left text-xs font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
                           >
                             <span className="font-mono">{v.plate}</span>
                             <span className="ms-2 text-gray-700">{v.make} {v.model}{v.year ? ` (${v.year})` : ''}</span>
@@ -875,12 +894,39 @@ export default function NewJobWizard() {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-2 text-xs text-blue-700">
-                      Or continue below to register a new vehicle with plate
-                      <span className="font-mono"> {plateSearch.toUpperCase()}</span>.
-                    </p>
                   </div>
-                ) : null}
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewVehicle(true);
+                      setVehicleNotFound(false);
+                    }}
+                    className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+                  >
+                    Yes, create new vehicle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVehicleNotFound(false);
+                      setPlateSuggestions([]);
+                      setPlateSearch('');
+                    }}
+                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* New vehicle inline form */}
+            {showNewVehicle && (
+              <div className="rounded-xl bg-white p-6 shadow-sm border-2 border-primary-200">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Vehicle</h3>
 
                 {vehicleDuplicates && vehicleDuplicates.length > 0 ? (
                   <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3">
