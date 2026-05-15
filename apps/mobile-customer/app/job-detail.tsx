@@ -220,21 +220,21 @@ export default function JobDetailScreen() {
             </TouchableOpacity>
 
             {/* Labour lines */}
-            {job.labour_lines?.map((line: Record<string, unknown>, idx: number) => (
+            {job.labour_lines?.map((line, idx) => (
               <TouchableOpacity key={`l-${idx}`} style={styles.lineItem} onPress={() => toggleLine(idx)}>
                 <View style={[styles.checkbox, (selectAll || selectedLines.has(idx)) && styles.checkboxChecked]}>
                   {(selectAll || selectedLines.has(idx)) && <Text style={styles.checkmark}>{'\u2713'}</Text>}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.lineDesc}>{line.description as string}</Text>
-                  <Text style={styles.lineMeta}>{Number(line.hours)}h</Text>
+                  <Text style={styles.approvalLineDesc}>{line.description}</Text>
+                  <Text style={styles.lineMeta}>{line.hours}h</Text>
                 </View>
-                <Text style={styles.lineAmount}>{Number(line.subtotal).toFixed(2)}</Text>
+                <Text style={styles.approvalLineAmount}>{line.subtotal.toFixed(2)}</Text>
               </TouchableOpacity>
             ))}
 
             {/* Parts lines */}
-            {job.parts_lines?.map((line: Record<string, unknown>, idx: number) => {
+            {job.parts_lines?.map((line, idx) => {
               const lineIdx = (job.labour_lines?.length ?? 0) + idx;
               return (
                 <TouchableOpacity key={`p-${idx}`} style={styles.lineItem} onPress={() => toggleLine(lineIdx)}>
@@ -242,10 +242,10 @@ export default function JobDetailScreen() {
                     {(selectAll || selectedLines.has(lineIdx)) && <Text style={styles.checkmark}>{'\u2713'}</Text>}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.lineDesc}>{line.part_name as string}</Text>
-                    <Text style={styles.lineMeta}>x{Number(line.quantity)}</Text>
+                    <Text style={styles.approvalLineDesc}>{line.part_name}</Text>
+                    <Text style={styles.lineMeta}>x{line.quantity}</Text>
                   </View>
-                  <Text style={styles.lineAmount}>{Number(line.subtotal).toFixed(2)}</Text>
+                  <Text style={styles.approvalLineAmount}>{line.subtotal.toFixed(2)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -367,25 +367,6 @@ const styles = StyleSheet.create({
   stepLabel: { fontSize: 13, color: '#8E8E93', marginStart: 10, flex: 1 },
   stepLine: { position: 'absolute', left: 11, top: 24, width: 2, height: 14, backgroundColor: '#E5E5EA' },
 
-  // Approval banner
-  approvalBanner: {
-    backgroundColor: '#FFF8E1',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 14,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#FFD54F',
-    alignItems: 'center',
-  },
-  approvalTitle: { fontSize: 16, fontWeight: '700', color: '#F57F17', marginBottom: 8 },
-  approvalTotal: { fontSize: 32, fontWeight: '800', color: '#1C1C1E', marginBottom: 16 },
-  approvalButtons: { flexDirection: 'row', gap: 12, width: '100%' },
-  rejectBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, borderWidth: 2, borderColor: '#D32F2F', alignItems: 'center', minHeight: 48 },
-  rejectBtnText: { color: '#D32F2F', fontSize: 15, fontWeight: '700' },
-  approveBtn: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#4CAF50', alignItems: 'center', minHeight: 48, justifyContent: 'center', shadowColor: '#4CAF50', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
-  approveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-
   // Cards
   card: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -417,9 +398,9 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: '#FF9800', borderColor: '#FF9800' },
   checkmark: { color: '#fff', fontSize: 14, fontWeight: '700' },
   lineItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#FFE0B2' },
-  lineDesc: { fontSize: 14, fontWeight: '500', color: '#1C1C1E' },
+  approvalLineDesc: { fontSize: 14, fontWeight: '500', color: '#1C1C1E' },
   lineMeta: { fontSize: 12, color: '#8E8E93' },
-  lineAmount: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
+  approvalLineAmount: { fontSize: 14, fontWeight: '700', color: '#1C1C1E' },
   totalAmount: { fontSize: 20, fontWeight: '900', color: '#E65100' },
   approveBtn: { backgroundColor: '#4CAF50', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
   approveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
