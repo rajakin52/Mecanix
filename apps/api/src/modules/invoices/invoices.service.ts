@@ -257,7 +257,8 @@ export class InvoicesService {
 
     const customerCaptivePct = Number(customer?.vat_captive_pct ?? 0);
     const customerRetains = Boolean(customer?.withholds_service_retention);
-    const customerTermsDays = Number(customer?.credit_terms_days ?? 30);
+    // Default = 0 = due on receipt. Customer profile can override.
+    const customerTermsDays = Number(customer?.credit_terms_days ?? 0);
 
     // Auto-default due_date if the caller didn't supply one. Today +
     // the customer's credit terms days.
@@ -440,8 +441,8 @@ export class InvoicesService {
     if (!customer) throw new NotFoundException('Customer not found');
 
     // Auto-default the due_date from customer credit terms when the
-    // caller didn't pick one explicitly.
-    const customerTermsDays = Number(customer.credit_terms_days ?? 30);
+    // caller didn't pick one explicitly. 0 days = due on receipt.
+    const customerTermsDays = Number(customer.credit_terms_days ?? 0);
     const dueDateFinal: string = input.dueDate
       ? input.dueDate
       : (() => {

@@ -288,14 +288,14 @@ export default function InvoicesPage() {
                     const id = e.target.value;
                     setGenJobCardId(id);
                     // Pre-fill due date from the picked JC's customer
-                    // credit_terms_days (defaults to 30). User can still
-                    // override before submitting.
+                    // credit_terms_days (0 = due on receipt). User can
+                    // still override before submitting.
                     if (!id) return;
                     const job = eligibleJobs.find((j) => j.id === id);
                     const cust = (job as Record<string, unknown> | undefined)?.customer
                       ?? (job as Record<string, unknown> | undefined)?.customers;
                     const days = Number(
-                      (cust as Record<string, unknown> | undefined)?.['credit_terms_days'] ?? 30,
+                      (cust as Record<string, unknown> | undefined)?.['credit_terms_days'] ?? 0,
                     );
                     const d = new Date();
                     d.setDate(d.getDate() + days);

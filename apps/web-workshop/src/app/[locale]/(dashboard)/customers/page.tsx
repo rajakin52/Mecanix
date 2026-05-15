@@ -349,7 +349,7 @@ export default function CustomersPage() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Credit Terms (days)</label>
-                          <input {...register('creditTermsDays')} type="number" min="0" max="365" placeholder="30"
+                          <input {...register('creditTermsDays')} type="number" min="0" max="365" placeholder="0"
                             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2.5 bg-white focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200" />
                         </div>
                       </div>

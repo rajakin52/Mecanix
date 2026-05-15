@@ -83,7 +83,7 @@ export class CustomersService {
         notes: input.notes || null,
         is_corporate: input.isCorporate ?? false,
         is_account_customer: input.isAccountCustomer ?? false,
-        credit_terms_days: input.creditTermsDays ?? 30,
+        credit_terms_days: input.creditTermsDays ?? 0,
         company_name: input.companyName || null,
         billing_contact: input.billingContact || null,
         credit_limit: input.creditLimit ?? null,
