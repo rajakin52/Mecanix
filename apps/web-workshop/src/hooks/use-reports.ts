@@ -241,6 +241,44 @@ export function useInventoryValuationReport() {
   });
 }
 
+export interface InventoryValuationByMethodRow {
+  part_id: string;
+  part_number: string | null;
+  description: string;
+  category: string;
+  cost_method: string | null;
+  stock_qty: number;
+  last_cost: number;
+  last_cost_value: number;
+  wac: number;
+  wac_value: number;
+  fifo_next_cost: number;
+  lifo_next_cost: number;
+  highest_cost: number;
+  highest_cost_value: number;
+  layer_value: number;
+  layer_count: number;
+}
+
+export interface InventoryValuationByMethodResponse {
+  rows: InventoryValuationByMethodRow[];
+  totals: {
+    totalUnits: number;
+    lastCostValue: number;
+    wacValue: number;
+    layerValue: number;
+    highestCostValue: number;
+  };
+}
+
+export function useInventoryValuationByMethodReport() {
+  return useQuery({
+    queryKey: ['report-inventory-valuation-by-method'],
+    queryFn: () =>
+      api.get<InventoryValuationByMethodResponse>('/reports/inventory-valuation-by-method'),
+  });
+}
+
 export function useStockMovementsReport(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['report-stock-movements', startDate, endDate],

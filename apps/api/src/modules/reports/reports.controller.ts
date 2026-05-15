@@ -225,6 +225,11 @@ export class ReportsController {
     return this.reportsService.inventoryValuationReport(tenantId);
   }
 
+  @Get('inventory-valuation-by-method')
+  async inventoryValuationByMethod(@TenantId() tenantId: string) {
+    return this.reportsService.inventoryValuationByMethod(tenantId);
+  }
+
   @Get('stock-movements')
   async stockMovements(
     @TenantId() tenantId: string,

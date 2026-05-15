@@ -927,6 +927,156 @@ export class ReportsService {
   }
 
   /**
+   * Inventory valuation broken down by cost method.
+   *
+   * Values the same on-hand stock under each of five methods so finance
+   * can see the spread and pick the one that suits their reporting:
+   *   - last_cost:    qty × parts.unit_cost (what the legacy report shows)
+   *   - wac:          qty × weighted-average across non-empty layers
+   *   - fifo_next:    next-out unit cost = oldest non-empty layer's cost
+   *   - lifo_next:    next-out unit cost = newest non-empty layer's cost
+   *   - highest_cost: qty × max(layer.unit_cost) — most conservative
+   *
+   * Notes:
+   *  - FIFO/LIFO/WAC total-on-hand value is identical (it's the sum of
+   *    every layer's qty_remaining × unit_cost). They diverge only when
+   *    stock starts moving. We report per-part "next-out" unit costs so
+   *    the user can see the method-specific impact on the next sale.
+   *  - Parts with stock but no cost layers fall back to parts.unit_cost
+   *    across all methods (treated as a single implicit opening_balance
+   *    layer).
+   */
+  async inventoryValuationByMethod(tenantId: string) {
+    const client = this.supabase.getClient();
+
+    const { data: parts, error: pErr } = await client
+      .from('parts')
+      .select('id, part_number, description, category, stock_qty, unit_cost, cost_method')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .gt('stock_qty', 0);
+    if (pErr) throw pErr;
+
+    const partRows = (parts ?? []) as Array<{
+      id: string;
+      part_number: string | null;
+      description: string;
+      category: string | null;
+      stock_qty: number;
+      unit_cost: number;
+      cost_method: string | null;
+    }>;
+    if (partRows.length === 0) {
+      return {
+        rows: [],
+        totals: {
+          totalUnits: 0,
+          lastCostValue: 0,
+          wacValue: 0,
+          layerValue: 0,
+          highestCostValue: 0,
+        },
+      };
+    }
+
+    const partIds = partRows.map((p) => p.id);
+
+    // Pull every active layer in one shot, then group by part.
+    const { data: layers, error: lErr } = await client
+      .from('parts_cost_layers')
+      .select('part_id, unit_cost, quantity_remaining, received_at')
+      .eq('tenant_id', tenantId)
+      .in('part_id', partIds)
+      .gt('quantity_remaining', 0)
+      .order('received_at', { ascending: true });
+    if (lErr) throw lErr;
+
+    type Layer = { unit_cost: number; quantity_remaining: number; received_at: string };
+    const byPart = new Map<string, Layer[]>();
+    for (const l of layers ?? []) {
+      const arr = byPart.get(l.part_id as string) ?? [];
+      arr.push({
+        unit_cost: Number(l.unit_cost),
+        quantity_remaining: Number(l.quantity_remaining),
+        received_at: l.received_at as string,
+      });
+      byPart.set(l.part_id as string, arr);
+    }
+
+    let totalUnits = 0;
+    let lastCostValue = 0;
+    let wacValue = 0;
+    let layerValue = 0;
+    let highestCostValue = 0;
+
+    const rows = partRows.map((p) => {
+      const qty = Number(p.stock_qty) || 0;
+      const lastCost = Number(p.unit_cost) || 0;
+      const partLayers = byPart.get(p.id) ?? [];
+
+      // Layer-based metrics — fall back to last_cost if no layers exist.
+      let wac = lastCost;
+      let fifoNext = lastCost;
+      let lifoNext = lastCost;
+      let highest = lastCost;
+      let layerSum = qty * lastCost;
+
+      if (partLayers.length > 0) {
+        const totalLayerQty = partLayers.reduce((s, l) => s + l.quantity_remaining, 0);
+        const totalLayerCost = partLayers.reduce(
+          (s, l) => s + l.unit_cost * l.quantity_remaining,
+          0,
+        );
+        wac = totalLayerQty > 0 ? totalLayerCost / totalLayerQty : lastCost;
+        // Layers are pre-sorted received_at ASC.
+        fifoNext = partLayers[0]!.unit_cost;
+        lifoNext = partLayers[partLayers.length - 1]!.unit_cost;
+        highest = partLayers.reduce((m, l) => Math.max(m, l.unit_cost), 0);
+        layerSum = totalLayerCost;
+      }
+
+      const row = {
+        part_id: p.id,
+        part_number: p.part_number,
+        description: p.description,
+        category: p.category ?? 'Uncategorized',
+        cost_method: p.cost_method ?? null,
+        stock_qty: qty,
+        last_cost: round2(lastCost),
+        last_cost_value: round2(qty * lastCost),
+        wac: round2(wac),
+        wac_value: round2(qty * wac),
+        fifo_next_cost: round2(fifoNext),
+        lifo_next_cost: round2(lifoNext),
+        highest_cost: round2(highest),
+        highest_cost_value: round2(qty * highest),
+        // Layer value is the AGT-defensible "what the inventory is worth
+        // right now from the ledger" number — identical under FIFO/LIFO/WAC.
+        layer_value: round2(layerSum),
+        layer_count: partLayers.length,
+      };
+
+      totalUnits += qty;
+      lastCostValue += row.last_cost_value;
+      wacValue += row.wac_value;
+      layerValue += row.layer_value;
+      highestCostValue += row.highest_cost_value;
+      return row;
+    });
+
+    return {
+      rows: rows.sort((a, b) => b.layer_value - a.layer_value),
+      totals: {
+        totalUnits,
+        lastCostValue: round2(lastCostValue),
+        wacValue: round2(wacValue),
+        layerValue: round2(layerValue),
+        highestCostValue: round2(highestCostValue),
+      },
+    };
+  }
+
+  /**
    * Stock movements report — inventory adjustments within date range.
    */
   async stockMovementsReport(tenantId: string, startDate: string, endDate: string) {

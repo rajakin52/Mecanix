@@ -25,6 +25,7 @@ import {
   useInsuranceReport,
   useCustomerRetentionReport,
   useInventoryValuationReport,
+  useInventoryValuationByMethodReport,
   useStockMovementsReport,
   useLowStockReport,
   usePurchaseRequestSummaryReport,
@@ -48,6 +49,7 @@ type ReportType =
   | 'customerRetention'
   | 'creditNotes'
   | 'inventoryValuation'
+  | 'inventoryValuationByMethod'
   | 'stockMovements'
   | 'lowStock'
   | 'purchaseRequestSummary'
@@ -84,6 +86,7 @@ export default function ReportsPage() {
     { value: 'customerRetention', label: t('customerRetention') },
     { value: 'creditNotes', label: t('creditNotes') },
     { value: 'inventoryValuation', label: t('inventoryValuation') },
+    { value: 'inventoryValuationByMethod', label: 'Inventory Valuation by Cost Method' },
     { value: 'stockMovements', label: t('stockMovements') },
     { value: 'lowStock', label: t('lowStock') },
     { value: 'purchaseRequestSummary', label: t('purchaseRequestSummary') },
@@ -265,6 +268,9 @@ export default function ReportsPage() {
         )}
         {selectedReport === 'inventoryValuation' && (
           <InventoryValuationSection money={money} t={t} />
+        )}
+        {selectedReport === 'inventoryValuationByMethod' && (
+          <InventoryValuationByMethodSection money={money} />
         )}
         {selectedReport === 'stockMovements' && (
           <StockMovementsSection startDate={startDate} endDate={endDate} t={t} />
@@ -1135,6 +1141,123 @@ function InventoryValuationSection({ money, t }: { money: MoneyFn; t: TFn }) {
               </div>
             </>
           )}
+        </div>
+      )}
+    </ReportSection>
+  );
+}
+
+/* ────────── Inventory Valuation by Cost Method ────────── */
+
+function InventoryValuationByMethodSection({ money }: { money: MoneyFn }) {
+  const { data, isLoading } = useInventoryValuationByMethodReport();
+
+  const buildCsv = () => {
+    if (!data) return null;
+    const header = [
+      'Part #', 'Description', 'Category', 'Configured method', 'On hand',
+      'Last cost', 'Last cost value',
+      'WAC', 'WAC value',
+      'FIFO next', 'LIFO next', 'Highest', 'Highest value',
+      'Layer value', 'Layer count',
+    ];
+    const body = data.rows.map((r) => [
+      r.part_number ?? '',
+      r.description,
+      r.category,
+      r.cost_method ?? '(default)',
+      r.stock_qty,
+      r.last_cost,
+      r.last_cost_value,
+      r.wac,
+      r.wac_value,
+      r.fifo_next_cost,
+      r.lifo_next_cost,
+      r.highest_cost,
+      r.highest_cost_value,
+      r.layer_value,
+      r.layer_count,
+    ]);
+    const totals = data.totals;
+    body.push([
+      'TOTAL', '', '', '', totals.totalUnits,
+      '', totals.lastCostValue,
+      '', totals.wacValue,
+      '', '', '', totals.highestCostValue,
+      totals.layerValue, '',
+    ]);
+    return [header, ...body];
+  };
+
+  return (
+    <ReportSection
+      title="Inventory Valuation by Cost Method"
+      subtitle="Same on-hand stock valued under each cost method. FIFO/LIFO/WAC totals agree by construction — they only diverge on the next sale (see FIFO/LIFO next-out unit cost per row)."
+      exportCsv={{ filename: 'inventory-valuation-by-method', build: buildCsv }}
+      disableExport={isLoading || !data || data.rows.length === 0}
+    >
+      {isLoading ? (
+        <p className="text-sm text-gray-500">...</p>
+      ) : !data || data.rows.length === 0 ? (
+        <p className="text-sm text-gray-500">No parts with stock on hand.</p>
+      ) : (
+        <div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 mb-4">
+            <Card label="Total Units" value={String(data.totals.totalUnits)} />
+            <Card label="Last-cost Value" value={money(data.totals.lastCostValue)} />
+            <Card label="Layer Value (FIFO/LIFO/WAC)" value={money(data.totals.layerValue)} />
+            <Card label="Highest-cost Value" value={money(data.totals.highestCostValue)} />
+          </div>
+          <div className="overflow-x-auto rounded-md border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-start text-xs font-semibold uppercase text-gray-500">Part</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Qty</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Last</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">WAC</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">FIFO next</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">LIFO next</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Highest</th>
+                  <th className="px-3 py-2 text-end text-xs font-semibold uppercase text-gray-500">Layer value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.rows.map((r) => (
+                  <tr key={r.part_id}>
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900">{r.description}</div>
+                      <div className="text-xs text-gray-500">
+                        {r.part_number ?? '—'}
+                        {r.cost_method && r.cost_method !== 'last_cost' && (
+                          <span className="ms-2 inline-flex rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary-700">
+                            {r.cost_method}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-end text-gray-700">{r.stock_qty}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(r.last_cost)}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(r.wac)}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(r.fifo_next_cost)}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(r.lifo_next_cost)}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(r.highest_cost)}</td>
+                    <td className="px-3 py-2 text-end font-semibold text-gray-900">{money(r.layer_value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td className="px-3 py-2 font-semibold text-gray-900">TOTAL</td>
+                  <td className="px-3 py-2 text-end font-semibold text-gray-900">{data.totals.totalUnits}</td>
+                  <td className="px-3 py-2 text-end font-semibold text-gray-900" colSpan={5}>
+                    Last {money(data.totals.lastCostValue)} · WAC {money(data.totals.wacValue)} · Highest {money(data.totals.highestCostValue)}
+                  </td>
+                  <td className="px-3 py-2 text-end font-semibold text-gray-900">{money(data.totals.layerValue)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       )}
     </ReportSection>
