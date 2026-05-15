@@ -4,6 +4,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { AgtService } from '../agt/agt.service';
 import { PricingService } from '../pricing/pricing.service';
 import { CostingService } from '../parts/costing.service';
+import { WarehouseService } from '../warehouse/warehouse.service';
 import type { GenerateInvoiceInput, PaginationInput, CreateStandaloneInvoiceInput, StandaloneLineInput } from '@mecanix/validators';
 import { computeInvoiceTotals } from './invoice-math';
 
@@ -25,6 +26,7 @@ export class InvoicesService {
     private readonly agtService: AgtService,
     private readonly pricingService: PricingService,
     private readonly costingService: CostingService,
+    private readonly warehouseService: WarehouseService,
   ) {}
 
   async list(tenantId: string, pagination: PaginationInput, filters: InvoiceFilters = {}) {
@@ -503,8 +505,13 @@ export class InvoicesService {
       .single();
     if (invErr) throw invErr;
 
-    // 5. Insert parts_lines and deduct stock for catalogue parts
-    await this.writeStandaloneLines(tenantId, invoice.id, 'invoice', enriched, userId);
+    // 5. Resolve the warehouse stock leaves from. Caller's explicit
+    // pick wins; otherwise fall back to the tenant's default warehouse.
+    const warehouseId =
+      input.warehouseId ?? (await this.warehouseService.getDefaultWarehouseId(tenantId));
+
+    // 6. Insert parts_lines and deduct stock for catalogue parts
+    await this.writeStandaloneLines(tenantId, invoice.id, 'invoice', enriched, userId, warehouseId);
 
     // 6. AGT hash (non-blocking)
     try {
@@ -707,6 +714,7 @@ export class InvoicesService {
     parent: 'invoice' | 'proforma',
     enriched: Awaited<ReturnType<InvoicesService['enrichLines']>>,
     userId: string,
+    warehouseId?: string | null,
   ) {
     const client = this.supabase.getClient();
     const rows = enriched.map((l) => ({
@@ -717,6 +725,9 @@ export class InvoicesService {
       part_id: l.part_id,
       part_name: l.description,
       part_number: l.part_number, // snapshot from catalogue
+      // Stamp the warehouse on each line so downstream reports
+      // (movement, valuation) can attribute the sale correctly.
+      warehouse_id: parent === 'invoice' ? warehouseId ?? null : null,
       quantity: l.quantity,
       unit_cost: l.unit_cost,
       markup_pct: 0,
@@ -763,13 +774,17 @@ export class InvoicesService {
         if (!l.part_id) continue;
         const qty = l.quantity;
 
-        const { data: whStock } = await client
+        // Pick the warehouse_stock row for the chosen warehouse when
+        // one was provided; otherwise fall back to the first row
+        // (legacy behavior — kept so single-warehouse tenants keep
+        // working without explicit picks).
+        let whStockQuery = client
           .from('warehouse_stock')
           .select('id, quantity')
           .eq('part_id', l.part_id)
-          .eq('tenant_id', tenantId)
-          .limit(1)
-          .maybeSingle();
+          .eq('tenant_id', tenantId);
+        if (warehouseId) whStockQuery = whStockQuery.eq('warehouse_id', warehouseId);
+        const { data: whStock } = await whStockQuery.limit(1).maybeSingle();
 
         if (whStock) {
           await client

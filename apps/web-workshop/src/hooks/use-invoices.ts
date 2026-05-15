@@ -94,6 +94,7 @@ export interface StandaloneInvoiceInput {
   notes?: string;
   discountPct?: number;
   discountAmount?: number;
+  warehouseId?: string;
 }
 
 export function useCreateStandaloneInvoice() {

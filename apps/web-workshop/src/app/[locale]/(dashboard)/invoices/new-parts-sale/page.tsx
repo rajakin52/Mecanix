@@ -5,6 +5,7 @@ import { useRouter, Link } from '@/i18n/navigation';
 import { useToast } from '@mecanix/ui-web';
 import { useCustomers } from '@/hooks/use-customers';
 import { useParts, useVehicleMakes, useVehicleModels } from '@/hooks/use-parts';
+import { useWarehouses } from '@/hooks/use-warehouse';
 import { useCreateStandaloneInvoice, type StandaloneLine } from '@/hooks/use-invoices';
 import { useCreateProforma } from '@/hooks/use-proformas';
 import { SearchableSelect } from '@/components/SearchableSelect';
@@ -42,7 +43,21 @@ export default function NewPartsSalePage() {
   const [lines, setLines] = useState<LineRow[]>([{ ...EMPTY_LINE }]);
   const [invoiceDiscountPct, setInvoiceDiscountPct] = useState('0');
   const [invoiceDiscountAmount, setInvoiceDiscountAmount] = useState('0');
+  const [warehouseId, setWarehouseId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  // Warehouses for the stock-source picker. Multi-warehouse tenants must
+  // disambiguate; single-warehouse tenants can ignore it (default warehouse
+  // is auto-picked server-side).
+  const { data: warehousesData } = useWarehouses(1);
+  const warehouses = useMemo(() => warehousesData?.data ?? [], [warehousesData]);
+  // Auto-pick the default warehouse on first load so the dropdown doesn't
+  // start empty when the user hasn't chosen yet.
+  useEffect(() => {
+    if (warehouseId || warehouses.length === 0) return;
+    const defaultWh = warehouses.find((w) => w.is_default) ?? warehouses[0];
+    if (defaultWh?.id) setWarehouseId(defaultWh.id);
+  }, [warehouses, warehouseId]);
 
   const { data: customersData } = useCustomers(1, '');
   const customers = useMemo(() => {
@@ -199,6 +214,7 @@ export default function NewPartsSalePage() {
           notes: notes || undefined,
           discountPct: invDiscPct,
           discountAmount: invDiscAmt,
+          warehouseId: warehouseId || undefined,
         });
         toast.success(`Invoice ${inv.invoice_number} created`);
         router.push(`/invoices/${inv.id}`);
@@ -256,15 +272,40 @@ export default function NewPartsSalePage() {
 
       <div className="space-y-4">
         <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <label className="block text-sm font-medium text-gray-700">Customer *</label>
-          <div className="mt-1 max-w-md">
-            <SearchableSelect
-              value={customerId}
-              options={customers}
-              placeholder="Search customer…"
-              allowFreeText={false}
-              onChange={setCustomerId}
-            />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Customer *</label>
+              <div className="mt-1">
+                <SearchableSelect
+                  value={customerId}
+                  options={customers}
+                  placeholder="Search customer…"
+                  allowFreeText={false}
+                  onChange={setCustomerId}
+                />
+              </div>
+            </div>
+            {output === 'invoice' && warehouses.length > 1 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Stock leaves from *</label>
+                <select
+                  value={warehouseId}
+                  onChange={(e) => setWarehouseId(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                      {w.is_default ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Stock is deducted from this warehouse. Proformas don&apos;t touch stock,
+                  so this picker is hidden when issuing a proforma.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

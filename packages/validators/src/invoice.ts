@@ -65,6 +65,10 @@ export const createStandaloneInvoiceSchema = z.object({
   footer: z.string().max(2000).optional(),
   discountPct: z.coerce.number().min(0).max(100).optional().default(0),
   discountAmount: z.coerce.number().min(0).optional().default(0),
+  // Warehouse the stock leaves from. Optional — defaults to the tenant's
+  // is_default warehouse. Required to disambiguate when a tenant runs
+  // more than one warehouse.
+  warehouseId: z.string().uuid().optional(),
 });
 
 export const createProformaSchema = z.object({

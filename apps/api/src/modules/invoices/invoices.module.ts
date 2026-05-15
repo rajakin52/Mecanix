@@ -8,9 +8,11 @@ import { CreditNotesService } from './credit-notes.service';
 import { AgtModule } from '../agt/agt.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PricingModule } from '../pricing/pricing.module';
+import { PartsModule } from '../parts/parts.module';
+import { WarehouseModule } from '../warehouse/warehouse.module';
 
 @Module({
-  imports: [AgtModule, NotificationsModule, PricingModule],
+  imports: [AgtModule, NotificationsModule, PricingModule, PartsModule, WarehouseModule],
   controllers: [InvoicesController, PublicInvoicesController, PaymentsController, CreditNotesController, CreditNotesRegisterController],
   providers: [InvoicesService, PaymentsService, CreditNotesService],
   exports: [InvoicesService, PaymentsService, CreditNotesService],
