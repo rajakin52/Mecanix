@@ -34,7 +34,13 @@ import {
   Camera,
   Shield,
   FileCheck,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
+
+// localStorage key for which group sections the user has collapsed.
+// Stored as a JSON-encoded array of group titles.
+const COLLAPSED_GROUPS_KEY = 'mecanix.sidebar.collapsedGroups';
 
 interface NavItem {
   href: string;
@@ -54,6 +60,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  // Per-group collapse — only meaningful when the full sidebar is expanded.
+  // Persisted across reloads in localStorage so the user's layout sticks.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+      return new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const toggleGroup = (title: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      try {
+        localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+      } catch {/* ignore quota errors */}
+      return next;
+    });
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -203,42 +231,64 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-3" role="navigation" aria-label="Main navigation">
-          {navGroups.map((group, gi) => (
-            <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
-              {group.title && !collapsed && (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-secondary-400">
-                  {group.title}
-                </p>
-              )}
-              {collapsed && gi > 0 && <div className="mx-2 mb-2 border-t border-secondary-700" />}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      title={collapsed ? item.label : undefined}
-                      aria-current={active ? 'page' : undefined}
-                      className={`
-                        group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
-                        ${active
-                          ? 'bg-brand-gold/15 text-brand-gold'
-                          : 'text-secondary-300 hover:bg-secondary-700 hover:text-white'
-                        }
-                        ${collapsed ? 'justify-center px-2' : ''}
-                      `}
-                    >
-                      <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${active ? 'text-brand-gold' : 'text-secondary-400 group-hover:text-white'}`} />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </Link>
-                  );
-                })}
+          {navGroups.map((group, gi) => {
+            // Per-group collapse is only honored when the full sidebar
+            // is expanded (otherwise the title is hidden anyway and the
+            // user has no way to expand without first widening the bar).
+            // Force-expand the group if the active route lives inside it,
+            // so users never get "lost" in a section they're currently in.
+            const userCollapsed = collapsedGroups.has(group.title);
+            const containsActive = group.items.some((it) => isActive(it.href));
+            const sectionHidden = !collapsed && userCollapsed && !containsActive;
+            return (
+              <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
+                {group.title && !collapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.title)}
+                    className="mb-1 flex w-full items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-secondary-400 hover:text-secondary-200"
+                    aria-expanded={!sectionHidden}
+                  >
+                    {sectionHidden ? (
+                      <ChevronRight className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    <span>{group.title}</span>
+                  </button>
+                )}
+                {collapsed && gi > 0 && <div className="mx-2 mb-2 border-t border-secondary-700" />}
+                {!sectionHidden && (
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          title={collapsed ? item.label : undefined}
+                          aria-current={active ? 'page' : undefined}
+                          className={`
+                            group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors
+                            ${active
+                              ? 'bg-brand-gold/15 text-brand-gold'
+                              : 'text-secondary-300 hover:bg-secondary-700 hover:text-white'
+                            }
+                            ${collapsed ? 'justify-center px-2' : ''}
+                          `}
+                        >
+                          <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${active ? 'text-brand-gold' : 'text-secondary-400 group-hover:text-white'}`} />
+                          {!collapsed && <span className="truncate">{item.label}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Settings + Logout */}
