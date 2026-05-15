@@ -604,6 +604,107 @@ export default function PrintInvoicePage() {
           );
         })()}
 
+        {/* Pricing audit appendix — one row per parts/labour line summarising
+            the decision recorded at issue time (method + source + margin).
+            Internal-facing; lets the workshop keep a printed paper-trail of
+            how each line was priced. Hidden when no lines carry snapshot data. */}
+        {!isStandalone && (() => {
+          const partsWithSnapshot = (parts as Array<Record<string, unknown>>).filter(
+            (l) => l['cost_method'] || l['sell_price_source'] || l['margin_pct_at_issue'] != null,
+          );
+          const labourWithSnapshot = (labour as Array<Record<string, unknown>>).filter(
+            (l) => l['sell_price_source'] || l['margin_pct_at_issue'] != null,
+          );
+          if (partsWithSnapshot.length === 0 && labourWithSnapshot.length === 0) return null;
+          const methodLabels: Record<string, string> = {
+            last_cost: 'Last cost',
+            weighted_average: 'WAC',
+            fifo: 'FIFO',
+            lifo: 'LIFO',
+            highest_cost: 'Highest',
+          };
+          const sourceLabels: Record<string, string> = {
+            manual: 'Manual',
+            catalogue: 'Catalogue',
+            auto_markup: 'Auto-markup',
+          };
+          return (
+            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-2.5">
+              <h3 className="mb-1 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                Pricing Audit (interno)
+              </h3>
+              <table className="w-full text-[9px]">
+                <thead>
+                  <tr className="text-left text-[8px] uppercase tracking-wide text-gray-500">
+                    <th className="py-0.5 pr-2">Linha</th>
+                    <th className="py-0.5 pr-2">Método</th>
+                    <th className="py-0.5 pr-2">Origem</th>
+                    <th className="py-0.5 pr-2 text-right">Custo</th>
+                    <th className="py-0.5 pr-2 text-right">Venda</th>
+                    <th className="py-0.5 text-right">Margem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partsWithSnapshot.map((l, i) => {
+                    const method = l['cost_method'] as string | null;
+                    const source = l['sell_price_source'] as string | null;
+                    const margin = l['margin_pct_at_issue'] as number | null;
+                    return (
+                      <tr key={`p-${i}`} className="border-t border-gray-200/60">
+                        <td className="py-0.5 pr-2 text-gray-700">
+                          <span className="text-gray-400">[peça]</span>{' '}
+                          {String(l['part_name'] ?? '')}
+                        </td>
+                        <td className="py-0.5 pr-2 text-gray-700">
+                          {method ? methodLabels[method] ?? method : '—'}
+                        </td>
+                        <td className="py-0.5 pr-2 text-gray-700">
+                          {source ? sourceLabels[source] ?? source : '—'}
+                        </td>
+                        <td className="py-0.5 pr-2 text-right tabular-nums text-gray-700">
+                          {formatCurrency(l['unit_cost'] as number)}
+                        </td>
+                        <td className="py-0.5 pr-2 text-right tabular-nums text-gray-700">
+                          {formatCurrency(l['sell_price'] as number)}
+                        </td>
+                        <td className="py-0.5 text-right tabular-nums text-gray-700">
+                          {margin != null ? `${Number(margin).toFixed(1)}%` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {labourWithSnapshot.map((l, i) => {
+                    const source = l['sell_price_source'] as string | null;
+                    const margin = l['margin_pct_at_issue'] as number | null;
+                    return (
+                      <tr key={`l-${i}`} className="border-t border-gray-200/60">
+                        <td className="py-0.5 pr-2 text-gray-700">
+                          <span className="text-gray-400">[m.o.]</span>{' '}
+                          {String(l['description'] ?? '')}
+                        </td>
+                        <td className="py-0.5 pr-2 text-gray-400">—</td>
+                        <td className="py-0.5 pr-2 text-gray-700">
+                          {source ? sourceLabels[source] ?? source : '—'}
+                        </td>
+                        <td className="py-0.5 pr-2 text-right tabular-nums text-gray-400">—</td>
+                        <td className="py-0.5 pr-2 text-right tabular-nums text-gray-700">
+                          {formatCurrency(l['rate'] as number)}
+                        </td>
+                        <td className="py-0.5 text-right tabular-nums text-gray-700">
+                          {margin != null ? `${Number(margin).toFixed(1)}%` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="mt-1 text-[8px] text-gray-400">
+                Esta secção é interna — destinada a auditoria do workshop, não ao cliente final.
+              </p>
+            </div>
+          );
+        })()}
+
         {/* Signature — workshop + customer. Print-only feature; reproduces
             the legal acknowledgement the customer signs on collection. */}
         {!isStandalone && (
