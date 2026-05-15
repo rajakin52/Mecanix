@@ -34,10 +34,19 @@ export const createCreditNoteSchema = z.object({
   reason: z.string().min(1).max(2000),
 });
 
+// Credit-and-rebill: full-value credit note + clone lines back to the
+// job card so the user can edit and re-bill. Used for the "this invoice
+// is wrong, redo it" flow. The amount is implicit (full invoice value)
+// — only the reason needs to be supplied.
+export const creditAndRebillSchema = z.object({
+  reason: z.string().min(1).max(2000),
+});
+
 export type GenerateInvoiceInput = z.infer<typeof generateInvoiceSchema>;
 export type ReopenJobCardInput = z.infer<typeof reopenJobCardSchema>;
 export type RecordInvoicePaymentInput = z.infer<typeof recordInvoicePaymentSchema>;
 export type CreateCreditNoteInput = z.infer<typeof createCreditNoteSchema>;
+export type CreditAndRebillInput = z.infer<typeof creditAndRebillSchema>;
 
 // ───────── Stand-alone parts sale (no job card) ─────────
 

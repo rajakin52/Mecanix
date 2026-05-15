@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote, useCreatePaymentLink } from '@/hooks/use-invoices';
+import { useInvoice, useMarkAsSent, useRecordPayment, useCreateCreditNote, useCreatePaymentLink, useCreditAndRebill } from '@/hooks/use-invoices';
+import { useRouter } from 'next/navigation';
 import { LinePricingDetails } from '@/components/invoices/LinePricingDetails';
 import { useLabourLines, usePartsLines } from '@/hooks/use-jobs';
 import { useMpesaConfigured, useMpesaPay } from '@/hooks/use-mpesa';
@@ -35,7 +36,9 @@ export default function InvoiceDetailPage() {
   const markAsSentMutation = useMarkAsSent();
   const payMutation = useRecordPayment();
   const creditNoteMutation = useCreateCreditNote();
+  const creditAndRebillMutation = useCreditAndRebill();
   const createPayLinkMutation = useCreatePaymentLink();
+  const router = useRouter();
   const { data: mpesaConfig } = useMpesaConfigured();
   const mpesaPayMutation = useMpesaPay();
 
@@ -66,6 +69,13 @@ export default function InvoiceDetailPage() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
+
+  // Credit-and-rebill modal state. Separate from the plain credit-note
+  // modal because the action is different — this one zeros the invoice
+  // and reopens the JC, no amount input.
+  const [showRebillModal, setShowRebillModal] = useState(false);
+  const [rebillReason, setRebillReason] = useState('');
+  const [rebillError, setRebillError] = useState<string | null>(null);
 
   const formatCurrency = (val: number) => formatNumber(val, locale, 2);
 
@@ -108,6 +118,26 @@ export default function InvoiceDetailPage() {
     setShowCreditModal(false);
     setCreditAmount('');
     setCreditReason('');
+  };
+
+  const handleCreditAndRebill = async () => {
+    if (!rebillReason.trim()) return;
+    try {
+      setRebillError(null);
+      const res = await creditAndRebillMutation.mutateAsync({
+        invoiceId: id,
+        reason: rebillReason.trim(),
+      });
+      setShowRebillModal(false);
+      setRebillReason('');
+      toast.success(
+        `Credit note ${res.credit_note.credit_note_number} issued. ${res.cloned_parts_count + res.cloned_labour_count} lines cloned back to the job card.`,
+      );
+      // Send the user straight to the JC so they can edit and re-bill.
+      router.push(`/${locale}/jobs/${res.job_card_id}`);
+    } catch (err) {
+      setRebillError(err instanceof Error ? err.message : 'Failed to credit-and-rebill');
+    }
   };
 
   if (isLoading) {
@@ -494,12 +524,23 @@ export default function InvoiceDetailPage() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">{t('creditNotes')}</h2>
           {status !== 'cancelled' && (
-            <button
-              onClick={() => setShowCreditModal(true)}
-              className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700"
-            >
-              {t('issueCreditNote')}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreditModal(true)}
+                className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-orange-700"
+              >
+                {t('issueCreditNote')}
+              </button>
+              {invoice.job_card_id && (
+                <button
+                  onClick={() => setShowRebillModal(true)}
+                  className="rounded-md border border-orange-600 px-3 py-1.5 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+                  title="Credit this invoice in full, clone its lines back to the job card, and reopen the JC so you can edit and re-bill."
+                >
+                  Credit &amp; Rebill
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="overflow-hidden rounded-lg border border-gray-200">
@@ -705,6 +746,57 @@ export default function InvoiceDetailPage() {
                   className="rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
                 >
                   {creditNoteMutation.isPending ? tc('loading') : tc('confirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credit & Rebill Modal */}
+      {showRebillModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Credit &amp; Rebill</h2>
+              <button onClick={() => { setShowRebillModal(false); setRebillError(null); }} className="text-gray-400 hover:text-gray-600">&#x2715;</button>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800">
+                This will issue a credit note for the full invoice amount
+                ({formatCurrency(invoice.grand_total)}), clone the billed lines
+                back to the job card, and reopen the job for editing. The
+                original invoice stays as the historical record.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">{t('reason')}</label>
+                <textarea
+                  value={rebillReason}
+                  onChange={(e) => setRebillReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Wrong tax rate applied, missing line, customer pricing dispute"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+              {rebillError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">
+                  {rebillError}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowRebillModal(false); setRebillError(null); }}
+                  className="rounded-md border px-4 py-2 text-sm"
+                >
+                  {tc('cancel')}
+                </button>
+                <button
+                  onClick={handleCreditAndRebill}
+                  disabled={creditAndRebillMutation.isPending || !rebillReason.trim()}
+                  className="rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {creditAndRebillMutation.isPending ? tc('loading') : 'Credit & Rebill'}
                 </button>
               </div>
             </div>

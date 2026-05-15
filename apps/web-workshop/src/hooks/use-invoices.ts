@@ -185,6 +185,26 @@ export function useCreateCreditNote() {
   });
 }
 
+interface CreditAndRebillResult {
+  credit_note: { id: string; credit_note_number: string };
+  job_card_id: string;
+  cloned_parts_count: number;
+  cloned_labour_count: number;
+}
+
+export function useCreditAndRebill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ invoiceId, reason }: { invoiceId: string; reason: string }) =>
+      api.post<CreditAndRebillResult>(`/invoices/${invoiceId}/credit-and-rebill`, { reason }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['invoice', v.invoiceId] });
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['job-cards'] });
+    },
+  });
+}
+
 export function useFinancialSummary() {
   return useQuery({
     queryKey: ['financial-summary'],
