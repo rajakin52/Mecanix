@@ -2,11 +2,24 @@
   "name": "@mecanix/eslint-config",
   "version": "0.0.0",
   "private": true,
-  "files": ["*.js"],
+  "files": [
+    "*.js",
+    "*.mjs"
+  ],
+  "exports": {
+    "./base": "./base.mjs",
+    "./nestjs": "./nestjs.mjs",
+    "./react": "./react.mjs",
+    "./expo": "./expo.mjs"
+  },
   "dependencies": {
+    "@next/eslint-plugin-next": "^15",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-import": "^2.29.0"
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-react-hooks": "^5",
+    "globals": "^17.6.0",
+    "typescript-eslint": "^8"
   }
 }

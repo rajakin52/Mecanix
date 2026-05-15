@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'no eslint config — skipping'"
+    "lint": "eslint app/ src/"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.2",

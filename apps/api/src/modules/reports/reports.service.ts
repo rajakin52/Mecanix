@@ -1139,7 +1139,7 @@ export class ReportsService {
 
     // For each part, get last PO date
     const partIds = lowStockParts.map((p) => p.id as string);
-    let lastOrderMap = new Map<string, string>();
+    const lastOrderMap = new Map<string, string>();
 
     if (partIds.length > 0) {
       const { data: poLines } = await client

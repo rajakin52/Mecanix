@@ -228,7 +228,7 @@ export class StatementsService {
       );
 
       const priorInvoiceIds = (priorInvoices ?? []).map((i: Record<string, unknown>) => i.id) as string[];
-      let priorPaymentTotal = 0;
+      const priorPaymentTotal = 0;
       if (priorInvoiceIds.length > 0) {
         // This is an approximation — we'd need all prior invoice IDs
         // For simplicity, use the customer's current balance logic

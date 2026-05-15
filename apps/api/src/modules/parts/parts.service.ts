@@ -130,7 +130,7 @@ export class PartsService {
     if (!vehicle.make) return [];
     const client = this.supabase.getClient();
 
-    let q = client
+    const q = client
       .from('part_vehicle_compat')
       .select('part_id, model, year_from, year_to')
       .eq('tenant_id', tenantId)

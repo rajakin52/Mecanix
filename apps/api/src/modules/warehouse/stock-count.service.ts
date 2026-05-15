@@ -109,7 +109,7 @@ export class StockCountService {
     if (countErr) throw countErr;
 
     // Get all parts in this warehouse to populate lines
-    let stockQuery = client
+    const stockQuery = client
       .from('warehouse_stock')
       .select('part_id, quantity')
       .eq('warehouse_id', input.warehouseId)
