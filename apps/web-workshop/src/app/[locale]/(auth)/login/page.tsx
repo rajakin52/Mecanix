@@ -25,9 +25,14 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      // Cookies are set by the backend via Set-Cookie; we don't need
-      // to touch the response — just route to the dashboard.
-      await api.post('/auth/login', data);
+      const result = await api.post<{
+        session: { accessToken: string; refreshToken: string };
+      }>('/auth/login', data);
+      // Save tokens to localStorage. The backend also sets httpOnly
+      // cookies in the same response — those will become the primary
+      // path once we move to a shared-eTLD+1 deploy.
+      localStorage.setItem('access_token', result.session.accessToken);
+      localStorage.setItem('refresh_token', result.session.refreshToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('loginFailed'));

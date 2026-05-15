@@ -23,8 +23,11 @@ export default function SignupPage() {
     setLoading(true);
     setError('');
     try {
-      // Cookies are set by the backend via Set-Cookie.
-      await api.post('/auth/signup', data);
+      const result = await api.post<{
+        session: { accessToken: string; refreshToken: string };
+      }>('/auth/signup', data);
+      localStorage.setItem('access_token', result.session.accessToken);
+      localStorage.setItem('refresh_token', result.session.refreshToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('signupFailed'));

@@ -1,18 +1,17 @@
 /**
  * API client for the MECANIX web workshop.
  *
- * Auth: tokens live in httpOnly cookies (mecanix_access / mecanix_refresh)
- * set by the backend on /auth/login and /auth/refresh. We don't read or
- * write them from JS — every fetch just uses `credentials: 'include'` and
- * the browser handles the rest. This eliminates the XSS exposure the
- * previous localStorage approach had.
+ * AUTH (web): localStorage tokens + Authorization: Bearer. The backend
+ * also accepts httpOnly cookies (mobile path), but Safari's ITP blocks
+ * cross-site SameSite=None cookies from Vercel→Railway, so cookies-
+ * only doesn't work until both apps share an eTLD+1 (planned: move to
+ * app.mecanix.com + api.mecanix.com). credentials:'include' is still
+ * sent so the cookie path activates automatically once that lands.
  *
- * Mobile clients still use Bearer headers (SecureStore-backed); the
- * backend reads either header or cookie via TenantGuard.
- *
- * The X-Tenant-Id super-admin impersonation header is the only thing JS
- * still adds explicitly — the backend only honours it for is_super_admin
- * users, so a regular user can't spoof anything.
+ * SECURITY NOTE (re-stated, was H7/Phase 3 originally): localStorage
+ * tokens are XSS-readable. This is the lesser evil right now vs. a
+ * broken-in-Safari cookie scheme. Drop the localStorage path the day
+ * we cut over to shared-eTLD+1 hosting.
  */
 
 import { getImpersonatedTenantId } from './impersonation';
@@ -20,9 +19,11 @@ import { getImpersonatedTenantId } from './impersonation';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 
 function buildHeaders(extra: HeadersInit | undefined, withJson = true): HeadersInit {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   const impersonateId = getImpersonatedTenantId();
   return {
     ...(withJson ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(impersonateId ? { 'X-Tenant-Id': impersonateId } : {}),
     ...extra,
   };
@@ -47,26 +48,33 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
   const json = await res.json();
 
   if (!json.success) {
-    // 401: ask the backend to refresh the cookie pair. The browser sends
-    // the httpOnly refresh cookie automatically; the response sets a new
-    // access cookie on success. Then retry the original request.
-    // No body / no Content-Type — Fastify's strict JSON parser would
-    // otherwise 500 on an empty application/json request.
+    // 401: try refresh using the refresh_token from localStorage. We
+    // also still pass credentials: include so the cookie path works
+    // automatically once we move to a shared-eTLD+1 deploy.
     if (res.status === 401 && typeof window !== 'undefined') {
-      try {
-        const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-          method: 'POST',
-          credentials: 'include',
-        });
-        const refreshJson = await refreshRes.json();
-        if (refreshJson.success && refreshJson.data?.accessToken) {
-          const retryRes = await doFetch();
-          const retryJson = await retryRes.json();
-          if (retryJson.success) return retryJson.data;
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+          });
+          const refreshJson = await refreshRes.json();
+          if (refreshJson.success && refreshJson.data?.accessToken) {
+            localStorage.setItem('access_token', refreshJson.data.accessToken);
+            localStorage.setItem('refresh_token', refreshJson.data.refreshToken);
+            const retryRes = await doFetch();
+            const retryJson = await retryRes.json();
+            if (retryJson.success) return retryJson.data;
+          }
+        } catch {
+          // fall through to redirect
         }
-      } catch {
-        // fall through to redirect
       }
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       redirectToLogin();
       throw new Error('Session expired');
     }
