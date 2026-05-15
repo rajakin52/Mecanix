@@ -1,8 +1,22 @@
 import { Body, Controller, Get, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { loginSchema, signUpSchema, inviteUserSchema, customerSignUpSchema } from '@mecanix/validators';
-import type { LoginInput, SignUpInput, InviteUserInput, CustomerSignUpInput } from '@mecanix/validators';
+import {
+  loginSchema,
+  signUpSchema,
+  inviteUserSchema,
+  customerSignUpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from '@mecanix/validators';
+import type {
+  LoginInput,
+  SignUpInput,
+  InviteUserInput,
+  CustomerSignUpInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+} from '@mecanix/validators';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -44,6 +58,25 @@ export class AuthController {
   @RateLimit(20, 60)
   async refresh(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshToken(refreshToken);
+  }
+
+  // Always returns { success: true } regardless of whether the email
+  // exists — prevents account enumeration.
+  @Post('forgot-password')
+  @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
+  @RateLimit(5, 60)
+  async forgotPassword(@Body() body: ForgotPasswordInput) {
+    return this.authService.requestPasswordReset(body.email, body.redirectTo);
+  }
+
+  // The access_token comes from the hash on the redirect URL after the
+  // user clicks the email link. We validate it server-side before setting
+  // the new password.
+  @Post('reset-password')
+  @UsePipes(new ZodValidationPipe(resetPasswordSchema))
+  @RateLimit(10, 60)
+  async resetPassword(@Body() body: ResetPasswordInput) {
+    return this.authService.resetPasswordWithToken(body.accessToken, body.password);
   }
 
   @Post('invite')

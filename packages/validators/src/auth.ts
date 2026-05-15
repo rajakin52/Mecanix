@@ -88,6 +88,26 @@ export const customerSignUpSchema = z.object({
   workshopCode: z.string().optional(), // Tenant slug — links to workshop
 });
 
+// Public: kick off a password reset by email. redirectTo points at the
+// frontend page that will receive the Supabase access_token hash.
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+  redirectTo: z.string().url().optional(),
+});
+
+// Public-with-token: finalises the reset using the Supabase access_token
+// that came back on the redirect. The token is validated server-side
+// before the new password is set.
+export const resetPasswordSchema = z.object({
+  accessToken: z.string().min(20),
+  password: z.string().min(8).max(72),
+});
+
+// Admin: set another user's password directly. Owner/manager only.
+export const adminChangePasswordSchema = z.object({
+  password: z.string().min(8).max(72),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
@@ -99,3 +119,6 @@ export type CustomerSignUpInput = z.infer<typeof customerSignUpSchema>;
 export type SetExchangeRateInput = z.infer<typeof setExchangeRateSchema>;
 export type SetSecondaryCurrencyInput = z.infer<typeof setSecondaryCurrencySchema>;
 export type SetTenantSettingInput = z.infer<typeof setTenantSettingSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type AdminChangePasswordInput = z.infer<typeof adminChangePasswordSchema>;

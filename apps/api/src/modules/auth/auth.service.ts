@@ -2,17 +2,25 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PermissionsService } from '../../common/permissions/permissions.service';
+import { EmailService } from '../notifications/email.service';
 import type { SignUpInput, LoginInput, CustomerSignUpInput } from '@mecanix/validators';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly permissions: PermissionsService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   async signUp(input: SignUpInput) {
@@ -423,6 +431,163 @@ export class AuthService {
     await admin.generateLink({ type: 'recovery', email });
 
     return user;
+  }
+
+  /**
+   * Send a password-reset email. Public endpoint. Resolves successfully
+   * even if the email isn't on file — that way attackers can't enumerate
+   * accounts. Uses Supabase's admin.generateLink to mint the one-time
+   * recovery URL, then ships it through Resend so the email is branded
+   * (Supabase's own SMTP path would also work but the template control
+   * is poor and not all projects have it wired up).
+   */
+  async requestPasswordReset(email: string, redirectTo?: string): Promise<{ success: true }> {
+    const admin = this.supabase.getAuthClient();
+    const defaultRedirect = this.config.get<string>('PASSWORD_RESET_REDIRECT_URL', '');
+    const finalRedirect = redirectTo || defaultRedirect || undefined;
+
+    try {
+      const { data, error } = await admin.generateLink({
+        type: 'recovery',
+        email,
+        options: finalRedirect ? { redirectTo: finalRedirect } : undefined,
+      });
+      if (error || !data?.properties?.action_link) {
+        // Don't leak which email failed — log + return success.
+        this.logger.warn(`generateLink(recovery) for ${email}: ${error?.message ?? 'no action_link'}`);
+        return { success: true };
+      }
+
+      const link = data.properties.action_link;
+      const html = `
+        <p>You requested a password reset for your Mecanix account.</p>
+        <p>Click the button below to choose a new password. This link is single-use and expires in 1 hour.</p>
+        <p style="margin: 24px 0;">
+          <a href="${link}" style="display: inline-block; background: #0087FF; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset password</a>
+        </p>
+        <p style="color: #666; font-size: 12px;">If the button doesn't work, paste this URL into your browser:<br/>${link}</p>
+        <p style="color: #666; font-size: 12px;">If you didn't ask for this reset, ignore this email — nothing will change.</p>
+      `;
+
+      await this.email.send({
+        to: email,
+        subject: 'Reset your Mecanix password',
+        html,
+      });
+    } catch (err) {
+      // Always swallow — the public endpoint should not leak whether the
+      // address exists. The log captures the real failure.
+      this.logger.error(`requestPasswordReset failed for ${email}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * Finalise a reset using the access_token that arrived on the redirect.
+   * We validate the token against Supabase first (so a stolen + expired
+   * link can't be replayed) and then update the password as service-role.
+   */
+  async resetPasswordWithToken(accessToken: string, password: string): Promise<{ success: true }> {
+    const client = this.supabase.getClient();
+    const { data, error } = await client.auth.getUser(accessToken);
+    if (error || !data?.user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    const admin = this.supabase.getAuthClient();
+    const { error: updErr } = await admin.updateUserById(data.user.id, { password });
+    if (updErr) {
+      throw new BadRequestException(updErr.message);
+    }
+    return { success: true };
+  }
+
+  /**
+   * Admin action: trigger a password reset for another user in the same
+   * tenant. Behaves exactly like the public flow but the actor is known
+   * so we can audit it.
+   */
+  async adminSendUserReset(tenantId: string, userId: string, actorId: string): Promise<{ success: true }> {
+    const client = this.supabase.getClient();
+    const { data: user, error } = await client
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error || !user?.email) {
+      throw new NotFoundException('User not found');
+    }
+    this.logger.log(`Admin ${actorId} initiated reset for user ${userId} (${user.email})`);
+    await this.requestPasswordReset(user.email as string);
+    return { success: true };
+  }
+
+  /**
+   * Admin action: hard-set another user's password. Owner/manager only.
+   */
+  async adminChangeUserPassword(
+    tenantId: string,
+    userId: string,
+    newPassword: string,
+    actorId: string,
+  ): Promise<{ success: true }> {
+    const client = this.supabase.getClient();
+    const { data: user, error } = await client
+      .from('users')
+      .select('auth_id, email')
+      .eq('id', userId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error || !user?.auth_id) {
+      throw new NotFoundException('User not found');
+    }
+    const admin = this.supabase.getAuthClient();
+    const { error: updErr } = await admin.updateUserById(user.auth_id as string, {
+      password: newPassword,
+    });
+    if (updErr) {
+      throw new BadRequestException(updErr.message);
+    }
+    this.logger.log(`Admin ${actorId} set new password for user ${userId} (${user.email})`);
+    return { success: true };
+  }
+
+  /**
+   * Admin action: generate a single-use magic link the caller can paste
+   * into a private window to log in *as* the target user. The link is
+   * audit-logged. We return the link URL — the frontend decides what to
+   * do with it (open in incognito, copy to clipboard, etc.).
+   */
+  async adminImpersonateUser(
+    tenantId: string,
+    userId: string,
+    actorId: string,
+  ): Promise<{ magicLink: string }> {
+    const client = this.supabase.getClient();
+    const { data: user, error } = await client
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error || !user?.email) {
+      throw new NotFoundException('User not found');
+    }
+    const admin = this.supabase.getAuthClient();
+    const redirectTo = this.config.get<string>('IMPERSONATE_REDIRECT_URL', '');
+    const { data, error: genErr } = await admin.generateLink({
+      type: 'magiclink',
+      email: user.email as string,
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+    if (genErr || !data?.properties?.action_link) {
+      throw new InternalServerErrorException(genErr?.message ?? 'Failed to generate magic link');
+    }
+    this.logger.warn(
+      `IMPERSONATION: admin=${actorId} target=${userId} tenant=${tenantId} email=${user.email}`,
+    );
+    return { magicLink: data.properties.action_link };
   }
 
   private getTimezone(country: string): string {

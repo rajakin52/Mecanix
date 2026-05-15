@@ -18,7 +18,12 @@ describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(() => {
-    service = new AuthService(mockSupabaseService as never, mockPermissionsService as never);
+    service = new AuthService(
+      mockSupabaseService as never,
+      mockPermissionsService as never,
+      { send: vi.fn(), hasProvider: () => false } as never,
+      { get: () => '' } as never,
+    );
     vi.clearAllMocks();
   });
 

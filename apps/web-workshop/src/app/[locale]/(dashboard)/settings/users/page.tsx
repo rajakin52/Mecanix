@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
 import { formatDate } from '@/lib/format';
-import { Check, X, Shield, UserPlus, UserX, UserCheck, Settings2 } from 'lucide-react';
+import { Check, X, Shield, UserPlus, UserX, UserCheck, Settings2, KeyRound, Lock, UserCog, Copy } from 'lucide-react';
 import { useRoles } from '@/hooks/use-roles';
 import { SettingsPageHeader } from '@/components/settings/SettingsPrimitives';
 import { UsersSubNav } from '@/components/settings/UsersSubNav';
@@ -109,6 +109,97 @@ export default function UsersSettingsPage() {
       }));
     },
   });
+
+  // Owner / manager superpowers — send reset email, hard-set password,
+  // impersonate via single-use magic link. Each has its own mutation
+  // so the row-level success / error message stays scoped.
+  const sendResetMutation = useMutation({
+    mutationFn: (userId: string) => api.post(`/tenants/me/users/${userId}/send-reset`, {}),
+    onSuccess: (_d, userId) => {
+      setRowMsg((p) => ({ ...p, [userId]: 'Reset email sent.' }));
+    },
+    onError: (err, userId) => {
+      setRowMsg((p) => ({
+        ...p,
+        [userId]: err instanceof Error ? err.message : 'Failed to send reset email.',
+      }));
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      api.put(`/tenants/me/users/${userId}/password`, { password }),
+    onSuccess: (_d, vars) => {
+      setRowMsg((p) => ({ ...p, [vars.userId]: 'Password updated.' }));
+    },
+    onError: (err, vars) => {
+      setRowMsg((p) => ({
+        ...p,
+        [vars.userId]: err instanceof Error ? err.message : 'Failed to update password.',
+      }));
+    },
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: (userId: string) =>
+      api.post<{ magicLink: string }>(`/tenants/me/users/${userId}/impersonate`, {}),
+  });
+
+  // Modal state for change-password
+  const [pwModal, setPwModal] = useState<{ userId: string; email: string } | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+
+  // Modal state for impersonate — surfaces the generated magic link.
+  const [impersonateModal, setImpersonateModal] = useState<{
+    email: string;
+    magicLink: string;
+  } | null>(null);
+
+  const handleSendReset = (u: WorkshopUser) => {
+    if (!window.confirm(`Send a password reset email to ${u.email}?`)) return;
+    setRowMsg((p) => ({ ...p, [u.id]: '' }));
+    sendResetMutation.mutate(u.id);
+  };
+
+  const handleOpenChangePassword = (u: WorkshopUser) => {
+    setNewPassword('');
+    setPwModal({ userId: u.id, email: u.email });
+  };
+
+  const handleConfirmChangePassword = () => {
+    if (!pwModal || newPassword.length < 8) return;
+    setRowMsg((p) => ({ ...p, [pwModal.userId]: '' }));
+    changePasswordMutation.mutate(
+      { userId: pwModal.userId, password: newPassword },
+      {
+        onSettled: () => {
+          setPwModal(null);
+          setNewPassword('');
+        },
+      },
+    );
+  };
+
+  const handleImpersonate = async (u: WorkshopUser) => {
+    if (
+      !window.confirm(
+        `Generate an impersonation link for ${u.email}? ` +
+          `This produces a single-use magic link that logs you in as that user. ` +
+          `All actions taken will be attributed to them.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await impersonateMutation.mutateAsync(u.id);
+      setImpersonateModal({ email: u.email, magicLink: res.magicLink });
+    } catch (err) {
+      setRowMsg((p) => ({
+        ...p,
+        [u.id]: err instanceof Error ? err.message : 'Failed to generate impersonation link.',
+      }));
+    }
+  };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,31 +393,60 @@ export default function UsersSettingsPage() {
                       )}
                     </td>
                     <td className="px-6 py-3 text-right">
-                      <button
-                        onClick={() => handleToggleActive(u)}
-                        disabled={updateMutation.isPending}
-                        className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
-                          u.is_active
-                            ? 'border-red-200 text-red-700 hover:bg-red-50'
-                            : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                        }`}
-                      >
-                        {u.is_active ? (
-                          <>
-                            <UserX className="h-3.5 w-3.5" />
-                            {ts('deactivate')}
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-3.5 w-3.5" />
-                            {ts('reactivate')}
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleSendReset(u)}
+                          disabled={sendResetMutation.isPending || !u.is_active}
+                          title="Send password reset email"
+                          className="inline-flex items-center rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenChangePassword(u)}
+                          disabled={!u.is_active}
+                          title="Change password (set directly)"
+                          className="inline-flex items-center rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-30"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleImpersonate(u)}
+                          disabled={impersonateMutation.isPending || !u.is_active}
+                          title="Impersonate user (generates single-use magic link)"
+                          className="inline-flex items-center rounded-md border border-amber-300 p-1.5 text-amber-700 hover:bg-amber-50 disabled:opacity-30"
+                        >
+                          <UserCog className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleActive(u)}
+                          disabled={updateMutation.isPending}
+                          className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+                            u.is_active
+                              ? 'border-red-200 text-red-700 hover:bg-red-50'
+                              : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {u.is_active ? (
+                            <>
+                              <UserX className="h-3.5 w-3.5" />
+                              {ts('deactivate')}
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="h-3.5 w-3.5" />
+                              {ts('reactivate')}
+                            </>
+                          )}
+                        </button>
+                      </div>
                       {rowMsg[u.id] && (
                         <p
                           className={`mt-1 text-xs ${
-                            rowMsg[u.id] === ts('userUpdated') ? 'text-green-600' : 'text-red-600'
+                            rowMsg[u.id] === ts('userUpdated') || rowMsg[u.id]?.startsWith('Reset')
+                              || rowMsg[u.id] === 'Password updated.'
+                              ? 'text-green-600'
+                              : 'text-red-600'
                           }`}
                         >
                           {rowMsg[u.id]}
@@ -419,6 +539,104 @@ export default function UsersSettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Change-password modal */}
+      {pwModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Change password</h2>
+              <button
+                onClick={() => setPwModal(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &#x2715;
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                You are about to set a new password for <strong>{pwModal.email}</strong>{' '}
+                directly. They will be signed out of any current sessions. Audit-logged.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">New password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="At least 8 characters"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPwModal(null)}
+                  className="rounded-md border px-4 py-2 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmChangePassword}
+                  disabled={changePasswordMutation.isPending || newPassword.length < 8}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {changePasswordMutation.isPending ? 'Saving…' : 'Set password'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Impersonate link modal */}
+      {impersonateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Impersonation link</h2>
+              <button
+                onClick={() => setImpersonateModal(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                &#x2715;
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Single-use magic link for <strong>{impersonateModal.email}</strong>. Open it
+                in a private / incognito window so your own session isn&apos;t replaced. The
+                link expires after one use; this action is audit-logged.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Magic link</label>
+                <textarea
+                  readOnly
+                  value={impersonateModal.magicLink}
+                  rows={4}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => navigator.clipboard.writeText(impersonateModal.magicLink)}
+                  className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </button>
+                <button
+                  onClick={() => setImpersonateModal(null)}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

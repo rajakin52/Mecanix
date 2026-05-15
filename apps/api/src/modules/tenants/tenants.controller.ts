@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
+import { AuthService } from '../auth/auth.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CapabilityGuard } from '../../common/guards/capability.guard';
@@ -18,6 +19,7 @@ import {
   updateWorkshopUserSchema,
   createCustomRoleSchema,
   updateCustomRoleSchema,
+  adminChangePasswordSchema,
 } from '@mecanix/validators';
 import type {
   UpdateTenantInput,
@@ -27,12 +29,16 @@ import type {
   UpdateWorkshopUserInput,
   CreateCustomRoleInput,
   UpdateCustomRoleInput,
+  AdminChangePasswordInput,
 } from '@mecanix/validators';
 
 @Controller('tenants')
 @UseGuards(TenantGuard, ImpersonationBlockGuard, RolesGuard, CapabilityGuard)
 export class TenantsController {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get('me')
   async getCurrentTenant(@TenantId() tenantId: string) {
@@ -78,6 +84,56 @@ export class TenantsController {
       userId,
       body,
     );
+  }
+
+  // Trigger a password-reset email for one of our users. Always returns
+  // { success: true } — the user lookup error path is handled inside the
+  // service for the public flow; here we do confirm tenant scope first
+  // so a manager can't reset someone outside their tenant.
+  @Post('me/users/:userId/send-reset')
+  @Roles('owner', 'manager')
+  @RequiresCapability('users.manage')
+  async sendUserReset(
+    @TenantId() tenantId: string,
+    @CurrentUser() actor: RequestUser,
+    @Param('userId') userId: string,
+  ) {
+    return this.authService.adminSendUserReset(tenantId, userId, actor.id);
+  }
+
+  // Hard-set a user's password. Owner only — this bypasses the normal
+  // reset-by-email path and is meant for "user lost their phone /
+  // can't access email" recovery scenarios. Audit-logged via the service.
+  @Put('me/users/:userId/password')
+  @Roles('owner')
+  @RequiresCapability('users.manage')
+  @BlockedWhenImpersonating(
+    'Use the regular reset-by-email flow while impersonating — direct password sets are owner-in-person actions.',
+  )
+  async changeUserPassword(
+    @TenantId() tenantId: string,
+    @CurrentUser() actor: RequestUser,
+    @Param('userId') userId: string,
+    @Body(new ZodValidationPipe(adminChangePasswordSchema)) body: AdminChangePasswordInput,
+  ) {
+    return this.authService.adminChangeUserPassword(tenantId, userId, body.password, actor.id);
+  }
+
+  // Generate a single-use magic-link the caller can paste into a private
+  // window to be that user. Owner only and not allowed while already
+  // impersonating (defence in depth).
+  @Post('me/users/:userId/impersonate')
+  @Roles('owner')
+  @RequiresCapability('users.manage')
+  @BlockedWhenImpersonating(
+    'You are already impersonating. End the current session before starting another.',
+  )
+  async impersonateUser(
+    @TenantId() tenantId: string,
+    @CurrentUser() actor: RequestUser,
+    @Param('userId') userId: string,
+  ) {
+    return this.authService.adminImpersonateUser(tenantId, userId, actor.id);
   }
 
   @Patch('me')

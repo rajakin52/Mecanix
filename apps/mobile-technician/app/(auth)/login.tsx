@@ -94,6 +94,13 @@ export default function LoginScreen() {
             {loading ? t('common.loading') : t('auth.login')}
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => router.push('/(auth)/forgot-password')}
+        >
+          <Text style={styles.linkText}>Forgot password?</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -153,4 +160,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  linkButton: { paddingVertical: 16, alignItems: 'center' },
+  linkText: { color: '#4CAF50', fontSize: 14, fontWeight: '600' },
 });
