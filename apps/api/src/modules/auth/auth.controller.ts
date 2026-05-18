@@ -45,11 +45,15 @@ function sessionCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
     secure: isProd,
-    // Web and API live on different domains in prod (vercel.app vs
-    // railway.app) → SameSite must be 'none' for the cookie to ride
-    // along on cross-site fetches. In dev they're both on localhost
-    // (same-site) so Lax suffices and we don't need Secure either.
-    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    // SameSite=Lax everywhere — both web (app.mecanix.io) and api
+    // (api.mecanix.io) share the mecanix.io eTLD+1, so cookies are
+    // same-site. Lax avoids Safari ITP partitioning that broke the
+    // earlier SameSite=None setup when we were on vercel.app+railway.app.
+    sameSite: 'lax' as const,
+    // Scope the cookie to the parent domain in prod so it's shared
+    // between app.mecanix.io and api.mecanix.io. In dev (localhost)
+    // omit the domain attr — same-host is fine.
+    domain: isProd ? '.mecanix.io' : undefined,
     path: '/',
     maxAge: maxAgeSeconds,
   };

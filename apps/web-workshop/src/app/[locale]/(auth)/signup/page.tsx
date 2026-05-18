@@ -23,11 +23,7 @@ export default function SignupPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await api.post<{
-        session: { accessToken: string; refreshToken: string };
-      }>('/auth/signup', data);
-      localStorage.setItem('access_token', result.session.accessToken);
-      localStorage.setItem('refresh_token', result.session.refreshToken);
+      await api.post('/auth/signup', data);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('signupFailed'));

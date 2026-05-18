@@ -144,14 +144,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   useEffect(() => {
-    // Web still uses localStorage tokens (Safari ITP blocks SameSite=None
-    // cookies cross-site to Railway). Gate the dashboard on token presence
-    // to avoid flashing the UI for unauthenticated visitors.
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
+    // No explicit token gate — auth lives in an httpOnly cookie that
+    // JS can't read. If the cookie is missing/invalid the first API
+    // call returns 401 and api.ts routes to /login. We only stay here
+    // to capture the impersonation flag from the magic-link redirect.
     captureUserImpersonationFromUrl();
     setMounted(true);
   }, [router]);
